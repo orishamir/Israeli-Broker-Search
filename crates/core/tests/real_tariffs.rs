@@ -113,7 +113,7 @@ fn altshuler_new_customers() {
 
     assert_eq!(
         p.first_deposit_warning(ils(dec!(4999))).as_deref(),
-        Some("Needs a first deposit of at least ₪5,000")
+        Some("Needs a one-time deposit of at least ₪5,000")
     );
     assert_eq!(p.first_deposit_warning(ils(dec!(5000))), None);
 }

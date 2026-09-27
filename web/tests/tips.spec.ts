@@ -49,7 +49,7 @@ test('exchange rates are folded away until opened', async ({ page }) => {
 })
 
 test('amounts show thousands separators, and the arrow keys step them', async ({ page }) => {
-  const first = page.getByLabel('First deposit')
+  const first = page.getByLabel('One-time deposit')
   await expect(first).toHaveValue('10,000')
   await first.focus()
   await page.keyboard.press('ArrowUp')

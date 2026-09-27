@@ -33,7 +33,7 @@ export interface Result {
   plan: Plan
   /** Missing if the plan doesn't offer the security on that exchange. */
   outcome: OutcomeData | undefined
-  /** Why the plan can't be used as the inputs are: "Needs a first deposit of at least ₪5,000". */
+  /** Why the plan can't be used as the inputs are: "Needs a one-time deposit of at least ₪5,000". */
   warning: string | undefined
 }
 

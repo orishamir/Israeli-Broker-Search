@@ -262,10 +262,10 @@ pub struct Inputs {
 /// Inputs the simulation can't run with. Each holds what's wrong, in words.
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum InvalidInputs {
-    /// An empty field: "the first deposit".
+    /// An empty field: "the one-time deposit".
     #[error("fill in {0}")]
     Missing(&'static str),
-    /// A negative amount: "the first deposit".
+    /// A negative amount: "the one-time deposit".
     #[error("{0} can't be negative")]
     Negative(&'static str),
     /// Any other problem: "invest for at least a year".
@@ -293,7 +293,7 @@ impl TryFrom<&Inputs> for Scenario {
         Ok(Scenario {
             security: inputs.security,
             exchange: inputs.exchange,
-            first_deposit: amount(inputs.first_deposit, "the first deposit")?,
+            first_deposit: amount(inputs.first_deposit, "the one-time deposit")?,
             monthly_deposit: amount(inputs.monthly_deposit, "the monthly deposit")?,
             yearly_return: Percent(filled_in(
                 inputs.yearly_return_percent,
@@ -333,7 +333,7 @@ pub struct PlanOutcomeData {
     /// Missing if the plan doesn't offer the security on that exchange.
     pub outcome: Option<OutcomeData>,
     /// Why the plan can't be used as the inputs are, though its numbers are
-    /// still shown: "Needs a first deposit of at least ₪5,000".
+    /// still shown: "Needs a one-time deposit of at least ₪5,000".
     pub warning: Option<String>,
 }
 

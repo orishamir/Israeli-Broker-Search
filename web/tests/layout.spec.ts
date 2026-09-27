@@ -66,6 +66,17 @@ test('at the start', async ({ page }) => {
   await check(page, 'start')
 })
 
+// A chosen choice is bold, and so wider: every one must still fit.
+test('with every security and exchange chosen', async ({ page }) => {
+  for (const group of ['Security', 'Exchange']) {
+    const choices = page.getByRole('radiogroup', { name: group }).locator('label')
+    for (const choice of await choices.all()) {
+      await choice.click()
+      expect(await layoutProblems(page), `${group}: ${await choice.textContent()}`).toEqual([])
+    }
+  }
+})
+
 test('on Tel Aviv', async ({ page }) => {
   await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
   // Away, or the choice's hover tip opens, sometimes in time for the picture.

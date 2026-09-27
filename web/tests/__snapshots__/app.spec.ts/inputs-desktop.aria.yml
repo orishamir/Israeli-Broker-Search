@@ -1,5 +1,6 @@
 - complementary:
   - heading "What you buy" [level=3]
+  - button "What “What you buy” means": "?"
   - radiogroup "Security":
     - radio "ETF" [checked]
     - text: ETF
@@ -15,6 +16,7 @@
   - definition: קרן סל מחקה מדד קרן סל במסלול רציף
   - paragraph: /A fund that holds many securities, such as the \d+ companies of the S&P \d+, and trades on the exchange all day like a share\./
   - heading "Traded on" [level=3]
+  - button "What “Traded on” means": "?"
   - radiogroup "Exchange":
     - radio "Tel Aviv"
     - text: Tel Aviv
@@ -25,8 +27,8 @@
   - paragraph: NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which some brokers charge for.
   - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+-\d+-\d+/
   - heading "Deposits" [level=3]
-  - text: First deposit
-  - textbox "First deposit": /\d+,\d+/
+  - text: One-time deposit
+  - textbox "One-time deposit": /\d+,\d+/
   - text: Every month
   - textbox "Every month": /\d+,\d+/
   - text: Buy every
@@ -47,7 +49,8 @@
   - text: Share price
   - button "What “Share price” means": "?"
   - textbox "Share price": /\d+/
-  - heading "Brokers to compare" [level=3]
+  - heading "Brokers and plans to compare" [level=3]
+  - button "What “Brokers and plans” means": "?"
   - checkbox "Altshuler Shaham Trade" [checked]
   - text: Altshuler Shaham Trade
   - button "Caveats about Altshuler Shaham Trade": ⚠

@@ -129,11 +129,12 @@ button:hover {
   border-color: var(--weak);
   color: var(--text);
 }
+/* Not bold: a bolder choice would be wider, and choosing one could push
+   the last onto a second row. */
 .choices label:has(input:checked) {
   border-color: var(--accent);
   background: var(--accent);
   color: var(--on-accent);
-  font-weight: 600;
 }
 .choices input {
   position: absolute;
@@ -178,6 +179,8 @@ button:hover {
   position: fixed;
   inset: auto;
   margin: 0;
+  /* Taller than the space left: scrolls inside (see tip.ts). */
+  overflow-y: auto;
 }
 .popover p {
   margin: 0;
@@ -185,6 +188,11 @@ button:hover {
 .popover > * + * {
   margin-top: 6px;
 }
+/* Hebrew phrases in English sentences read wrongly when split over lines. */
+.popover bdi {
+  white-space: nowrap;
+}
+
 [lang='he'] {
   font-family: 'Segoe UI', Arial, 'Noto Sans Hebrew', sans-serif;
 }

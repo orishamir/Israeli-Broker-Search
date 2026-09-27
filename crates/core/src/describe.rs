@@ -33,7 +33,7 @@ impl Explained for Security {
             }
             Security::MutualFund => {
                 "A fund bought from and sold to its manager, at one price a day set after the \
-                 exchange closes. Index-tracking ones (קרן מחקה) are mutual funds too."
+                 exchange closes. Index-tracking ones (קרן\u{a0}מחקה) are mutual funds too."
             }
             Security::Bond => {
                 "A loan to a government or a company, which pays interest and is traded on the \
@@ -47,7 +47,8 @@ impl Explained for Security {
         match self {
             Security::Etf => &["קרן סל", "קרן סל מחקה מדד", "קרן סל במסלול רציף"],
             Security::MutualFund => &["קרן נאמנות"],
-            Security::Bond => &["אג\"ח", "איגרת חוב"],
+            // Both spellings of the full name are common.
+            Security::Bond => &["אג\"ח", "איגרת חוב", "אגרת חוב"],
             Security::Stock => &["מניה"],
         }
     }
@@ -236,13 +237,13 @@ impl Plan {
         }
     }
 
-    /// "Needs a first deposit of at least ₪5,000", if `first_deposit` is less
+    /// "Needs a one-time deposit of at least ₪5,000", if `first_deposit` is less
     /// than the plan's minimum.
     #[must_use]
     pub fn first_deposit_warning(&self, first_deposit: Money) -> Option<String> {
         self.min_first_deposit
             .filter(|min| first_deposit.amount() < min.amount())
-            .map(|min| format!("Needs a first deposit of at least {}", format_money(min)))
+            .map(|min| format!("Needs a one-time deposit of at least {}", format_money(min)))
     }
 }
 

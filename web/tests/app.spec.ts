@@ -79,14 +79,14 @@ test('hovering a plan previews it', async ({ page, isMobile }) => {
   await expect(preview).toBeHidden()
 })
 
-test("a plan's minimum first deposit warns, and it isn't called best", async ({ page }) => {
+test("a plan's minimum one-time deposit warns, and it isn't called best", async ({ page }) => {
   const newCustomers = rows(page).filter({ hasText: 'New customers' })
   await expect(page.getByText('Best: New customers')).toBeVisible()
-  await page.getByLabel('First deposit').fill('1000')
-  await expect(newCustomers).toContainText('Needs a first deposit of at least ₪5,000')
+  await page.getByLabel('One-time deposit').fill('1000')
+  await expect(newCustomers).toContainText('Needs a one-time deposit of at least ₪5,000')
   await expect(page.getByText('Best: New customers')).toBeHidden()
-  await page.getByLabel('First deposit').fill('5000')
-  await expect(newCustomers).not.toContainText('Needs a first deposit')
+  await page.getByLabel('One-time deposit').fill('5000')
+  await expect(newCustomers).not.toContainText('Needs a one-time deposit')
 })
 
 // Every label, choice and number, as text: a change to any shows as a diff.

@@ -18,10 +18,29 @@
 
   const security = $derived(app.securities.find(({ value }) => value === app.security)!)
   const exchange = $derived(app.exchanges.find(({ value }) => value === app.exchange)!)
+  /** "ETF", "mutual fund", as in "your ETF". */
+  const securityNoun = $derived(security.name === 'ETF' ? security.name : security.name.toLowerCase())
 </script>
 
 <section class="card">
-  <h3>What you buy</h3>
+  <div class="heading">
+    <h3>What you buy</h3>
+    <Tip about="What you buy">
+      <p>
+        ETFs, funds, bonds and stocks are all securities (<bdi lang="he">ניירות ערך</bdi>). Brokers, meaning
+        banks and investment houses (<bdi lang="he">בנקים ובתי השקעות</bdi>), charge different fees (<bdi
+          lang="he">עמלות</bdi
+        >) for each kind.
+      </p>
+      {#each app.securities as option (option.value)}
+        <div class="term">
+          <strong>{option.name}</strong>
+          <HebrewNames names={option.hebrewNames} />
+          <p class="weak">{option.explanation}</p>
+        </div>
+      {/each}
+    </Tip>
+  </div>
   <Choices label="Security" options={app.securities} bind:value={app.security} />
   <!-- Always shown: the English names are the ones people don't know. -->
   <div class="explained">
@@ -31,7 +50,17 @@
 </section>
 
 <section class="card">
-  <h3>Traded on</h3>
+  <div class="heading">
+    <h3>Traded on</h3>
+    <Tip about="Traded on">
+      <p>
+        Your {securityNoun} can be bought on different stock exchanges (<bdi lang="he">בורסות</bdi>): in Tel
+        Aviv, or abroad in dollars or euros. Brokers (<bdi lang="he">בנקים ובתי השקעות</bdi>) charge different
+        fees (<bdi lang="he">עמלות</bdi>) for each exchange, and abroad some also charge for converting your
+        shekels.
+      </p>
+    </Tip>
+  </div>
   <Choices label="Exchange" options={app.exchanges} bind:value={app.exchange} />
   <div class="explained">
     <HebrewNames names={exchange.hebrewNames} />
@@ -72,7 +101,7 @@
 <section class="card">
   <h3>Deposits</h3>
   <div class="fields">
-    <label for="first-deposit">First deposit</label>
+    <label for="first-deposit">One-time deposit</label>
     <NumberField id="first-deposit" prefix="₪" step={1000} bind:value={app.firstDeposit} />
 
     <label for="monthly-deposit">Every month</label>
@@ -121,7 +150,16 @@
 </section>
 
 <section class="card">
-  <h3>Brokers to compare</h3>
+  <div class="heading">
+    <h3>Brokers and plans to compare</h3>
+    <Tip about="Brokers and plans">
+      <p>
+        The same {securityNoun}, on the same exchange, can be bought through many brokers: banks and
+        investment houses (<bdi lang="he">בנקים ובתי השקעות</bdi>). Each offers (<bdi lang="he">מציע</bdi>)
+        several plans (<bdi lang="he">מסלולים</bdi>), each with its own fees. Tick the ones to compare.
+      </p>
+    </Tip>
+  </div>
   <BrokerPicker {app} />
 </section>
 
@@ -136,6 +174,15 @@
     letter-spacing: 0.06em;
     text-transform: uppercase;
     color: var(--weak);
+  }
+  /* A heading and its ?, which isn't part of the heading's name. */
+  .heading {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .heading h3 {
+    margin: 0;
   }
   .caption {
     margin: 10px 0 6px;
@@ -199,5 +246,13 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
     font-weight: 600;
+  }
+  /* One security in the "What you buy" tip. */
+  .term {
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .term p {
+    margin: 4px 0 0;
   }
 </style>

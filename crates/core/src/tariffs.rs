@@ -131,7 +131,7 @@ pub fn altshuler() -> Broker {
         min_first_deposit: Some(ils(dec!(5000))),
         caveats: vec![
             Caveat::new(
-                "The 0.07% is for index funds (קרנות מחקות). Active and money-market \
+                "The 0.07% is for index funds (קרנות\u{a0}מחקות). Active and money-market \
                  funds cost nothing to trade; every mutual fund is treated as an index \
                  fund here.",
             )

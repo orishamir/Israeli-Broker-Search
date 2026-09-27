@@ -1,4 +1,4 @@
-import { autoUpdate, computePosition, flip, offset, shift } from '@floating-ui/dom'
+import { autoUpdate, computePosition, flip, offset, shift, size } from '@floating-ui/dom'
 import type { Attachment } from 'svelte/attachments'
 
 /** Closes the open tip, so only one is open at a time. */
@@ -21,7 +21,19 @@ export const tip =
       computePosition(trigger, popover, {
         strategy: 'fixed',
         placement: 'top',
-        middleware: [offset(8), flip(), shift({ padding: 8 })],
+        middleware: [
+          offset(8),
+          flip(),
+          shift({ padding: 8 }),
+          // No taller than the room left, so a long tip scrolls rather than
+          // running off the screen.
+          size({
+            padding: 8,
+            apply: ({ availableHeight }) => {
+              popover.style.maxHeight = `${Math.max(availableHeight, 120)}px`
+            },
+          }),
+        ],
       }).then(({ x, y }) => {
         popover.style.left = `${x}px`
         popover.style.top = `${y}px`
