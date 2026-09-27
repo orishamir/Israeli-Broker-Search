@@ -4,36 +4,24 @@
 use std::collections::HashSet;
 
 use broker_fees::simulation::Outcome;
-use broker_fees::{Exchange, Security};
 use eframe::egui::{self, Align, Layout, RichText};
 use egui_extras::{Column, TableBuilder, TableRow};
 use rust_decimal::Decimal;
 
-use super::plan_info::{fee_split_bar, fee_types_legend, hover_card};
 use super::widgets::{color_mark, shekels, to_f64};
 use crate::{PlanInteraction, PlanKey, PlanResult};
 
-/// The longest fee split bar, for the plan that paid the most fees.
-const FEE_BAR_WIDTH: f32 = 70.0;
-
 /// `results` must be sorted best first. Rows can be hovered and clicked as a
-/// whole; highlighted plans get a tint of their own color. Hovering a row
-/// shows what the plan charges for `security` on `exchange`.
+/// whole; highlighted plans get a tint of their own color. The fees paid are
+/// links to the fee breakdown view.
 pub fn results_table(
     ui: &mut egui::Ui,
     no_fees: &Outcome,
     results: &[PlanResult],
     highlighted: &HashSet<PlanKey>,
-    (security, exchange): (Security, Exchange),
 ) -> PlanInteraction {
     let mut interaction = PlanInteraction::default();
     let row_height = ui.text_style_height(&egui::TextStyle::Body) + 8.0;
-    let most_fees = results
-        .iter()
-        .filter_map(|result| result.outcome.as_ref())
-        .map(|outcome| outcome.fees.total())
-        .max()
-        .unwrap_or_default();
 
     ui.scope(|ui| {
         // Selectable text would take the mouse from the rows it's in.
@@ -48,9 +36,7 @@ pub fn results_table(
             .column(Column::exact(20.0)) // rank
             .column(Column::auto().at_most(150.0).clip(true)) // broker
             .column(Column::auto()) // plan
-            .columns(Column::auto().at_least(90.0), 2) // value held, value if sold
-            .column(Column::auto().at_least(FEE_BAR_WIDTH + 90.0)) // fees paid, with split
-            .column(Column::auto().at_least(90.0)) // lost to fees
+            .columns(Column::auto().at_least(90.0), 4) // amounts
             .header(row_height, header_row)
             .body(|mut body| {
                 for (index, result) in results.iter().enumerate() {
@@ -62,17 +48,11 @@ pub fn results_table(
 
                     body.row(row_height, |mut row| {
                         row.set_selected(highlighted.contains(&result.key));
-                        if plan_row(&mut row, index + 1, result, no_fees, most_fees) {
-                            interaction.details = Some(result.key);
+                        if plan_row(&mut row, index + 1, result, no_fees) {
+                            interaction.show_breakdown = true;
                         }
 
-                        let response = row.response().on_hover_ui(|ui| {
-                            let outcome = result.outcome.as_ref();
-                            let name = &result.name;
-                            let broker_notes = &result.broker_notes;
-                            let plan = &result.plan;
-                            hover_card(ui, name, broker_notes, plan, security, exchange, outcome);
-                        });
+                        let response = row.response();
                         if response.hovered() {
                             interaction.hovered = Some(result.key);
                             response.ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
@@ -110,7 +90,7 @@ fn header_row(mut header: TableRow<'_, '_>) {
         (
             "Fees paid",
             "Every fee charged: purchases, conversions, custody, and selling \
-             at the end.",
+             at the end. Click an amount to see what it went to.",
         ),
         (
             "Lost to fees",
@@ -121,31 +101,21 @@ fn header_row(mut header: TableRow<'_, '_>) {
     ];
     for (title, explanation) in amounts {
         header.col(|ui| {
-            right_aligned(ui, |ui| {
-                ui.strong(title).on_hover_ui(|ui| {
-                    ui.label(explanation);
-                    if title == "Fees paid" {
-                        ui.add_space(4.0);
-                        ui.label("The bar splits them by type:");
-                        fee_types_legend(ui);
-                    }
-                })
-            });
+            right_aligned(ui, |ui| ui.strong(title).on_hover_text(explanation));
         });
     }
 }
 
 /// Plans that don't offer the trade are greyed out, without a rank or amounts.
-/// Returns true if the plan's ℹ button was clicked.
+/// Returns true if the fees paid link was clicked.
 fn plan_row(
     row: &mut TableRow<'_, '_>,
     rank: usize,
     result: &PlanResult,
     no_fees: &Outcome,
-    most_fees: Decimal,
 ) -> bool {
     let offered = result.outcome.is_some();
-    let mut details_clicked = false;
+    let mut fees_clicked = false;
 
     row.col(|ui| {
         if offered {
@@ -170,13 +140,6 @@ fn plan_row(
         };
         color_mark(ui, color);
         ui.label(name);
-        if !result.plan.notes.is_empty() {
-            ui.weak("⚠");
-        }
-        details_clicked = ui
-            .small_button("ℹ")
-            .on_hover_text("What this plan charges")
-            .clicked();
     });
 
     let Some(outcome) = &result.outcome else {
@@ -185,24 +148,26 @@ fn plan_row(
                 right_aligned(ui, |ui| ui.weak("–"));
             });
         }
-        return details_clicked;
+        return false;
     };
     row.col(|ui| amount_cell(ui, outcome.held));
     row.col(|ui| amount_cell(ui, outcome.after_selling));
     row.col(|ui| {
-        right_aligned(ui, |ui| {
-            ui.label(shekels(to_f64(outcome.fees.total())));
-            fee_split_bar(ui, &outcome.fees, most_fees, FEE_BAR_WIDTH);
-        });
+        // A link, to say there's more behind the number.
+        let fees = format!("{} ›", shekels(to_f64(outcome.fees.total())));
+        fees_clicked = right_aligned(ui, |ui| ui.link(fees))
+            .on_hover_text("See what these fees went to")
+            .clicked();
     });
     row.col(|ui| amount_cell(ui, no_fees.after_selling - outcome.after_selling));
-    details_clicked
+    fees_clicked
 }
 
 fn amount_cell(ui: &mut egui::Ui, amount: Decimal) {
     right_aligned(ui, |ui| ui.label(shekels(to_f64(amount))));
 }
 
-fn right_aligned<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) {
-    ui.with_layout(Layout::right_to_left(Align::Center), add_contents);
+fn right_aligned<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) -> R {
+    ui.with_layout(Layout::right_to_left(Align::Center), add_contents)
+        .inner
 }

@@ -84,11 +84,13 @@ pub fn rate_input(value: &mut f64) -> egui::DragValue<'_> {
 pub fn compact_shekels(amount: f64) -> String {
     let sign = if amount < 0.0 { "-" } else { "" };
     let amount = amount.abs();
-    if amount >= 1_000_000.0 {
+    // Thresholds a little under the round numbers, so that ₪9,970 is "₪10k"
+    // rather than "₪10.0k".
+    if amount >= 999_500.0 {
         format!("{sign}₪{:.2}M", amount / 1_000_000.0)
-    } else if amount >= 10_000.0 {
+    } else if amount >= 9_950.0 {
         format!("{sign}₪{:.0}k", amount / 1_000.0)
-    } else if amount >= 1_000.0 {
+    } else if amount >= 999.5 {
         format!("{sign}₪{:.1}k", amount / 1_000.0)
     } else {
         format!("{sign}₪{amount:.0}")

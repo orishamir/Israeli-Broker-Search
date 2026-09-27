@@ -4,6 +4,7 @@
 //! results table and chart are in `src/gui/`.
 
 mod gui {
+    pub mod breakdown;
     pub mod chart;
     pub mod plan_info;
     pub mod table;
@@ -15,8 +16,9 @@ use std::collections::HashSet;
 use broker_fees::simulation::{self, Outcome, Scenario};
 use broker_fees::{Broker, Exchange, Plan, Security, exchange_rates, tariffs};
 use eframe::egui::{self, Color32, RichText};
+use gui::breakdown::{BreakdownState, fee_breakdown};
 use gui::chart::{ChartState, ChartView, growth_chart};
-use gui::plan_info::{details_contents, hover_card, notes, tariff_date_text};
+use gui::plan_info::{broker_details, notes, plan_details, plan_preview, tariff_date_text};
 use gui::table::results_table;
 use gui::widgets::{
     colored_checkbox, exchange_name, rate_input, section, security_name, shekel_input, shekels,
@@ -52,8 +54,11 @@ struct App {
     /// Highlighted like the pinned plans while the mouse is there. Found while
     /// drawing a frame, so it takes effect on the next one.
     hovered_plan: Option<PlanKey>,
-    /// The plan shown in the details window, if it's open.
-    details_plan: Option<PlanKey>,
+    /// What the details window shows, if it's open.
+    details: Option<Details>,
+    /// What's shown under the table.
+    view: ResultsView,
+    breakdown: BreakdownState,
 }
 
 /// What the mouse did to the plans in the table or the chart.
@@ -61,8 +66,21 @@ struct App {
 struct PlanInteraction {
     hovered: Option<PlanKey>,
     clicked: Option<PlanKey>,
-    /// Asked for the plan's details window.
-    details: Option<PlanKey>,
+    /// Asked to see the fee breakdown view.
+    show_breakdown: bool,
+}
+
+/// A broker or plan to explain in the details window, opened from the sidebar.
+#[derive(Debug, Clone, Copy)]
+enum Details {
+    Broker(usize),
+    Plan(PlanKey),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ResultsView {
+    Chart(ChartView),
+    FeeBreakdown,
 }
 
 /// Which plan of which broker, by position in `App::brokers`.
@@ -129,8 +147,6 @@ enum RatesStatus {
 struct PlanResult {
     key: PlanKey,
     broker_name: String,
-    /// Caveats that apply to every plan of the broker.
-    broker_notes: Vec<String>,
     plan: Plan,
     /// "Broker – Plan"
     name: String,
@@ -162,7 +178,9 @@ impl App {
             chart: ChartState::default(),
             pinned_plans: HashSet::new(),
             hovered_plan: None,
-            details_plan: None,
+            details: None,
+            view: ResultsView::Chart(ChartView::Value),
+            breakdown: BreakdownState::default(),
         }
     }
 
@@ -222,7 +240,6 @@ impl App {
                         plan: plan_index,
                     },
                     broker_name: choice.broker.name.clone(),
-                    broker_notes: choice.broker.notes.clone(),
                     plan: plan.clone(),
                     name: format!("{} – {}", choice.broker.name, plan.name),
                     color: plan_choice.color,
@@ -252,44 +269,52 @@ impl App {
             self.chart.reset_zoom();
         }
         if ctx.input_mut(|input| input.consume_key(no_modifiers, egui::Key::Escape)) {
-            self.details_plan = None;
+            self.details = None;
         }
     }
 
-    /// A window with everything about one plan, over the chart so the
-    /// results keep their width.
-    fn details_window(&mut self, ctx: &egui::Context, key: PlanKey) {
-        let choice = &self.brokers[key.broker];
-        let plan = &choice.broker.plans[key.plan];
-        let rates = exchange_rates(
-            decimal(self.rates.ils_per_usd),
-            decimal(self.rates.ils_per_eur),
-        );
-        let outcome = simulation::simulate(plan, &self.scenario(), &rates);
+    /// A window explaining a broker or a plan, over the results so they keep
+    /// their width.
+    fn details_window(&mut self, ctx: &egui::Context, details: Details) {
+        let (broker_index, plan_index) = match details {
+            Details::Broker(broker) => (broker, None),
+            Details::Plan(key) => (key.broker, Some(key.plan)),
+        };
+        let choice = &self.brokers[broker_index];
+        let title = match plan_index {
+            Some(plan) => format!(
+                "{} – {}",
+                choice.broker.name, choice.broker.plans[plan].name
+            ),
+            None => choice.broker.name.clone(),
+        };
 
         let mut open = true;
-        egui::Window::new(format!("{} – {}", choice.broker.name, plan.name))
-            .id(egui::Id::new("plan details")) // the same window for every plan
+        egui::Window::new(title)
+            .id(egui::Id::new("details")) // the same window for everything
             .open(&mut open)
             .collapsible(false)
             .resizable(true)
             .vscroll(true)
             .default_width(420.0)
-            .default_height(600.0)
+            .default_height(500.0)
             .default_pos(ctx.content_rect().right_top() + egui::vec2(-460.0, 60.0))
-            .show(ctx, |ui| {
-                details_contents(
+            .show(ctx, |ui| match plan_index {
+                Some(plan) => plan_details(
                     ui,
                     &choice.broker,
-                    plan,
-                    choice.plans[key.plan].color,
+                    &choice.broker.plans[plan],
+                    choice.plans[plan].color,
                     self.inputs.security,
                     self.inputs.exchange,
-                    outcome.as_ref(),
-                );
+                ),
+                None => {
+                    let colors: Vec<Color32> = choice.plans.iter().map(|plan| plan.color).collect();
+                    broker_details(ui, &choice.broker, &colors);
+                }
             });
         if !open {
-            self.details_plan = None;
+            self.details = None;
         }
     }
 }
@@ -311,8 +336,8 @@ impl eframe::App for App {
 
         egui::CentralPanel::default().show(ui, |ui| self.results_ui(ui, &highlighted));
 
-        if let Some(key) = self.details_plan {
-            self.details_window(ui.ctx(), key);
+        if let Some(details) = self.details {
+            self.details_window(ui.ctx(), details);
         }
 
         // The hover found this frame is drawn next frame; don't wait for the
@@ -437,11 +462,10 @@ impl App {
         section(ui, "Brokers to compare", |ui| {
             let inputs = (self.inputs.security, self.inputs.exchange);
             for (broker_index, choice) in self.brokers.iter_mut().enumerate() {
-                if let Some(plan_index) = broker_checkboxes(ui, choice, inputs) {
-                    self.hovered_plan = Some(PlanKey {
-                        broker: broker_index,
-                        plan: plan_index,
-                    });
+                let sidebar = broker_checkboxes(ui, choice, broker_index, inputs);
+                self.hovered_plan = self.hovered_plan.or(sidebar.hovered);
+                if sidebar.details.is_some() {
+                    self.details = sidebar.details;
                 }
                 ui.add_space(4.0);
             }
@@ -499,32 +523,56 @@ impl App {
             return;
         }
 
-        let inputs = (self.inputs.security, self.inputs.exchange);
-        let table = results_table(ui, &no_fees, &results, highlighted, inputs);
-        ui.add_space(16.0);
+        let table = results_table(ui, &no_fees, &results, highlighted);
+        ui.add_space(12.0);
 
         ui.horizontal(|ui| {
-            ui.selectable_value(&mut self.chart.view, ChartView::Value, "Value over time");
-            ui.selectable_value(&mut self.chart.view, ChartView::LostToFees, "Lost to fees")
-                .on_hover_text(
-                    "How much less each plan has than an account with no fees, \
-                     year by year. Shows where plans overtake each other.",
-                );
+            let views = [
+                (ResultsView::Chart(ChartView::Value), "Value over time", ""),
+                (
+                    ResultsView::Chart(ChartView::LostToFees),
+                    "Lost to fees",
+                    "How much less each plan has than an account with no fees, year by \
+                     year. Shows where plans overtake each other.",
+                ),
+                (
+                    ResultsView::FeeBreakdown,
+                    "Fee breakdown",
+                    "What each plan's fees went to, compared across plans.",
+                ),
+            ];
+            for (view, name, explanation) in views {
+                let button = ui.selectable_value(&mut self.view, view, name);
+                if !explanation.is_empty() {
+                    button.on_hover_text(explanation);
+                }
+            }
             ui.add_space(16.0);
             if self.pinned_plans.is_empty() {
                 ui.label(RichText::new("Click a row or a line to pin it").weak());
             } else if ui.small_button("Unpin all").clicked() {
                 self.pinned_plans.clear();
             }
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                ui.label(RichText::new("Wheel: zoom years · Drag: move · R: reset").weak());
-            });
+            if matches!(self.view, ResultsView::Chart(_)) {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.label(RichText::new("Wheel: zoom years · Drag: move · R: reset").weak());
+                });
+            }
         });
-        let chart = growth_chart(ui, &mut self.chart, &no_fees, &results, highlighted);
+        let chart = match self.view {
+            ResultsView::Chart(view) => {
+                self.chart.view = view;
+                growth_chart(ui, &mut self.chart, &no_fees, &results, highlighted)
+            }
+            ResultsView::FeeBreakdown => {
+                ui.add_space(8.0);
+                fee_breakdown(ui, &mut self.breakdown, &results, highlighted)
+            }
+        };
 
         self.hovered_plan = self.hovered_plan.or(table.hovered).or(chart.hovered);
-        if table.details.is_some() {
-            self.details_plan = table.details;
+        if table.show_breakdown {
+            self.view = ResultsView::FeeBreakdown;
         }
         for clicked in [table.clicked, chart.clicked].into_iter().flatten() {
             // Clicking a pinned plan unpins it.
@@ -557,25 +605,41 @@ fn broker_choices(brokers: Vec<Broker>) -> Vec<BrokerChoice> {
         .collect()
 }
 
+/// What the mouse did in a broker's part of the sidebar.
+struct SidebarInteraction {
+    hovered: Option<PlanKey>,
+    details: Option<Details>,
+}
+
 /// A checkbox for the broker, which ticks or unticks all its plans, and an
-/// indented checkbox per plan with the plan's chart color. Hovering a plan
-/// shows what it charges for `inputs`. Returns the index of the plan under
-/// the mouse.
+/// indented checkbox per plan with the plan's chart color. Each has an ℹ
+/// button for the details window; hovering a plan previews it.
 fn broker_checkboxes(
     ui: &mut egui::Ui,
     choice: &mut BrokerChoice,
+    broker_index: usize,
     (security, exchange): (Security, Exchange),
-) -> Option<usize> {
+) -> SidebarInteraction {
+    let mut interaction = SidebarInteraction {
+        hovered: None,
+        details: None,
+    };
     let all = choice.plans.iter().all(|plan| plan.selected);
     let some = choice.plans.iter().any(|plan| plan.selected);
     let mut checked = all;
-    let broker_box = egui::Checkbox::new(&mut checked, RichText::new(&choice.broker.name).strong())
-        .indeterminate(some && !all);
-    if ui.add(broker_box).changed() {
-        for plan in &mut choice.plans {
-            plan.selected = checked;
+    ui.horizontal(|ui| {
+        let broker_box =
+            egui::Checkbox::new(&mut checked, RichText::new(&choice.broker.name).strong())
+                .indeterminate(some && !all);
+        if ui.add(broker_box).changed() {
+            for plan in &mut choice.plans {
+                plan.selected = checked;
+            }
         }
-    }
+        if info_button(ui, "What this broker is") {
+            interaction.details = Some(Details::Broker(broker_index));
+        }
+    });
     ui.horizontal(|ui| {
         ui.label(
             RichText::new(tariff_date_text(&choice.broker))
@@ -588,7 +652,6 @@ fn broker_checkboxes(
         }
     });
 
-    let mut hovered = None;
     ui.indent(&choice.broker.name, |ui| {
         for (index, (plan, plan_choice)) in choice
             .broker
@@ -597,19 +660,29 @@ fn broker_checkboxes(
             .zip(&mut choice.plans)
             .enumerate()
         {
-            let response =
-                colored_checkbox(ui, &mut plan_choice.selected, &plan.name, plan_choice.color)
-                    .on_hover_ui(|ui| {
-                        let name = format!("{} – {}", choice.broker.name, plan.name);
-                        let broker_notes = &choice.broker.notes;
-                        hover_card(ui, &name, broker_notes, plan, security, exchange, None);
-                    });
-            if response.hovered() {
-                hovered = Some(index);
-            }
+            let key = PlanKey {
+                broker: broker_index,
+                plan: index,
+            };
+            ui.horizontal(|ui| {
+                let response =
+                    colored_checkbox(ui, &mut plan_choice.selected, &plan.name, plan_choice.color)
+                        .on_hover_ui(|ui| plan_preview(ui, plan, security, exchange));
+                if response.hovered() {
+                    interaction.hovered = Some(key);
+                }
+                if info_button(ui, "What this plan is and what it charges") {
+                    interaction.details = Some(Details::Plan(key));
+                }
+            });
         }
     });
-    hovered
+    interaction
+}
+
+/// A small "ℹ" button. Returns whether it was clicked.
+fn info_button(ui: &mut egui::Ui, hover_text: &str) -> bool {
+    ui.small_button("ℹ").on_hover_text(hover_text).clicked()
 }
 
 fn months_name(months: u32) -> String {

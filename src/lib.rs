@@ -325,6 +325,10 @@ impl ConversionFee {
 pub struct Plan {
     /// Shown in comparisons, e.g. "Online" or "US $11 flat".
     pub name: String,
+    /// What the plan is, in plain words, for someone who hasn't read the
+    /// tariff: who it's for and how it differs from the broker's other plans.
+    #[serde(default)]
+    pub description: String,
     /// The trade fee table. The first row that covers a trade is used.
     pub trading: Vec<TradeFee>,
     /// The custody table. The first row that covers a holding is used.
@@ -395,6 +399,9 @@ impl Plan {
 pub struct Broker {
     /// E.g. "Bank Leumi".
     pub name: String,
+    /// What kind of broker it is and how its plans relate, in plain words.
+    #[serde(default)]
+    pub description: String,
     /// The date on the tariff document the numbers came from. Tariffs change
     /// several times a year, so keep it next to the numbers.
     pub tariff_date: String,

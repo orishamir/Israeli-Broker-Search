@@ -148,6 +148,7 @@ pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Opti
 pub fn free_plan() -> Plan {
     Plan {
         name: "No fees".into(),
+        description: String::new(),
         trading: vec![TradeFee {
             securities: vec![],
             exchanges: vec![],

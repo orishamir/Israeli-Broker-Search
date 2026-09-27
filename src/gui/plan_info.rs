@@ -1,63 +1,103 @@
-//! What a plan charges and where a plan's fees went: the hover card, the
-//! details panel, and the fee split bar in the results table.
+//! What brokers and plans are and what they charge, as read from their
+//! tariffs: the preview card and details window of the sidebar. Also the fee
+//! types' colors, for the fee breakdown view.
 
-use broker_fees::simulation::{Fees, Outcome};
+use broker_fees::simulation::Fees;
 use broker_fees::{Broker, ConversionFee, CustodyFee, Exchange, Period, Plan, Price, Security};
 use eframe::egui::{self, Color32, RichText};
-use egui_plot::{AxisHints, Bar, BarChart, Plot};
 use rust_decimal::Decimal;
 
-use super::widgets::{
-    color_mark, compact_shekels, exchange_name, money_text, percent_text, security_name, shekels,
-    to_f64,
-};
+use super::widgets::{color_mark, exchange_name, money_text, percent_text, security_name};
 
-/// The kinds of fee, in the order they're stacked, with their colors. Muted,
-/// so they aren't mistaken for the plans' colors.
-const FEE_TYPES: [(&str, Color32); 4] = [
-    ("Purchases", Color32::from_rgb(91, 143, 201)),
-    ("Conversions", Color32::from_rgb(171, 128, 212)),
-    ("Custody", Color32::from_rgb(219, 150, 72)),
-    ("Selling", Color32::from_rgb(150, 150, 150)),
+/// The kinds of fee, in the order they're stacked, with their colors: four
+/// clearly different hues, readable on the dark background.
+pub const FEE_TYPES: [(&str, Color32); 4] = [
+    ("Purchases", Color32::from_rgb(91, 141, 239)),
+    ("Conversions", Color32::from_rgb(46, 196, 182)),
+    ("Custody", Color32::from_rgb(242, 143, 59)),
+    ("Selling", Color32::from_rgb(224, 93, 123)),
 ];
 
 /// `fees` in the order of `FEE_TYPES`.
-fn by_type(fees: &Fees) -> [Decimal; 4] {
+pub fn by_type(fees: &Fees) -> [Decimal; 4] {
     [fees.purchases, fees.conversions, fees.custody, fees.selling]
 }
 
-// ─────────────────────────── Hover card ───────────────────────────
+// ─────────────────────────── Sidebar preview ───────────────────────────
 
-/// A short summary of a plan: the fees it charges for what the user buys,
-/// what they came to in this simulation, and the tariff's caveats.
-pub fn hover_card(
-    ui: &mut egui::Ui,
-    name: &str,
-    broker_notes: &[String],
-    plan: &Plan,
-    security: Security,
-    exchange: Exchange,
-    outcome: Option<&Outcome>,
-) {
-    ui.set_max_width(440.0);
-    ui.strong(name);
+/// A short preview of a plan, when hovering it in the sidebar.
+pub fn plan_preview(ui: &mut egui::Ui, plan: &Plan, security: Security, exchange: Exchange) {
+    ui.set_max_width(400.0);
+    ui.strong(&plan.name);
+    ui.label(&plan.description);
     ui.add_space(4.0);
     fees_for_inputs(ui, plan, security, exchange);
-    if let Some(outcome) = outcome {
-        ui.add_space(4.0);
-        ui.label(format!(
-            "Fees paid: {}",
-            shekels(to_f64(outcome.fees.total()))
-        ));
-        fee_legend(ui, &outcome.fees);
-    }
-    notes(ui, broker_notes.iter().chain(&plan.notes));
     ui.add_space(4.0);
     ui.label(
-        RichText::new("ℹ in the table shows the full tariff")
+        RichText::new("ℹ shows the full details and caveats")
             .weak()
             .small(),
     );
+}
+
+// ─────────────────────────── Details window ───────────────────────────
+
+/// Everything about one plan: what it is, what it charges, and what the
+/// tariff leaves unclear.
+pub fn plan_details(
+    ui: &mut egui::Ui,
+    broker: &Broker,
+    plan: &Plan,
+    color: Color32,
+    security: Security,
+    exchange: Exchange,
+) {
+    ui.horizontal(|ui| {
+        color_mark(ui, color);
+        ui.label(&broker.name);
+        source_line(ui, broker);
+    });
+    ui.separator();
+    ui.label(&plan.description);
+    ui.add_space(8.0);
+    fees_for_inputs(ui, plan, security, exchange);
+    notes(ui, broker.notes.iter().chain(&plan.notes));
+    ui.add_space(12.0);
+    egui::CollapsingHeader::new("Full tariff").show(ui, |ui| full_tariff(ui, plan));
+}
+
+/// A broker, and each of its plans in a sentence.
+pub fn broker_details(ui: &mut egui::Ui, broker: &Broker, colors: &[Color32]) {
+    ui.horizontal(|ui| source_line(ui, broker));
+    ui.separator();
+    ui.label(&broker.description);
+    notes(ui, &broker.notes);
+    ui.add_space(8.0);
+    for (plan, color) in broker.plans.iter().zip(colors) {
+        ui.add_space(6.0);
+        ui.horizontal(|ui| {
+            color_mark(ui, *color);
+            ui.strong(&plan.name);
+        });
+        ui.label(&plan.description);
+    }
+}
+
+/// The tariff's date, and a link to it.
+fn source_line(ui: &mut egui::Ui, broker: &Broker) {
+    ui.label(RichText::new(tariff_date_text(broker)).weak());
+    if let Some(url) = &broker.source_url {
+        ui.hyperlink_to("Tariff (PDF)", url);
+    }
+}
+
+/// "Tariff of 29/06/2026", from the ISO date the tariffs are stored with.
+pub fn tariff_date_text(broker: &Broker) -> String {
+    let date: Vec<&str> = broker.tariff_date.split('-').collect();
+    match date[..] {
+        [year, month, day] => format!("Tariff of {day}/{month}/{year}"),
+        _ => format!("Tariff date {}", broker.tariff_date),
+    }
 }
 
 /// The trade, custody and conversion fees that apply to `security` on
@@ -116,172 +156,6 @@ pub fn notes<'a>(ui: &mut egui::Ui, notes: impl IntoIterator<Item = &'a String>)
     }
 }
 
-// ─────────────────────────── Details panel ───────────────────────────
-
-/// Everything about one plan, for the details window.
-pub fn details_contents(
-    ui: &mut egui::Ui,
-    broker: &Broker,
-    plan: &Plan,
-    color: Color32,
-    security: Security,
-    exchange: Exchange,
-    outcome: Option<&Outcome>,
-) {
-    ui.horizontal(|ui| {
-        color_mark(ui, color);
-        ui.label(&broker.name);
-        ui.label(RichText::new(tariff_date_text(broker)).weak());
-        if let Some(url) = &broker.source_url {
-            ui.hyperlink_to("Tariff (PDF)", url);
-        }
-    });
-    ui.separator();
-
-    fees_for_inputs(ui, plan, security, exchange);
-    notes(ui, broker.notes.iter().chain(&plan.notes));
-
-    if let Some(outcome) = outcome {
-        ui.add_space(12.0);
-        ui.strong("Where the fees went");
-        ui.horizontal(|ui| {
-            fee_donut(ui, &outcome.fees);
-            ui.add_space(12.0);
-            fee_legend(ui, &outcome.fees);
-        });
-
-        ui.add_space(12.0);
-        ui.strong("Fees each year");
-        ui.label(
-            RichText::new("Selling at the end isn't included.")
-                .weak()
-                .small(),
-        );
-        yearly_fees_chart(ui, plan, &outcome.fees_by_year);
-    } else {
-        ui.add_space(8.0);
-        ui.label(RichText::new("This plan doesn't offer what you're buying.").weak());
-    }
-
-    ui.add_space(12.0);
-    egui::CollapsingHeader::new("Full tariff").show(ui, |ui| full_tariff(ui, plan));
-}
-
-/// "Tariff of 29/06/2026", from the ISO date the tariffs are stored with.
-pub fn tariff_date_text(broker: &Broker) -> String {
-    let date: Vec<&str> = broker.tariff_date.split('-').collect();
-    match date[..] {
-        [year, month, day] => format!("Tariff of {day}/{month}/{year}"),
-        _ => format!("Tariff date {}", broker.tariff_date),
-    }
-}
-
-/// A ring split by fee type, with the total in the middle.
-fn fee_donut(ui: &mut egui::Ui, fees: &Fees) {
-    const RADIUS: f32 = 48.0;
-    const THICKNESS: f32 = 18.0;
-    let (rect, _) =
-        ui.allocate_exact_size(egui::Vec2::splat(2.0 * RADIUS + 4.0), egui::Sense::hover());
-    let painter = ui.painter();
-    let center = rect.center();
-    let total = to_f64(fees.total());
-
-    // Each part is drawn as a thick arc, starting at the top and going clockwise.
-    let mut angle = -std::f32::consts::FRAC_PI_2;
-    for ((_, color), amount) in FEE_TYPES.iter().zip(by_type(fees)) {
-        if total <= 0.0 {
-            break;
-        }
-        let sweep = (to_f64(amount) / total) as f32 * std::f32::consts::TAU;
-        let steps = (sweep * 20.0).ceil().max(1.0) as usize;
-        let ring_radius = RADIUS - THICKNESS / 2.0;
-        let points: Vec<egui::Pos2> = (0..=steps)
-            .map(|step| {
-                let a = angle + sweep * step as f32 / steps as f32;
-                center + ring_radius * egui::vec2(a.cos(), a.sin())
-            })
-            .collect();
-        painter.add(egui::Shape::line(
-            points,
-            egui::Stroke::new(THICKNESS, *color),
-        ));
-        angle += sweep;
-    }
-    painter.text(
-        center,
-        egui::Align2::CENTER_CENTER,
-        compact_shekels(total),
-        egui::FontId::proportional(14.0),
-        ui.visuals().strong_text_color(),
-    );
-}
-
-/// Each fee type's color, amount and share of the total.
-fn fee_legend(ui: &mut egui::Ui, fees: &Fees) {
-    let total = to_f64(fees.total());
-    egui::Grid::new(("fee legend", ui.next_auto_id()))
-        .num_columns(4)
-        .min_col_width(0.0)
-        .spacing([8.0, 2.0])
-        .show(ui, |ui| {
-            for ((name, color), amount) in FEE_TYPES.iter().zip(by_type(fees)) {
-                let amount = to_f64(amount);
-                color_mark(ui, *color);
-                ui.label(*name);
-                ui.label(shekels(amount));
-                let share = if total > 0.0 {
-                    amount / total * 100.0
-                } else {
-                    0.0
-                };
-                ui.label(RichText::new(format!("{share:.0}%")).weak());
-                ui.end_row();
-            }
-        });
-}
-
-/// The fees of each year, stacked by type.
-fn yearly_fees_chart(ui: &mut egui::Ui, plan: &Plan, fees_by_year: &[Fees]) {
-    let mut charts: Vec<BarChart> = Vec::new();
-    for (type_index, (name, color)) in FEE_TYPES.iter().enumerate().take(3) {
-        let bars = fees_by_year
-            .iter()
-            .enumerate()
-            .map(|(year, fees)| {
-                Bar::new((year + 1) as f64, to_f64(by_type(fees)[type_index])).fill(*color)
-            })
-            .collect();
-        let others: Vec<&BarChart> = charts.iter().collect();
-        let chart = BarChart::new(*name, bars)
-            .color(*color)
-            .width(0.7)
-            .element_formatter(Box::new(move |bar, _chart| {
-                format!("{name}\nYear {}: {}", bar.argument, shekels(bar.value))
-            }))
-            .stack_on(&others);
-        charts.push(chart);
-    }
-    // egui_plot puts value labels at powers of ten and hides ones closer than
-    // 20 points apart, which can leave a small chart with only "₪0".
-    let value_axis = AxisHints::new_y()
-        .formatter(|mark, _range| compact_shekels(mark.value))
-        .label_spacing(12.0..=20.0)
-        .min_thickness(48.0);
-    Plot::new(("yearly fees", &plan.name))
-        .height(200.0)
-        .x_axis_label("Year")
-        .custom_y_axes(vec![value_axis])
-        .allow_zoom(false)
-        .allow_drag(false)
-        .allow_scroll(false)
-        .allow_boxed_zoom(false)
-        .show(ui, |plot| {
-            for chart in charts {
-                plot.bar_chart(chart);
-            }
-        });
-}
-
 /// Every row of the plan's tariff, not just the ones that apply.
 fn full_tariff(ui: &mut egui::Ui, plan: &Plan) {
     ui.strong("Buying and selling");
@@ -328,38 +202,6 @@ fn list_or_any<T: Copy>(items: &[T], name: fn(T) -> &'static str, any: &str) -> 
             .map(|item| name(*item))
             .collect::<Vec<_>>()
             .join(", ")
-    }
-}
-
-// ─────────────────────────── Fee split bar ───────────────────────────
-
-/// A bar split by fee type, as long as `fees` are relative to `largest`,
-/// so the bars of different plans can be compared.
-pub fn fee_split_bar(ui: &mut egui::Ui, fees: &Fees, largest: Decimal, max_width: f32) {
-    let (rect, _) = ui.allocate_exact_size(egui::vec2(max_width, 10.0), egui::Sense::hover());
-    let largest = to_f64(largest);
-    if largest <= 0.0 {
-        return;
-    }
-    let mut left = rect.left();
-    for ((_, color), amount) in FEE_TYPES.iter().zip(by_type(fees)) {
-        let width = (to_f64(amount) / largest) as f32 * max_width;
-        let part = egui::Rect::from_min_size(
-            egui::pos2(left, rect.top()),
-            egui::vec2(width, rect.height()),
-        );
-        ui.painter().rect_filled(part, 0.0, *color);
-        left += width;
-    }
-}
-
-/// The fee split bar's legend, for the table header.
-pub fn fee_types_legend(ui: &mut egui::Ui) {
-    for (name, color) in FEE_TYPES {
-        ui.horizontal(|ui| {
-            color_mark(ui, color);
-            ui.label(name);
-        });
     }
 }
 
