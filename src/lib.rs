@@ -44,6 +44,7 @@
 //! options and futures. None of them changes a comparison much for a
 //! long-term ETF investor.
 
+pub mod simulation;
 pub mod tariffs;
 
 use money2::{Currency, Exchange as _, ExchangeRates, Money};
@@ -75,6 +76,17 @@ pub enum Exchange {
     Usa,
     /// Any European exchange.
     Europe,
+}
+
+impl Exchange {
+    /// The currency securities on this exchange trade in.
+    pub fn currency(self) -> Currency {
+        match self {
+            Exchange::Tlv => Currency::Ils,
+            Exchange::Usa => Currency::Usd,
+            Exchange::Europe => Currency::Eur,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -389,6 +401,17 @@ pub struct Holding {
 }
 
 // ─────────────────────────── Money helpers ───────────────────────────
+
+/// Exchange rates from what a dollar and a euro cost in shekels, for when
+/// they're typed in rather than downloaded.
+pub fn exchange_rates(ils_per_usd: Decimal, ils_per_eur: Decimal) -> ExchangeRates {
+    // money2 reads the ECB's CSV format, where every rate is per euro. It
+    // ignores the date column.
+    let usd_per_eur = ils_per_eur / ils_per_usd;
+    format!("Date, USD, ILS\n-, {usd_per_eur}, {ils_per_eur}")
+        .parse()
+        .expect("two numbers always make valid CSV")
+}
 
 /// An amount in shekels: `ils(dec!(3.5))` is ₪3.50.
 pub fn ils(amount: Decimal) -> Money {
