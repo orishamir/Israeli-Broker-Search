@@ -1,6 +1,7 @@
 //! Small widgets and number formatting shared by the sidebar, the table and
 //! the chart.
 
+use broker_fees::{Exchange, Security};
 use eframe::egui::{self, Color32, RichText};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -101,6 +102,29 @@ pub fn shekels(amount: f64) -> String {
     format!("{sign}₪{}", with_commas(rounded.abs() as u64))
 }
 
+/// An amount as a tariff writes it: "$6,750", "$5.76", "₪3.5".
+pub fn money_text(money: money2::Money) -> String {
+    let symbol = match money.currency {
+        money2::Currency::Ils => "₪",
+        money2::Currency::Usd => "$",
+        money2::Currency::Eur => "€",
+        _ => "",
+    };
+    let text = money.amount.normalize().to_string();
+    let (whole, fraction) = text.split_once('.').unwrap_or((&text, ""));
+    let whole = with_commas(whole.parse().unwrap_or(0));
+    if fraction.is_empty() {
+        format!("{symbol}{whole}")
+    } else {
+        format!("{symbol}{whole}.{fraction}")
+    }
+}
+
+/// "0.15%"
+pub fn percent_text(percent: Decimal) -> String {
+    format!("{}%", percent.normalize())
+}
+
 /// "1,234,567"
 fn with_commas(number: u64) -> String {
     let digits = number.to_string();
@@ -116,4 +140,21 @@ fn with_commas(number: u64) -> String {
 
 pub fn to_f64(value: Decimal) -> f64 {
     value.to_f64().unwrap_or_default()
+}
+
+pub fn security_name(security: Security) -> &'static str {
+    match security {
+        Security::Etf => "ETF",
+        Security::MutualFund => "Mutual fund",
+        Security::Bond => "Bond",
+        Security::Stock => "Stock",
+    }
+}
+
+pub fn exchange_name(exchange: Exchange) -> &'static str {
+    match exchange {
+        Exchange::Tlv => "Tel Aviv",
+        Exchange::Usa => "USA",
+        Exchange::Europe => "Europe",
+    }
 }

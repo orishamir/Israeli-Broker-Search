@@ -56,14 +56,12 @@ pub fn altshuler() -> Broker {
                     max: None,
                 },
             },
-            // The tariff has no row for European stocks or ETFs.
         ],
         custody: vec![CustodyFee {
             exchanges: vec![],
             percent: dec!(0.15),
-            // VERIFY: the row says "0.15%, minimum ₪75 a month" without saying
-            // whether 0.15% is per month or per year. Per year is assumed.
-            per: Period::Year,
+            per: Period::Year, // VERIFY: see the first note
+
             billed: Period::Month,
             min: Some(ils(dec!(75))),
         }],
@@ -73,11 +71,29 @@ pub fn altshuler() -> Broker {
             max: None,
             spread_percent: dec!(0.7),
         },
+        notes: vec![],
     };
 
     Broker {
         name: "Altshuler Shaham Trade".into(),
         tariff_date: "not stated in the PDF".into(),
+        source_url: Some(
+            "https://www.as-invest.co.il/media/oqdfpafo/\
+             %D7%AA%D7%A2%D7%A8%D7%99%D7%A4%D7%95%D7%9F-%D7%9E%D7%9C%D7%90-\
+             %D7%90%D7%9C%D7%98%D7%A9%D7%95%D7%9C%D7%A8-%D7%A9%D7%97%D7%9D-\
+             %D7%98%D7%A8%D7%99%D7%99%D7%93.pdf"
+                .into(),
+        ),
+        notes: notes(&[
+            "Custody is listed as \"0.15%, minimum ₪75 a month\" without saying whether \
+             0.15% is per year or per month. Per year is assumed; per month would be \
+             1.8% a year.",
+            "A \"periodic management fee\" of up to ₪80 a month is listed, without \
+             saying when it applies. It isn't included.",
+            "Conversion has no fee, but the exchange rate can be up to 0.7% worse than \
+             the market's. The full 0.7% is assumed.",
+            "No price is listed for European stocks or ETFs.",
+        ]),
         plans: vec![
             plan(
                 "US 1¢/share",
@@ -101,6 +117,13 @@ pub fn altshuler() -> Broker {
 }
 
 pub fn leumi() -> Broker {
+    let broker_notes = [
+        "The bank's exchange-rate spread isn't published, so conversions may cost \
+         more than shown.",
+        "Active (non-index) mutual funds on Tel Aviv have no trade fee; every mutual \
+         fund is treated as an index fund here.",
+    ];
+
     // Online prices (Nispach Heh). The branch prices in the main tables are higher.
     let online = Plan {
         name: "Online".into(),
@@ -148,9 +171,9 @@ pub fn leumi() -> Broker {
             percent: dec!(0.16),
             min: Some(usd(dec!(5.76))),
             max: Some(usd(dec!(2400))),
-            // Not published in the tariff.
-            spread_percent: dec!(0),
+            spread_percent: dec!(0), // not published
         },
+        notes: vec![],
     };
 
     // Customer group from Nispach Alef. Only the parts that differ from Online.
@@ -179,6 +202,10 @@ pub fn leumi() -> Broker {
             max: Some(usd(dec!(3000))),
             spread_percent: dec!(0),
         },
+        notes: notes(&[
+            "Conversion is 50% off the branch fee. Whether its $3,000 maximum \
+             is halved too isn't stated; it's assumed not.",
+        ]),
         ..online.clone()
     };
 
@@ -200,25 +227,25 @@ pub fn leumi() -> Broker {
             online.trading.clone(),
         ]
         .concat(),
+        notes: notes(&[
+            "Only buying index funds on Tel Aviv by standing order is cheaper; \
+             everything else costs the same as Online.",
+        ]),
         ..online.clone()
     };
 
     let pepper = Plan {
         name: "Pepper".into(),
         trading: vec![
-            // Pepper's ₪4 covers "stocks, T-bills and bonds"; index funds
-            // aren't listed, so they keep the Online price.
             TradeFee {
                 securities: vec![MutualFund],
                 ..online.trading[0].clone()
             },
-            // "₪4 per order up to ₪30,000"; the tariff doesn't say what larger orders cost.
             TradeFee {
                 securities: vec![],
                 exchanges: vec![Tlv],
                 price: Price::Flat(ils(dec!(4))),
             },
-            // "$4 per order up to $8,000"; the tariff doesn't say what larger orders cost.
             TradeFee {
                 securities: vec![],
                 exchanges: vec![Usa, Europe],
@@ -242,11 +269,27 @@ pub fn leumi() -> Broker {
             max: Some(usd(dec!(1500))),
             spread_percent: dec!(0),
         },
+        notes: notes(&[
+            "₪4 is only stated for orders up to ₪30,000, and $4 for orders up to \
+             $8,000. Larger orders are assumed to cost the same.",
+            "Pepper's ₪4 covers stocks, T-bills and bonds. Index funds on Tel Aviv \
+             aren't mentioned, so they're given the Online price.",
+            "Conversion is 50% off the branch fee with a $3 minimum. Its $1,500 \
+             maximum (half the branch's) is assumed.",
+        ]),
     };
 
     Broker {
         name: "Bank Leumi".into(),
         tariff_date: "2026-06-29".into(),
+        source_url: Some(
+            "https://www.bankleumi.co.il/static-files/Commissions_Leumi/AmlotYechidimL.pdf".into(),
+        ),
+        notes: notes(&broker_notes),
         plans: vec![online, plus18, standing_order, pepper],
     }
+}
+
+fn notes(notes: &[&str]) -> Vec<String> {
+    notes.iter().map(|note| (*note).to_owned()).collect()
 }

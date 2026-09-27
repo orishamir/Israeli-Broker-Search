@@ -10,6 +10,8 @@
 //!   value, and is taken out of the investment.
 //! - Taxes are ignored.
 
+use std::ops::AddAssign;
+
 use money2::{Currency, Exchange as _, ExchangeRates, Money};
 use rust_decimal::Decimal;
 
@@ -46,8 +48,39 @@ pub struct Outcome {
     /// What you'd get by selling everything at the end and, for foreign
     /// securities, converting back to shekels.
     pub after_selling: Decimal,
-    /// Every fee paid while investing, not including selling at the end.
-    pub fees_paid: Decimal,
+    /// Every fee paid, including selling at the end.
+    pub fees: Fees,
+    /// The fees paid during each year (index 0 is the first year), not
+    /// including selling at the end.
+    pub fees_by_year: Vec<Fees>,
+}
+
+/// Fees in ₪, by what they were charged for.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Fees {
+    /// Buying securities.
+    pub purchases: Decimal,
+    /// Changing shekels into the security's currency.
+    pub conversions: Decimal,
+    /// Holding the securities.
+    pub custody: Decimal,
+    /// Selling everything at the end and converting back to shekels.
+    pub selling: Decimal,
+}
+
+impl Fees {
+    pub fn total(&self) -> Decimal {
+        self.purchases + self.conversions + self.custody + self.selling
+    }
+}
+
+impl AddAssign for Fees {
+    fn add_assign(&mut self, other: Self) {
+        self.purchases += other.purchases;
+        self.conversions += other.conversions;
+        self.custody += other.custody;
+        self.selling += other.selling;
+    }
 }
 
 /// Runs `scenario` on `plan`. Returns `None` if the plan has no price for
@@ -59,8 +92,9 @@ pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Opti
     let mut cash_ils = Decimal::ZERO;
     let mut invested = Decimal::ZERO; // in `currency`
     let mut share_price = scenario.share_price;
-    let mut fees_paid = Decimal::ZERO;
     let mut value_by_year = vec![scenario.first_deposit];
+    let mut fees_by_year = Vec::new();
+    let mut fees_this_year = Fees::default();
 
     for month in 0..scenario.years * 12 {
         cash_ils += scenario.monthly_deposit;
@@ -71,7 +105,7 @@ pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Opti
         if month % scenario.buy_every_months.max(1) == 0 && cash_ils > Decimal::ZERO {
             let purchase = buy(plan, scenario, cash_ils, share_price, rates)?;
             invested += purchase.bought;
-            fees_paid += purchase.fees_ils;
+            fees_this_year += purchase.fees;
             cash_ils = Decimal::ZERO;
         }
 
@@ -83,21 +117,30 @@ pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Opti
             value: money(invested, currency),
         };
         let custody_ils = plan.custody_per_year(&[holding], rates).amount / Decimal::from(12);
-        fees_paid += custody_ils;
+        fees_this_year.custody += custody_ils;
         invested -= in_currency(custody_ils, currency, rates);
 
         if (month + 1) % 12 == 0 {
             value_by_year.push(in_ils(invested, currency, rates) + cash_ils);
+            fees_by_year.push(std::mem::take(&mut fees_this_year));
         }
     }
 
     let held = in_ils(invested, currency, rates) + cash_ils;
-    let after_selling = sell(plan, scenario, invested, share_price, rates)? + cash_ils;
+    let sale = sell(plan, scenario, invested, share_price, rates)?;
+    let mut fees = Fees {
+        selling: sale.fees_ils,
+        ..Fees::default()
+    };
+    for year in &fees_by_year {
+        fees += *year;
+    }
     Some(Outcome {
         value_by_year,
         held,
-        after_selling,
-        fees_paid,
+        after_selling: sale.proceeds_ils + cash_ils,
+        fees,
+        fees_by_year,
     })
 }
 
@@ -117,12 +160,20 @@ pub fn free_plan() -> Plan {
             max: None,
             spread_percent: Decimal::ZERO,
         },
+        notes: vec![],
     }
 }
 
 struct Purchase {
     /// Value of the securities bought, in the exchange's currency.
     bought: Decimal,
+    /// Only `purchases` and `conversions` are set.
+    fees: Fees,
+}
+
+struct Sale {
+    proceeds_ils: Decimal,
+    /// The sell fee plus converting back to shekels.
     fees_ils: Decimal,
 }
 
@@ -136,46 +187,52 @@ fn buy(
     rates: &ExchangeRates,
 ) -> Option<Purchase> {
     let currency = scenario.exchange.currency();
-    let mut fees_ils = Decimal::ZERO;
+    let mut fees = Fees::default();
     let mut available = crate::ils(cash_ils);
 
     if currency != Currency::Ils {
-        let conversion = plan.conversion_fee(available, rates);
-        fees_ils += conversion.amount;
-        available = crate::ils(cash_ils - conversion.amount).exchange(currency, rates);
+        fees.conversions = plan.conversion_fee(available, rates).amount;
+        available = crate::ils(cash_ils - fees.conversions).exchange(currency, rates);
     }
 
     let trade = trade(scenario, available.amount, share_price);
     let trade_fee = plan.trade_fee(&trade, rates)?;
-    fees_ils += in_ils(trade_fee.amount, currency, rates);
+    fees.purchases = in_ils(trade_fee.amount, currency, rates);
 
     Some(Purchase {
         // A fee larger than the purchase would make this negative; a real
         // broker would refuse the order instead.
         bought: (available.amount - trade_fee.amount).max(Decimal::ZERO),
-        fees_ils,
+        fees,
     })
 }
 
-/// Sells `invested` (in the exchange's currency) and returns the proceeds in ₪.
+/// Sells `invested` (in the exchange's currency) and converts the proceeds to ₪.
 fn sell(
     plan: &Plan,
     scenario: &Scenario,
     invested: Decimal,
     share_price: Decimal,
     rates: &ExchangeRates,
-) -> Option<Decimal> {
+) -> Option<Sale> {
     if invested <= Decimal::ZERO {
-        return Some(Decimal::ZERO);
+        return Some(Sale {
+            proceeds_ils: Decimal::ZERO,
+            fees_ils: Decimal::ZERO,
+        });
     }
     let currency = scenario.exchange.currency();
     let trade_fee = plan.trade_fee(&trade(scenario, invested, share_price), rates)?;
-    let proceeds = money(invested - trade_fee.amount, currency);
-    if currency == Currency::Ils {
-        return Some(proceeds.amount);
-    }
-    let conversion = plan.conversion_fee(proceeds, rates);
-    Some(in_ils(proceeds.amount - conversion.amount, currency, rates))
+    let proceeds = invested - trade_fee.amount;
+    let conversion = if currency == Currency::Ils {
+        Decimal::ZERO
+    } else {
+        plan.conversion_fee(money(proceeds, currency), rates).amount
+    };
+    Some(Sale {
+        proceeds_ils: in_ils(proceeds - conversion, currency, rates),
+        fees_ils: in_ils(trade_fee.amount + conversion, currency, rates),
+    })
 }
 
 fn trade(scenario: &Scenario, value: Decimal, share_price: Decimal) -> Trade {
@@ -242,7 +299,7 @@ mod tests {
             [dec!(10000), dec!(22000), dec!(34000)]
         );
         assert_eq!(outcome.after_selling, dec!(34000));
-        assert_eq!(outcome.fees_paid, dec!(0));
+        assert_eq!(outcome.fees, Fees::default());
     }
 
     #[test]
@@ -266,7 +323,33 @@ mod tests {
             ..scenario()
         };
         let quarterly = simulate(&plan, &quarterly, &rates()).unwrap();
-        assert!(quarterly.fees_paid < monthly.fees_paid);
+        assert!(quarterly.fees.purchases < monthly.fees.purchases);
+    }
+
+    #[test]
+    fn fees_are_split_by_type_and_year() {
+        let plan = crate::tariffs::leumi().plans.remove(0); // Online
+        let outcome = simulate(&plan, &scenario(), &rates()).unwrap();
+        // Tel Aviv: no conversions. The first purchase (₪11,000) pays 0.4% = ₪44,
+        // the other 11 of the year the ₪26 minimum.
+        assert_eq!(outcome.fees.conversions, dec!(0));
+        assert_eq!(outcome.fees_by_year.len(), 2);
+        assert_eq!(
+            outcome.fees_by_year[0].purchases,
+            dec!(44) + dec!(11) * dec!(26)
+        );
+        assert!(outcome.fees.custody > dec!(0));
+        assert!(outcome.fees.selling > dec!(0));
+
+        let mut yearly_total = Fees::default();
+        for year in &outcome.fees_by_year {
+            yearly_total += *year;
+        }
+        // Selling at the end is the only fee not in any year.
+        assert_eq!(
+            yearly_total.total() + outcome.fees.selling,
+            outcome.fees.total()
+        );
     }
 
     #[test]

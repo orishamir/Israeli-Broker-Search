@@ -130,8 +130,13 @@ pub struct TradeFee {
 impl TradeFee {
     /// True if this row applies to `t`.
     pub fn covers(&self, t: &Trade) -> bool {
-        empty_or_contains(&self.securities, t.security)
-            && empty_or_contains(&self.exchanges, t.exchange)
+        self.applies_to(t.security, t.exchange)
+    }
+
+    /// True if this row applies to `security` traded on `exchange`.
+    pub fn applies_to(&self, security: Security, exchange: Exchange) -> bool {
+        empty_or_contains(&self.securities, security)
+            && empty_or_contains(&self.exchanges, exchange)
     }
 }
 
@@ -326,18 +331,35 @@ pub struct Plan {
     pub custody: Vec<CustodyFee>,
     /// The cost of converting between shekels and foreign currency.
     pub conversion: ConversionFee,
+    /// Assumptions and gaps in the tariff that affect this plan's numbers,
+    /// e.g. "doesn't say what orders over ₪30,000 cost". Shown to the user.
+    /// Ones that apply to every plan go in [`Broker::notes`].
+    #[serde(default)]
+    pub notes: Vec<String>,
 }
 
 impl Plan {
+    /// The trade fee row used for `security` traded on `exchange`, if any.
+    pub fn trade_row(&self, security: Security, exchange: Exchange) -> Option<&TradeFee> {
+        self.trading
+            .iter()
+            .find(|row| row.applies_to(security, exchange))
+    }
+
+    /// The custody row used for holdings on `exchange`, if any.
+    pub fn custody_row(&self, exchange: Exchange) -> Option<&CustodyFee> {
+        self.custody
+            .iter()
+            .find(|row| empty_or_contains(&row.exchanges, exchange))
+    }
+
     /// The fee on one trade, in the trade's currency.
     ///
     /// Returns `None` if no row covers the trade, meaning the broker doesn't
     /// list a price for it (Altshuler has no row for European ETFs). That is
     /// different from a free trade, which is a row with a zero price.
     pub fn trade_fee(&self, t: &Trade, rates: &ExchangeRates) -> Option<Money> {
-        self.trading
-            .iter()
-            .find(|row| row.covers(t))
+        self.trade_row(t.security, t.exchange)
             .map(|row| row.price.apply(t, rates))
     }
 
@@ -376,6 +398,12 @@ pub struct Broker {
     /// The date on the tariff document the numbers came from. Tariffs change
     /// several times a year, so keep it next to the numbers.
     pub tariff_date: String,
+    /// Where the tariff document can be read online.
+    #[serde(default)]
+    pub source_url: Option<String>,
+    /// Like [`Plan::notes`], for ones that apply to every plan.
+    #[serde(default)]
+    pub notes: Vec<String>,
     /// Every plan a customer of this broker can be on.
     pub plans: Vec<Plan>,
 }

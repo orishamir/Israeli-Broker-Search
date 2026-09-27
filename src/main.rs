@@ -5,6 +5,7 @@
 
 mod gui {
     pub mod chart;
+    pub mod plan_info;
     pub mod table;
     pub mod widgets;
 }
@@ -12,11 +13,15 @@ mod gui {
 use std::collections::HashSet;
 
 use broker_fees::simulation::{self, Outcome, Scenario};
-use broker_fees::{Broker, Exchange, Security, exchange_rates, tariffs};
+use broker_fees::{Broker, Exchange, Plan, Security, exchange_rates, tariffs};
 use eframe::egui::{self, Color32, RichText};
 use gui::chart::{ChartState, ChartView, growth_chart};
+use gui::plan_info::{details_contents, hover_card, notes, tariff_date_text};
 use gui::table::results_table;
-use gui::widgets::{colored_checkbox, rate_input, section, shekel_input, shekels, to_f64};
+use gui::widgets::{
+    colored_checkbox, exchange_name, rate_input, section, security_name, shekel_input, shekels,
+    to_f64,
+};
 use money2::{Currency, ExchangeRates};
 use poll_promise::Promise;
 use rust_decimal::Decimal;
@@ -47,6 +52,8 @@ struct App {
     /// Highlighted like the pinned plans while the mouse is there. Found while
     /// drawing a frame, so it takes effect on the next one.
     hovered_plan: Option<PlanKey>,
+    /// The plan shown in the details window, if it's open.
+    details_plan: Option<PlanKey>,
 }
 
 /// What the mouse did to the plans in the table or the chart.
@@ -54,6 +61,8 @@ struct App {
 struct PlanInteraction {
     hovered: Option<PlanKey>,
     clicked: Option<PlanKey>,
+    /// Asked for the plan's details window.
+    details: Option<PlanKey>,
 }
 
 /// Which plan of which broker, by position in `App::brokers`.
@@ -120,7 +129,9 @@ enum RatesStatus {
 struct PlanResult {
     key: PlanKey,
     broker_name: String,
-    plan_name: String,
+    /// Caveats that apply to every plan of the broker.
+    broker_notes: Vec<String>,
+    plan: Plan,
     /// "Broker – Plan"
     name: String,
     color: Color32,
@@ -151,6 +162,7 @@ impl App {
             chart: ChartState::default(),
             pinned_plans: HashSet::new(),
             hovered_plan: None,
+            details_plan: None,
         }
     }
 
@@ -210,7 +222,8 @@ impl App {
                         plan: plan_index,
                     },
                     broker_name: choice.broker.name.clone(),
-                    plan_name: plan.name.clone(),
+                    broker_notes: choice.broker.notes.clone(),
+                    plan: plan.clone(),
                     name: format!("{} – {}", choice.broker.name, plan.name),
                     color: plan_choice.color,
                     outcome: simulation::simulate(plan, &scenario, &rates),
@@ -225,7 +238,8 @@ impl App {
 }
 
 impl App {
-    /// R or Home resets the chart's zoom, unless a text field is being typed in.
+    /// R or Home resets the chart's zoom and Esc closes the details window,
+    /// unless a text field is being typed in.
     fn handle_shortcuts(&mut self, ctx: &egui::Context) {
         if ctx.egui_wants_keyboard_input() {
             return;
@@ -236,6 +250,46 @@ impl App {
                 || input.consume_key(no_modifiers, egui::Key::Home)
         }) {
             self.chart.reset_zoom();
+        }
+        if ctx.input_mut(|input| input.consume_key(no_modifiers, egui::Key::Escape)) {
+            self.details_plan = None;
+        }
+    }
+
+    /// A window with everything about one plan, over the chart so the
+    /// results keep their width.
+    fn details_window(&mut self, ctx: &egui::Context, key: PlanKey) {
+        let choice = &self.brokers[key.broker];
+        let plan = &choice.broker.plans[key.plan];
+        let rates = exchange_rates(
+            decimal(self.rates.ils_per_usd),
+            decimal(self.rates.ils_per_eur),
+        );
+        let outcome = simulation::simulate(plan, &self.scenario(), &rates);
+
+        let mut open = true;
+        egui::Window::new(format!("{} – {}", choice.broker.name, plan.name))
+            .id(egui::Id::new("plan details")) // the same window for every plan
+            .open(&mut open)
+            .collapsible(false)
+            .resizable(true)
+            .vscroll(true)
+            .default_width(420.0)
+            .default_height(600.0)
+            .default_pos(ctx.content_rect().right_top() + egui::vec2(-460.0, 60.0))
+            .show(ctx, |ui| {
+                details_contents(
+                    ui,
+                    &choice.broker,
+                    plan,
+                    choice.plans[key.plan].color,
+                    self.inputs.security,
+                    self.inputs.exchange,
+                    outcome.as_ref(),
+                );
+            });
+        if !open {
+            self.details_plan = None;
         }
     }
 }
@@ -256,6 +310,10 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ui, |ui| self.results_ui(ui, &highlighted));
+
+        if let Some(key) = self.details_plan {
+            self.details_window(ui.ctx(), key);
+        }
 
         // The hover found this frame is drawn next frame; don't wait for the
         // mouse to move again to draw it.
@@ -377,8 +435,9 @@ impl App {
         }
 
         section(ui, "Brokers to compare", |ui| {
+            let inputs = (self.inputs.security, self.inputs.exchange);
             for (broker_index, choice) in self.brokers.iter_mut().enumerate() {
-                if let Some(plan_index) = broker_checkboxes(ui, choice) {
+                if let Some(plan_index) = broker_checkboxes(ui, choice, inputs) {
                     self.hovered_plan = Some(PlanKey {
                         broker: broker_index,
                         plan: plan_index,
@@ -440,7 +499,8 @@ impl App {
             return;
         }
 
-        let table = results_table(ui, &no_fees, &results, highlighted);
+        let inputs = (self.inputs.security, self.inputs.exchange);
+        let table = results_table(ui, &no_fees, &results, highlighted, inputs);
         ui.add_space(16.0);
 
         ui.horizontal(|ui| {
@@ -463,6 +523,9 @@ impl App {
         let chart = growth_chart(ui, &mut self.chart, &no_fees, &results, highlighted);
 
         self.hovered_plan = self.hovered_plan.or(table.hovered).or(chart.hovered);
+        if table.details.is_some() {
+            self.details_plan = table.details;
+        }
         for clicked in [table.clicked, chart.clicked].into_iter().flatten() {
             // Clicking a pinned plan unpins it.
             if !self.pinned_plans.remove(&clicked) {
@@ -495,9 +558,14 @@ fn broker_choices(brokers: Vec<Broker>) -> Vec<BrokerChoice> {
 }
 
 /// A checkbox for the broker, which ticks or unticks all its plans, and an
-/// indented checkbox per plan with the plan's chart color. Returns the index
-/// of the plan under the mouse.
-fn broker_checkboxes(ui: &mut egui::Ui, choice: &mut BrokerChoice) -> Option<usize> {
+/// indented checkbox per plan with the plan's chart color. Hovering a plan
+/// shows what it charges for `inputs`. Returns the index of the plan under
+/// the mouse.
+fn broker_checkboxes(
+    ui: &mut egui::Ui,
+    choice: &mut BrokerChoice,
+    (security, exchange): (Security, Exchange),
+) -> Option<usize> {
     let all = choice.plans.iter().all(|plan| plan.selected);
     let some = choice.plans.iter().any(|plan| plan.selected);
     let mut checked = all;
@@ -508,6 +576,17 @@ fn broker_checkboxes(ui: &mut egui::Ui, choice: &mut BrokerChoice) -> Option<usi
             plan.selected = checked;
         }
     }
+    ui.horizontal(|ui| {
+        ui.label(
+            RichText::new(tariff_date_text(&choice.broker))
+                .weak()
+                .small(),
+        );
+        if !choice.broker.notes.is_empty() {
+            ui.label(RichText::new("⚠").weak().small())
+                .on_hover_ui(|ui| notes(ui, &choice.broker.notes));
+        }
+    });
 
     let mut hovered = None;
     ui.indent(&choice.broker.name, |ui| {
@@ -519,30 +598,18 @@ fn broker_checkboxes(ui: &mut egui::Ui, choice: &mut BrokerChoice) -> Option<usi
             .enumerate()
         {
             let response =
-                colored_checkbox(ui, &mut plan_choice.selected, &plan.name, plan_choice.color);
+                colored_checkbox(ui, &mut plan_choice.selected, &plan.name, plan_choice.color)
+                    .on_hover_ui(|ui| {
+                        let name = format!("{} – {}", choice.broker.name, plan.name);
+                        let broker_notes = &choice.broker.notes;
+                        hover_card(ui, &name, broker_notes, plan, security, exchange, None);
+                    });
             if response.hovered() {
                 hovered = Some(index);
             }
         }
     });
     hovered
-}
-
-fn security_name(security: Security) -> &'static str {
-    match security {
-        Security::Etf => "ETF",
-        Security::MutualFund => "Mutual fund",
-        Security::Bond => "Bond",
-        Security::Stock => "Stock",
-    }
-}
-
-fn exchange_name(exchange: Exchange) -> &'static str {
-    match exchange {
-        Exchange::Tlv => "Tel Aviv",
-        Exchange::Usa => "USA",
-        Exchange::Europe => "Europe",
-    }
 }
 
 fn months_name(months: u32) -> String {
