@@ -37,7 +37,7 @@ export interface Result {
   warning: string | undefined
 }
 
-export type ChartView = 'value' | 'lost'
+export type ChartView = 'value' | 'lost' | 'breakdown'
 
 /** The chosen plans, best first, or why they couldn't be compared. */
 export type Comparison = { results: Result[]; noFees: OutcomeData; deposited: number } | { error: string }
@@ -130,6 +130,14 @@ export class AppState {
   /** Clicking a pinned plan unpins it. */
   togglePin(id: string) {
     if (!this.pinned.delete(id)) this.pinned.add(id)
+  }
+
+  /** Shows what a plan's fees went to: the breakdown, with the plan pinned
+   * last, so it's the one shown year by year. */
+  showFees(id: string) {
+    this.chartView = 'breakdown'
+    this.pinned.delete(id)
+    this.pinned.add(id)
   }
 
   /** The chosen plans, best first, or why they couldn't be compared. */

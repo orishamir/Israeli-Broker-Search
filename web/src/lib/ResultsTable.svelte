@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { tick } from 'svelte'
   import { flip } from 'svelte/animate'
   import type { AppState, Result } from './app.svelte'
   import { shekels } from './format'
@@ -64,7 +65,19 @@
         {#if outcome}
           <td class="amount">{shekels(outcome.held)}</td>
           <td class="amount">{shekels(outcome.afterSelling)}</td>
-          <td class="amount">{shekels(outcome.fees.total)}</td>
+          <td class="amount">
+            <!-- Not also a click on the row, which would unpin it. -->
+            <button
+              class="link"
+              aria-label="{plan.info.name} fees: {shekels(outcome.fees.total)}, see what they went to"
+              onclick={(event) => {
+                event.stopPropagation()
+                app.showFees(plan.id)
+                // Where the breakdown is, below the table (far below, on phones).
+                tick().then(() => document.getElementById('chart')?.scrollIntoView({ block: 'start' }))
+              }}>{shekels(outcome.fees.total)} ›</button
+            >
+          </td>
           <td class="amount">{shekels(outcome.lostToFees)}</td>
         {:else}
           <td class="amount" colspan="4">Not offered for {app.purchase}</td>
@@ -182,5 +195,18 @@
   }
   .not-offered .mark {
     opacity: 0.3;
+  }
+  /* A link to the plan's fee breakdown: it looks like the other amounts,
+     plus an arrow, until pointed at. */
+  .link {
+    padding: 0;
+    border: none;
+    background: none;
+    font-variant-numeric: tabular-nums;
+  }
+  .link:hover {
+    background: none;
+    color: var(--accent);
+    text-decoration: underline;
   }
 </style>

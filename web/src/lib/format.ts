@@ -18,3 +18,9 @@ export const shekels = (amount: number): string => whole.format(amount)
 
 /** "₪1.42M", "₪889K", "₪42K": short enough for chart labels. */
 export const compactShekels = (amount: number): string => compact.format(amount)
+
+/** Black or white, whichever reads better on `color` (a "#rrggbb"). */
+export function readableOn(color: string): string {
+  const [r, g, b] = [1, 3, 5].map((start) => parseInt(color.slice(start, start + 2), 16))
+  return 0.299 * r + 0.587 * g + 0.114 * b > 140 ? '#000' : '#fff'
+}

@@ -1,7 +1,6 @@
-import { expect, test as base } from '@playwright/test'
+import { expect, test as base, type Page } from '@playwright/test'
 
-export { expect }
-export type { Page } from '@playwright/test'
+export { expect, type Page }
 
 /** Every test starts on the app, with fixed exchange rates instead of today's,
  * so results don't change daily. It starts once the app is ready: the page
@@ -18,3 +17,13 @@ export const test = base.extend({
     await use(page)
   },
 })
+
+/** Makes the screen as tall as the page, before a picture of all of it.
+ * Chromium's phones lose their touch emulation while capturing past the
+ * bottom of the screen, and draw the page as for a mouse ("Click" rather
+ * than "Tap"). */
+export async function fitScreenToPage(page: Page) {
+  const { width, height } = page.viewportSize()!
+  const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight)
+  if (pageHeight > height) await page.setViewportSize({ width, height: pageHeight })
+}

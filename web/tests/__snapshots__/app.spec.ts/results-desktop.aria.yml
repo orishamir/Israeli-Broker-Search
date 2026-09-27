@@ -16,59 +16,67 @@
         - text: ""
         - button "What “Lost to fees” means": "?"
   - rowgroup:
-    - row /1 New customers Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /1 New customers Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ New customers fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "1"
       - cell "New customers Altshuler Shaham Trade"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /New customers fees: ₪\d+,\d+, see what they went to/':
+        - 'button /New customers fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /2 US 1¢\/share Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /2 US 1¢\/share Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ US 1¢\/share fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "2"
       - cell "US 1¢/share Altshuler Shaham Trade"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /US 1¢\/share fees: ₪\d+,\d+, see what they went to/':
+        - 'button /US 1¢\/share fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /3 US \d+\.\d+% Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /3 US \d+\.\d+% Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ US \d+\.\d+% fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "3"
       - cell /US \d+\.\d+% Altshuler Shaham Trade/
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /US \d+\.\d+% fees: ₪\d+,\d+, see what they went to/':
+        - 'button /US \d+\.\d+% fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /4 US \$\d+ flat Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /4 US \$\d+ flat Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ US \$\d+ flat fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "4"
       - cell /US \$\d+ flat Altshuler Shaham Trade/
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /US \$\d+ flat fees: ₪\d+,\d+, see what they went to/':
+        - 'button /US \$\d+ flat fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /5 Pepper Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /5 Pepper Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Pepper fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "5"
       - cell "Pepper Bank Leumi"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /Pepper fees: ₪\d+,\d+, see what they went to/':
+        - 'button /Pepper fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /6 Online, 'Leumi \d+\+' Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /6 Online, ''Leumi \d+\+'' Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Online, ''Leumi \d+\+'' fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "6"
       - cell /Online, 'Leumi \d+\+' Bank Leumi/
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /Online, ''Leumi \d+\+'' fees: ₪\d+,\d+, see what they went to/':
+        - 'button /Online, ''Leumi \d+\+'' fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /7 Online Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /7 Online Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Online fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "7"
       - cell "Online Bank Leumi"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
+      - 'cell /Online fees: ₪\d+,\d+, see what they went to/':
+        - 'button /Online fees: ₪\d+,\d+, see what they went to/'
       - cell /₪\d+,\d+/
-      - cell /₪\d+,\d+/
-    - row /8 Online, monthly standing order Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+ ₪\d+,\d+/:
+    - 'row /8 Online, monthly standing order Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Online, monthly standing order fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "8"
       - cell "Online, monthly standing order Bank Leumi"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
-      - cell /₪\d+,\d+/
+      - 'cell /Online, monthly standing order fees: ₪\d+,\d+, see what they went to/':
+        - 'button /Online, monthly standing order fees: ₪\d+,\d+, see what they went to/'
       - cell /₪\d+,\d+/

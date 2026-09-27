@@ -1,4 +1,4 @@
-import { expect, test, type Page } from './fixtures'
+import { expect, fitScreenToPage, test, type Page } from './fixtures'
 
 // Runs on every device in playwright.config.ts, including the layout-only
 // ones: rules that hold at any screen size, then a picture to compare with the
@@ -58,6 +58,7 @@ const layoutProblems = (page: Page) =>
 /** The rules, then the picture. */
 async function check(page: Page, state: string) {
   expect(await layoutProblems(page), state).toEqual([])
+  await fitScreenToPage(page)
   await expect(page).toHaveScreenshot(`${state}.png`, { fullPage: true })
 }
 
@@ -75,6 +76,12 @@ test('on Tel Aviv', async ({ page }) => {
 test('with the exchange rates open', async ({ page }) => {
   await page.getByText('$1 = ₪3.0338').click()
   await check(page, 'rates')
+})
+
+test('on the fee breakdown', async ({ page }) => {
+  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
+  await page.mouse.move(0, 0)
+  await check(page, 'breakdown')
 })
 
 test("with a plan's details open", async ({ page }) => {

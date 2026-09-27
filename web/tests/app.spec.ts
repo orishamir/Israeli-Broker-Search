@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures'
+import { expect, fitScreenToPage, test } from './fixtures'
 
 const rows = (page: import('@playwright/test').Page) => page.locator('tbody tr')
 
@@ -9,6 +9,7 @@ test('ranks every plan, best first', async ({ page }) => {
   await expect(rows(page)).toHaveCount(8)
   await expect(rows(page).first()).toContainText('New customers')
   await expect(page.getByText('$1 = ₪3.0338 · €1 = ₪3.4594 · 2026-09-25')).toBeVisible()
+  await fitScreenToPage(page)
   await expect(page).toHaveScreenshot('ranked.png', { fullPage: true })
 })
 
@@ -93,4 +94,20 @@ test('the inputs and results, as text', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'the same on every device')
   await expect(page.locator('aside')).toMatchAriaSnapshot({ name: 'inputs.aria.yml' })
   await expect(page.locator('table')).toMatchAriaSnapshot({ name: 'results.aria.yml' })
+})
+
+test("a plan's fees paid open its breakdown", async ({ page }) => {
+  await page.getByRole('button', { name: /^Pepper fees: .*see what they went to$/ }).click()
+  await expect(page.getByRole('radio', { name: 'Breakdown' })).toBeChecked()
+  await expect(page.locator('h4', { hasText: 'Year by year' })).toContainText('Pepper')
+  await expect(rows(page).filter({ hasText: 'Pepper' })).toHaveClass(/pinned/)
+  await expect(page.locator('#chart')).toBeInViewport()
+})
+
+test('hovering a plan in the sidebar highlights it in the table', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'no hovering on touch screens')
+  await page.locator('aside li', { hasText: 'Pepper' }).hover()
+  await expect(rows(page).filter({ hasText: 'Pepper' })).toHaveClass(/highlighted/)
+  await page.mouse.move(0, 0)
+  await expect(rows(page).filter({ hasText: 'Pepper' })).not.toHaveClass(/highlighted/)
 })

@@ -59,6 +59,14 @@
           class="row"
           onmouseenter={(event) => showPreview(plan, event.currentTarget)}
           onmouseleave={() => (preview = null)}
+          onpointerenter={(event) => {
+            // Also stands out in the table and the chart. Mouse only: a tap
+            // would leave it standing out, with nothing to end the hover.
+            if (event.pointerType === 'mouse') app.hovered = plan.id
+          }}
+          onpointerleave={(event) => {
+            if (event.pointerType === 'mouse') app.hovered = null
+          }}
         >
           <label>
             <input

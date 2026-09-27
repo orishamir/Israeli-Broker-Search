@@ -3,6 +3,7 @@
   import Choices from './lib/Choices.svelte'
   import type { Choice } from './lib/core/core'
   import DetailsDialog from './lib/DetailsDialog.svelte'
+  import FeeBreakdown from './lib/FeeBreakdown.svelte'
   import GrowthChart from './lib/GrowthChart.svelte'
   import InputsPanel from './lib/InputsPanel.svelte'
   import ResultsTable from './lib/ResultsTable.svelte'
@@ -11,7 +12,7 @@
   const views: Choice<ChartView>[] = [
     {
       value: 'value',
-      name: 'Value over time',
+      name: 'Value',
       explanation: 'What each plan is worth, year by year, before selling.',
       hebrewNames: [],
     },
@@ -22,9 +23,17 @@
         'How much less each plan has than an account with no fees, year by year. Shows where plans overtake each other.',
       hebrewNames: [],
     },
+    {
+      value: 'breakdown',
+      name: 'Breakdown',
+      explanation: 'What each plan pays in fees, by kind, and how they pile up over the years.',
+      hebrewNames: [],
+    },
   ]
 
   const app = new AppState()
+  /** The line charts, rather than the fee breakdown. */
+  const lines = $derived(app.chartView !== 'breakdown')
   const best = $derived(
     // One that can be opened with these deposits.
     'results' in app.comparison
@@ -77,19 +86,25 @@
           </div>
         </section>
 
-        <section class="card">
+        <section class="card" id="chart">
           <div class="chart-bar">
             <Choices label="Chart" options={views} bind:value={app.chartView} />
             {#if app.pinned.size === 0}
-              <span class="hint mouse">Click a row or a line to pin it</span>
-              <span class="hint touch">Tap a row or a line to pin it</span>
+              <span class="hint mouse">Click a row or a {lines ? 'line' : 'bar'} to pin it</span>
+              <span class="hint touch">Tap a row or a {lines ? 'line' : 'bar'} to pin it</span>
             {:else}
               <button onclick={() => app.pinned.clear()}>Unpin all</button>
             {/if}
-            <span class="hint right mouse">Wheel: zoom years · Drag: move · R: reset</span>
-            <span class="hint right touch">Drag the slider's ends to zoom</span>
+            {#if lines}
+              <span class="hint right mouse">Wheel: zoom years · Drag: move · R: reset</span>
+              <span class="hint right touch">Drag the slider's ends to zoom</span>
+            {/if}
           </div>
-          <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
+          {#if lines}
+            <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
+          {:else}
+            <FeeBreakdown {app} results={app.comparison.results} />
+          {/if}
         </section>
       {/if}
     {/if}

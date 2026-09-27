@@ -2,7 +2,8 @@
   import type { AppState, Result } from './app.svelte'
   import type { OutcomeData } from './core/core'
   import { chart, type ChartOption } from './echarts.svelte'
-  import { compactShekels, shekels } from './format'
+  import { touchScreen } from './pointer'
+  import { compactShekels, readableOn, shekels } from './format'
   import type { ECharts } from 'echarts/core'
   import type { LineSeriesOption } from 'echarts/charts'
 
@@ -16,7 +17,7 @@
 
   /** Phones and tablets: pinching there zooms the page, not the chart, so
    * they get a slider to zoom and move with instead. */
-  const touch = matchMedia('(pointer: coarse)').matches
+  const touch = touchScreen
 
   /** [years, value] points, a month apart, from index 0 (the start). */
   const points = (values: number[]) => values.map((value, month) => [month / 12, value])
@@ -27,12 +28,6 @@
     const plural = (count: number, unit: string) => `${count} ${unit}${count === 1 ? '' : 's'}`
     const whole = plural(Math.floor(months / 12), 'year')
     return months % 12 === 0 ? `After ${whole}` : `After ${whole}, ${plural(months % 12, 'month')}`
-  }
-
-  /** Black or white, whichever reads better on `color` (a "#rrggbb"). */
-  function readableOn(color: string): string {
-    const [r, g, b] = [1, 3, 5].map((start) => parseInt(color.slice(start, start + 2), 16))
-    return 0.299 * r + 0.587 * g + 0.114 * b > 140 ? '#000' : '#fff'
   }
 
   /** Pinned plans, in table order: every other one gets its yearly values
@@ -59,8 +54,8 @@
           })
         : points(lost ? outcome.lostByMonth : outcome.valueByMonth),
       color: plan.color,
-      lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.25 : 1 },
-      itemStyle: { opacity: faded ? 0.25 : 1 },
+      lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1 },
+      itemStyle: { opacity: faded ? 0.4 : 1 },
       showSymbol: pinned,
       // Otherwise ECharts skips some of them on lines with many points.
       showAllSymbol: true,
@@ -77,7 +72,7 @@
         show: true,
         formatter: ({ value }) => compactShekels((value as number[])[1]),
         color: faded ? undefined : plan.color,
-        opacity: faded ? 0.4 : 1,
+        opacity: faded ? 0.6 : 1,
       },
       labelLayout: { moveOverlap: 'shiftY', hideOverlap: true },
       emphasis: { focus: 'series' },
@@ -179,6 +174,7 @@
       return id === 'no fees' ? undefined : id
     }
     instance.on('mouseover', 'series', ({ seriesIndex }) => {
+      if (touchScreen) return
       app.hovered = planAt(seriesIndex) ?? null
     })
     instance.on('mouseout', 'series', () => {
