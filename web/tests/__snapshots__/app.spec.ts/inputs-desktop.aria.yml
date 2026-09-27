@@ -1,0 +1,94 @@
+- complementary:
+  - heading "What you buy" [level=3]
+  - radiogroup "Security":
+    - radio "ETF" [checked]
+    - text: ETF
+    - radio "Mutual fund"
+    - text: Mutual fund
+    - radio "Bond"
+    - text: Bond
+    - radio "Stock"
+    - text: Stock
+  - term: In Hebrew
+  - definition: קרן סל
+  - term: Also called
+  - definition: קרן סל מחקה מדד קרן סל במסלול רציף
+  - paragraph: /A fund that holds many securities, such as the \d+ companies of the S&P \d+, and trades on the exchange all day like a share\./
+  - heading "Traded on" [level=3]
+  - radiogroup "Exchange":
+    - radio "Tel Aviv"
+    - text: Tel Aviv
+    - radio "USA" [checked]
+    - text: USA
+    - radio "Europe"
+    - text: Europe
+  - paragraph: NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which some brokers charge for.
+  - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+-\d+-\d+/
+  - heading "Deposits" [level=3]
+  - text: First deposit
+  - textbox "First deposit": /\d+,\d+/
+  - text: Every month
+  - textbox "Every month": /\d+,\d+/
+  - text: Buy every
+  - button "What “Buy every” means": "?"
+  - combobox "Buy every":
+    - option "month" [selected]
+    - option "2 months"
+    - option "3 months"
+    - option "6 months"
+    - option "year"
+  - heading "Expectations" [level=3]
+  - text: Yearly return
+  - button "What “Yearly return” means": "?"
+  - textbox "Yearly return": /\d+/
+  - text: Years
+  - slider "Years": /\d+/
+  - status: /\d+/
+  - text: Share price
+  - button "What “Share price” means": "?"
+  - textbox "Share price": /\d+/
+  - heading "Brokers to compare" [level=3]
+  - checkbox "Altshuler Shaham Trade" [checked]
+  - text: Altshuler Shaham Trade
+  - button "Caveats about Altshuler Shaham Trade": ⚠
+  - button "About Altshuler Shaham Trade": ℹ
+  - paragraph: Tariff date not stated
+  - list:
+    - listitem:
+      - checkbox "US 1¢/share" [checked]
+      - text: US 1¢/share
+      - button "About US 1¢/share": ℹ
+    - listitem:
+      - checkbox /US \$\d+ flat/ [checked]
+      - text: /US \$\d+ flat/
+      - button /About US \$\d+ flat/: ℹ
+    - listitem:
+      - checkbox /US \d+\.\d+%/ [checked]
+      - text: /US \d+\.\d+%/
+      - button /About US \d+\.\d+%/: ℹ
+    - listitem:
+      - checkbox "New customers" [checked]
+      - text: New customers
+      - button "About New customers": ℹ
+  - checkbox "Bank Leumi" [checked]
+  - text: Bank Leumi
+  - button "Caveats about Bank Leumi": ⚠
+  - button "About Bank Leumi": ℹ
+  - paragraph: /Tariff of \d+\/\d+\/\d+/
+  - list:
+    - listitem:
+      - checkbox "Online" [checked]
+      - text: Online
+      - button "About Online": ℹ
+    - listitem:
+      - checkbox /Online, 'Leumi \d+\+'/ [checked]
+      - text: /Online, 'Leumi \d+\+'/
+      - button /About Online, 'Leumi \d+\+'/: ℹ
+    - listitem:
+      - checkbox "Online, monthly standing order" [checked]
+      - text: Online, monthly standing order
+      - button "About Online, monthly standing order": ℹ
+    - listitem:
+      - checkbox "Pepper" [checked]
+      - text: Pepper
+      - button "About Pepper": ℹ

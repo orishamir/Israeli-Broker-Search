@@ -1,0 +1,20 @@
+[package]
+name = "broker-fees-wasm"
+description = "The core's API for the web app, compiled to WebAssembly."
+version.workspace = true
+edition.workspace = true
+
+[lib]
+# cdylib for WebAssembly; rlib so `cargo test` can call it natively.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+broker-fees = { workspace = true, features = ["ts"] }
+rust_decimal.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tsify.workspace = true
+wasm-bindgen.workspace = true
+
+[lints]
+workspace = true

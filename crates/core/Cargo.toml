@@ -1,0 +1,27 @@
+[package]
+name = "broker-fees"
+description = "Israeli brokers' tariffs, and a simulation of what they cost an investor over the years."
+version.workspace = true
+edition.workspace = true
+
+[features]
+# TypeScript types for the types the web app's WebAssembly API uses.
+ts = ["dep:tsify", "dep:wasm-bindgen"]
+
+[dependencies]
+rusty-money.workspace = true
+rust_decimal.workspace = true
+rust_decimal_macros.workspace = true
+serde.workspace = true
+time.workspace = true
+tsify = { workspace = true, optional = true }
+wasm-bindgen = { workspace = true, optional = true }
+thiserror.workspace = true
+strum.workspace = true
+derive_more.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

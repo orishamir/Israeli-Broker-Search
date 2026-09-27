@@ -1,0 +1,24 @@
+[package]
+name = "broker-fees-desktop"
+description = "The egui desktop app. Temporary: replaced by the web app in web/."
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "broker-fees"
+path = "src/main.rs"
+
+[dependencies]
+broker-fees.workspace = true
+rusty-money.workspace = true
+rust_decimal.workspace = true
+eframe = "0.36.2"
+egui_extras = { version = "0.36", default-features = false } # only for TableBuilder
+egui_plot = "0.37.0"
+# Only for downloading the ECB's rates; the core no longer uses it.
+money2 = "1.4.0"
+poll-promise = "0.3"
+tokio = { version = "1.53.1", features = ["rt"] }
+
+[lints]
+workspace = true

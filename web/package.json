@@ -1,0 +1,42 @@
+{
+  "name": "broker-fees-web",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "wasm": "wasm-pack build ../crates/wasm --target web --out-dir ../../web/src/lib/core --out-name core",
+    "dev": "npm run wasm -- --dev && vite --host 0.0.0.0",
+    "build": "npm run wasm && vite build",
+    "preview": "vite preview",
+    "check": "svelte-check --tsconfig ./tsconfig.app.json && tsc -p tsconfig.node.json",
+    "test": "playwright test",
+    "lint": "prettier --check . && eslint . && stylelint \"src/**/*.{css,svelte}\" && npm run check",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@sveltejs/vite-plugin-svelte": "^7.3.0",
+    "@tsconfig/svelte": "^5.0.8",
+    "@types/node": "^24.13.3",
+    "eslint": "^10.11.0",
+    "eslint-plugin-svelte": "^3.23.0",
+    "globals": "^17.12.0",
+    "postcss-html": "^2.0.0",
+    "prettier": "^3.9.9",
+    "prettier-plugin-svelte": "^4.1.1",
+    "stylelint": "^17.15.0",
+    "stylelint-config-recommended": "^18.0.0",
+    "stylelint-plugin-use-baseline": "^1.4.6",
+    "svelte": "^5.57.0",
+    "svelte-check": "^4.7.6",
+    "typescript": "~6.0.2",
+    "typescript-eslint": "^8.70.1",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "@floating-ui/dom": "^1.8.0",
+    "echarts": "^6.1.0",
+    "modern-normalize": "^3.0.1"
+  }
+}
