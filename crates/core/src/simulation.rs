@@ -101,11 +101,6 @@ impl Outcome {
         no_fees.after_selling - self.after_selling
     }
 
-    /// What the investment is worth at the start and at the end of each year.
-    pub fn value_by_year(&self) -> impl Iterator<Item = Decimal> + '_ {
-        self.value_by_month.iter().copied().step_by(12)
-    }
-
     /// How much less this investment is worth than `no_fees`, at the start
     /// and at the end of each month.
     pub fn lost_by_month<'a>(&'a self, no_fees: &'a Outcome) -> impl Iterator<Item = Decimal> + 'a {
@@ -381,7 +376,7 @@ mod tests {
     #[test]
     fn no_fees_no_growth_keeps_every_deposit() {
         let outcome = simulate(&free_plan(), &scenario(), &rates()).unwrap();
-        let by_year: Vec<_> = outcome.value_by_year().collect();
+        let by_year: Vec<_> = outcome.value_by_month.iter().copied().step_by(12).collect();
         assert_eq!(by_year, [dec!(10000), dec!(22000), dec!(34000)]);
         assert_eq!(outcome.value_by_month.len(), 2 * 12 + 1);
         assert_eq!(outcome.after_selling, dec!(34000));
