@@ -10,7 +10,6 @@ mod gui {
 }
 
 use std::collections::HashSet;
-use std::sync::mpsc::{self, Receiver};
 
 use broker_fees::simulation::{self, Outcome, Scenario};
 use broker_fees::{Broker, Exchange, Security, exchange_rates, tariffs};
@@ -19,6 +18,7 @@ use gui::chart::{ChartState, ChartView, growth_chart};
 use gui::table::results_table;
 use gui::widgets::{colored_checkbox, rate_input, section, shekel_input, shekels, to_f64};
 use money2::{Currency, ExchangeRates};
+use poll_promise::Promise;
 use rust_decimal::Decimal;
 
 fn main() -> eframe::Result {
@@ -107,11 +107,11 @@ struct RatesInput {
     ils_per_usd: f64,
     ils_per_eur: f64,
     status: RatesStatus,
-    download: Option<Receiver<Result<(f64, f64), String>>>,
 }
 
 enum RatesStatus {
-    Downloading,
+    /// Gives (₪ per $, ₪ per €) or an error message when done.
+    Downloading(Promise<Result<(f64, f64), String>>),
     Downloaded,
     Failed(String),
 }
@@ -146,10 +146,9 @@ impl App {
             rates: RatesInput {
                 ils_per_usd: 3.7,
                 ils_per_eur: 4.3,
-                status: RatesStatus::Downloading,
-                download: Some(download_rates(ctx.clone())),
+                status: RatesStatus::Downloading(download_rates(ctx.clone())),
             },
-            chart: ChartState::new(),
+            chart: ChartState::default(),
             pinned_plans: HashSet::new(),
             hovered_plan: None,
         }
@@ -157,21 +156,20 @@ impl App {
 
     /// Picks up the downloaded rates once they arrive.
     fn check_rates_download(&mut self) {
-        let Some(download) = &self.rates.download else {
+        let RatesStatus::Downloading(download) = &self.rates.status else {
             return;
         };
-        let Ok(result) = download.try_recv() else {
+        let Some(result) = download.ready() else {
             return; // still downloading
         };
-        match result {
+        self.rates.status = match result.clone() {
             Ok((ils_per_usd, ils_per_eur)) => {
                 self.rates.ils_per_usd = ils_per_usd;
                 self.rates.ils_per_eur = ils_per_eur;
-                self.rates.status = RatesStatus::Downloaded;
+                RatesStatus::Downloaded
             }
-            Err(error) => self.rates.status = RatesStatus::Failed(error),
-        }
-        self.rates.download = None;
+            Err(error) => RatesStatus::Failed(error),
+        };
     }
 
     fn scenario(&self) -> Scenario {
@@ -232,8 +230,11 @@ impl App {
         if ctx.egui_wants_keyboard_input() {
             return;
         }
-        if ctx.input(|input| input.key_pressed(egui::Key::R) || input.key_pressed(egui::Key::Home))
-        {
+        let no_modifiers = egui::Modifiers::NONE;
+        if ctx.input_mut(|input| {
+            input.consume_key(no_modifiers, egui::Key::R)
+                || input.consume_key(no_modifiers, egui::Key::Home)
+        }) {
             self.chart.reset_zoom();
         }
     }
@@ -243,8 +244,9 @@ impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.check_rates_download();
         self.handle_shortcuts(ui.ctx());
+        let last_hovered = self.hovered_plan.take();
         let mut highlighted = self.pinned_plans.clone();
-        highlighted.extend(self.hovered_plan.take());
+        highlighted.extend(last_hovered);
 
         egui::Panel::left("inputs")
             .resizable(false)
@@ -254,6 +256,12 @@ impl eframe::App for App {
             });
 
         egui::CentralPanel::default().show(ui, |ui| self.results_ui(ui, &highlighted));
+
+        // The hover found this frame is drawn next frame; don't wait for the
+        // mouse to move again to draw it.
+        if self.hovered_plan != last_hovered {
+            ui.ctx().request_repaint();
+        }
     }
 }
 
@@ -396,7 +404,7 @@ impl App {
             });
 
         let status = match &self.rates.status {
-            RatesStatus::Downloading => "Downloading today's rates…".to_owned(),
+            RatesStatus::Downloading(_) => "Downloading today's rates…".to_owned(),
             RatesStatus::Downloaded => "Today's European Central Bank rates.".to_owned(),
             RatesStatus::Failed(error) => {
                 format!("Couldn't download today's rates ({error}). Check these defaults.")
@@ -561,31 +569,31 @@ fn use_font_with_shekel_sign(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
 }
 
-/// Downloads today's rates on a background thread. The receiver gets
-/// (₪ per $, ₪ per €) or an error message.
-fn download_rates(ctx: egui::Context) -> Receiver<Result<(f64, f64), String>> {
-    let (sender, receiver) = mpsc::channel();
+/// Downloads today's rates on a background thread.
+fn download_rates(ctx: egui::Context) -> Promise<Result<(f64, f64), String>> {
+    let (sender, promise) = Promise::new();
     std::thread::spawn(move || {
-        let result = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| e.to_string())
-            .and_then(|runtime| {
-                runtime
-                    .block_on(ExchangeRates::new())
-                    .map_err(|e| e.to_string())
-            })
-            .and_then(|rates| {
-                let ils_per = |currency| {
-                    rates
-                        .get(&currency, &Currency::Ils)
-                        .map(to_f64)
-                        .ok_or("the ECB's rates are missing the shekel".to_owned())
-                };
-                Ok((ils_per(Currency::Usd)?, ils_per(Currency::Eur)?))
-            });
-        let _ = sender.send(result);
+        sender.send(fetch_rates());
         ctx.request_repaint(); // so the window shows the new rates right away
     });
-    receiver
+    promise
+}
+
+/// (₪ per $, ₪ per €) from the European Central Bank.
+fn fetch_rates() -> Result<(f64, f64), String> {
+    // money2 downloads with reqwest, which needs a tokio runtime.
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|e| e.to_string())?;
+    let rates = runtime
+        .block_on(ExchangeRates::new())
+        .map_err(|e| e.to_string())?;
+    let ils_per = |currency| {
+        rates
+            .get(&currency, &Currency::Ils)
+            .map(to_f64)
+            .ok_or("the ECB's rates are missing the shekel")
+    };
+    Ok((ils_per(Currency::Usd)?, ils_per(Currency::Eur)?))
 }

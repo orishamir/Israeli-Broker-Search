@@ -4,16 +4,15 @@
 use std::collections::HashSet;
 
 use broker_fees::simulation::Outcome;
-use eframe::egui::{self, RichText};
+use eframe::egui::{self, Align, Layout, RichText};
+use egui_extras::{Column, TableBuilder, TableRow};
 use rust_decimal::Decimal;
 
 use super::widgets::{color_mark, shekels, to_f64};
 use crate::{PlanInteraction, PlanKey, PlanResult};
 
-/// Wide enough for a two-digit rank.
-const RANK_WIDTH: f32 = 20.0;
-
-/// `results` must be sorted best first.
+/// `results` must be sorted best first. Rows can be hovered and clicked as a
+/// whole; highlighted plans get a tint of their own color.
 pub fn results_table(
     ui: &mut egui::Ui,
     no_fees: &Outcome,
@@ -21,141 +20,136 @@ pub fn results_table(
     highlighted: &HashSet<PlanKey>,
 ) -> PlanInteraction {
     let mut interaction = PlanInteraction::default();
-    egui::Grid::new("results")
-        .striped(true)
-        .spacing([20.0, 6.0])
-        .show(ui, |ui| {
-            header_row(ui);
-            for (index, result) in results.iter().enumerate() {
-                let rank = result.outcome.is_some().then_some(index + 1);
-                let row = plan_row(ui, rank, result, no_fees, highlighted);
-                interaction.hovered = interaction.hovered.or(row.hovered);
-                interaction.clicked = interaction.clicked.or(row.clicked);
-            }
-        });
+    let row_height = ui.text_style_height(&egui::TextStyle::Body) + 8.0;
+
+    ui.scope(|ui| {
+        // Selectable text would take the mouse from the rows it's in.
+        ui.style_mut().interaction.selectable_labels = false;
+
+        TableBuilder::new(ui)
+            .id_salt("results")
+            .striped(true)
+            .sense(egui::Sense::click())
+            .vscroll(false)
+            .cell_layout(Layout::left_to_right(Align::Center))
+            .column(Column::exact(20.0)) // rank
+            .columns(Column::auto(), 2) // broker, plan
+            .columns(Column::auto().at_least(100.0), 4) // amounts
+            .header(row_height, header_row)
+            .body(|mut body| {
+                for (index, result) in results.iter().enumerate() {
+                    // A highlighted row is drawn as "selected", in the plan's
+                    // color rather than the theme's selection color.
+                    let visuals = body.ui_mut().visuals_mut();
+                    visuals.selection.bg_fill = result.color.gamma_multiply(0.25);
+                    visuals.selection.stroke.color = visuals.text_color();
+
+                    body.row(row_height, |mut row| {
+                        row.set_selected(highlighted.contains(&result.key));
+                        plan_row(&mut row, index + 1, result, no_fees);
+
+                        let response = row.response();
+                        if response.hovered() {
+                            interaction.hovered = Some(result.key);
+                            response.ctx.set_cursor_icon(egui::CursorIcon::PointingHand);
+                        }
+                        if response.clicked() {
+                            interaction.clicked = Some(result.key);
+                        }
+                    });
+                }
+            });
+    });
     interaction
 }
 
-fn header_row(ui: &mut egui::Ui) {
-    // The rank shares the broker's cell, so it doesn't get a whole column's spacing.
-    ui.horizontal(|ui| {
-        rank_label(ui, RichText::new("#").strong());
+fn header_row(mut header: TableRow<'_, '_>) {
+    header.col(|ui| {
+        ui.strong("#");
+    });
+    header.col(|ui| {
         ui.strong("Broker");
     });
-    ui.strong("Plan");
-    ui.strong("Value held")
-        .on_hover_text("What the investment is worth at the end, without selling.");
-    ui.strong("Value if sold").on_hover_text(
-        "What you'd get in shekels by selling everything at the end, \
-         after the sell fee and converting back. Before tax.",
-    );
-    ui.strong("Fees paid").on_hover_text(
-        "Every fee charged while investing: purchases, conversions, custody. \
-         Not including selling.",
-    );
-    ui.strong("Lost to fees").on_hover_text(
-        "How much less you end up with than with no fees at all, after \
-         selling. Bigger than the fees paid, because money paid in fees \
-         stops growing.",
-    );
-    ui.end_row();
-}
-
-/// One plan's row. `rank` is `None` for plans that don't offer the trade.
-/// The whole row can be hovered and clicked, not just its text.
-fn plan_row(
-    ui: &mut egui::Ui,
-    rank: Option<usize>,
-    result: &PlanResult,
-    no_fees: &Outcome,
-    highlighted: &HashSet<PlanKey>,
-) -> PlanInteraction {
-    // Filled in once the row's size is known, but drawn behind it.
-    let background = ui.painter().add(egui::Shape::Noop);
-    let offered = result.outcome.is_some();
-    let weak_unless_offered = |text: &str| {
-        let text = RichText::new(text);
-        if offered { text } else { text.weak() }
-    };
-
-    let rank = rank.map_or("–".to_owned(), |rank| rank.to_string());
-    let mut cells = vec![
-        ui.horizontal(|ui| {
-            rank_label(ui, weak_unless_offered(&rank));
-            ui.label(weak_unless_offered(&result.broker_name).weak());
-        })
-        .response,
+    header.col(|ui| {
+        ui.strong("Plan");
+    });
+    let amounts = [
+        (
+            "Value held",
+            "What the investment is worth at the end, without selling.",
+        ),
+        (
+            "Value if sold",
+            "What you'd get in shekels by selling everything at the end, \
+             after the sell fee and converting back. Before tax.",
+        ),
+        (
+            "Fees paid",
+            "Every fee charged while investing: purchases, conversions, custody. \
+             Not including selling.",
+        ),
+        (
+            "Lost to fees",
+            "How much less you end up with than with no fees at all, after \
+             selling. Bigger than the fees paid, because money paid in fees \
+             stops growing.",
+        ),
     ];
-    let mark_color = if offered {
-        result.color
-    } else {
-        result.color.gamma_multiply(0.3)
-    };
-    // Bold rather than colored, so it isn't mistaken for a plan's color.
-    let is_best = rank == "1";
-    let plan_name = weak_unless_offered(&result.plan_name);
-    cells.push(
-        ui.horizontal(|ui| {
-            color_mark(ui, mark_color);
-            ui.label(if is_best {
-                plan_name.strong()
-            } else {
-                plan_name
-            });
-        })
-        .response,
-    );
+    for (title, explanation) in amounts {
+        header.col(|ui| {
+            right_aligned(ui, |ui| ui.strong(title).on_hover_text(explanation));
+        });
+    }
+}
 
+/// Plans that don't offer the trade are greyed out, without a rank or amounts.
+fn plan_row(row: &mut TableRow<'_, '_>, rank: usize, result: &PlanResult, no_fees: &Outcome) {
     let Some(outcome) = &result.outcome else {
-        ui.label(RichText::new("doesn't offer this security on this exchange").weak());
-        ui.end_row();
-        return PlanInteraction::default();
+        row.col(|ui| {
+            ui.weak("–");
+        });
+        row.col(|ui| {
+            ui.weak(&result.broker_name);
+        });
+        row.col(|ui| {
+            color_mark(ui, result.color.gamma_multiply(0.3));
+            ui.weak(&result.plan_name)
+                .on_hover_text("Doesn't offer this security on this exchange.");
+        });
+        for _ in 0..4 {
+            row.col(|ui| {
+                right_aligned(ui, |ui| ui.weak("–"));
+            });
+        }
+        return;
     };
-    cells.push(amount_cell(ui, outcome.held));
-    cells.push(amount_cell(ui, outcome.after_selling));
-    cells.push(amount_cell(ui, outcome.fees_paid));
-    cells.push(amount_cell(
-        ui,
+
+    row.col(|ui| {
+        ui.label(rank.to_string());
+    });
+    row.col(|ui| {
+        ui.weak(&result.broker_name);
+    });
+    row.col(|ui| {
+        color_mark(ui, result.color);
+        // Bold rather than colored, so it isn't mistaken for a plan's color.
+        let name = RichText::new(&result.plan_name);
+        ui.label(if rank == 1 { name.strong() } else { name });
+    });
+    for amount in [
+        outcome.held,
+        outcome.after_selling,
+        outcome.fees_paid,
         no_fees.after_selling - outcome.after_selling,
-    ));
-    ui.end_row();
-
-    let row_rect = cells
-        .iter()
-        .map(|cell| cell.rect)
-        .reduce(|row, cell| row.union(cell))
-        .expect("a row has cells")
-        .expand2(egui::vec2(8.0, 2.0));
-    let row = ui.interact(
-        row_rect,
-        egui::Id::new(("result row", result.key)),
-        egui::Sense::click(),
-    );
-
-    let mut interaction = PlanInteraction::default();
-    if row.hovered() {
-        interaction.hovered = Some(result.key);
-        ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+    ] {
+        row.col(|ui| amount_cell(ui, amount));
     }
-    if row.clicked() {
-        interaction.clicked = Some(result.key);
-    }
-    if highlighted.contains(&result.key) {
-        ui.painter().set(
-            background,
-            egui::Shape::rect_filled(row_rect, 3.0, result.color.gamma_multiply(0.25)),
-        );
-    }
-    interaction
 }
 
-/// A label padded to `RANK_WIDTH`, so the broker names after it line up.
-fn rank_label(ui: &mut egui::Ui, text: RichText) {
-    let width = ui.label(text).rect.width();
-    ui.add_space((RANK_WIDTH - width - ui.spacing().item_spacing.x).max(0.0));
+fn amount_cell(ui: &mut egui::Ui, amount: Decimal) {
+    right_aligned(ui, |ui| ui.label(shekels(to_f64(amount))));
 }
 
-/// Padded in a monospace font, so columns of numbers line up on the right.
-fn amount_cell(ui: &mut egui::Ui, amount: Decimal) -> egui::Response {
-    ui.monospace(format!("{:>12}", shekels(to_f64(amount))))
+fn right_aligned<R>(ui: &mut egui::Ui, add_contents: impl FnOnce(&mut egui::Ui) -> R) {
+    ui.with_layout(Layout::right_to_left(Align::Center), add_contents);
 }

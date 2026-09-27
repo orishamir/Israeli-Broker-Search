@@ -1,9 +1,10 @@
 //! The chart under the results table: one line per plan over the years, with
 //! values written on it so they can be read without hovering.
 //!
-//! The chart handles the mouse itself instead of using egui_plot's built-in
-//! zoom: the wheel zooms the years only, and the value axis always fits the
-//! lines in view, so zooming can't end up in empty space.
+//! The chart handles the mouse itself instead of using `egui_plot`'s built-in
+//! zoom, which needs Ctrl held down and can't keep the view within the years
+//! simulated. Here the plain wheel zooms the years only, and the value axis
+//! always fits the lines in view, so zooming can't end up in empty space.
 
 use std::collections::HashSet;
 
@@ -14,8 +15,9 @@ use egui_plot::{Line, LineStyle, Plot, PlotPoint, PlotTransform};
 use super::widgets::{compact_shekels, readable_on, shekels, to_f64};
 use crate::{PlanInteraction, PlanKey, PlanResult};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ChartView {
+    #[default]
     Value,
     /// How much less each plan has than a zero-fee account, year by year.
     /// Spreads the lines apart, since the differences are small next to the
@@ -24,63 +26,16 @@ pub enum ChartView {
 }
 
 /// What the chart shows, kept between frames.
+#[derive(Default)]
 pub struct ChartState {
     pub view: ChartView,
     /// The years in view. `None` shows them all.
     zoom: Option<YearRange>,
-    /// The value axis as drawn last frame. It eases towards the range that
-    /// fits the lines instead of jumping there, so moving the view is smooth.
-    value_axis: Option<ValueAxis>,
-}
-
-#[derive(Debug, Clone, Copy)]
-struct ValueAxis {
-    /// The view it was drawn for: switching views jumps rather than eases.
-    view: ChartView,
-    min: f64,
-    max: f64,
 }
 
 impl ChartState {
-    pub fn new() -> Self {
-        Self {
-            view: ChartView::Value,
-            zoom: None,
-            value_axis: None,
-        }
-    }
-
     pub fn reset_zoom(&mut self) {
         self.zoom = None;
-    }
-
-    /// Moves the value axis part of the way from last frame's range towards
-    /// `target`, and asks for another frame until it gets there.
-    fn ease_value_axis(&mut self, target: (f64, f64), ctx: &egui::Context) -> (f64, f64) {
-        let (min, max) = match self.value_axis {
-            Some(axis) if axis.view == self.view => {
-                // About 90% of the way in 0.05 seconds, whatever the frame
-                // rate. Slower feels like the zoom is being held back.
-                let seconds = f64::from(ctx.input(|input| input.stable_dt));
-                let step = 1.0 - (-VALUE_AXIS_EASING * seconds).exp();
-                let min = axis.min + (target.0 - axis.min) * step;
-                let max = axis.max + (target.1 - axis.max) * step;
-                let tolerance = (target.1 - target.0).abs() * 0.001;
-                if (min - target.0).abs() < tolerance && (max - target.1).abs() < tolerance {
-                    target
-                } else {
-                    ctx.request_repaint();
-                    (min, max)
-                }
-            }
-            _ => target,
-        };
-        self.value_axis = Some(ValueAxis {
-            view: self.view,
-            min,
-            max,
-        });
-        (min, max)
     }
 }
 
@@ -122,9 +77,9 @@ impl YearRange {
     }
 }
 
-/// How fast the value axis follows the lines as the view moves, per second.
-/// Higher is snappier; lower is softer but lags behind the zoom.
-const VALUE_AXIS_EASING: f64 = 45.0;
+/// Seconds the value axis takes to follow the lines as the view moves, so it
+/// doesn't jump. Longer feels like the zoom is being held back.
+const VALUE_AXIS_ANIMATION: f32 = 0.05;
 
 /// Room to the right of the chart for the values at the lines' ends.
 const END_LABELS_WIDTH: f32 = 64.0;
@@ -160,10 +115,16 @@ pub fn growth_chart(
         value_min
     };
     let value_padding = ((value_max - value_min) * 0.05).max(1.0);
-    let (axis_min, axis_max) = state.ease_value_axis(
-        (value_min - value_padding, value_max + value_padding),
-        ui.ctx(),
-    );
+    // Each view animates separately, so switching views jumps rather than slides.
+    let animate = |end: &str, target: f64| {
+        let id = egui::Id::new(("value axis", end, state.view));
+        f64::from(
+            ui.ctx()
+                .animate_value_with_time(id, target as f32, VALUE_AXIS_ANIMATION),
+        )
+    };
+    let axis_min = animate("min", value_min - value_padding);
+    let axis_max = animate("max", value_max + value_padding);
     let year_padding = visible.width() * 0.01;
 
     let chart_width = ui.available_width() - END_LABELS_WIDTH;
@@ -328,15 +289,16 @@ fn plot_line(line: &ChartLine) -> Line<'static> {
         .enumerate()
         .map(|(year, value)| [year as f64, *value])
         .collect();
-    let plot_line = Line::new(line.name.clone(), points)
+    let is_no_fees_line = line.key.is_none();
+    Line::new(line.name.clone(), points)
         .id(egui::Id::new(line.key))
         .color(line.color)
-        .width(if line.highlighted { 3.5 } else { 2.0 });
-    if line.key.is_none() {
-        plot_line.style(LineStyle::dashed_loose())
-    } else {
-        plot_line
-    }
+        .width(if line.highlighted { 3.5 } else { 2.0 })
+        .style(if is_no_fees_line {
+            LineStyle::dashed_loose()
+        } else {
+            LineStyle::Solid
+        })
 }
 
 /// The lowest and highest value of any line within `years`. Uses the lines'

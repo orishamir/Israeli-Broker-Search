@@ -15,48 +15,34 @@ pub fn section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut eg
     ui.add_space(12.0);
 }
 
-/// A checkbox drawn in a plan's chart color: filled and ticked when checked,
-/// just an outline when not. Clicking the text toggles it too.
+/// egui's own checkbox, drawn in a plan's chart color: filled when checked,
+/// just an outline when not.
 pub fn colored_checkbox(
     ui: &mut egui::Ui,
     checked: &mut bool,
     text: &str,
     color: Color32,
 ) -> egui::Response {
-    ui.horizontal(|ui| {
-        let (rect, box_response) =
-            ui.allocate_exact_size(egui::vec2(15.0, 15.0), egui::Sense::click());
-        let label_response = ui.add(egui::Label::new(text).sense(egui::Sense::click()));
-        let response = box_response | label_response;
-
-        if response.clicked() {
-            *checked = !*checked;
+    ui.scope(|ui| {
+        let visuals = ui.visuals_mut();
+        // The checkbox takes its label's color from the same setting as its
+        // tick, so keep the label in the normal text color.
+        visuals.override_text_color = Some(visuals.text_color());
+        let widgets = &mut visuals.widgets;
+        for state in [
+            &mut widgets.inactive,
+            &mut widgets.hovered,
+            &mut widgets.active,
+        ] {
+            state.bg_fill = if *checked {
+                color
+            } else {
+                Color32::TRANSPARENT
+            };
+            state.bg_stroke = egui::Stroke::new(1.5, color);
+            state.fg_stroke.color = readable_on(color); // the tick
         }
-        if response.hovered() {
-            ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-        }
-
-        let painter = ui.painter();
-        if *checked {
-            painter.rect_filled(rect, 3.0, color);
-            let tick = rect.shrink(3.5);
-            painter.line(
-                vec![
-                    egui::pos2(tick.left(), tick.center().y),
-                    egui::pos2(tick.center().x - 1.0, tick.bottom()),
-                    egui::pos2(tick.right(), tick.top()),
-                ],
-                egui::Stroke::new(2.0, readable_on(color)),
-            );
-        } else {
-            painter.rect_stroke(
-                rect,
-                3.0,
-                egui::Stroke::new(1.5, color),
-                egui::StrokeKind::Inside,
-            );
-        }
-        response
+        ui.checkbox(checked, text)
     })
     .inner
 }
@@ -69,9 +55,7 @@ pub fn color_mark(ui: &mut egui::Ui, color: Color32) {
 
 /// Black or white, whichever is easier to read on `background`.
 pub fn readable_on(background: Color32) -> Color32 {
-    let [r, g, b, _] = background.to_array();
-    let brightness = 0.299 * f32::from(r) + 0.587 * f32::from(g) + 0.114 * f32::from(b);
-    if brightness > 140.0 {
+    if background.intensity() > 0.55 {
         Color32::BLACK
     } else {
         Color32::WHITE
@@ -122,7 +106,7 @@ fn with_commas(number: u64) -> String {
     let digits = number.to_string();
     let mut grouped = String::new();
     for (i, digit) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
+        if i > 0 && (digits.len() - i).is_multiple_of(3) {
             grouped.push(',');
         }
         grouped.push(digit);

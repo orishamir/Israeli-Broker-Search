@@ -1,12 +1,14 @@
 [package]
-name = "broker_fees"
+name = "broker-fees"
 version = "0.1.0"
 edition = "2024"
 
 [dependencies]
 eframe = "0.36.2"
+egui_extras = { version = "0.36", default-features = false } # only for TableBuilder
 egui_plot = "0.37.0"
 money2 = { version = "1.4.0", features = ["serde"] }
+poll-promise = "0.3"
 rust_decimal = { version = "1.43.0", features = ["serde-with-str"] }
 rust_decimal_macros = "1.40.0"
 serde = { version = "1.0.229", features = ["derive"] }

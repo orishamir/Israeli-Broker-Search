@@ -179,15 +179,11 @@ fn sell(
 }
 
 fn trade(scenario: &Scenario, value: Decimal, share_price: Decimal) -> Trade {
-    let shares = if share_price > Decimal::ZERO {
-        value / share_price
-    } else {
-        Decimal::ZERO
-    };
     Trade {
         security: scenario.security,
         exchange: scenario.exchange,
-        shares,
+        // No share price (zero) means no shares, rather than dividing by zero.
+        shares: value.checked_div(share_price).unwrap_or_default(),
         value: money(value, scenario.exchange.currency()),
     }
 }
