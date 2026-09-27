@@ -1,16 +1,25 @@
 //! A window for comparing what each broker's fees do to an investment over the
-//! years. The numbers come from `broker_fees::simulation`; this file is only
-//! the user interface.
+//! years. The numbers come from `broker_fees::simulation`; this binary is only
+//! the user interface. This file has the app's state and the sidebar; the
+//! results table and chart are in `src/gui/`.
 
+mod gui {
+    pub mod chart;
+    pub mod table;
+    pub mod widgets;
+}
+
+use std::collections::HashSet;
 use std::sync::mpsc::{self, Receiver};
 
 use broker_fees::simulation::{self, Outcome, Scenario};
 use broker_fees::{Broker, Exchange, Security, exchange_rates, tariffs};
 use eframe::egui::{self, Color32, RichText};
-use egui_plot::{Legend, Line, LineStyle, Plot};
+use gui::chart::{ChartState, ChartView, growth_chart};
+use gui::table::results_table;
+use gui::widgets::{colored_checkbox, rate_input, section, shekel_input, shekels, to_f64};
 use money2::{Currency, ExchangeRates};
 use rust_decimal::Decimal;
-use rust_decimal::prelude::ToPrimitive;
 
 fn main() -> eframe::Result {
     let options = eframe::NativeOptions {
@@ -30,6 +39,28 @@ struct App {
     inputs: Inputs,
     brokers: Vec<BrokerChoice>,
     rates: RatesInput,
+    chart: ChartState,
+    /// Plans the user clicked in the table or the chart. They stay
+    /// highlighted until clicked again.
+    pinned_plans: HashSet<PlanKey>,
+    /// The plan under the mouse, in the sidebar, the table or the chart.
+    /// Highlighted like the pinned plans while the mouse is there. Found while
+    /// drawing a frame, so it takes effect on the next one.
+    hovered_plan: Option<PlanKey>,
+}
+
+/// What the mouse did to the plans in the table or the chart.
+#[derive(Default)]
+struct PlanInteraction {
+    hovered: Option<PlanKey>,
+    clicked: Option<PlanKey>,
+}
+
+/// Which plan of which broker, by position in `App::brokers`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+struct PlanKey {
+    broker: usize,
+    plan: usize,
 }
 
 /// The user's inputs, as the widgets edit them.
@@ -47,8 +78,28 @@ struct Inputs {
 
 struct BrokerChoice {
     broker: Broker,
-    selected: bool,
+    /// One per plan, in the same order as `broker.plans`.
+    plans: Vec<PlanChoice>,
 }
+
+struct PlanChoice {
+    selected: bool,
+    /// The plan's line in the chart, and its swatch next to the checkbox.
+    color: Color32,
+}
+
+/// The Okabe-Ito palette: distinguishable with color blindness, and readable
+/// on both dark and light backgrounds.
+const PLAN_COLORS: [Color32; 8] = [
+    Color32::from_rgb(86, 180, 233),
+    Color32::from_rgb(230, 159, 0),
+    Color32::from_rgb(0, 158, 115),
+    Color32::from_rgb(204, 121, 167),
+    Color32::from_rgb(240, 228, 66),
+    Color32::from_rgb(213, 94, 0),
+    Color32::from_rgb(0, 114, 178),
+    Color32::from_rgb(170, 120, 255),
+];
 
 /// Shekel prices of a dollar and a euro. Start as defaults, get replaced by
 /// the ECB's rates once they download, and the user can edit them any time.
@@ -67,7 +118,12 @@ enum RatesStatus {
 
 /// One plan's result, ready to display.
 struct PlanResult {
+    key: PlanKey,
+    broker_name: String,
+    plan_name: String,
+    /// "Broker – Plan"
     name: String,
+    color: Color32,
     /// `None` if the plan has no price for the chosen security and exchange.
     outcome: Option<Outcome>,
 }
@@ -86,19 +142,16 @@ impl App {
                 buy_every_months: 1,
                 share_price: 500.0,
             },
-            brokers: [tariffs::altshuler(), tariffs::leumi()]
-                .into_iter()
-                .map(|broker| BrokerChoice {
-                    broker,
-                    selected: true,
-                })
-                .collect(),
+            brokers: broker_choices(vec![tariffs::altshuler(), tariffs::leumi()]),
             rates: RatesInput {
                 ils_per_usd: 3.7,
                 ils_per_eur: 4.3,
                 status: RatesStatus::Downloading,
                 download: Some(download_rates(ctx.clone())),
             },
+            chart: ChartState::new(),
+            pinned_plans: HashSet::new(),
+            hovered_plan: None,
         }
     }
 
@@ -146,17 +199,26 @@ impl App {
         let no_fees = simulation::simulate(&simulation::free_plan(), &scenario, &rates)
             .expect("the free plan covers every trade");
 
-        let mut results: Vec<PlanResult> = self
-            .brokers
-            .iter()
-            .filter(|choice| choice.selected)
-            .flat_map(|choice| {
-                choice.broker.plans.iter().map(|plan| PlanResult {
+        let mut results = Vec::new();
+        for (broker_index, choice) in self.brokers.iter().enumerate() {
+            let plans = choice.broker.plans.iter().zip(&choice.plans);
+            for (plan_index, (plan, plan_choice)) in plans.enumerate() {
+                if !plan_choice.selected {
+                    continue;
+                }
+                results.push(PlanResult {
+                    key: PlanKey {
+                        broker: broker_index,
+                        plan: plan_index,
+                    },
+                    broker_name: choice.broker.name.clone(),
+                    plan_name: plan.name.clone(),
                     name: format!("{} – {}", choice.broker.name, plan.name),
+                    color: plan_choice.color,
                     outcome: simulation::simulate(plan, &scenario, &rates),
-                })
-            })
-            .collect();
+                });
+            }
+        }
 
         // Best first; plans that don't offer this trade go last.
         results.sort_by_key(|r| std::cmp::Reverse(r.outcome.as_ref().map(|o| o.after_selling)));
@@ -164,9 +226,25 @@ impl App {
     }
 }
 
+impl App {
+    /// R or Home resets the chart's zoom, unless a text field is being typed in.
+    fn handle_shortcuts(&mut self, ctx: &egui::Context) {
+        if ctx.egui_wants_keyboard_input() {
+            return;
+        }
+        if ctx.input(|input| input.key_pressed(egui::Key::R) || input.key_pressed(egui::Key::Home))
+        {
+            self.chart.reset_zoom();
+        }
+    }
+}
+
 impl eframe::App for App {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
         self.check_rates_download();
+        self.handle_shortcuts(ui.ctx());
+        let mut highlighted = self.pinned_plans.clone();
+        highlighted.extend(self.hovered_plan.take());
 
         egui::Panel::left("inputs")
             .resizable(false)
@@ -175,7 +253,7 @@ impl eframe::App for App {
                 egui::ScrollArea::vertical().show(ui, |ui| self.inputs_ui(ui));
             });
 
-        egui::CentralPanel::default().show(ui, |ui| self.results_ui(ui));
+        egui::CentralPanel::default().show(ui, |ui| self.results_ui(ui, &highlighted));
     }
 }
 
@@ -291,12 +369,14 @@ impl App {
         }
 
         section(ui, "Brokers to compare", |ui| {
-            for choice in &mut self.brokers {
-                let plans = choice.broker.plans.len();
-                ui.checkbox(
-                    &mut choice.selected,
-                    format!("{}  ({plans} plans)", choice.broker.name),
-                );
+            for (broker_index, choice) in self.brokers.iter_mut().enumerate() {
+                if let Some(plan_index) = broker_checkboxes(ui, choice) {
+                    self.hovered_plan = Some(PlanKey {
+                        broker: broker_index,
+                        plan: plan_index,
+                    });
+                }
+                ui.add_space(4.0);
             }
         });
     }
@@ -329,8 +409,12 @@ impl App {
 // ─────────────────────────── Results ───────────────────────────
 
 impl App {
-    fn results_ui(&self, ui: &mut egui::Ui) {
+    /// `highlighted`: the plans to make stand out, in the table and the chart.
+    fn results_ui(&mut self, ui: &mut egui::Ui, highlighted: &HashSet<PlanKey>) {
         let (no_fees, results) = self.compare();
+        // Forget pins on plans that were unticked since.
+        self.pinned_plans
+            .retain(|key| results.iter().any(|result| result.key == *key));
 
         ui.add_space(8.0);
         ui.heading(format!("After {} years", self.inputs.years));
@@ -348,157 +432,92 @@ impl App {
             return;
         }
 
-        results_table(ui, &no_fees, &results);
+        let table = results_table(ui, &no_fees, &results, highlighted);
         ui.add_space(16.0);
-        growth_chart(ui, &no_fees, &results);
+
+        ui.horizontal(|ui| {
+            ui.selectable_value(&mut self.chart.view, ChartView::Value, "Value over time");
+            ui.selectable_value(&mut self.chart.view, ChartView::LostToFees, "Lost to fees")
+                .on_hover_text(
+                    "How much less each plan has than an account with no fees, \
+                     year by year. Shows where plans overtake each other.",
+                );
+            ui.add_space(16.0);
+            if self.pinned_plans.is_empty() {
+                ui.label(RichText::new("Click a row or a line to pin it").weak());
+            } else if ui.small_button("Unpin all").clicked() {
+                self.pinned_plans.clear();
+            }
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                ui.label(RichText::new("Wheel: zoom years · Drag: move · R: reset").weak());
+            });
+        });
+        let chart = growth_chart(ui, &mut self.chart, &no_fees, &results, highlighted);
+
+        self.hovered_plan = self.hovered_plan.or(table.hovered).or(chart.hovered);
+        for clicked in [table.clicked, chart.clicked].into_iter().flatten() {
+            // Clicking a pinned plan unpins it.
+            if !self.pinned_plans.remove(&clicked) {
+                self.pinned_plans.insert(clicked);
+            }
+        }
     }
 }
 
-fn results_table(ui: &mut egui::Ui, no_fees: &Outcome, results: &[PlanResult]) {
-    egui::Grid::new("results")
-        .striped(true)
-        .num_columns(5)
-        .spacing([24.0, 6.0])
-        .show(ui, |ui| {
-            ui.strong("Plan");
-            ui.strong("Value held")
-                .on_hover_text("What the investment is worth at the end, without selling.");
-            ui.strong("Value if sold").on_hover_text(
-                "What you'd get in shekels by selling everything at the end, \
-                 after the sell fee and converting back. Before tax.",
-            );
-            ui.strong("Fees paid").on_hover_text(
-                "Every fee charged while investing: purchases, conversions, custody. \
-                 Not including selling.",
-            );
-            ui.strong("Lost to fees").on_hover_text(
-                "How much less you end up with than with no fees at all, after \
-                 selling. Bigger than the fees paid, because money paid in fees \
-                 stops growing.",
-            );
-            ui.end_row();
+// ─────────────────────────── Sidebar helpers ───────────────────────────
 
-            for (rank, result) in results.iter().enumerate() {
-                let name = RichText::new(&result.name);
-                let Some(outcome) = &result.outcome else {
-                    ui.label(name.weak());
-                    ui.label(RichText::new("doesn't offer this security on this exchange").weak());
-                    ui.end_row();
-                    continue;
-                };
-                let is_best = rank == 0;
-                ui.label(if is_best {
-                    name.strong().color(Color32::from_rgb(60, 170, 90))
-                } else {
-                    name
-                });
-                amount_cell(ui, outcome.held);
-                amount_cell(ui, outcome.after_selling);
-                amount_cell(ui, outcome.fees_paid);
-                amount_cell(ui, no_fees.after_selling - outcome.after_selling);
-                ui.end_row();
-            }
-        });
-}
-
-fn growth_chart(ui: &mut egui::Ui, no_fees: &Outcome, results: &[PlanResult]) {
-    Plot::new("growth")
-        .legend(Legend::default())
-        .x_axis_label("Years")
-        .y_axis_label("Value held")
-        .y_axis_formatter(|mark, _range| shekels(mark.value))
-        .label_formatter(|position| {
-            let egui_plot::HoverPosition::NearDataPoint {
-                plot_name,
-                position,
-                ..
-            } = position
-            else {
-                return None;
-            };
-            Some(format!(
-                "{plot_name}\nYear {:.0}: {}",
-                position.x,
-                shekels(position.y)
-            ))
+/// Gives every plan of every broker its own color, in order.
+fn broker_choices(brokers: Vec<Broker>) -> Vec<BrokerChoice> {
+    // Cycles if there are ever more plans than colors.
+    let mut colors = PLAN_COLORS.iter().copied().cycle();
+    brokers
+        .into_iter()
+        .map(|broker| BrokerChoice {
+            plans: broker
+                .plans
+                .iter()
+                .map(|_| PlanChoice {
+                    selected: true,
+                    color: colors.next().expect("cycle never ends"),
+                })
+                .collect(),
+            broker,
         })
-        .include_y(0.0)
-        .allow_scroll(false)
-        .show(ui, |plot| {
-            plot.line(
-                Line::new("No fees", yearly_points(no_fees))
-                    .style(LineStyle::dashed_loose())
-                    .color(Color32::GRAY),
-            );
-            for result in results {
-                if let Some(outcome) = &result.outcome {
-                    plot.line(Line::new(result.name.clone(), yearly_points(outcome)).width(2.0));
-                }
-            }
-        });
-}
-
-fn yearly_points(outcome: &Outcome) -> Vec<[f64; 2]> {
-    outcome
-        .value_by_year
-        .iter()
-        .enumerate()
-        .map(|(year, value)| [year as f64, to_f64(*value)])
         .collect()
 }
 
-// ─────────────────────────── Widgets and formatting ───────────────────────────
-
-/// A titled box around a group of inputs.
-fn section(ui: &mut egui::Ui, title: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
-    ui.label(RichText::new(title).strong());
-    ui.group(|ui| {
-        ui.set_width(ui.available_width());
-        add_contents(ui);
-    });
-    ui.add_space(12.0);
-}
-
-fn shekel_input(value: &mut f64) -> egui::DragValue<'_> {
-    egui::DragValue::new(value)
-        .speed(100.0)
-        .range(0.0..=100_000_000.0)
-        .prefix("₪ ")
-        .custom_formatter(|amount, _decimals| with_commas(amount.round() as u64))
-        .custom_parser(|text| text.replace(',', "").trim().parse().ok())
-}
-
-fn rate_input(value: &mut f64) -> egui::DragValue<'_> {
-    egui::DragValue::new(value)
-        .speed(0.01)
-        .range(0.01..=100.0)
-        .max_decimals(4)
-        .prefix("₪ ")
-}
-
-/// Padded in a monospace font, so columns of numbers line up on the right.
-fn amount_cell(ui: &mut egui::Ui, amount: Decimal) {
-    ui.monospace(format!("{:>12}", shekels(to_f64(amount))));
-}
-
-/// "₪1,234,567", rounded to whole shekels.
-fn shekels(amount: f64) -> String {
-    let rounded = amount.round();
-    let sign = if rounded < 0.0 { "-" } else { "" };
-    format!("{sign}₪{}", with_commas(rounded.abs() as u64))
-}
-
-/// "1,234,567"
-fn with_commas(number: u64) -> String {
-    let digits = number.to_string();
-    let mut grouped = String::new();
-    for (i, digit) in digits.chars().enumerate() {
-        if i > 0 && (digits.len() - i) % 3 == 0 {
-            grouped.push(',');
+/// A checkbox for the broker, which ticks or unticks all its plans, and an
+/// indented checkbox per plan with the plan's chart color. Returns the index
+/// of the plan under the mouse.
+fn broker_checkboxes(ui: &mut egui::Ui, choice: &mut BrokerChoice) -> Option<usize> {
+    let all = choice.plans.iter().all(|plan| plan.selected);
+    let some = choice.plans.iter().any(|plan| plan.selected);
+    let mut checked = all;
+    let broker_box = egui::Checkbox::new(&mut checked, RichText::new(&choice.broker.name).strong())
+        .indeterminate(some && !all);
+    if ui.add(broker_box).changed() {
+        for plan in &mut choice.plans {
+            plan.selected = checked;
         }
-        grouped.push(digit);
     }
-    grouped
+
+    let mut hovered = None;
+    ui.indent(&choice.broker.name, |ui| {
+        for (index, (plan, plan_choice)) in choice
+            .broker
+            .plans
+            .iter()
+            .zip(&mut choice.plans)
+            .enumerate()
+        {
+            let response =
+                colored_checkbox(ui, &mut plan_choice.selected, &plan.name, plan_choice.color);
+            if response.hovered() {
+                hovered = Some(index);
+            }
+        }
+    });
+    hovered
 }
 
 fn security_name(security: Security) -> &'static str {
@@ -528,10 +547,6 @@ fn months_name(months: u32) -> String {
 
 fn decimal(value: f64) -> Decimal {
     Decimal::try_from(value).unwrap_or_default().round_dp(4)
-}
-
-fn to_f64(value: Decimal) -> f64 {
-    value.to_f64().unwrap_or_default()
 }
 
 /// egui's default text font has no ₪; its monospace font (Hack) does, so
