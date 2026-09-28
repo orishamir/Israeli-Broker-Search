@@ -885,7 +885,7 @@ mod tests {
             .flat_map(|broker| broker.plans)
             .collect();
         let plans: Vec<&Plan> = plans.iter().collect();
-        let (etf, bond, fund) = (Security::Etf, Security::Bond, Security::MutualFund);
+        let (etf, bond, fund) = (Security::Etf, Security::Bond, Security::IndexFund);
         let (tlv, usa, europe) = (Exchange::Tlv, Exchange::Usa, Exchange::Europe);
         for (security, exchange) in [
             (etf, usa),
@@ -1040,7 +1040,7 @@ mod tests {
             ..free_plan()
         };
         let s = Scenario {
-            security: Security::MutualFund,
+            security: Security::IndexFund,
             exchange: Exchange::Usa,
             first_deposit: dec!(3700),
             monthly_deposit: dec!(370),
@@ -1076,7 +1076,7 @@ mod tests {
             };
             simulate(&ibi, &s, &rates()).unwrap().fees.custody
         };
-        assert_eq!(custody(Security::MutualFund), dec!(0));
+        assert_eq!(custody(Security::IndexFund), dec!(0));
         assert!(custody(Security::Etf) > dec!(0));
     }
 
@@ -1090,7 +1090,7 @@ mod tests {
             &online
         ));
         assert!(!share_price_matters(
-            Security::MutualFund,
+            Security::IndexFund,
             Exchange::Usa,
             &online
         ));

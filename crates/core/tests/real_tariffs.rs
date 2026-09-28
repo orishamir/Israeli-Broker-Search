@@ -3,7 +3,7 @@ use broker_fees::tariffs::{altshuler, excellence, ibi, interactive, leumi, meita
 use broker_fees::*;
 
 use Exchange::{Europe, Tlv, Usa};
-use Security::{Bond, Etf, MutualFund, Stock};
+use Security::{Bond, Etf, IndexFund, Stock};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
@@ -150,7 +150,7 @@ fn altshuler_tase_etf_vs_mutual_fund() {
     let p = plan(altshuler(), "Full tariff");
     let fee = |s| trade_fee(&p, s, Tlv, dec!(1), ils(dec!(1000))).unwrap();
     assert_eq!(fee(Etf), ils(dec!(3.5))); // 0.15% = ₪1.50 → minimum
-    assert_eq!(fee(MutualFund), ils(dec!(16)));
+    assert_eq!(fee(IndexFund), ils(dec!(16)));
 }
 
 #[test]
@@ -173,12 +173,7 @@ fn altshuler_new_customers() {
         ils(dec!(7))
     );
     assert_eq!(
-        fee(
-            Security::MutualFund,
-            Exchange::Tlv,
-            dec!(1),
-            ils(dec!(1000))
-        ),
+        fee(Security::IndexFund, Exchange::Tlv, dec!(1), ils(dec!(1000))),
         ils(dec!(2.9))
     );
     // Bonds aren't in the offer: the regular 0.15%, at least ₪3.5.
@@ -212,8 +207,19 @@ fn altshuler_new_customers() {
 
 #[test]
 fn no_row_means_none_not_free() {
+    // Altshuler trades in Israel and the US only: nothing in Europe has a price.
     let p = on_track(altshuler(), "Full tariff", "$11 per order");
-    assert_eq!(trade_fee(&p, Etf, Europe, dec!(10), eur(dec!(1000))), None);
+    for security in Security::iter() {
+        assert_eq!(
+            trade_fee(&p, security, Europe, dec!(10), eur(dec!(1000))),
+            None,
+            "{security}"
+        );
+    }
+    assert_eq!(
+        trade_fee(&p, Bond, Usa, dec!(10), usd(dec!(1000))),
+        Some(usd(dec!(24)))
+    ); // 0.3% = $3 → minimum
 }
 
 #[test]
@@ -258,7 +264,8 @@ fn leumi_custody_by_exchange() {
 fn conversion_fee_vs_spread() {
     let fee = |b, name| plan(b, name).conversion_fee(usd(dec!(1000)), &rates());
     assert_eq!(fee(altshuler(), "Full tariff"), usd(dec!(7))); // no fee, 0.7% spread
-    assert_eq!(fee(leumi(), "Online"), usd(dec!(5.76))); // 0.16% = $1.60 → minimum
+    // 0.16% = $1.60 → $5.76 minimum, plus the 0.9% measured markup: $9.
+    assert_eq!(fee(leumi(), "Online"), usd(dec!(14.76)));
 }
 
 #[test]
@@ -305,7 +312,8 @@ fn no_caveat_is_shown_twice() {
 }
 
 /// A markup that isn't published understates the cost, and one stated as a
-/// maximum overstates it: each plan says which beside its markup.
+/// maximum overstates it unless a reading says what's really charged: each
+/// plan says which beside its markup.
 #[test]
 fn every_markup_says_how_sure_it_is() {
     for b in tariffs::all() {
@@ -331,8 +339,11 @@ fn every_markup_says_how_sure_it_is() {
                     p.name
                 ),
                 Markup::UpTo(percent) if !percent.is_zero() => assert!(
-                    says(&|basis| *basis == Basis::Assumed { errs: Errs::AtMost }),
-                    "{} {}: a maximum markup without an \"at most\" caveat",
+                    says(&|basis| matches!(
+                        basis,
+                        Basis::Assumed { errs: Errs::AtMost } | Basis::Reading { .. }
+                    )),
+                    "{} {}: a maximum markup without an \"at most\" caveat or a reading",
                     b.name,
                     p.name
                 ),
@@ -349,8 +360,9 @@ fn every_markup_says_how_sure_it_is() {
 }
 
 /// Where an offer is silent, the full tariff's price is used, and an "at
-/// most" caveat says so for every security it happens to: never cheaper
-/// than can be shown, and never without saying.
+/// most" caveat says so for every security it happens to: never cheaper than
+/// can be shown, and never without saying. A reading of what a comparison
+/// site lists counts too, when it happens to be the full tariff's price.
 #[test]
 fn offers_say_where_the_full_tariff_is_used() {
     let offers = [
@@ -376,7 +388,10 @@ fn offers_say_where_the_full_tariff_is_used() {
                 let says_so = b.caveats.iter().chain(&offer.caveats).any(|c| {
                     c.applies_to(security, exchange)
                         && c.fee == Some(FeeKind::Trade)
-                        && c.basis == Basis::Assumed { errs: Errs::AtMost }
+                        && matches!(
+                            c.basis,
+                            Basis::Assumed { errs: Errs::AtMost } | Basis::Reading { .. }
+                        )
                 });
                 assert!(
                     says_so,
@@ -385,6 +400,49 @@ fn offers_say_where_the_full_tariff_is_used() {
                 );
             }
         }
+    }
+}
+
+/// A reading says what it rests on, and links to it; every page linked is a
+/// real address. The tariff itself counts, for readings of its wording.
+#[test]
+fn every_reading_links_to_its_source() {
+    for b in tariffs::all() {
+        let caveats = b
+            .caveats
+            .iter()
+            .chain(b.plans.iter().flat_map(|p| &p.caveats));
+        for c in caveats {
+            if matches!(c.basis, Basis::Reading { .. }) {
+                assert!(
+                    !c.sources.is_empty(),
+                    "{}: {:?} has no source",
+                    b.name,
+                    c.text
+                );
+            }
+            for source in &c.sources {
+                assert!(
+                    !source.name.is_empty(),
+                    "{}: a source without a name",
+                    b.name
+                );
+                assert!(
+                    source.url.starts_with("https://"),
+                    "{}: {} isn't a link: {}",
+                    b.name,
+                    source.name,
+                    source.url
+                );
+            }
+        }
+        // The broker's list starts with its tariff and names each page once.
+        let sources = b.sources();
+        assert_eq!(sources[0].name, "Tariff (PDF)", "{}", b.name);
+        let mut urls: Vec<&str> = sources.iter().map(|s| s.url.as_str()).collect();
+        urls.sort_unstable();
+        urls.dedup();
+        assert_eq!(urls.len(), sources.len(), "{}: a page listed twice", b.name);
     }
 }
 
@@ -404,14 +462,15 @@ fn leumi_pepper_tase_flat_except_index_funds() {
             .unwrap()
     };
     assert_eq!(fee(Security::Etf), ils(dec!(4)));
-    assert_eq!(fee(Security::MutualFund), ils(dec!(26))); // Online: 0.4% = ₪8 → minimum
+    assert_eq!(fee(Security::IndexFund), ils(dec!(26))); // Online: 0.4% = ₪8 → minimum
 }
 
 #[test]
 fn leumi_pepper_conversion() {
     let fee = |v| plan(leumi(), "Pepper").conversion_fee(usd(v), &rates());
-    assert_eq!(fee(dec!(1000)), usd(dec!(3))); // 0.1% = $1 → minimum
-    assert_eq!(fee(dec!(10000)), usd(dec!(10)));
+    // Half the branch fee, plus the bank's 0.9% markup.
+    assert_eq!(fee(dec!(1000)), usd(dec!(12))); // 0.1% = $1 → $3 minimum, + $9
+    assert_eq!(fee(dec!(10000)), usd(dec!(100))); // $10 + $90
 }
 
 #[test]
@@ -423,7 +482,7 @@ fn leumi_standing_order_index_fund() {
             .map(|row| row.price.apply(&on_tel_aviv(s, v), &rates()))
     };
     // Buying by standing order: 0.225%, at least ₪5.
-    let fund = Security::MutualFund;
+    let fund = Security::IndexFund;
     assert_eq!(by_standing_order(fund, dec!(2000)), Some(ils(dec!(5)))); // 0.225% = ₪4.50 → minimum
     assert_eq!(by_standing_order(fund, dec!(10000)), Some(ils(dec!(22.5))));
     assert_eq!(by_standing_order(Security::Etf, dec!(2000)), None); // only index funds
@@ -437,12 +496,26 @@ fn leumi_standing_order_index_fund() {
 fn leumi_18_plus_conversion_is_the_better_of_two() {
     let fee = |v| plan(leumi(), "Online, 'Leumi 18+'").conversion_fee(usd(v), &rates());
     // $1,000: 18+ is 0.1% = $1 → its $7.20 minimum; online, 0.16% = $1.60 →
-    // $5.76 minimum. The lower is online's.
-    assert_eq!(fee(dec!(1000)), usd(dec!(5.76)));
-    // $4,000: 18+ is still $7.20; online, 0.16% = $6.40.
-    assert_eq!(fee(dec!(4000)), usd(dec!(6.4)));
-    // $10,000: 18+ is 0.1% = $10; online, 0.16% = $16.
-    assert_eq!(fee(dec!(10000)), usd(dec!(10)));
+    // $5.76 minimum. The lower is online's, plus the bank's 0.9% markup ($9).
+    assert_eq!(fee(dec!(1000)), usd(dec!(14.76)));
+    // $4,000: 18+ is still $7.20; online, 0.16% = $6.40; markup $36.
+    assert_eq!(fee(dec!(4000)), usd(dec!(42.4)));
+    // $10,000: 18+ is 0.1% = $10; online, 0.16% = $16; markup $90.
+    assert_eq!(fee(dec!(10000)), usd(dec!(100)));
+}
+
+#[test]
+fn leumi_18_plus_bonds() {
+    let p = plan(leumi(), "Online, 'Leumi 18+'");
+    let fee = |s, v| trade_fee(&p, s, Tlv, dec!(1), ils(v)).unwrap();
+    // The group's 0.35% with Online's bounds: ₪1,000 is ₪3.50 → ₪26 minimum;
+    // ₪10,000 is ₪35 (Online would be ₪40); ₪2M is ₪7,000 → ₪6,300 maximum.
+    assert_eq!(fee(Bond, dec!(1000)), ils(dec!(26)));
+    assert_eq!(fee(Bond, dec!(10000)), ils(dec!(35)));
+    assert_eq!(fee(Bond, dec!(2000000)), ils(dec!(6300)));
+    // Stocks and ETFs stay at Online's 0.4%: the group's 0.5% is worse.
+    assert_eq!(fee(Stock, dec!(10000)), ils(dec!(40)));
+    assert_eq!(fee(Etf, dec!(10000)), ils(dec!(40)));
 }
 
 #[test]
@@ -484,8 +557,11 @@ fn excellence_full_tariff() {
     let year = |v| custody_year(&p, Etf, Tlv, ils(v));
     assert_eq!(year(dec!(10000)), ils(dec!(480))); // ₪20 → ₪40, × 12
     assert_eq!(year(dec!(50000)), ils(dec!(1200))); // ₪100 × 12
-    // Converting: 0.1%; the markup isn't published, so it's 0.
-    assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(1)));
+    // Converting: 0.1% ($1) plus the site's 2 agorot a dollar (₪20 = $5.41).
+    assert_eq!(
+        cents(p.conversion_fee(usd(dec!(1000)), &rates())),
+        usd(dec!(6.41))
+    );
     assert_eq!(handling(&p, 0), dec!(99));
     assert!(p.sells_fractions_on(Usa));
     assert!(!p.sells_fractions_on(Europe));
@@ -513,7 +589,7 @@ fn excellence_us_tracks_price_every_security() {
     // Bonds and funds are on the same tracks.
     assert_eq!(fee(percent, Bond, dec!(10), dec!(10000)), usd(dec!(30)));
     assert_eq!(
-        fee("$11 per order", MutualFund, dec!(10), dec!(10000)),
+        fee("$11 per order", IndexFund, dec!(10), dec!(10000)),
         usd(dec!(11))
     );
 }
@@ -525,13 +601,10 @@ fn excellence_typical_offer() {
     // Tel Aviv stocks and ETFs: 0.07%, at least ₪3.
     assert_eq!(fee(Etf, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(7)));
     assert_eq!(fee(Stock, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(3))); // ₪0.70 → minimum
-    // Tel Aviv bonds and funds aren't in the offer: the full tariff's 0.4%,
-    // at least ₪10.
-    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(10)));
-    assert_eq!(
-        fee(MutualFund, Tlv, dec!(1), ils(dec!(10000))),
-        ils(dec!(40))
-    );
+    // Tel Aviv index funds: the same 0.07%; bonds: 0.06%, at least ₪3.
+    assert_eq!(fee(IndexFund, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(7)));
+    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(6)));
+    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(3))); // ₪0.60 → minimum
     // US stocks and ETFs: 1¢ a share, at least $6.
     assert_eq!(fee(Etf, Usa, dec!(100), usd(dec!(5000))), usd(dec!(6))); // $1 → minimum
     assert_eq!(fee(Etf, Usa, dec!(1000), usd(dec!(5000))), usd(dec!(10)));
@@ -548,10 +621,14 @@ fn excellence_typical_offer() {
     let conversion = |amount| cents(p.conversion_fee(amount, &rates()));
     assert_eq!(conversion(usd(dec!(1850))), usd(dec!(10)));
     assert_eq!(conversion(eur(dec!(1850))), eur(dec!(10)));
-    // No custody; ₪15 a month after two free years.
+    // No custody; ₪15 a month after two free years, less the month's trade
+    // fees: a month that paid ₪3 in them pays ₪12.
     assert_eq!(custody_year(&p, Etf, Tlv, ils(dec!(100000))), ils(dec!(0)));
     assert_eq!(handling(&p, 23), dec!(0));
     assert_eq!(handling(&p, 24), dec!(15));
+    let fee = p.handling.unwrap();
+    assert_eq!(fee.for_month(24, dec!(3)), dec!(12));
+    assert_eq!(fee.for_month(24, dec!(20)), dec!(0));
     assert_eq!(
         p.first_deposit_warning(ils(dec!(9999))).as_deref(),
         Some("Needs a one-time deposit of at least ₪10,000")
@@ -568,18 +645,15 @@ fn ibi_full_tariff() {
     assert_eq!(fee(Etf, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(3.5))); // ₪1.50 → minimum
     assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(15)));
     // Tel Aviv index funds: 0.08%, at least ₪5.
-    assert_eq!(fee(MutualFund, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(5))); // ₪0.80 → minimum
-    assert_eq!(
-        fee(MutualFund, Tlv, dec!(1), ils(dec!(10000))),
-        ils(dec!(8))
-    );
+    assert_eq!(fee(IndexFund, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(5))); // ₪0.80 → minimum
+    assert_eq!(fee(IndexFund, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(8)));
     // Foreign funds: 0.275%, no minimum.
     assert_eq!(
-        fee(MutualFund, Usa, dec!(10), usd(dec!(10000))),
+        fee(IndexFund, Usa, dec!(10), usd(dec!(10000))),
         usd(dec!(27.5))
     );
     assert_eq!(
-        fee(MutualFund, Europe, dec!(10), eur(dec!(1000))),
+        fee(IndexFund, Europe, dec!(10), eur(dec!(1000))),
         eur(dec!(2.75))
     );
     // Foreign bonds: 0.225%, at least 20 in the trade's currency.
@@ -600,11 +674,11 @@ fn ibi_full_tariff() {
         ils(dec!(400))
     );
     assert_eq!(
-        custody_year(&p, MutualFund, Tlv, ils(dec!(100000))),
+        custody_year(&p, IndexFund, Tlv, ils(dec!(100000))),
         ils(dec!(0))
     );
     assert_eq!(
-        custody_year(&p, MutualFund, Usa, usd(dec!(10000))),
+        custody_year(&p, IndexFund, Usa, usd(dec!(10000))),
         ils(dec!(148))
     );
     // Converting: no fee, and the markup of up to 0.7%.
@@ -643,17 +717,20 @@ fn ibi_typical_offer() {
     // Tel Aviv stocks and ETFs: 0.08%, at least ₪2.35.
     assert_eq!(fee(Stock, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(8)));
     assert_eq!(fee(Etf, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(2.35))); // ₪0.80 → minimum
-    // Tel Aviv bonds and funds: the full tariff's.
-    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(3.5)));
-    assert_eq!(fee(MutualFund, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(5)));
+    // Tel Aviv bonds: the offer's 0.08%, at least ₪2.35; index funds: 0.08%,
+    // at least ₪5, as the full tariff.
+    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(2.35))); // ₪0.80 → minimum
+    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(8)));
+    assert_eq!(fee(IndexFund, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(5)));
     // US stocks and ETFs: 1¢ a share, at least $7.50.
     assert_eq!(fee(Etf, Usa, dec!(100), usd(dec!(5000))), usd(dec!(7.5))); // $1 → minimum
     assert_eq!(fee(Etf, Usa, dec!(1000), usd(dec!(20000))), usd(dec!(10)));
     // US bonds: the full tariff's 0.225%.
     assert_eq!(fee(Bond, Usa, dec!(20), usd(dec!(20000))), usd(dec!(45)));
-    // No custody; ₪15 a month from the start.
+    // No custody; ₪15 a month from the start, less the month's trade fees.
     assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(0)));
     assert_eq!(handling(&p, 0), dec!(15));
+    assert_eq!(p.handling.unwrap().for_month(0, dec!(2.35)), dec!(12.65));
 }
 
 // ─────────────────────────── Interactive Israel ───────────────────────────
@@ -690,7 +767,7 @@ fn interactive_prices() {
         Some(eur(dec!(20)))
     );
     // Not offered: mutual funds, and Tel Aviv.
-    assert_eq!(fee(MutualFund, Usa, dec!(10), usd(dec!(1000))), None);
+    assert_eq!(fee(IndexFund, Usa, dec!(10), usd(dec!(1000))), None);
     assert_eq!(fee(Etf, Tlv, dec!(1), ils(dec!(1000))), None);
     // No custody, handling fee or minimum deposit.
     assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(0)));
@@ -738,11 +815,11 @@ fn meitav_full_tariff() {
     assert_eq!(fee(Bond, Europe, dec!(5), eur(dec!(5000))), eur(dec!(20))); // €15; $25 = €20
     // Foreign funds: 0.2%, at least $20.
     assert_eq!(
-        fee(MutualFund, Usa, dec!(10), usd(dec!(20000))),
+        fee(IndexFund, Usa, dec!(10), usd(dec!(20000))),
         usd(dec!(40))
     );
     assert_eq!(
-        fee(MutualFund, Europe, dec!(10), eur(dec!(5000))),
+        fee(IndexFund, Europe, dec!(10), eur(dec!(5000))),
         eur(dec!(16))
     ); // €10; $20 = €16
     // European stocks and ETFs: 0.25%, at least €25.
@@ -784,15 +861,19 @@ fn meitav_typical_offer() {
     assert_eq!(fee(Etf, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(7)));
     assert_eq!(fee(Stock, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(8)));
     assert_eq!(fee(Etf, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(4.65))); // ₪0.70 → minimum
-    // Tel Aviv bonds: the full tariff's 0.3%, at least ₪10.
-    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(10)));
+    // Tel Aviv bonds: the offer's 0.08%, at least ₪4.65; index funds aren't
+    // in the offer: the full tariff's 0.3%, at least ₪10.
+    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(4.65))); // ₪0.80 → minimum
+    assert_eq!(fee(Bond, Tlv, dec!(1), ils(dec!(10000))), ils(dec!(8)));
+    assert_eq!(fee(IndexFund, Tlv, dec!(1), ils(dec!(1000))), ils(dec!(10)));
     // US stocks and ETFs: 1¢ a share, at least $5.
     assert_eq!(fee(Etf, Usa, dec!(100), usd(dec!(5000))), usd(dec!(5))); // $1 → minimum
     assert_eq!(fee(Etf, Usa, dec!(1000), usd(dec!(5000))), usd(dec!(10)));
     // Converting: no fee, but the markup of up to 0.7%.
     assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(7)));
-    // No custody; ₪15 a month after two free years.
+    // No custody; ₪15 a month after two free years, less the month's trade fees.
     assert_eq!(custody_year(&p, Etf, Tlv, ils(dec!(100000))), ils(dec!(0)));
     assert_eq!(handling(&p, 23), dec!(0));
     assert_eq!(handling(&p, 24), dec!(15));
+    assert_eq!(p.handling.unwrap().for_month(24, dec!(4.65)), dec!(10.35));
 }

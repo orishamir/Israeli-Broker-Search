@@ -4,6 +4,7 @@
   import type { AppState, Details } from './app.svelte'
   import CaveatGroups from './CaveatGroups.svelte'
   import Caveats from './Caveats.svelte'
+  import Sources from './Sources.svelte'
   import FeesForInputs from './FeesForInputs.svelte'
   import Price from './Price.svelte'
   import PlanEditor from './PlanEditor.svelte'
@@ -104,6 +105,13 @@
                     {item.text}
                   {/if}
                 </li>
+              {/each}
+            </ul>
+          {/if}
+          {#if section.sources.length > 0}
+            <ul class="source-groups">
+              {#each section.sources as group (group.title)}
+                <li><Sources sources={group.sources} label={group.title} /></li>
               {/each}
             </ul>
           {/if}
@@ -239,6 +247,7 @@
               {/if}
             </div>
           </details>
+          <p class="sources-line"><Sources sources={plan.info.sources} /></p>
           <p class="about-link">
             <button class="link" onclick={() => (app.details = { kind: 'about' })}
               >How the numbers are made, and what isn't counted ↗</button
@@ -264,6 +273,7 @@
               </li>
             {/each}
           </ul>
+          <p class="sources-line"><Sources sources={broker.sources} /></p>
         {/if}
       </div>
     {/key}

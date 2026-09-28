@@ -300,8 +300,9 @@
     Fractions of a share<Tip about="Fractions of a share">
       <p>
         Stocks and ETFs abroad are bought in whole shares, unless the broker sells fractions: then all of each
-        deposit is invested, even when it's less than a share's price. A price per share counts a fraction as
-        a whole share.
+        deposit is invested, even when it's less than a share's price. At $500 a share, a ₪2,000 deposit buys
+        a share and a bit instead of one share with the rest waiting. A price per share counts a fraction as a
+        whole share.
       </p>
     </Tip>
   </h4>

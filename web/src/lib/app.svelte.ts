@@ -86,6 +86,8 @@ export interface Result {
   mayCostMore: string | undefined
   /** What makes sense of its numbers: "A standing order buys every month, so it isn't used here". */
   note: string | undefined
+  /** Why it has no numbers, if it doesn't offer the security there: "Nothing in Europe is offered". */
+  notOffered: string | undefined
 }
 
 export type ChartView = 'value' | 'lost' | 'breakdown'
@@ -413,13 +415,14 @@ export class AppState {
       deposited: data.deposited,
       noFees: data.noFees,
       largestTrade: data.largestTrade,
-      results: data.plans.map(({ key, outcome, track, warning, mayCostMore, note }) => ({
+      results: data.plans.map(({ key, outcome, track, warning, mayCostMore, note, notOffered }) => ({
         plan: this.plansById.get(planId(key))!,
         outcome,
         track,
         warning,
         mayCostMore,
         note,
+        notOffered,
       })),
     }
   })

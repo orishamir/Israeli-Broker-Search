@@ -28,8 +28,8 @@ test('the chosen security is explained, with its Hebrew names', async ({ page })
   // The popovers say it too, hidden.
   const shown = (text: string) => page.locator('.explained').getByText(text)
   await expect(shown('קרן סל מחקה מדד')).toBeVisible()
-  await page.getByRole('radiogroup', { name: 'Security' }).getByText('Mutual fund').click()
-  await expect(shown('קרן נאמנות')).toBeVisible()
+  await page.getByRole('radiogroup', { name: 'Security' }).getByText('Index fund').click()
+  await expect(shown('קרן מחקה')).toBeVisible()
   await expect(shown('at one price a day')).toBeVisible()
 })
 
@@ -67,12 +67,16 @@ test("a plan's caveats and fees follow what's bought", async ({ page }) => {
   const caveat = (text: string) => dialog.getByRole('listitem').filter({ hasText: text })
 
   await about.click()
-  // The markup is part of conversion, abroad only, and marked as a number
-  // that may be too low.
+  // The markup is part of conversion, abroad only, and marked as a reading
+  // of the bank's published rates.
   const markup = dialog.locator('dd.part', { hasText: 'markup' })
   await expect(markup).toBeVisible()
-  await expect(markup.getByRole('button', { name: 'may cost more' })).toBeVisible()
-  await expect(caveat("doesn't publish its conversion markup")).toBeVisible()
+  await expect(markup.getByRole('button', { name: 'our reading' })).toBeVisible()
+  await expect(caveat('transfers-and-checks rate')).toBeVisible()
+  // The caveat links to the page it rests on.
+  await expect(
+    caveat('transfers-and-checks rate').getByRole('link', { name: "Leumi's exchange rates ↗" }),
+  ).toHaveAttribute('href', 'https://www.bankleumi.co.il/vgnprod/shearim.asp')
   await expect(caveat('₪4 is only stated')).toBeHidden()
   await page.mouse.move(0, 0)
   await page.keyboard.press('Escape')
@@ -82,10 +86,10 @@ test("a plan's caveats and fees follow what's bought", async ({ page }) => {
   await expect(markup).toBeHidden()
   // Selling everything at the end is an order well above ₪30,000.
   await expect(caveat('₪4 is only stated')).toBeVisible()
-  await expect(caveat("doesn't publish its conversion markup")).toBeHidden()
+  await expect(caveat('transfers-and-checks rate')).toBeHidden()
   // The rest are with all its prices.
   await dialog.getByText('All prices').click()
-  await expect(caveat("doesn't publish its conversion markup")).toBeVisible()
+  await expect(caveat('transfers-and-checks rate')).toBeVisible()
 })
 
 test('a fee explains itself, with its Hebrew name', async ({ page, isMobile }) => {

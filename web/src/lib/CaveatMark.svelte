@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Mark } from './core/core'
+  import Sources from './Sources.svelte'
   import { tip } from './tip'
 
   /** How sure a fee's number is, in a word or two beside its price, with the
@@ -23,6 +24,7 @@
     {#each mark.caveats as caveat (caveat.text)}
       <p>{caveat.text}</p>
       {#if caveat.support}<p class="support">Why: {caveat.support}.</p>{/if}
+      <Sources sources={caveat.sources} />
     {/each}
   </div>
 {:else}

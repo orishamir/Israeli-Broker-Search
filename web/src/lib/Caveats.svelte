@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CaveatText } from './core/core'
+  import Sources from './Sources.svelte'
 
   /** Caveats about other choices than the user's, or larger amounts: each
    * titled with what it's about, since the same words can be about two
@@ -15,6 +16,7 @@
         <span class="covers">{caveat.covers} <span class="kind">· {caveat.label}</span></span>
         {caveat.text}
         {#if caveat.support}<span class="support">Why: {caveat.support}.</span>{/if}
+        <Sources sources={caveat.sources} />
       </li>
     {/each}
   </ul>

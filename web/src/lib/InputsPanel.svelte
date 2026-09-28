@@ -19,7 +19,7 @@
 
   const security = $derived(app.securities.find(({ value }) => value === app.security)!)
   const exchange = $derived(app.exchanges.find(({ value }) => value === app.exchange)!)
-  /** "ETF", "mutual fund", as in "your ETF". */
+  /** "ETF", "index fund", as in "your ETF". */
   const securityNoun = $derived(security.name === 'ETF' ? security.name : security.name.toLowerCase())
 </script>
 
@@ -31,7 +31,8 @@
         ETFs, funds, bonds and stocks are all securities (<bdi lang="he">ניירות ערך</bdi>). Brokers, meaning
         banks and investment houses (<bdi lang="he">בנקים ובתי השקעות</bdi>), charge different fees (<bdi
           lang="he">עמלות</bdi
-        >) for each kind.
+        >) for each kind. An ETF and an index fund can hold the very same companies; what differs is where you
+        buy them, and so what the broker charges.
       </p>
       {#each app.securities as option (option.value)}
         <div class="term">
@@ -56,9 +57,11 @@
     <Tip about="Traded on">
       <p>
         Your {securityNoun} can be bought on different stock exchanges (<bdi lang="he">בורסות</bdi>): in Tel
-        Aviv, or abroad in dollars or euros. Brokers (<bdi lang="he">בנקים ובתי השקעות</bdi>) charge different
-        fees (<bdi lang="he">עמלות</bdi>) for each exchange, and abroad some also charge for converting your
-        shekels (<bdi lang="he">המרת מט"ח</bdi>).
+        Aviv, or abroad in dollars or euros. The same S&P 500, for example, is sold in Tel Aviv as an Israeli
+        <bdi lang="he">קרן סל</bdi> in shekels, and in New York as an ETF such as VOO, in dollars. Brokers (<bdi
+          lang="he">בנקים ובתי השקעות</bdi
+        >) charge different fees (<bdi lang="he">עמלות</bdi>) for each exchange, and abroad some also charge
+        for converting your shekels (<bdi lang="he">המרת מט"ח</bdi>).
       </p>
     </Tip>
   </div>
@@ -111,7 +114,9 @@
     <span>
       <label for="buy-every">Buy every</label><Tip about="Buy every">
         Deposits wait as cash until the next purchase. Buying less often means paying fewer minimum fees, but
-        the cash doesn't grow while it waits.
+        the cash doesn't grow while it waits. Putting in ₪2,000 a month at a ₪5 minimum fee, buying every
+        month costs ₪60 a year in fees; every 3 months costs ₪20, but up to ₪4,000 sits idle for up to two
+        months at a time.
       </Tip>
     </span>
     <select id="buy-every" bind:value={app.buyEveryMonths}>
@@ -127,7 +132,8 @@
   <div class="fields">
     <span>
       <label for="yearly-return">Yearly return</label><Tip about="Yearly return">
-        How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%.
+        How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%; a bond
+        grows by its interest, say 4%.
       </Tip>
     </span>
     <NumberField id="yearly-return" suffix="%" step={0.5} bind:value={app.yearlyReturnPercent} />
@@ -142,7 +148,8 @@
       <span>
         <label for="share-price">Share price</label><Tip about="Share price">
           Today's price of one share. Brokers here sell whole shares only, so a deposit too small for a share
-          waits for the next purchase. It grows with the yearly return.
+          waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It
+          grows with the yearly return.
         </Tip>
       </span>
       <NumberField id="share-price" prefix={app.sharePriceSymbol} bind:value={app.sharePrice} />
@@ -157,7 +164,8 @@
       <p>
         The same {securityNoun}, on the same exchange, can be bought through many brokers: banks and
         investment houses (<bdi lang="he">בנקים ובתי השקעות</bdi>). Each offers (<bdi lang="he">מציע</bdi>)
-        several plans (<bdi lang="he">מסלולים</bdi>), each with its own fees. Tick the ones to compare.
+        several plans (<bdi lang="he">מסלולים</bdi>), each with its own fees: Leumi, for example, has one for
+        Leumi Trade, one for its 18+ group and one for its Pepper app. Tick the ones to compare.
       </p>
     </Tip>
   </div>
@@ -170,8 +178,9 @@
     <Tip about="Your plans">
       <p>
         Banks and investment houses often give a discount on fees (<bdi lang="he">הנחה בעמלות</bdi>) if you
-        bargain (<bdi lang="he">מיקוח</bdi>). Copy a plan with ✎ and change the fees you think you can get, or
-        add one that isn't listed with + New plan.
+        bargain (<bdi lang="he">מיקוח</bdi>): 0.06% instead of the offered 0.07%, say, or a lower minimum.
+        Copy a plan with ✎ and change the fees you think you can get, or add one that isn't listed with + New
+        plan.
       </p>
     </Tip>
   </div>

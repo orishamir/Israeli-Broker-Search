@@ -91,8 +91,9 @@
             Sells fractions of a share</label
           ><Tip about="Fractions of a share">
             <p>
-              All of each deposit is invested, even when it's less than a share's price. A price per share
-              counts a fraction as a whole share.
+              All of each deposit is invested, even when it's less than a share's price: at $500 a share, a
+              ₪2,000 deposit buys a share and a bit instead of one share with the rest waiting. A price per
+              share counts a fraction as a whole share.
             </p>
           </Tip>
         </p>

@@ -367,7 +367,7 @@ pub struct PriceRow<F> {
     pub exchanges: Vec<Exchange>,
     /// "ETF on Tel Aviv"
     pub covers: String,
-    /// "except Mutual fund on Tel Aviv (its own row above)"
+    /// "except Index fund on Tel Aviv (its own row above)"
     pub except: Option<String>,
     /// More specific rows take everything it covers.
     pub never_used: bool,
@@ -1209,7 +1209,7 @@ mod tests {
             }
         }
         // Its offer row is laid over the regular list: the regular ETF and
-        // mutual fund rows on Tel Aviv never applied, and its stocks were
+        // index fund rows on Tel Aviv never applied, and its stocks were
         // always the offer's.
         let rewritten = named("New customers").most_specific_first();
         let covers: Vec<String> = rewritten
@@ -1222,8 +1222,8 @@ mod tests {
             [
                 "Bond on Tel Aviv",
                 "Stock, ETF on USA",
-                "Stock, ETF, Mutual fund on Tel Aviv",
-                "Bond, Mutual fund on USA, Europe",
+                "Bond, Index fund on USA",
+                "Stock, ETF, Index fund on Tel Aviv",
             ]
         );
     }
@@ -1442,7 +1442,7 @@ mod tests {
     fn a_standing_order_price_is_edited() {
         let listed = named("Online, monthly standing order");
         let mut copy = listed.copy_of(None);
-        let (fund, tlv) = (Security::MutualFund, Exchange::Tlv);
+        let (fund, tlv) = (Security::IndexFund, Exchange::Tlv);
         let cheaper = TradeFields {
             kind: PriceKind::Percent,
             amount: Some(Amount(dec!(0.1))),
@@ -1473,7 +1473,7 @@ mod tests {
         );
 
         let rows = copy.price_list(Some(&listed)).standing_orders;
-        assert_eq!(rows[0].covers, "Mutual fund on Tel Aviv");
+        assert_eq!(rows[0].covers, "Index fund on Tel Aviv");
         let wider = copy.set_standing_order_row(0, &[], &[tlv], &cheaper);
         assert_eq!(wider, Ok(()));
         assert!(

@@ -4,8 +4,8 @@
   - radiogroup "Security":
     - radio "ETF" [checked]
     - text: ETF
-    - radio "Mutual fund"
-    - text: Mutual fund
+    - radio "Index fund"
+    - text: Index fund
     - radio "Bond"
     - text: Bond
     - radio "Stock"
@@ -13,8 +13,8 @@
   - term: In Hebrew
   - definition: קרן סל
   - term: Also called
-  - definition: קרן סל מחקה מדד קרן סל במסלול רציף
-  - paragraph: /A fund that holds many securities, such as the \d+ companies of the S&P \d+, and trades on the exchange all day like a share\./
+  - definition: קרן סל מחקה מדד קרן סל במסלול רציף תעודת סל
+  - paragraph: "/A basket of many companies in one security, such as the \\d+ biggest in the US\\. You buy and sell it on the stock exchange like a share: at any moment of the trading day, at whatever price it's going for right then\\. Brokers charge it as they charge a share\\. Called תעודת סל until \\d+\\./"
   - heading "Traded on" [level=3]
   - button "What “Traded on” means": "?"
   - radiogroup "Exchange":
@@ -24,7 +24,7 @@
     - text: USA
     - radio "Europe"
     - text: Europe
-  - paragraph: NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which some brokers charge for.
+  - paragraph: /NYSE or Nasdaq\. Prices are in dollars, so your shekels are converted, which some brokers charge for\. The same S&P \d+ ETF bought here, such as VOO, needs shekels turned into dollars, and back when you sell\./
   - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+-\d+-\d+/
   - heading "Deposits" [level=3]
   - text: One-time deposit
@@ -70,7 +70,6 @@
       - button "About Altshuler · New customers": ℹ
   - checkbox "Bank Leumi" [checked=mixed]
   - text: Bank Leumi
-  - 'button "May cost more at Bank Leumi: see why"': ⚠
   - button "About Bank Leumi": ℹ
   - paragraph: /Tariff of \d+\/\d+\/\d+/
   - list "Bank Leumi":

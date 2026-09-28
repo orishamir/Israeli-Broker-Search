@@ -44,7 +44,7 @@
 
 <header class="top">
   <h1>Broker fees, compounded</h1>
-  <p>What Israeli brokers' fees cost you over the years, for ETFs, bonds and mutual funds.</p>
+  <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds and bonds.</p>
   <!-- The page on how the numbers are made, opened at each of its sections. -->
   <p class="about">
     {#each app.about.sections as section, index (section.title)}

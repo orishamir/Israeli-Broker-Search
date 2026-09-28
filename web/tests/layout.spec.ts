@@ -168,7 +168,7 @@ test('with second prices', async ({ page }) => {
   await expect(dialog).toHaveScreenshot('editor-second-conversion.png')
   await dialog.getByRole('button', { name: 'Cancel' }).click()
 
-  await page.getByRole('radiogroup', { name: 'Security' }).getByText('Mutual fund', { exact: true }).click()
+  await page.getByRole('radiogroup', { name: 'Security' }).getByText('Index fund', { exact: true }).click()
   await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
   await page
     .getByRole('button', { name: "Change a copy of Leumi · Online, monthly standing order's fees" })

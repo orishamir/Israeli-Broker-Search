@@ -46,11 +46,23 @@ working that paid off. Read those three first.
 - Investment houses publish only maximums. Their real joining offers are on
   comparison sites (gemeltop.co.il, tradingil.co.il), and the exchange's
   averages confirm them.
-- Some broker pages are drawn by JavaScript: script the web project's
-  Chromium (see Recipes) instead of fetching the HTML. inter-il.com answers
-  403 to curl and to headless Chromium's own user agent; a normal Chrome
-  `userAgent` in `browser.newContext` gets through. IBKR's www site blocks
-  fetchers too, but `gdcdyn.interactivebrokers.com` serves the same pages.
+- Some broker pages are drawn by JavaScript (IBI's fund page): script the
+  web project's Chromium (see Recipes) instead of fetching the HTML; the
+  Playwright MCP plugin has no Chrome on this machine. inter-il.com answers
+  403 to curl without browser headers (`User-Agent`, `Accept`,
+  `Accept-Language` of a normal Chrome get through, as does a normal Chrome
+  `userAgent` in `browser.newContext`). IBKR's www site blocks fetchers too,
+  but `gdcdyn.interactivebrokers.com` serves the same pages.
+- The comparison sites don't list the same things. gemeltop.co.il's per-broker
+  pages give the headline prices (Tel Aviv stocks and ETFs, the US minimum,
+  the handling fee); tradingil.co.il's per-broker pages spell out bonds,
+  index funds, the US price per share, whether the handling fee is offset by
+  trade fees, and their own free years; broker.co.il confirms the offset.
+  Pepper's investing FAQ is on pepper.co.il's home page (its /invest pages
+  are gone).
+- The exchange's tariff listing can differ from a broker's document (Meitav's
+  non-US rate: 0.3% listed, 0.25% in the PDF). The document is followed and
+  the difference noted in `policies/sources.md`.
 
 ## Tools on this machine
 
@@ -171,6 +183,20 @@ await page.screenshot({ path: 'page.png', fullPage: true })
 await browser.close()
 ```
 
+The text of a page drawn by JavaScript (IBI's fund page):
+
+```js
+// node text.mjs https://…  > page.txt
+import { chromium } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+
+const browser = await chromium.launch()
+const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36', locale: 'he-IL' })
+const page = await context.newPage()
+await page.goto(process.argv[2], { waitUntil: 'networkidle', timeout: 60000 })
+process.stdout.write(await page.evaluate(() => document.body.innerText))
+await browser.close()
+```
+
 Many baselines at once: paste them into one labelled sheet, and read that
 image instead of each file.
 
@@ -210,7 +236,8 @@ sheet.save(out)
 
 - A plan with tracks that isn't ticked has no picked track, so its fee list
   shows all its tracks instead of the cheapest.
-- Leumi publishes its daily buy/sell exchange rates, so its markup (the
-  biggest "may cost more" assumption; Interactive's spread is the other)
-  could be measured against the representative rate and become a dated
-  reading, as the exchange's averages did for custody.
+- Leumi's markup is a dated reading of its published buy/sell rates
+  (`bankleumi.co.il/vgnprod/shearim.asp`, a legacy page whose Hebrew comes
+  out garbled but whose numbers are fine: representative, then transfers
+  buy/sell, then banknotes buy/sell). Re-measure it when the numbers are
+  re-checked. Interactive's market spread is still not counted.

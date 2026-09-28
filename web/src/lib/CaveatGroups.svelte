@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { CaveatGroup } from './core/core'
+  import Sources from './Sources.svelte'
   import Tip from './Tip.svelte'
 
   /** The caveats that matter to what the user buys, under a label per kind
@@ -21,6 +22,7 @@
         <li>
           {caveat.text}
           {#if caveat.support}<span class="support">Why: {caveat.support}.</span>{/if}
+          <Sources sources={caveat.sources} />
         </li>
       {/each}
     </ul>

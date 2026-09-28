@@ -7,6 +7,7 @@
   import { compactShekels, readableOn, shekels } from './format'
   import { touchScreen } from './pointer'
   import { tip } from './tip'
+  import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
 
@@ -56,7 +57,7 @@
   /** Each fee button's explanation, shown on hover. */
   const popovers = $state<HTMLElement[]>([])
 
-  const notOffered = $derived(results.filter(({ outcome }) => !outcome).map(({ plan }) => plan.label))
+  const notOffered = $derived(results.filter(({ outcome }) => !outcome))
   const offered = $derived(
     results.filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined),
   )
@@ -327,7 +328,12 @@
 ></div>
 
 {#if notOffered.length > 0}
-  <p class="hint">Not offered for {app.purchase}: {notOffered.join(', ')}</p>
+  <p class="hint">
+    Not offered for {app.purchase}:
+    {#each notOffered as { plan, notOffered: reason }, index (plan.id)}
+      {index > 0 ? ', ' : ''}{plan.label}<Tip about="Not offered">{reason}</Tip>
+    {/each}
+  </p>
 {/if}
 
 <h4>

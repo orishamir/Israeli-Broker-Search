@@ -1,7 +1,7 @@
 # Broker search
 
 Compares what Israeli brokers charge for a given investing pattern: ETFs,
-mutual funds, bonds and stocks, on Tel Aviv or abroad. The fee model is Rust
+index funds, bonds and stocks, on Tel Aviv or abroad. The fee model is Rust
 compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 
 ## Layout
@@ -54,9 +54,13 @@ quietly keep running the old core.
   that, everywhere), `not_counted` (a real cost left out, and why).
   `.about_fee(kind)` marks it beside that fee's price; `.when_above(amount)`
   shows it only when the user's biggest order (usually the sale at the end)
-  reaches the amount. Prefer research that turns an assumption into a dated
-  reading. Tests enforce a caveat for every unpublished or maximum markup and
-  for every offer row that falls back to the full tariff.
+  reaches the amount. `.source(&page)` links the page it rests on (the
+  broker's site, a comparison site, the exchange, or the tariff itself for
+  a reading of its wording); the app shows the links under the caveat, on
+  the plan, on the broker and in "About the numbers". Prefer research that
+  turns an assumption into a dated reading. Tests enforce a caveat for every
+  unpublished or maximum markup, for every offer row that falls back to the
+  full tariff, and a source on every reading.
 
 ## Tests
 
@@ -135,7 +139,10 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
 - brokers → בנקים ובתי השקעות, not ברוקרים;
 - plans → מסלולים;
 - securities → ניירות ערך;
-- bonds → אג"ח.
+- bonds → אג"ח;
+- ETFs → קרנות סל (תעודות סל until 2018); index funds → קרנות מחקות, which
+  every tariff prices apart from managed funds (קרנות מנוהלות, mostly free
+  to trade), so never say קרן נאמנות for what the app compares.
 
 - Hebrew inside English goes in `<bdi lang="he">`. In Rust strings, join a
   phrase's words with `\u{a0}`: a phrase split across lines reads backwards.

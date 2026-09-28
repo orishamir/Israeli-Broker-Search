@@ -13,16 +13,17 @@
     {
       title: 'Value if sold',
       explanation:
-        "What you'd get in shekels by selling everything at the end, after the sell fee and converting back. Before tax.",
+        "What you'd get in shekels by selling everything at the end, after the sell fee and converting back. Before tax. Abroad, that's one more trade fee and one more conversion.",
     },
     {
       title: 'Fees paid',
-      explanation: 'Every fee charged: purchases, conversions, custody, handling, and selling at the end.',
+      explanation:
+        'Every fee charged: purchases, conversions, custody, handling, and selling at the end. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.',
     },
     {
       title: 'Lost to fees',
       explanation:
-        'How much less you end up with, after selling, than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned.',
+        'How much less you end up with, after selling, than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.',
     },
   ]
 </script>
@@ -40,7 +41,7 @@
   <tbody>
     <!-- Rows glide to their new place when the ranking changes. Plans that
          don't offer the security have no line to highlight. -->
-    {#each results as { plan, outcome, warning, mayCostMore, note }, index (plan.id)}
+    {#each results as { plan, outcome, warning, mayCostMore, note, notOffered }, index (plan.id)}
       <tr
         animate:flip={{ duration: duration(300) }}
         class:not-offered={!outcome}
@@ -83,7 +84,9 @@
           </td>
           <td class="amount">{shekels(outcome.lostToFees)}</td>
         {:else}
-          <td class="amount" colspan="4">Not offered for {app.purchase}</td>
+          <td class="amount" colspan="4"
+            >Not offered for {app.purchase}<Tip about="Not offered">{notOffered}</Tip></td
+          >
         {/if}
       </tr>
     {/each}

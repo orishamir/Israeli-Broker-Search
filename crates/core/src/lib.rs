@@ -54,10 +54,10 @@ use time::Date;
 
 /// What kind of security is traded. Brokers price these differently, even on
 /// the same exchange: Altshuler charges an ETF on the Tel Aviv exchange a
-/// ₪3.5 minimum, but a mutual fund ₪16.
+/// ₪3.5 minimum, but an index fund ₪16.
 ///
 /// In the order to offer them: `Security::iter()`. Its `Display` is its name:
-/// "ETF", "Mutual fund".
+/// "ETF", "Index fund".
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter, strum::Display,
 )]
@@ -66,10 +66,14 @@ pub enum Security {
     /// Exchange-traded fund, e.g. an S&P 500 tracker. In Israel, a Keren Sal.
     #[strum(to_string = "ETF")]
     Etf,
-    /// A fund bought from the fund manager at the day's price rather than
-    /// traded continuously. In Israel, a Keren Ne'emanut.
-    #[strum(to_string = "Mutual fund")]
-    MutualFund,
+    /// A mutual fund that tracks an index, bought from the fund manager at
+    /// the day's price rather than traded continuously. In Israel, a Keren
+    /// Mechaka. Every tariff prices it apart from managed (active) funds,
+    /// which mostly cost nothing to trade and aren't compared. It was
+    /// "Mutual fund" until September 2026, and saved plans from then say so.
+    #[strum(to_string = "Index fund")]
+    #[serde(alias = "MutualFund")]
+    IndexFund,
     Bond,
     Stock,
 }
@@ -577,6 +581,14 @@ pub enum Errs {
     MayCostMore { summary: String },
 }
 
+/// A page a number comes from, to link to: "IBI's currency FAQ".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub struct Source {
+    pub name: String,
+    pub url: String,
+}
+
 /// Something a tariff leaves unclear, or that affects the numbers, and how
 /// it was read: "₪4 is only stated for orders up to ₪30,000". Made with the
 /// constructor that names its [`Basis`], so none is without one. Shown only
@@ -586,6 +598,10 @@ pub enum Errs {
 pub struct Caveat {
     pub text: String,
     pub basis: Basis,
+    /// The pages it rests on, linked beside it. A reading always has one:
+    /// the tariff itself, the broker's site or a comparison site.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub sources: Vec<Source>,
     /// The fee it's about, if one: marked beside that fee's price.
     #[serde(default)]
     pub fee: Option<FeeKind>,
@@ -606,6 +622,7 @@ impl Caveat {
         Caveat {
             text: text.to_owned(),
             basis,
+            sources: vec![],
             fee: None,
             securities: vec![],
             exchanges: vec![],
@@ -655,6 +672,21 @@ impl Caveat {
     #[must_use]
     pub fn not_counted(text: &str) -> Self {
         Caveat::with(text, Basis::NotCounted)
+    }
+
+    /// Resting on `source`, a page to link beside it.
+    #[must_use]
+    pub fn source(mut self, source: &Source) -> Self {
+        self.sources.push(source.clone());
+        self
+    }
+
+    /// Resting on each of `sources`.
+    #[must_use]
+    pub fn sources(mut self, sources: &[&Source]) -> Self {
+        self.sources
+            .extend(sources.iter().map(|&source| source.clone()));
+        self
     }
 
     /// About one fee: marked beside its price.

@@ -24,43 +24,43 @@
       - 'cell /Interactive · Standard fees: ₪\d+,\d+, see what they went to/':
         - 'button /Interactive · Standard fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-    - 'row /2 New customers Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Altshuler · New customers fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
+    - 'row /2 Typical offer Excellence Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Excellence · Typical offer fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "2"
-      - cell "New customers Altshuler Shaham Trade"
-      - cell /₪\d+,\d+,\d+/
-      - cell /₪\d+,\d+,\d+/
-      - 'cell /Altshuler · New customers fees: ₪\d+,\d+, see what they went to/':
-        - 'button /Altshuler · New customers fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
-      - cell /₪\d+,\d+/
-    - 'row /3 Typical offer Excellence Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Excellence · Typical offer fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
-      - cell "3"
       - cell "Typical offer Excellence Trade"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
       - 'cell /Excellence · Typical offer fees: ₪\d+,\d+, see what they went to/':
         - 'button /Excellence · Typical offer fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-    - 'row /4 Typical offer Meitav Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Meitav · Typical offer fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
-      - cell "4"
-      - cell "Typical offer Meitav Trade"
-      - cell /₪\d+,\d+,\d+/
-      - cell /₪\d+,\d+,\d+/
-      - 'cell /Meitav · Typical offer fees: ₪\d+,\d+, see what they went to/':
-        - 'button /Meitav · Typical offer fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
-      - cell /₪\d+,\d+/
-    - 'row /5 Typical offer IBI ⚠ Needs a one-time deposit of at least ₪\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ IBI · Typical offer fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
-      - cell "5"
+    - 'row /3 Typical offer IBI ⚠ Needs a one-time deposit of at least ₪\d+,\d+ ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ IBI · Typical offer fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
+      - cell "3"
       - cell /Typical offer IBI ⚠ Needs a one-time deposit of at least ₪\d+,\d+/
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
       - 'cell /IBI · Typical offer fees: ₪\d+,\d+, see what they went to/':
         - 'button /IBI · Typical offer fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
       - cell /₪\d+,\d+/
-    - 'row /6 Online Bank Leumi ⚠ May cost more: conversion markup not published ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Leumi · Online fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
+    - 'row /4 New customers Altshuler Shaham Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Altshuler · New customers fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
+      - cell "4"
+      - cell "New customers Altshuler Shaham Trade"
+      - cell /₪\d+,\d+,\d+/
+      - cell /₪\d+,\d+,\d+/
+      - 'cell /Altshuler · New customers fees: ₪\d+,\d+, see what they went to/':
+        - 'button /Altshuler · New customers fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
+      - cell /₪\d+,\d+/
+    - 'row /5 Typical offer Meitav Trade ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Meitav · Typical offer fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
+      - cell "5"
+      - cell "Typical offer Meitav Trade"
+      - cell /₪\d+,\d+,\d+/
+      - cell /₪\d+,\d+,\d+/
+      - 'cell /Meitav · Typical offer fees: ₪\d+,\d+, see what they went to/':
+        - 'button /Meitav · Typical offer fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
+      - cell /₪\d+,\d+/
+    - 'row /6 Online Bank Leumi ₪\d+,\d+,\d+ ₪\d+,\d+,\d+ Leumi · Online fees: ₪\d+,\d+, see what they went to ₪\d+,\d+/':
       - cell "6"
-      - 'cell "Online Bank Leumi ⚠ May cost more: conversion markup not published"'
+      - cell "Online Bank Leumi"
       - cell /₪\d+,\d+,\d+/
       - cell /₪\d+,\d+,\d+/
       - 'cell /Leumi · Online fees: ₪\d+,\d+, see what they went to/':
-        - 'button /Leumi · Online fees: ₪\d+,\d+, see what they went to/': /₪\d+,\d+ ›/
+        - 'button /Leumi · Online fees: ₪\d+,\d+, see what they went to/'
       - cell /₪\d+,\d+/

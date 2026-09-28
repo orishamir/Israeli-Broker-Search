@@ -44,15 +44,24 @@ Amounts are the tariff's maximums unless marked as an offer.
 - The first year opened through the app: custody at most 50% of the tariff.
 - "Concentrated purchase to portfolio" in Leumi Trade: a percentage fee with
   no minimum.
-- Leumi 18+ group: Tel Aviv bonds at 0.35% (online is 0.4%). Benefits don't
-  stack, so a group member gets the lower; only the conversion's two prices
-  are modelled.
-- Pepper: ₪4 and $4 are stated only for orders up to ₪30,000 and $8,000.
+- Leumi 18+ bonds are modelled as 0.35% within Online's bounds; the true
+  "better of the group's and Online's price" differs by at most ₪1, on
+  orders between ₪6,500 and ₪7,700.
+- Pepper: ₪4 and $4 are stated only for orders up to ₪30,000 and $8,000; its
+  site says larger orders are priced by the tariff, without saying which
+  row. Flagged in the table; a tiered price would model it.
+- Pepper's package of March 2026: a year without trade, minimum and currency
+  fees and a grant of up to ₪1,500, for customers who move their salary to
+  Pepper. One year only.
 - 2026 promotion for new customers: no custody fee in 2026, loss refund
   (above). Ends 31.12.2026, so it's left out.
 - Actual averages (Tel Aviv Stock Exchange, June 2026) are well below the
   tariff: custody 0.25% (Israeli) and 0.36% (foreign) a year at ₪100–200
   thousand, against 0.6% and 0.8%. Banks negotiate.
+- The conversion markup is the bank's transfers-and-checks rate, measured at
+  0.86% under and 0.98% over the representative rate on 28 September 2026
+  and modelled as 0.9% each way. An agreed rate quoted live in the app may
+  be tighter; the rates move daily.
 
 ## Interactive Israel
 
@@ -74,12 +83,16 @@ Amounts are the tariff's maximums unless marked as an offer.
 ## IBI
 
 - US tracks for OTC and special trades: 5¢ a share, min $14, or 2%.
+- Conversions of $15,000 or more get a 0.5% markup instead of 0.7%
+  (tradingil); 0.7% is charged on all, and the plan says so above $15,000.
 - Foreign funds and alternative instruments: 0.275% *plus the broker's cost*
   (only the 0.275% is modelled). Foreign bond redemption: $70.
 - Halted or worthless foreign securities: $11 a security a month. ADR custody
   fees are passed through.
 - Managed (active) mutual funds of 12 fund managers: no trade fee (the app's
-  mutual funds are index funds, which aren't included).
+  index funds aren't among them).
+- tradingil's joining offer adds two free years of the handling fee;
+  gemeltop's doesn't, so the fee is charged from the first month.
 - Another account for the same customer: up to ₪100 a month.
 - Canada: CAD 0.01 a share, min CAD 55. Asia: 0.3%, min 30.
 
@@ -90,6 +103,11 @@ Amounts are the tariff's maximums unless marked as an offer.
 - Foreign funds: 0.2%, min $20, *plus clearing and correspondent fees*.
 - Custodian fee 0.1% (min ₪30); non-tradable securities $10 a month.
 - Hedge funds in trust: 0.15%, min ₪50.
+- A funds-only track ("מסלול קרנות ללא עמלות"): no handling, custody or trade
+  fees, for accounts of at least ₪100,000 that hold managed (active) funds
+  only. Not for the app's index funds and ETFs.
+- tradingil's deal for reservists until 30 September 2026: ₪200 and four
+  free years of the handling fee.
 
 ## Excellence Trade
 
@@ -99,6 +117,7 @@ Amounts are the tariff's maximums unless marked as an offer.
 - US: at most 2% of the trade; the 0.3% track adds the broker's fee.
 - Traditional (active) mutual funds: ₪16 a trade. Hedge funds 0.15%–0.35%,
   min 50.
-- Some sign-up links offer 3 years without the handling fee instead of 2,
-  and say commissions may offset the fee afterwards; neither is published by
-  Excellence.
+- Some sign-up links offer 3 years without the handling fee instead of 2
+  (tradingil: for a first deposit within 30 days), a ₪100 gift, and a
+  minimum deposit of ₪4,500 until 10 October 2026; none is published by
+  Excellence. The offset of the fee by trade fees is modelled.

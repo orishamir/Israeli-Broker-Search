@@ -148,9 +148,11 @@ test('the full price list: rows, what they cover, and overlaps', async ({ page }
 })
 
 test('the simple view shows the fees for every security and exchange', async ({ page }) => {
+  // A loop over everything: near the timeout on the iPhone project under load.
+  test.slow()
   for (const exchange of ['Tel Aviv', 'USA', 'Europe']) {
     await page.getByRole('radiogroup', { name: 'Exchange' }).getByText(exchange).click()
-    for (const security of ['ETF', 'Mutual fund', 'Bond', 'Stock']) {
+    for (const security of ['ETF', 'Index fund', 'Bond', 'Stock']) {
       await page.getByRole('radiogroup', { name: 'Security' }).getByText(security, { exact: true }).click()
       await copy(page, 'Leumi · Online')
       const dialog = editor(page)
@@ -187,7 +189,7 @@ const choice = (page: Page, group: string, name: string) =>
   page.getByRole('radiogroup', { name: group }).getByText(name, { exact: true })
 
 test("a copy's standing order price can be changed, in both views", async ({ page }) => {
-  await choice(page, 'Security', 'Mutual fund').click()
+  await choice(page, 'Security', 'Index fund').click()
   await choice(page, 'Exchange', 'Tel Aviv').click()
   await copy(page, 'Leumi · Online, monthly standing order')
   const dialog = editor(page)
@@ -198,7 +200,7 @@ test("a copy's standing order price can be changed, in both views", async ({ pag
   await expect(dialog).toContainText('Online, monthly standing order: 0.225%, min ₪5, max ₪6,300')
 
   await dialog.getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
-  await expect(dialog.getByLabel('Standing order, Mutual fund on Tel Aviv: price')).toHaveValue('0.1')
+  await expect(dialog.getByLabel('Standing order, Index fund on Tel Aviv: price')).toHaveValue('0.1')
 })
 
 test("a copy's second conversion fee can be changed", async ({ page }) => {

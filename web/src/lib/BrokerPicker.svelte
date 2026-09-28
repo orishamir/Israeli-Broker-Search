@@ -77,8 +77,9 @@
             <span class="usual"
               >usual<Tip about="usual">
                 <p>
-                  The plan a new customer usually gets from {broker.name}. The usual plans are compared at
-                  first; tick others to add them.
+                  The plan a new customer usually gets from {broker.name}: an investment house's joining offer
+                  rather than its full tariff, a bank's online prices rather than a customer group's. The
+                  usual plans are compared at first; tick others to add them.
                 </p>
               </Tip></span
             >

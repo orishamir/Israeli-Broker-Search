@@ -74,7 +74,7 @@ test("a plan's ℹ explains it, and links to its broker", async ({ page }) => {
   await expect(dialog).toContainText('For an ETF bought in the USA:')
   // Its caveats say how sure each number is, and when the numbers were checked.
   await expect(dialog).toContainText('Assumed, may cost more')
-  await expect(dialog).toContainText('Checked 28/09/2026')
+  await expect(dialog).toContainText('Checked 29/09/2026')
   await dialog.getByText('All prices').click()
   await expect(page).toHaveScreenshot('plan-details.png')
 
@@ -100,7 +100,13 @@ test('hovering a plan previews it', async ({ page, isMobile }) => {
 })
 
 test("a plan's minimum one-time deposit warns, and it isn't called best", async ({ page }) => {
+  // Leaving Altshuler the best plan that isn't warned (IBI needs ₪15,000).
+  // A broker's box is "mixed", which uncheck() takes for unchecked: untick its plan.
   await checkbox(page, 'Interactive Israel').uncheck()
+  await page
+    .getByRole('list', { name: 'Excellence Trade' })
+    .getByRole('checkbox', { name: 'Typical offer' })
+    .uncheck()
   const newCustomers = rows(page).filter({ hasText: 'New customers' })
   await expect(page.getByText('Best: Altshuler · New customers')).toBeVisible()
   await page.getByLabel('One-time deposit').fill('1000')
@@ -135,7 +141,7 @@ test('hovering a plan in the sidebar highlights it in the table', async ({ page,
 
 test('a standing order is used only when buying every month', async ({ page }) => {
   await checkbox(page, 'Online, monthly standing order').check()
-  await choice(page, 'Security', 'Mutual fund').click()
+  await choice(page, 'Security', 'Index fund').click()
   await choice(page, 'Exchange', 'Tel Aviv').click()
   const row = (name: string) => rows(page).filter({ has: page.getByText(name, { exact: true }) })
   const standingOrder = row('Online, monthly standing order')
@@ -162,7 +168,7 @@ test('fees more than the deposits are flagged', async ({ page }) => {
 test('the share price shows only where it matters', async ({ page }) => {
   const sharePrice = page.getByLabel('Share price', { exact: true })
   await expect(sharePrice).toBeVisible() // US ETFs are bought in whole shares
-  await choice(page, 'Security', 'Mutual fund').click()
+  await choice(page, 'Security', 'Index fund').click()
   // Funds are bought by amount, but one of Excellence's tracks for US
   // securities charges per share.
   await expect(sharePrice).toBeVisible()
@@ -180,7 +186,7 @@ test('second prices show under the fee they belong to', async ({ page }) => {
   await page.mouse.move(0, 0)
   await page.keyboard.press('Escape')
 
-  await choice(page, 'Security', 'Mutual fund').click()
+  await choice(page, 'Security', 'Index fund').click()
   await choice(page, 'Exchange', 'Tel Aviv').click()
   await page.getByRole('button', { name: 'About Leumi · Online, monthly standing order' }).click()
   const standingOrder = page.getByRole('dialog', { name: 'Online, monthly standing order' })
@@ -238,6 +244,8 @@ test('ticked plans all differ in color, and an unticked one frees its color', as
 
 // Opening each plan's details, with all its prices, breaks nothing.
 test("every plan's details open", async ({ page }) => {
+  // A loop over everything: near the timeout on the iPhone project under load.
+  test.slow()
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
   const buttons = page.getByRole('button', { name: /^About .+ · / })
@@ -257,24 +265,30 @@ test("every plan's details open", async ({ page }) => {
 })
 
 test('a number that may be too low is flagged, and the plan stays ranked', async ({ page }) => {
-  // Leumi doesn't publish its conversion markup, so it's counted as 0.
-  const leumi = rows(page).filter({ hasText: 'Bank Leumi' })
-  await expect(leumi).toContainText('May cost more: conversion markup not published')
-  await expect(leumi.locator('.rank')).not.toHaveText('–')
+  // Pepper's $4 is stated only for orders up to $8,000, and selling
+  // everything at the end is far more; Leumi's markup is measured, not flagged.
+  await checkbox(page, 'Pepper').check()
+  const pepper = rows(page).filter({ hasText: 'Pepper' })
+  await expect(pepper).toContainText('May cost more: $4 is stated only for orders up to $8,000')
+  await expect(pepper.locator('.rank')).not.toHaveText('–')
+  await expect(rows(page).filter({ hasText: 'Online' })).not.toContainText('May cost more')
   // Interactive converts at the market rate, as its site says: nothing to flag.
   await expect(rows(page).filter({ hasText: 'Interactive' })).not.toContainText('May cost more')
   await expect(rows(page).filter({ hasText: 'Altshuler' })).not.toContainText('May cost more')
-  // The ⚠ in the sidebar means the same thing, and only that.
-  await expect(page.getByRole('button', { name: 'May cost more at Bank Leumi: see why' })).toBeVisible()
-  await expect(page.getByRole('button', { name: /May cost more at Interactive/ })).toBeHidden()
+  // The ⚠ in the sidebar means the same thing, for a broker's every plan;
+  // no broker has one left.
+  await expect(page.getByRole('button', { name: /May cost more at/ })).toBeHidden()
 })
 
 test('the numbers are explained, from the title and from a plan', async ({ page }) => {
   await page.getByRole('button', { name: 'Sources' }).click()
   const about = page.getByRole('dialog', { name: 'About the numbers' })
   await expect(about).toBeVisible()
-  await expect(about).toContainText('Checked 28/09/2026')
-  await expect(about.getByRole('link', { name: /Bank Leumi/ })).toBeVisible()
+  await expect(about).toContainText('Checked 29/09/2026')
+  // Every page the numbers rest on, by broker.
+  await expect(about.getByRole('link', { name: "Leumi's exchange rates ↗" })).toBeVisible()
+  await expect(about.getByRole('link', { name: 'Tariff (PDF) ↗' })).toHaveCount(6)
+  await expect(about).toContainText('Bank Leumi · Tariff of 29/06/2026')
   await page.mouse.move(0, 0)
   await page.keyboard.press('Escape')
   await expect(about).toBeHidden()

@@ -17,7 +17,7 @@ use crate::simulation::Outcome;
 use crate::{
     Basis, Broker, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange, ExchangeRates,
     HandlingFee, IntoEnumIterator, Markup, Money, PercentFee, Period, Plan, Price, Security,
-    TariffDate, TradeFee, tariffs,
+    Source, TariffDate, TradeFee, tariffs,
 };
 
 /// A price in words, and whether it's nothing, so that every view dims the
@@ -29,6 +29,11 @@ pub struct PriceText {
     pub text: String,
     /// True when nothing is charged, or no price is given.
     pub nothing: bool,
+    /// For "not offered", the most general mismatch that's true, for its
+    /// "?": "Nothing in Europe is offered", "No index funds are offered
+    /// anywhere" (see [`Plan::not_offered_reason`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reason: Option<String>,
 }
 
 impl PriceText {
@@ -38,6 +43,16 @@ impl PriceText {
         PriceText {
             text: why.to_owned(),
             nothing: true,
+            reason: None,
+        }
+    }
+
+    /// No price is given, and `reason` says how general the gap is.
+    #[must_use]
+    pub fn not_offered(reason: String) -> Self {
+        PriceText {
+            reason: Some(reason),
+            ..PriceText::nothing("not offered")
         }
     }
 }
@@ -53,6 +68,7 @@ pub trait Priced: Display {
         PriceText {
             text: self.to_string(),
             nothing: self.is_nothing(),
+            reason: None,
         }
     }
 }
@@ -101,25 +117,38 @@ impl Explained for Security {
     fn explanation(&self) -> &'static str {
         match self {
             Security::Etf => {
-                "A fund that holds many securities, such as the 500 companies of the S&P 500, \
-                 and trades on the exchange all day like a share."
+                "A basket of many companies in one security, such as the 500 biggest in the \
+                 US. You buy and sell it on the stock exchange like a share: at any moment of \
+                 the trading day, at whatever price it's going for right then. Brokers charge \
+                 it as they charge a share. Called תעודת\u{a0}סל until 2018."
             }
-            Security::MutualFund => {
-                "A fund bought from and sold to its manager, at one price a day set after the \
-                 exchange closes. Index-tracking ones (קרן\u{a0}מחקה) are mutual funds too."
+            Security::IndexFund => {
+                "The same kind of basket, but not traded on the exchange. You buy it from the \
+                 fund company through your broker, and sell it back the same way, at one price \
+                 a day, set after the exchange closes; any amount will do, even ₪100. Brokers \
+                 charge it as a fund, which at most of them is a different price from a \
+                 share: on Altshuler's full tariff an ETF costs at least ₪3.5 a trade and an \
+                 index fund at least ₪16, for the same S&P 500. Managed (active) and \
+                 money-market funds aren't compared here."
             }
             Security::Bond => {
-                "A loan to a government or a company, which pays interest and is traded on the \
-                 exchange."
+                "A loan you give to a government or a company: it pays you interest, say 4% a \
+                 year, and you can sell it on the exchange before it's repaid. Short-term \
+                 government bills (מק״מ) are priced separately and aren't compared."
             }
-            Security::Stock => "A share of a single company.",
+            Security::Stock => "A share in one company, such as Teva or Apple.",
         }
     }
 
     fn hebrew_names(&self) -> &'static [&'static str] {
         match self {
-            Security::Etf => &["קרן סל", "קרן סל מחקה מדד", "קרן סל במסלול רציף"],
-            Security::MutualFund => &["קרן נאמנות"],
+            Security::Etf => &[
+                "קרן סל",
+                "קרן סל מחקה מדד",
+                "קרן סל במסלול רציף",
+                "תעודת סל",
+            ],
+            Security::IndexFund => &["קרן מחקה", "קרן נאמנות מחקה"],
             // Both spellings of the full name are common.
             Security::Bond => &["אג\"ח", "איגרת חוב", "אגרת חוב"],
             Security::Stock => &["מניה"],
@@ -131,15 +160,18 @@ impl Explained for Exchange {
     fn explanation(&self) -> &'static str {
         match self {
             Exchange::Tlv => {
-                "The Tel Aviv Stock Exchange. Prices are in shekels, so nothing is converted."
+                "The Tel Aviv Stock Exchange. Prices are in shekels, so nothing is converted. \
+                 An S&P 500 ETF is sold here too, as an Israeli קרן\u{a0}סל."
             }
             Exchange::Usa => {
                 "NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which \
-                 some brokers charge for."
+                 some brokers charge for. The same S&P 500 ETF bought here, such as VOO, needs \
+                 shekels turned into dollars, and back when you sell."
             }
             Exchange::Europe => {
                 "A European exchange, such as Xetra or Euronext. Prices are in euros, so your \
-                 shekels are converted, which some brokers charge for."
+                 shekels are converted, which some brokers charge for. An Irish-based S&P 500 \
+                 ETF listed in Amsterdam, for example."
             }
         }
     }
@@ -175,13 +207,32 @@ impl Period {
     }
 }
 
-/// "an ETF bought in the USA", "a mutual fund bought in Tel Aviv".
+/// "ETFs", "index funds": what isn't offered.
+fn plural(security: Security) -> &'static str {
+    match security {
+        Security::Etf => "ETFs",
+        Security::IndexFund => "index funds",
+        Security::Bond => "bonds",
+        Security::Stock => "stocks",
+    }
+}
+
+/// "in the USA", "in Tel Aviv": where something is bought.
+fn place(exchange: Exchange) -> &'static str {
+    match exchange {
+        Exchange::Tlv => "in Tel Aviv",
+        Exchange::Usa => "in the USA",
+        Exchange::Europe => "in Europe",
+    }
+}
+
+/// "an ETF bought in the USA", "an index fund bought in Tel Aviv".
 #[must_use]
 pub fn purchase(security: Security, exchange: Exchange) -> impl Display {
     fmt::from_fn(move |f| {
         let security = match security {
             Security::Etf => "an ETF",
-            Security::MutualFund => "a mutual fund",
+            Security::IndexFund => "an index fund",
             Security::Bond => "a bond",
             Security::Stock => "a stock",
         };
@@ -238,25 +289,31 @@ impl Explained for FeeKind {
     fn explanation(&self) -> &'static str {
         match self {
             FeeKind::Trade => {
-                "Charged on every purchase and sale, including selling everything at the end."
+                "Charged on every purchase and sale, including selling everything at the end. \
+                 Usually a share of the trade with a minimum: at 0.07% with a ₪3 minimum, a \
+                 ₪2,000 purchase is charged the ₪3, since 0.07% of it is only ₪1.40."
             }
             FeeKind::Track => {
                 "Some brokers let you choose, when you open the account, how trades abroad \
-                 are priced: per share, per order or as a share of the trade. The app picks \
-                 the cheapest for your inputs; ask for it when you open the account."
+                 are priced: per share, per order or as a share of the trade. Altshuler, for \
+                 example: 1¢ a share, $11 an order, or 0.15% of the trade. The app picks the \
+                 cheapest for your inputs; ask for it when you open the account."
             }
             FeeKind::StandingOrder => {
                 "An instruction to buy the same amount every month, automatically. Some \
-                 brokers charge less for these purchases; a one-time deposit and selling \
-                 cost the usual fee."
+                 brokers charge less for these purchases: Leumi charges 0.225% instead of \
+                 0.4% for an index fund bought this way. A one-time deposit and selling cost \
+                 the usual fee."
             }
             FeeKind::Custody => {
-                "Charged for holding your securities, as a share of what they're worth."
+                "Charged for holding your securities, as a share of what they're worth, \
+                 whether or not you trade: 0.6% a year on ₪100,000 is ₪600, every year."
             }
             FeeKind::Handling => {
-                "A fee for keeping the account, charged every month whether or not you trade. \
-                 New customers often get it free for a while, and some brokers take that \
-                 month's trade fees off it."
+                "A fee for keeping the account, charged every month whether or not you trade: \
+                 ₪15 a month is ₪180 a year. New customers often get it free for a while, and \
+                 some brokers take that month's trade fees off it, so a month with ₪15 of \
+                 purchases pays nothing more."
             }
             FeeKind::Conversion => {
                 "Charged for converting your shekels to the security's currency, and back \
@@ -269,7 +326,9 @@ impl Explained for FeeKind {
             }
             FeeKind::Markup => {
                 "The Currency Conversion Markup: the broker converts at a rate worse than \
-                 the market's by this much. It isn't listed as a fee, but it costs the same."
+                 the market's by this much. It isn't listed as a fee, but it costs the same: \
+                 at a market rate of ₪3.50 a dollar, a 0.7% markup means paying ₪3.52, which \
+                 is ₪14 on ₪2,000."
             }
         }
     }
@@ -327,21 +386,26 @@ impl Explained for CaveatKind {
         match self {
             CaveatKind::MayCostMore => {
                 "Nothing is published to go on, so a stand-in was used that errs on the \
-                 cheap side: the plan may cost more than shown. If you know the real \
-                 number, change these fees with ✎."
+                 cheap side: the plan may cost more than shown. A bank that doesn't publish \
+                 its conversion markup, for example, is counted as converting at the market \
+                 rate. If you know the real number, change these fees with ✎."
             }
             CaveatKind::AtMost => {
                 "Nothing is published to go on, so the tariff's full price or maximum is \
-                 used: the plan can only be cheaper than shown. Ask the broker what it \
-                 really charges."
+                 used: the plan can only be cheaper than shown. An offer that doesn't \
+                 mention bonds, for example, gets the full tariff's bond price. Ask the \
+                 broker what it really charges."
             }
             CaveatKind::Reading => {
                 "The tariff is unclear or silent here. This is how it was read, and what \
-                 supports the reading."
+                 supports the reading: a custody rate with no period stated was read as \
+                 yearly, for example, because the exchange's data on what customers pay \
+                 says so."
             }
             CaveatKind::NotCounted => {
                 "A real cost the app leaves out, and why: too small or too rare to change a \
-                 long-term comparison, or a one-off."
+                 long-term comparison, or a one-off, such as a ₪200 gift for opening the \
+                 account."
             }
             CaveatKind::Published => {
                 "What the tariff or the broker's site says. Nothing is uncertain; it's worth \
@@ -366,8 +430,10 @@ pub struct CaveatText {
     pub label: String,
     /// For a reading, what supports it.
     pub support: Option<String>,
+    /// The pages it rests on, to link beside it.
+    pub sources: Vec<Source>,
     /// What it's about, for one shown among caveats about other choices:
-    /// "Mutual fund on Tel Aviv", "Orders above $8,000".
+    /// "Index fund on Tel Aviv", "Orders above $8,000".
     pub covers: String,
 }
 
@@ -382,6 +448,7 @@ impl From<&Caveat> for CaveatText {
                 Basis::Reading { support } => Some(support.clone()),
                 _ => None,
             },
+            sources: caveat.sources.clone(),
             covers: caveat.coverage().to_string(),
         }
     }
@@ -524,6 +591,7 @@ impl FeeLine {
             PriceText {
                 text: price,
                 nothing: false,
+                reason: None,
             },
         )
     }
@@ -550,6 +618,35 @@ impl Plan {
     /// What the plan charges for `buying`, on `track` if the comparison
     /// picked one of its tracks, with `broker_caveats` (the ones about every
     /// plan of the broker) before the plan's own.
+    /// Every page its caveats rest on, each once, in the order first named.
+    #[must_use]
+    pub fn sources(&self) -> Vec<Source> {
+        each_once(self.caveats.iter().flat_map(|caveat| &caveat.sources))
+    }
+
+    /// Why `security` on `exchange` has no price, in the most general terms
+    /// that are true: "Nothing in Europe is offered" when nothing there is,
+    /// "No index funds are offered anywhere" when the security isn't, and
+    /// otherwise "No index funds are offered in Europe".
+    #[must_use]
+    pub fn not_offered_reason(&self, security: Security, exchange: Exchange) -> String {
+        let rows = || {
+            self.trading
+                .iter()
+                .chain(self.tracks.iter().flat_map(|track| &track.trading))
+        };
+        let anything_there =
+            rows().any(|row| Security::iter().any(|each| row.applies_to(each, exchange)));
+        let anywhere =
+            rows().any(|row| Exchange::iter().any(|each| row.applies_to(security, each)));
+        let (securities, place) = (plural(security), place(exchange));
+        match (anything_there, anywhere) {
+            (false, _) => format!("Nothing {place} is offered"),
+            (true, false) => format!("No {securities} are offered anywhere"),
+            (true, true) => format!("No {securities} are offered {place}"),
+        }
+    }
+
     pub fn describe_fees_for(
         &self,
         buying: Buying,
@@ -581,10 +678,11 @@ impl Plan {
         let mut trade = FeeLine::new(
             FeeKind::Trade,
             price.clone().map_or_else(
-                || PriceText::nothing("not offered"),
+                || PriceText::not_offered(self.not_offered_reason(security, exchange)),
                 |text| PriceText {
                     text,
                     nothing: false,
+                    reason: None,
                 },
             ),
         );
@@ -795,7 +893,7 @@ impl Display for Price {
 }
 
 impl CustodyFee {
-    /// What the row covers: "Tel Aviv", "Any exchange", "Mutual fund on Tel
+    /// What the row covers: "Tel Aviv", "Any exchange", "Index fund on Tel
     /// Aviv".
     #[must_use]
     pub fn coverage(&self) -> impl Display + '_ {
@@ -909,7 +1007,7 @@ fn write_bounds(f: &mut Formatter<'_>, min: Option<Money>, max: Option<Money>) -
     Ok(())
 }
 
-/// "except Mutual fund on Tel Aviv (its own row above)", for a row of your
+/// "except Index fund on Tel Aviv (its own row above)", for a row of your
 /// plan that more specific rows take part of; `covers` is what each of them
 /// covers.
 #[must_use]
@@ -938,6 +1036,31 @@ impl Broker {
         plan.describe_fees_for(buying, track, &self.caveats, rates)
     }
 
+    /// Its tariff document, then every page its caveats and its plans' rest
+    /// on, each once.
+    #[must_use]
+    pub fn sources(&self) -> Vec<Source> {
+        self.sources_of(self.plans.iter().flat_map(|plan| &plan.caveats))
+    }
+
+    /// The pages behind `plan`'s numbers: the tariff document, then what the
+    /// broker-wide caveats and the plan's own rest on, each once.
+    #[must_use]
+    pub fn sources_for(&self, plan: &Plan) -> Vec<Source> {
+        self.sources_of(plan.caveats.iter())
+    }
+
+    fn sources_of<'a>(&'a self, caveats: impl Iterator<Item = &'a Caveat>) -> Vec<Source> {
+        let tariff = self.source_url.iter().map(|url| Source {
+            name: "Tariff (PDF)".to_owned(),
+            url: url.clone(),
+        });
+        let mut sources = tariff.collect::<Vec<Source>>();
+        let caveats = self.caveats.iter().chain(caveats);
+        sources.extend(caveats.flat_map(|caveat| caveat.sources.iter().cloned()));
+        each_once(sources.iter())
+    }
+
     /// The broker-wide caveats that matter to `buying`, grouped by kind.
     #[must_use]
     pub fn caveats_for(&self, buying: Buying, rates: &ExchangeRates) -> Vec<CaveatGroup> {
@@ -957,7 +1080,7 @@ impl Broker {
         plan.may_cost_more(buying, &self.caveats, rates)
     }
 
-    /// "Checked 28/09/2026": when the numbers were last checked against the
+    /// "Checked 29/09/2026": when the numbers were last checked against the
     /// brokers' documents and sites.
     #[must_use]
     pub fn checked_text() -> String {
@@ -969,7 +1092,7 @@ impl Broker {
 }
 
 impl Caveat {
-    /// "Mutual fund on Tel Aviv", "Everything", "Stock, ETF on USA, orders
+    /// "Index fund on Tel Aviv", "Everything", "Stock, ETF on USA, orders
     /// above $8,000"
     #[must_use]
     pub fn coverage(&self) -> impl Display + '_ {
@@ -1016,6 +1139,29 @@ pub struct Section {
     pub paragraphs: Vec<String>,
     /// A list after the paragraphs, if the section has one.
     pub items: Vec<Item>,
+    /// Pages to link, in groups, if the section is the sources.
+    pub sources: Vec<SourceGroup>,
+}
+
+/// The pages behind one broker's numbers, or one kind of source: "Bank
+/// Leumi · Tariff of 29/06/2026".
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub struct SourceGroup {
+    pub title: String,
+    pub sources: Vec<Source>,
+}
+
+/// `sources`, each URL once, in the order first seen.
+fn each_once<'a>(sources: impl Iterator<Item = &'a Source>) -> Vec<Source> {
+    let mut seen: Vec<Source> = vec![];
+    for source in sources {
+        if !seen.iter().any(|known| known.url == source.url) {
+            seen.push(source.clone());
+        }
+    }
+    seen
 }
 
 /// One item of a section's list, linked if it has somewhere to go.
@@ -1037,6 +1183,7 @@ fn item(text: &str) -> Item {
 /// The page that explains the numbers: what the app does with your inputs,
 /// how sure it is of each price, what it leaves out and why, and its sources.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "the page's text")]
 pub fn about() -> About {
     let method = Section {
         title: "How the numbers are made".to_owned(),
@@ -1068,6 +1215,7 @@ pub fn about() -> About {
                 .to_owned(),
         ],
         items: vec![],
+        sources: vec![],
     };
     let left_out = Section {
         title: "What isn't counted".to_owned(),
@@ -1076,6 +1224,7 @@ pub fn about() -> About {
              are in its details, under \u{201c}Not counted\u{201d}."
                 .to_owned(),
         ],
+        sources: vec![],
         items: vec![
             item("Taxes: they don't depend on the broker."),
             item(
@@ -1103,31 +1252,40 @@ pub fn about() -> About {
             ),
         ],
     };
-    let mut sources: Vec<Item> = tariffs::all()
-        .into_iter()
-        .map(|broker| Item {
-            text: format!("{}: {}", broker.name, broker.tariff_date_text()),
-            url: broker.source_url,
+    let mut groups: Vec<SourceGroup> = tariffs::all()
+        .iter()
+        .map(|broker| SourceGroup {
+            title: format!("{} · {}", broker.name, broker.tariff_date_text()),
+            sources: broker.sources(),
         })
         .collect();
-    sources.push(item(
-        "Typical offers: what gemeltop.co.il and tradingil.co.il list for joining, \
-         September 2026.",
-    ));
-    sources.push(Item {
-        text: "The Tel Aviv Stock Exchange's actual average fees (June 2026), which \
-               confirm the offers and settled unclear rows."
+    groups.push(SourceGroup {
+        title: "Comparison sites, for the typical offers and the investment houses' \
+                conversion markups (September 2026)"
             .to_owned(),
-        url: Some("https://market.tase.co.il/he/market_data/trading_fees".to_owned()),
+        sources: vec![
+            tariffs::gemeltop_comparison(),
+            tariffs::tradingil_comparison(),
+            tariffs::tradingil_conversions(),
+            tariffs::broker_co_il(),
+        ],
+    });
+    groups.push(SourceGroup {
+        title: "The Tel Aviv Stock Exchange: its members' tariffs and actual average fees \
+                (June 2026), which confirm the offers and settled unclear rows"
+            .to_owned(),
+        sources: vec![tariffs::exchange_calculator()],
     });
     let sources = Section {
         title: "Sources".to_owned(),
         paragraphs: vec![format!(
             "{} against each broker's tariff document and site. Tariffs change several \
-             times a year: each plan's details link to its document.",
+             times a year: each plan's details link to its document, and each caveat to \
+             the page it rests on.",
             Broker::checked_text()
         )],
-        items: sources,
+        items: vec![],
+        sources: groups,
     };
     About {
         sections: vec![method, left_out, sources],
@@ -1211,19 +1369,21 @@ mod tests {
             .iter()
             .map(|part| (part.label.as_str(), part.price.text.as_str()))
             .collect();
-        assert_eq!(parts, [("markup", "not published")]);
+        assert_eq!(parts, [("markup", "up to 0.9%")]);
         assert_eq!(fees.fees[1].hebrew_names, ["דמי משמרת"]);
 
-        // The unpublished markup is marked beside its price, and its caveat
-        // heads the list, under the label that says what it means.
+        // The markup, measured from the bank's published rates, is marked
+        // beside its price as a reading, and its caveat heads the list, under
+        // the label that says what it means.
         let mark = fees.fees[2].parts[0].mark.as_ref().unwrap();
-        assert_eq!(mark.kind, CaveatKind::MayCostMore);
-        assert_eq!(mark.text, "may cost more");
+        assert_eq!(mark.kind, CaveatKind::Reading);
+        assert_eq!(mark.text, "our reading");
         assert_eq!(mark.caveats.len(), 1);
+        assert!(mark.caveats[0].support.is_some());
         assert_eq!(fees.fees[0].mark, None);
-        assert_eq!(fees.caveats[0].kind, CaveatKind::MayCostMore);
-        assert_eq!(fees.caveats[0].label, "Assumed, may cost more");
-        assert!(fees.caveats[0].explanation.contains("cheap side"));
+        assert_eq!(fees.caveats[0].kind, CaveatKind::Reading);
+        assert_eq!(fees.caveats[0].label, "Our reading");
+        assert!(fees.caveats[0].explanation.contains("unclear or silent"));
         assert_eq!(fees.caveats[0].caveats[0].text, mark.caveats[0].text);
     }
 
@@ -1240,7 +1400,7 @@ mod tests {
         };
 
         let standing_order = plan("Online, monthly standing order");
-        let fund = describe(standing_order, Security::MutualFund, Exchange::Tlv);
+        let fund = describe(standing_order, Security::IndexFund, Exchange::Tlv);
         assert_eq!(fund.fees[0].price.text, "0.4%, min ₪26, max ₪6,300");
         assert_eq!(
             parts(&fund.fees[0]),
@@ -1258,7 +1418,7 @@ mod tests {
             parts(&plus18.fees[2]),
             [
                 ("or, if less".into(), "0.16%, min $5.76, max $2,400".into()),
-                ("markup".into(), "not published".into()),
+                ("markup".into(), "up to 0.9%".into()),
             ]
         );
     }
@@ -1268,8 +1428,8 @@ mod tests {
         let leumi = tariffs::leumi();
         let plan = &leumi.plans[2];
         let note = |security, every| plan.standing_order_note(security, Exchange::Tlv, every);
-        assert_eq!(note(Security::MutualFund, 1), None);
-        assert!(note(Security::MutualFund, 3).is_some());
+        assert_eq!(note(Security::IndexFund, 1), None);
+        assert!(note(Security::IndexFund, 3).is_some());
         assert_eq!(note(Security::Etf, 3), None); // it has no standing order for ETFs
     }
 
@@ -1314,7 +1474,7 @@ mod tests {
                 .any(|caveat| caveat.to_lowercase().contains("index fund"))
         );
 
-        let tel_aviv_fund = caveats(Security::MutualFund, Exchange::Tlv, None);
+        let tel_aviv_fund = caveats(Security::IndexFund, Exchange::Tlv, None);
         assert!(
             tel_aviv_fund
                 .iter()
@@ -1338,8 +1498,24 @@ mod tests {
             .collect();
         assert!(covers.contains(&"Anything on Tel Aviv, orders above ₪30,000"));
         assert!(covers.contains(&"Anything on USA, Europe, orders above $8,000"));
-        assert!(covers.contains(&"Mutual fund on Tel Aviv"));
-        assert_eq!(fees.caveats.len(), 1, "only the markup: {:?}", fees.caveats);
+        assert!(covers.contains(&"Index fund on Tel Aviv"));
+        // What matters: the markup's reading, then Pepper's package and its
+        // custody note.
+        let kinds: Vec<CaveatKind> = fees.caveats.iter().map(|group| group.kind).collect();
+        assert_eq!(
+            kinds,
+            [
+                CaveatKind::Reading,
+                CaveatKind::NotCounted,
+                CaveatKind::Published
+            ]
+        );
+        assert_eq!(
+            fees.caveats[0].caveats.len(),
+            1,
+            "only the markup is a reading: {:?}",
+            fees.caveats
+        );
     }
 
     #[test]
@@ -1353,16 +1529,11 @@ mod tests {
             };
             leumi.may_cost_more(&pepper, buying, &rates())
         };
-        assert_eq!(
-            flag(Exchange::Usa, Some(usd(dec!(7000)))).as_deref(),
-            Some("May cost more: conversion markup not published")
-        );
+        // The markup is a reading of Leumi's published rates, not a stand-in.
+        assert_eq!(flag(Exchange::Usa, Some(usd(dec!(7000)))), None);
         assert_eq!(
             flag(Exchange::Usa, Some(usd(dec!(9000)))).as_deref(),
-            Some(
-                "May cost more: conversion markup not published; $4 is stated only for \
-                 orders up to $8,000"
-            )
+            Some("May cost more: $4 is stated only for orders up to $8,000")
         );
         assert_eq!(flag(Exchange::Tlv, Some(ils(dec!(1000)))), None);
 
@@ -1440,9 +1611,35 @@ mod tests {
             "the markup is up to 0.7%"
         );
 
-        // IBI's mutual funds on Tel Aviv have a custody row of 0%.
+        // IBI's index funds on Tel Aviv have a custody row of 0%.
         let free = &tariffs::ibi().plans[0].custody[0];
         assert_eq!(free.price_text(), PriceText::nothing("none"));
+    }
+
+    #[test]
+    fn not_offered_says_the_most_general_mismatch() {
+        let reason = |plan: &Plan, security, exchange| plan.not_offered_reason(security, exchange);
+        let interactive = tariffs::interactive();
+        let standard = &interactive.plans[0];
+        assert_eq!(
+            reason(standard, Security::Bond, Exchange::Tlv),
+            "Nothing in Tel Aviv is offered"
+        );
+        assert_eq!(
+            reason(standard, Security::IndexFund, Exchange::Usa),
+            "No index funds are offered anywhere"
+        );
+        // Index funds in the USA only: Europe is the gap.
+        let mut with_us_funds = standard.clone();
+        with_us_funds.trading.push(TradeFee {
+            securities: vec![Security::IndexFund],
+            exchanges: vec![Exchange::Usa],
+            price: Price::Flat(usd(dec!(1))),
+        });
+        assert_eq!(
+            reason(&with_us_funds, Security::IndexFund, Exchange::Europe),
+            "No index funds are offered in Europe"
+        );
     }
 
     #[test]
@@ -1453,14 +1650,18 @@ mod tests {
             .fees[0];
         assert!(trade.price.nothing);
         assert_eq!(trade.price.text, "not offered");
+        assert_eq!(
+            trade.price.reason.as_deref(),
+            Some("Nothing in Europe is offered")
+        );
         assert_eq!(plan.trading[0].coverage().to_string(), "ETF on Tel Aviv");
         assert_eq!(
             purchase(Security::Etf, Exchange::Usa).to_string(),
             "an ETF bought in the USA"
         );
         assert_eq!(
-            purchase(Security::MutualFund, Exchange::Tlv).to_string(),
-            "a mutual fund bought in Tel Aviv"
+            purchase(Security::IndexFund, Exchange::Tlv).to_string(),
+            "an index fund bought in Tel Aviv"
         );
         assert_eq!(
             tariffs::leumi().tariff_date_text().to_string(),
@@ -1470,7 +1671,7 @@ mod tests {
             tariffs::altshuler().tariff_date_text().to_string(),
             "Tariff date not stated"
         );
-        assert_eq!(Broker::checked_text(), "Checked 28/09/2026");
+        assert_eq!(Broker::checked_text(), "Checked 29/09/2026");
     }
 
     #[test]
@@ -1486,15 +1687,15 @@ mod tests {
             ["How the numbers are made", "What isn't counted", "Sources"]
         );
         let sources = &about.sections[2];
-        assert!(sources.paragraphs[0].starts_with("Checked 28/09/2026"));
-        let linked = sources
-            .items
-            .iter()
-            .filter(|item| item.url.is_some())
-            .count();
-        assert!(
-            linked > tariffs::all().len(),
-            "every tariff, and the exchange"
-        );
+        assert!(sources.paragraphs[0].starts_with("Checked 29/09/2026"));
+        // A group per broker, its tariff first, then the comparison sites and
+        // the exchange.
+        assert_eq!(sources.sources.len(), tariffs::all().len() + 2);
+        for (group, broker) in sources.sources.iter().zip(tariffs::all()) {
+            assert!(group.title.starts_with(&broker.name), "{}", group.title);
+            assert_eq!(group.sources[0].name, "Tariff (PDF)");
+            assert!(group.sources.len() > 1, "{}: only the tariff", broker.name);
+        }
+        assert_eq!(sources.items, Vec::new());
     }
 }

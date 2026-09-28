@@ -21,7 +21,7 @@ use broker_fees::yours::{
 };
 use broker_fees::{
     Broker, Buying, Exchange, ExchangeRates, IntoEnumIterator, Money, Percent, Period, Plan,
-    Security, TradeFee, ils, tariffs,
+    Security, Source, TradeFee, ils, tariffs,
 };
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -131,6 +131,9 @@ pub struct BrokerInfo {
     /// broker's documents and site.
     pub checked: String,
     pub source_url: Option<String>,
+    /// Its tariff document, then every page its and its plans' caveats rest
+    /// on, each once.
+    pub sources: Vec<Source>,
     pub plans: Vec<PlanInfo>,
 }
 
@@ -144,7 +147,15 @@ impl From<&Broker> for BrokerInfo {
             tariff_date: broker.tariff_date_text().to_string(),
             checked: Broker::checked_text(),
             source_url: broker.source_url.clone(),
-            plans: broker.plans.iter().map(PlanInfo::from).collect(),
+            sources: broker.sources(),
+            plans: broker
+                .plans
+                .iter()
+                .map(|plan| PlanInfo {
+                    sources: broker.sources_for(plan),
+                    ..PlanInfo::from(plan)
+                })
+                .collect(),
         }
     }
 }
@@ -156,6 +167,9 @@ pub struct PlanInfo {
     pub description: String,
     /// Every row of the plan's tariff, in words.
     pub tariff: TariffInfo,
+    /// The pages its numbers rest on: the tariff, then what the broker-wide
+    /// caveats and its own rest on, each once.
+    pub sources: Vec<Source>,
 }
 
 impl From<&Plan> for PlanInfo {
@@ -171,6 +185,8 @@ impl From<&Plan> for PlanInfo {
         PlanInfo {
             name: plan.name.clone(),
             description: plan.description.clone(),
+            // Filled in by the broker, which knows its tariff and its caveats.
+            sources: vec![],
             tariff: TariffInfo {
                 trading: trade_rows(&plan.trading),
                 tracks: plan
@@ -517,6 +533,9 @@ pub struct PlanOutcomeData {
     /// share, the cheapest for you", "A standing order buys every month, so
     /// it isn't used here".
     pub note: Option<String>,
+    /// Why it has no numbers, if it doesn't offer the security there, in the
+    /// most general terms that are true: "Nothing in Europe is offered".
+    pub not_offered: Option<String>,
 }
 
 /// All amounts in ₪.
@@ -644,6 +663,9 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                         plan.standing_order_note(security, exchange, scenario.buy_every_months)
                             .map(str::to_owned)
                     }),
+                    not_offered: outcome
+                        .is_none()
+                        .then(|| plan.not_offered_reason(security, exchange)),
                 }
             })
             .collect(),
@@ -1045,6 +1067,30 @@ mod tests {
     }
 
     #[test]
+    fn a_plan_that_offers_nothing_there_says_why() {
+        let mut inputs = inputs();
+        inputs.exchange = Exchange::Europe;
+        let comparison = compare_plans(&inputs).unwrap();
+        let altshuler = comparison
+            .plans
+            .iter()
+            .find(|plan| matches!(plan.key, PlanKey::Listed { broker: 0, .. }))
+            .unwrap();
+        assert!(altshuler.outcome.is_none());
+        assert_eq!(
+            altshuler.not_offered.as_deref(),
+            Some("Nothing in Europe is offered")
+        );
+        let leumi = comparison
+            .plans
+            .iter()
+            .find(|plan| matches!(plan.key, PlanKey::Listed { broker: 1, .. }))
+            .unwrap();
+        assert!(leumi.outcome.is_some());
+        assert_eq!(leumi.not_offered, None);
+    }
+
+    #[test]
     fn compare_returns_every_plan_with_its_years() {
         let comparison = compare_plans(&inputs()).unwrap();
         assert_eq!(comparison.plans.len(), 2);
@@ -1131,7 +1177,7 @@ mod tests {
             (plan.warning.clone(), plan.note.clone())
         };
         let mut inputs = inputs();
-        inputs.security = Security::MutualFund;
+        inputs.security = Security::IndexFund;
         inputs.exchange = Exchange::Tlv;
         inputs.buy_every_months = 3;
         let standing_order = PlanKey::Listed { broker: 1, plan: 2 };
@@ -1220,7 +1266,7 @@ mod tests {
         let standing_order = &leumi.plans[2].tariff;
         assert_eq!(
             standing_order.standing_orders[0].covers,
-            "Mutual fund on Tel Aviv"
+            "Index fund on Tel Aviv"
         );
         assert_eq!(
             leumi.plans[1]
@@ -1234,7 +1280,7 @@ mod tests {
 
     #[test]
     fn choices_have_display_names() {
-        let choice = Choice::from(Security::MutualFund);
-        assert_eq!(choice.name, "Mutual fund");
+        let choice = Choice::from(Security::IndexFund);
+        assert_eq!(choice.name, "Index fund");
     }
 }
