@@ -20,7 +20,7 @@
       value: 'lost',
       name: 'Lost to fees',
       explanation:
-        'How much less each plan has than an account with no fees, year by year. Shows where plans overtake each other.',
+        'How much less each plan has than with no fees and buying every month, year by year. Shows where plans overtake each other. The end is after selling, as in the table.',
       hebrewNames: [],
     },
     {
@@ -45,6 +45,15 @@
 <header class="top">
   <h1>Broker fees, compounded</h1>
   <p>What Israeli brokers' fees cost you over the years, for ETFs, bonds and mutual funds.</p>
+  <!-- The page on how the numbers are made, opened at each of its sections. -->
+  <p class="about">
+    {#each app.about.sections as section, index (section.title)}
+      {#if index > 0}<span class="separator" aria-hidden="true">·</span>{/if}
+      <button class="link" onclick={() => (app.details = { kind: 'about', section: index })}>
+        {section.title}
+      </button>
+    {/each}
+  </p>
 </header>
 
 <div class="layout">
@@ -65,13 +74,13 @@
         <div class="card stat">
           <span class="label">With no fees</span>
           <span class="value">{shekels(app.comparison.noFees.afterSelling)}</span>
-          <span class="note">after selling</span>
+          <span class="note">buying every month</span>
         </div>
         {#if best?.outcome}
           <div class="card stat best" style:--plan-color={best.plan.color}>
-            <span class="label">Best: {best.plan.info.name}</span>
+            <span class="label">Best: {best.plan.label}</span>
             <span class="value">{shekels(best.outcome.afterSelling)}</span>
-            <span class="note">{shekels(best.outcome.lostToFees)} lost to fees · {best.plan.subtitle}</span>
+            <span class="note">{shekels(best.outcome.lostToFees)} lost to fees</span>
           </div>
         {/if}
       </div>
@@ -124,6 +133,23 @@
   .top p {
     margin: 2px 0 0;
     color: var(--weak);
+  }
+  .about {
+    font-size: 0.9rem;
+  }
+  .separator {
+    margin: 0 8px;
+  }
+  .link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: inherit;
+  }
+  .link:hover {
+    background: none;
+    text-decoration: underline;
   }
   .layout {
     display: grid;

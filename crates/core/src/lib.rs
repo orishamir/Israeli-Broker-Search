@@ -4,11 +4,12 @@
 //! # Shape of the data
 //!
 //! ```text
-//! Broker                      e.g. "Bank Leumi"
-//! └── Plan                    one price list a customer can be on, e.g. "Online", "Pepper"
-//!     ├── trading:    Vec<TradeFee>     fee per buy or sell (first matching row wins)
-//!     ├── custody:    Vec<CustodyFee>   fee for holding securities (first matching row wins)
-//!     └── conversion: ConversionFee     fee for changing ₪ into foreign currency and back
+//! Broker                          e.g. "Bank Leumi"
+//! └── Plan                        one price list a customer can be on, e.g. "Online", "Pepper"
+//!     ├── trading:         Vec<TradeFee>    fee per buy or sell (first matching row wins)
+//!     ├── standing_orders: Vec<TradeFee>    cheaper fees for buying by standing order, if any
+//!     ├── custody:         Vec<CustodyFee>  fee for holding securities (first matching row wins)
+//!     └── conversion:      ConversionFee    fee for changing ₪ into foreign currency and back
 //! ```
 //!
 //! The three fee types are separate because each is charged on something
@@ -42,6 +43,7 @@ pub mod simulation;
 pub mod tariffs;
 pub mod yours;
 
+pub use describe::FeeKind;
 pub use money::{Currency, ExchangeRates, Money, ils, iso, usd};
 pub use percent::Percent;
 // For `Security::iter()` and `Exchange::iter()`.
@@ -192,6 +194,16 @@ pub enum Price {
     },
     /// The same amount whatever the trade's size. Altshuler's US option: $11.
     Flat(Money),
+    /// A percentage of the trade's value plus an amount per share. IBI's
+    /// fourth US track: 0.15% plus 1¢ a share, minimum $6.
+    PercentPlusPerShare {
+        percent: Percent,
+        per_share: Money,
+        /// The fee is never less than this.
+        min: Option<Money>,
+        /// The fee is never more than this.
+        max: Option<Money>,
+    },
 }
 
 impl Price {
@@ -213,6 +225,18 @@ impl Price {
                 clamp(rates.convert(fee, currency), *min, *max, rates)
             }
             Price::Flat(amount) => rates.convert(*amount, currency),
+            Price::PercentPlusPerShare {
+                percent,
+                per_share,
+                min,
+                max,
+            } => {
+                let per_shares =
+                    Money::from_decimal(per_share.amount() * t.shares, per_share.currency());
+                let fee =
+                    percent.of(*t.value.amount()) + rates.convert(per_shares, currency).amount();
+                clamp(Money::from_decimal(fee, currency), *min, *max, rates)
+            }
         }
     }
 }
@@ -223,13 +247,17 @@ impl Price {
 /// percentage of their value (Dmei Nihul Pikadon / Dmei Mishmeret).
 ///
 /// Like trade fees, the first row that covers a holding is used. Holdings no
-/// row covers are free.
+/// row covers are free: IBI charges nothing for holding funds, so its plans
+/// put a free row for them before the one for everything else.
 ///
 /// Enter the rate exactly as the tariff states it, with the period it's
 /// quoted per: Leumi's "0.15% a quarter, charged quarterly" is `percent`
 /// 0.15, `per` and `billed` [`Period::Quarter`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CustodyFee {
+    /// The securities this row covers. Empty means every security.
+    #[serde(default)]
+    pub securities: Vec<Security>,
     /// The exchanges this row covers. Empty means every exchange.
     #[serde(default)]
     pub exchanges: Vec<Exchange>,
@@ -250,7 +278,20 @@ impl CustodyFee {
     /// True if this row applies to `h`.
     #[must_use]
     pub fn covers(&self, h: &Holding) -> bool {
-        empty_or_contains(&self.exchanges, h.exchange)
+        self.applies_to(h.security, h.exchange)
+    }
+
+    /// True if this row applies to holding `security` on `exchange`.
+    #[must_use]
+    pub fn applies_to(&self, security: Security, exchange: Exchange) -> bool {
+        empty_or_contains(&self.securities, security)
+            && empty_or_contains(&self.exchanges, exchange)
+    }
+
+    /// True if it never charges anything: IBI's row for Tel Aviv index funds.
+    #[must_use]
+    pub fn is_free(&self) -> bool {
+        self.percent.is_zero() && self.min.is_none_or(|min| min.is_zero())
     }
 
     /// The rate converted to a yearly percentage: 0.15% a quarter is 0.6%.
@@ -279,25 +320,65 @@ impl CustodyFee {
 
 // ─────────────────────────── Conversion fees ───────────────────────────
 
-/// What it costs to convert shekels to foreign currency or back (Amlat
-/// Hamara / Chalifin). Paid every time you buy a foreign security with shekels.
-///
-/// There are two costs, and a plan can have either or both: an explicit fee
-/// (`percent`, `min`, `max`) and a worse-than-market exchange rate
-/// (`markup`). Leumi online charges 0.16% and doesn't publish its markup;
-/// Altshuler charges no fee but a markup of up to 0.7%.
-/// The default is converting for free.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct ConversionFee {
-    /// The fee listed in the tariff, as a percentage of the converted amount.
+/// A fee that's a percentage of an amount, within a minimum and a maximum:
+/// "0.16%, min $5.76, max $2,400". The bounds can be in a different currency
+/// from the amount; [`PercentFee::of`] converts them.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+pub struct PercentFee {
     pub percent: Percent,
     /// The fee is never less than this.
     pub min: Option<Money>,
     /// The fee is never more than this.
     pub max: Option<Money>,
+}
+
+impl PercentFee {
+    /// Never charges anything.
+    pub const FREE: PercentFee = PercentFee {
+        percent: Percent(Decimal::ZERO),
+        min: None,
+        max: None,
+    };
+
+    /// The fee on `amount`, in `amount`'s currency.
+    #[must_use]
+    pub fn of(&self, amount: Money, rates: &ExchangeRates) -> Money {
+        let fee = Money::from_decimal(self.percent.of(*amount.amount()), amount.currency());
+        clamp(fee, self.min, self.max, rates)
+    }
+
+    /// True if it never charges anything.
+    #[must_use]
+    pub fn is_free(&self) -> bool {
+        self.percent.is_zero() && self.min.is_none_or(|min| min.is_zero())
+    }
+}
+
+/// What it costs to convert shekels to foreign currency or back (Amlat
+/// Hamara / Chalifin). Paid every time you buy a foreign security with shekels.
+///
+/// There are two costs, and a plan can have either or both: an explicit fee
+/// and a worse-than-market exchange rate (`markup`). Leumi online charges
+/// 0.16% and doesn't publish its markup; Altshuler charges no fee but a
+/// markup of up to 0.7%.
+///
+/// No `Default`, on purpose: a default would mean "free", and a plan that
+/// forgot to say what converting costs would then look free, the same as one
+/// whose tariff waives it. Say [`ConversionFee::FREE`] where that's meant.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ConversionFee {
+    /// The fee listed in the tariff, as a percentage of the converted amount.
+    #[serde(flatten)]
+    pub fee: PercentFee,
+    /// A second fee the customer also gets; each conversion pays whichever
+    /// is less. Leumi's 18+ group pays half the branch fee but at least its
+    /// $7.20 minimum, while its online fee is lower on small amounts, and the
+    /// tariff gives each fee the better benefit, never both.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub or_if_less: Option<PercentFee>,
     /// How much worse than the market's the broker's exchange rate is. It
     /// isn't listed as a fee, but it's often the bigger cost. Not bounded by
-    /// `min` or `max`.
+    /// the fee's minimum or maximum.
     pub markup: Markup,
 }
 
@@ -307,28 +388,48 @@ pub struct ConversionFee {
 pub enum Markup {
     /// "Up to 0.7%", as tariffs state it. The full amount is assumed.
     UpTo(Percent),
-    /// The tariff doesn't say. Counted as nothing, which understates the cost.
+    /// An amount in shekels for every dollar converted: Excellence's 2
+    /// agorot. As a percentage it follows the exchange rate.
+    PerDollar(Money),
+    /// The broker converts at the currency market's live rate and charges
+    /// only its fee, as Interactive Israel's site says (שער\u{a0}רציף):
+    /// costs nothing beyond the market's own bid-ask spread, which isn't
+    /// counted. Every plan with one carries a "published" caveat about it.
+    MarketRate,
+    /// The tariff doesn't say. Counted as nothing, which understates the cost:
+    /// every plan with one carries a "may cost more" caveat about it.
     NotPublished,
 }
 
 impl Markup {
-    /// The markup assumed in calculations.
+    /// Converts at the market rate. Only the no-fee baseline and the user's
+    /// own plans say so: no listed broker publishes that it has no markup.
+    pub const NONE: Markup = Markup::UpTo(Percent(Decimal::ZERO));
+
+    /// What the markup costs on converting `amount`, in `amount`'s currency.
     #[must_use]
-    pub fn assumed(self) -> Percent {
+    pub fn cost(self, amount: Money, rates: &ExchangeRates) -> Decimal {
         match self {
-            Markup::UpTo(percent) => percent,
-            Markup::NotPublished => Percent(Decimal::ZERO),
+            Markup::UpTo(percent) => percent.of(*amount.amount()),
+            Markup::PerDollar(per_dollar) => {
+                let dollars = *rates.convert(amount, iso::USD).amount();
+                let cost =
+                    Money::from_decimal(dollars * per_dollar.amount(), per_dollar.currency());
+                *rates.convert(cost, amount.currency()).amount()
+            }
+            Markup::MarketRate | Markup::NotPublished => Decimal::ZERO,
         }
     }
 }
 
-impl Default for Markup {
-    fn default() -> Self {
-        Markup::UpTo(Percent(Decimal::ZERO))
-    }
-}
-
 impl ConversionFee {
+    /// Converting costs nothing, at the market rate.
+    pub const FREE: ConversionFee = ConversionFee {
+        fee: PercentFee::FREE,
+        or_if_less: None,
+        markup: Markup::NONE,
+    };
+
     /// What converting `amount` costs, fee plus markup, in `amount`'s
     /// currency. The same in either direction (₪ to $ or $ to ₪).
     ///
@@ -339,10 +440,12 @@ impl ConversionFee {
     /// published markup itself.
     #[must_use]
     pub fn cost(&self, amount: Money, rates: &ExchangeRates) -> Money {
-        let fee = Money::from_decimal(self.percent.of(*amount.amount()), amount.currency());
-        let fee = clamp(fee, self.min, self.max, rates);
-        let markup = self.markup.assumed().of(*amount.amount());
-        Money::from_decimal(fee.amount() + markup, amount.currency())
+        let mut fee = *self.fee.of(amount, rates).amount();
+        if let Some(other) = self.or_if_less {
+            fee = fee.min(*other.of(amount, rates).amount());
+        }
+        let markup = self.markup.cost(amount, rates);
+        Money::from_decimal(fee + markup, amount.currency())
     }
 }
 
@@ -350,13 +453,12 @@ impl ConversionFee {
 
 /// One complete price list a customer can be on.
 ///
-/// A broker often has several. Altshuler lets you choose among three US
-/// trade fee options, so it has three plans. Leumi has different prices for
-/// customer groups (18+, students) and for its Pepper app, each of which is a
-/// plan.
+/// A broker often has several: Leumi has different prices for customer
+/// groups (18+, students) and for its Pepper app, and investment houses
+/// have their full tariff and the offer new customers get.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Plan {
-    /// Shown in comparisons, e.g. "Online" or "US $11 flat".
+    /// Shown in comparisons, e.g. "Online" or "Full tariff".
     pub name: String,
     /// What the plan is, in plain words, for someone who hasn't read the
     /// tariff: who it's for and how it differs from the broker's other plans.
@@ -364,10 +466,32 @@ pub struct Plan {
     pub description: String,
     /// The trade fee table. The first row that covers a trade is used.
     pub trading: Vec<TradeFee>,
+    /// Price options chosen when opening the account, for some trades (see
+    /// [`Track`]). Empty if there's no choice.
+    #[serde(default)]
+    pub tracks: Vec<Track>,
+    /// Cheaper fees for buying by standing order (Hora'at Keva): the same
+    /// amount bought automatically every month. A table like `trading`, but
+    /// only for those purchases: a one-time deposit and selling pay
+    /// `trading`, and so does buying less often than every month.
+    #[serde(default)]
+    pub standing_orders: Vec<TradeFee>,
+    /// What converting costs for purchases by standing order, if it differs
+    /// from `conversion`: Interactive Israel's automatic plan converts for
+    /// free.
+    #[serde(default)]
+    pub standing_order_conversion: Option<ConversionFee>,
     /// The custody table. The first row that covers a holding is used.
     pub custody: Vec<CustodyFee>,
     /// The cost of converting between shekels and foreign currency.
     pub conversion: ConversionFee,
+    /// A monthly fee for keeping the account, if the plan has one.
+    #[serde(default)]
+    pub handling: Option<HandlingFee>,
+    /// The exchanges where the broker sells fractions of a share. Empty
+    /// means none: there, only whole shares are bought.
+    #[serde(default)]
+    pub fractions_on: Vec<Exchange>,
     /// The least the account can be opened with (in ₪), if the plan has a
     /// minimum.
     #[serde(default)]
@@ -378,29 +502,188 @@ pub struct Plan {
     pub caveats: Vec<Caveat>,
 }
 
-/// Something a tariff leaves unclear or that affects the numbers, and how it
-/// was read: "₪4 is only stated for orders up to ₪30,000". Shown only to users
-/// buying what it's about, so it says which securities and exchanges.
+/// A price option chosen when opening the account, for some trades:
+/// Altshuler offers three for US stocks and ETFs, a price per share, per
+/// order or as a percentage. A plan with tracks costs what its cheapest
+/// track does for the user's investing ([`simulation::compare`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Track {
+    /// "1¢ a share"
+    pub name: String,
+    /// Trade rows used before the plan's own, for what they cover.
+    pub trading: Vec<TradeFee>,
+}
+
+/// A fee for keeping the account, charged every month (Dmei Tipul): "₪15 a
+/// month, free for the first 2 years". Some brokers take the month's trade
+/// fees off it, so an account that trades enough pays nothing more.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct HandlingFee {
+    /// In ₪.
+    pub per_month: Money,
+    /// How many months after opening the account it isn't charged.
+    #[serde(default)]
+    pub free_months: u32,
+    /// True if the month's trade fees are taken off it.
+    #[serde(default)]
+    pub less_trade_fees: bool,
+}
+
+impl HandlingFee {
+    /// What `month` (0 is the first) costs, in ₪, when its trades paid
+    /// `trade_fees_ils` in fees.
+    #[must_use]
+    pub fn for_month(&self, month: u32, trade_fees_ils: Decimal) -> Decimal {
+        if month < self.free_months {
+            return Decimal::ZERO;
+        }
+        let taken_off = if self.less_trade_fees {
+            trade_fees_ils
+        } else {
+            Decimal::ZERO
+        };
+        (*self.per_month.amount() - taken_off).max(Decimal::ZERO)
+    }
+}
+
+/// How sure the app is of a number, and why: what a caveat says about it,
+/// from surest to least. Every caveat has one, so a reader knows whether
+/// they're looking at the tariff's word, a reading of it, a stand-in or a
+/// known gap.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Basis {
+    /// The tariff or the broker's site says so. Shown so the user knows,
+    /// not because anything is uncertain.
+    Published,
+    /// The tariff is unclear or silent, and this is how it was read, with
+    /// what supports the reading: "the exchange's June 2026 averages".
+    Reading { support: String },
+    /// Nothing to go on: a stand-in value, and which way it errs.
+    Assumed { errs: Errs },
+    /// A real cost the model leaves out, and why.
+    NotCounted,
+}
+
+/// Which way a stand-in value errs.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum Errs {
+    /// On the expensive side: the plan can only be cheaper than shown.
+    AtMost,
+    /// On the cheap side: the plan may cost more than shown, so the
+    /// comparison flags it, with a few words on what: "conversion markup
+    /// not published".
+    MayCostMore { summary: String },
+}
+
+/// Something a tariff leaves unclear, or that affects the numbers, and how
+/// it was read: "₪4 is only stated for orders up to ₪30,000". Made with the
+/// constructor that names its [`Basis`], so none is without one. Shown only
+/// to users it matters to: it says which securities and exchanges, and from
+/// what order size.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Caveat {
     pub text: String,
+    pub basis: Basis,
+    /// The fee it's about, if one: marked beside that fee's price.
+    #[serde(default)]
+    pub fee: Option<FeeKind>,
     /// Empty means every security.
     #[serde(default)]
     pub securities: Vec<Security>,
     /// Empty means every exchange.
     #[serde(default)]
     pub exchanges: Vec<Exchange>,
+    /// Matters only to orders, or conversions, above this much, in the
+    /// trade's currency: Pepper's $4 is stated for orders up to $8,000.
+    #[serde(default)]
+    pub above: Option<Money>,
 }
 
 impl Caveat {
-    /// A caveat about everything; narrow it with [`Caveat::on`] and
-    /// [`Caveat::about`].
-    #[must_use]
-    pub fn new(text: &str) -> Self {
+    fn with(text: &str, basis: Basis) -> Self {
         Caveat {
             text: text.to_owned(),
+            basis,
+            fee: None,
             securities: vec![],
             exchanges: vec![],
+            above: None,
+        }
+    }
+
+    /// What the tariff or the broker's site says.
+    #[must_use]
+    pub fn published(text: &str) -> Self {
+        Caveat::with(text, Basis::Published)
+    }
+
+    /// How an unclear or silent row was read, and `support`: what backs
+    /// the reading.
+    #[must_use]
+    pub fn reading(text: &str, support: &str) -> Self {
+        Caveat::with(
+            text,
+            Basis::Reading {
+                support: support.to_owned(),
+            },
+        )
+    }
+
+    /// A stand-in on the expensive side: the full price or maximum.
+    #[must_use]
+    pub fn at_most(text: &str) -> Self {
+        Caveat::with(text, Basis::Assumed { errs: Errs::AtMost })
+    }
+
+    /// A stand-in on the cheap side. `summary` flags it in the comparison:
+    /// "conversion markup not published".
+    #[must_use]
+    pub fn may_cost_more(text: &str, summary: &str) -> Self {
+        Caveat::with(
+            text,
+            Basis::Assumed {
+                errs: Errs::MayCostMore {
+                    summary: summary.to_owned(),
+                },
+            },
+        )
+    }
+
+    /// A real cost the model leaves out.
+    #[must_use]
+    pub fn not_counted(text: &str) -> Self {
+        Caveat::with(text, Basis::NotCounted)
+    }
+
+    /// About one fee: marked beside its price.
+    #[must_use]
+    pub fn about_fee(self, fee: FeeKind) -> Self {
+        Caveat {
+            fee: Some(fee),
+            ..self
+        }
+    }
+
+    /// Only for orders, or conversions, above `amount` (in the trade's
+    /// currency).
+    #[must_use]
+    pub fn when_above(self, amount: Money) -> Self {
+        Caveat {
+            above: Some(amount),
+            ..self
+        }
+    }
+
+    /// The summary the comparison flags, if it may cost more.
+    #[must_use]
+    pub fn may_cost_more_summary(&self) -> Option<&str> {
+        match &self.basis {
+            Basis::Assumed {
+                errs: Errs::MayCostMore { summary },
+            } => Some(summary),
+            _ => None,
         }
     }
 
@@ -422,11 +705,25 @@ impl Caveat {
         }
     }
 
-    /// True if it matters to someone buying `security` on `exchange`.
+    /// True if it's about `security` on `exchange`, whatever the amounts.
     #[must_use]
     pub fn applies_to(&self, security: Security, exchange: Exchange) -> bool {
         empty_or_contains(&self.securities, security)
             && empty_or_contains(&self.exchanges, exchange)
+    }
+
+    /// True if it matters to `buying`: it's about the security and exchange,
+    /// and the biggest order reaches its amount, if it has one. An unknown
+    /// biggest order counts as reaching it.
+    #[must_use]
+    pub fn matters_for(&self, buying: Buying, rates: &ExchangeRates) -> bool {
+        self.applies_to(buying.security, buying.exchange)
+            && match (self.above, buying.largest_trade) {
+                (Some(above), Some(largest)) => {
+                    rates.convert(largest, above.currency()).amount() >= above.amount()
+                }
+                _ => true,
+            }
     }
 }
 
@@ -439,12 +736,58 @@ impl Plan {
             .find(|row| row.applies_to(security, exchange))
     }
 
-    /// The custody row used for holdings on `exchange`, if any.
+    /// The plan as it is on track `index`: that track's trade rows before
+    /// its own, and no tracks left to choose.
     #[must_use]
-    pub fn custody_row(&self, exchange: Exchange) -> Option<&CustodyFee> {
+    pub fn on_track(&self, index: usize) -> Plan {
+        let Some(track) = self.tracks.get(index) else {
+            return self.clone();
+        };
+        Plan {
+            trading: [track.trading.clone(), self.trading.clone()].concat(),
+            tracks: vec![],
+            ..self.clone()
+        }
+    }
+
+    /// The track, if any, whose rows price `security` on `exchange`: the
+    /// tracks only matter for what they cover.
+    #[must_use]
+    pub fn track_for(
+        &self,
+        index: usize,
+        security: Security,
+        exchange: Exchange,
+    ) -> Option<&Track> {
+        self.tracks.get(index).filter(|track| {
+            track
+                .trading
+                .iter()
+                .any(|row| row.applies_to(security, exchange))
+        })
+    }
+
+    /// True if fractions of a share are sold on `exchange`.
+    #[must_use]
+    pub fn sells_fractions_on(&self, exchange: Exchange) -> bool {
+        self.fractions_on.contains(&exchange)
+    }
+
+    /// The standing order row used for buying `security` on `exchange`, if
+    /// the plan has a cheaper price for buying it by standing order.
+    #[must_use]
+    pub fn standing_order_row(&self, security: Security, exchange: Exchange) -> Option<&TradeFee> {
+        self.standing_orders
+            .iter()
+            .find(|row| row.applies_to(security, exchange))
+    }
+
+    /// The custody row used for holding `security` on `exchange`, if any.
+    #[must_use]
+    pub fn custody_row(&self, security: Security, exchange: Exchange) -> Option<&CustodyFee> {
         self.custody
             .iter()
-            .find(|row| empty_or_contains(&row.exchanges, exchange))
+            .find(|row| row.applies_to(security, exchange))
     }
 
     /// The fee on one trade, in the trade's currency.
@@ -487,17 +830,33 @@ impl Plan {
     }
 }
 
+/// The date a tariff document gives itself: a day, or only a month, as
+/// Meitav's "version 01/2025".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TariffDate {
+    Day(Date),
+    /// Only the month and year count.
+    Month(Date),
+}
+
 /// A broker or bank, and every plan it offers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Broker {
     /// E.g. "Bank Leumi".
     pub name: String,
+    /// Its name beside a plan's, where plan names repeat: "Leumi" in "Leumi ·
+    /// Online".
+    pub short_name: String,
+    /// Which of `plans` a new customer usually gets: the one compared at
+    /// first.
+    #[serde(default)]
+    pub new_customer_plan: usize,
     /// What kind of broker it is and how its plans relate, in plain words.
     #[serde(default)]
     pub description: String,
     /// The date on the tariff document the numbers came from, if it has one.
     /// Tariffs change several times a year, so keep it next to the numbers.
-    pub tariff_date: Option<Date>,
+    pub tariff_date: Option<TariffDate>,
     /// Where the tariff document can be read online.
     #[serde(default)]
     pub source_url: Option<String>,
@@ -522,12 +881,35 @@ pub struct Trade {
 }
 
 /// Something you hold, as input to [`Plan::custody_per_year`]. Custody depends
-/// only on where it's traded and what it's worth.
+/// only on what it is, where it's traded and what it's worth.
 #[derive(Debug, Clone, Copy)]
 pub struct Holding {
+    pub security: Security,
     pub exchange: Exchange,
     /// Current value, in any currency.
     pub value: Money,
+}
+
+/// What the user buys, for picking the fees and caveats that matter to them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Buying {
+    pub security: Security,
+    pub exchange: Exchange,
+    /// The biggest single order or conversion, in the exchange's currency,
+    /// if known: some caveats matter only above an amount.
+    pub largest_trade: Option<Money>,
+}
+
+impl Buying {
+    /// `security` on `exchange`, whatever the amounts.
+    #[must_use]
+    pub fn any_amount(security: Security, exchange: Exchange) -> Self {
+        Buying {
+            security,
+            exchange,
+            largest_trade: None,
+        }
+    }
 }
 
 // ─────────────────────────── Helpers ───────────────────────────
@@ -615,6 +997,7 @@ mod tests {
     fn custody_quoted_per_quarter() {
         // Leumi's "0.15% a quarter, charged quarterly".
         let leumi = CustodyFee {
+            securities: vec![],
             exchanges: vec![Exchange::Tlv],
             percent: Percent(dec!(0.15)),
             per: Period::Quarter,
@@ -632,6 +1015,7 @@ mod tests {
     fn custody_minimum_per_billing_period() {
         // Altshuler's "0.15% a year, charged monthly, at least ₪75 a month".
         let altshuler = CustodyFee {
+            securities: vec![],
             exchanges: vec![], // empty: holdings on any exchange
             percent: Percent(dec!(0.15)),
             per: Period::Year,
@@ -656,21 +1040,48 @@ mod tests {
     #[test]
     fn conversion_fee_and_markup() {
         // Leumi online: 0.16%, minimum $5.76, maximum $2,400. Markup not published.
-        let leumi = ConversionFee {
+        let online = PercentFee {
             percent: Percent(dec!(0.16)),
             min: Some(usd(dec!(5.76))),
             max: Some(usd(dec!(2400))),
+        };
+        let leumi = ConversionFee {
+            fee: online,
+            or_if_less: None,
             markup: Markup::NotPublished,
         };
         // Altshuler: no fee, but a markup of up to 0.7%.
         let altshuler = ConversionFee {
-            percent: Percent(dec!(0)),
-            min: None,
-            max: None,
             markup: Markup::UpTo(Percent(dec!(0.7))),
+            ..ConversionFee::FREE
         };
         assert_eq!(leumi.cost(usd(dec!(1000)), &rates()), usd(dec!(5.76)));
         assert_eq!(leumi.cost(usd(dec!(10000)), &rates()), usd(dec!(16)));
         assert_eq!(altshuler.cost(usd(dec!(1000)), &rates()), usd(dec!(7)));
+
+        // 0.1%, minimum $7.20, or the online fee if that's less.
+        let either = ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.1)),
+                min: Some(usd(dec!(7.2))),
+                max: None,
+            },
+            or_if_less: Some(online),
+            markup: Markup::NotPublished,
+        };
+        assert_eq!(either.cost(usd(dec!(1000)), &rates()), usd(dec!(5.76)));
+        assert_eq!(either.cost(usd(dec!(10000)), &rates()), usd(dec!(10)));
+    }
+
+    #[test]
+    fn a_minimum_alone_is_not_free() {
+        let fee = PercentFee {
+            percent: Percent(dec!(0)),
+            min: Some(usd(dec!(5))),
+            max: None,
+        };
+        assert!(!fee.is_free());
+        assert_eq!(fee.of(usd(dec!(100)), &rates()), usd(dec!(5)));
+        assert!(PercentFee::default().is_free());
     }
 }

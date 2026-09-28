@@ -25,12 +25,15 @@ CLAUDE.md ("Done means", "Saving tokens").
 - Charts are canvases: click at positions computed from the chart's box, after
   scrolling it into view.
 - Animations are off (`reducedMotion`).
-- Before a screenshot, call `page.mouse.move(0, 0)` so no hover tip opens.
-  Before a full-page one, call `fitScreenToPage`: Chromium phones otherwise
-  lose touch emulation.
+- Before a screenshot, call `page.mouse.move(0, 0)` so no hover tip opens;
+  also before Esc in a dialog, or Esc closes the tip under the pointer
+  instead. Before a full-page one, call `fitScreenToPage`: Chromium phones
+  otherwise lose touch emulation.
 - Screenshot baselines pass differences up to 0.2% of pixels, which misses
-  subtle changes such as a line's opacity; assert those instead. After
-  `--update-snapshots`, look at the changed PNGs before committing them.
+  subtle changes such as a line's opacity; assert those instead. Plain
+  `--update-snapshots` re-records only failing ones, so after a small visible
+  change (a renamed label) use `--update-snapshots=all`. Look at the changed
+  PNGs before committing them.
 - Hidden content (a closed `<details>`, a popover) still has a size, so use
   `checkVisibility`. Mobile WebKit has no mouse wheel.
-- A full run takes about 30 s. Run it twice after timing-related changes.
+- A full run takes about a minute. Run it twice after timing-related changes.

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppState } from './app.svelte'
   import PlanPreview, { previewBeside, type Preview } from './PlanPreview.svelte'
+  import Tip from './Tip.svelte'
 
   let { app }: { app: AppState } = $props()
 
@@ -13,6 +14,8 @@
 
   let preview = $state<Preview | null>(null)
 </script>
+
+<p class="intro">Ticked at first: each broker's usual plan, the one a new customer gets.</p>
 
 {#each brokers as { broker, plans } (broker.name)}
   {@const ids = plans.map((plan) => plan.id)}
@@ -28,10 +31,11 @@
         />
         {broker.name}
       </label>
-      {#if app.brokerCaveats(broker).length > 0}
+      <!-- ⚠ means one thing everywhere: a number that may be too low. -->
+      {#if app.brokerCaveats(broker).some((group) => group.kind === 'MayCostMore')}
         <button
           class="icon-button warning"
-          aria-label="Caveats about {broker.name}"
+          aria-label="May cost more at {broker.name}: see why"
           onclick={() => (app.details = { kind: 'broker', broker })}>⚠</button
         >
       {/if}
@@ -42,8 +46,10 @@
       >
     </div>
     <p class="date">{broker.tariffDate}</p>
-    <ul>
+    <!-- Named, since its plans' names repeat across brokers. -->
+    <ul aria-label={broker.name}>
       {#each plans as plan (plan.id)}
+        {@const usual = plan.key.kind === 'listed' && plan.key.plan === broker.newCustomerPlan}
         <li
           class="row"
           onmouseenter={(event) => (preview = previewBeside(plan, event.currentTarget))}
@@ -57,7 +63,7 @@
             if (event.pointerType === 'mouse') app.hovered = null
           }}
         >
-          <label>
+          <label class:beside-usual={usual}>
             <input
               type="checkbox"
               style:accent-color={plan.color}
@@ -66,14 +72,25 @@
             />
             {plan.info.name}
           </label>
+          <!-- Outside the label: its ? would become part of the checkbox's name. -->
+          {#if usual}
+            <span class="usual"
+              >usual<Tip about="usual">
+                <p>
+                  The plan a new customer usually gets from {broker.name}. The usual plans are compared at
+                  first; tick others to add them.
+                </p>
+              </Tip></span
+            >
+          {/if}
           <button
             class="icon-button"
-            aria-label="Change a copy of {plan.info.name}'s fees"
+            aria-label="Change a copy of {plan.label}'s fees"
             onclick={() => app.draftCopyOf(plan)}>✎</button
           >
           <button
             class="icon-button"
-            aria-label="About {plan.info.name}"
+            aria-label="About {plan.label}"
             onclick={() => (app.details = { kind: 'plan', plan })}>ℹ</button
           >
         </li>
@@ -98,6 +115,21 @@
   }
   .row label {
     flex: 1;
+  }
+  /* "usual" follows the name, and the ✎ and ℹ stay at the end. */
+  .row label.beside-usual {
+    flex: 0 1 auto;
+  }
+  .usual {
+    flex: 1;
+    margin-left: 6px;
+    color: var(--weak);
+    font-size: 0.75rem;
+  }
+  .intro {
+    margin: 0 0 10px;
+    color: var(--weak);
+    font-size: 0.9rem;
   }
   .broker-name {
     font-weight: 600;

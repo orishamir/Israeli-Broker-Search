@@ -1,7 +1,11 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
+  import { tick } from 'svelte'
   import type { AppState, Details } from './app.svelte'
+  import CaveatGroups from './CaveatGroups.svelte'
   import Caveats from './Caveats.svelte'
   import FeesForInputs from './FeesForInputs.svelte'
+  import Price from './Price.svelte'
   import PlanEditor from './PlanEditor.svelte'
 
   let { app }: { app: AppState } = $props()
@@ -10,10 +14,30 @@
   // What the dialog shows; kept after closing, while it fades out.
   let shown = $state.raw<Details | null>(null)
 
+  /** What the dialog shows, whatever changes in it: a draft changes as it's
+   * edited. */
+  const subject = (details: Details) =>
+    details.kind === 'draft'
+      ? details.draft.id
+      : details.kind === 'plan'
+        ? details.plan.id
+        : details.kind === 'broker'
+          ? details.broker.name
+          : 'about'
+
   $effect(() => {
     if (app.details) {
+      // Something else starts at the top; the dialog would keep the last one's
+      // scroll.
+      const last = untrack(() => shown)
+      if (!dialog.open || !last || subject(last) !== subject(app.details)) dialog.scrollTop = 0
       shown = app.details
       if (!dialog.open) dialog.showModal()
+      // The about page opens at the section that was asked for, once drawn.
+      if (app.details.kind === 'about' && app.details.section !== undefined) {
+        const section = app.details.section
+        tick().then(() => dialog.querySelector(`#about-${section}`)?.scrollIntoView({ block: 'start' }))
+      }
     } else if (dialog.open) {
       dialog.close()
     }
@@ -58,105 +82,191 @@
         close={() => dialog.close()}
       />
     </div>
-  {:else if shown && broker}
+  {:else if shown?.kind === 'about'}
     <div class="content">
       <header>
-        <h2 id="details-title">
-          {#if shown.kind === 'plan'}
-            <span class="mark" style:background={shown.plan.color}></span>{shown.plan.info.name}
-          {:else}
-            {broker.name}
-          {/if}
-        </h2>
+        <h2 id="details-title">About the numbers</h2>
         <button class="close" aria-label="Close" onclick={() => dialog.close()}>✕</button>
       </header>
-      <p class="source">
-        {#if shown.kind === 'plan'}
-          <button class="link" onclick={() => (app.details = { kind: 'broker', broker })}
-            >{broker.name}</button
-          > ·
-        {/if}
-        {broker.tariffDate}
-        {#if broker.sourceUrl}
-          · <a href={broker.sourceUrl} target="_blank" rel="noreferrer">Tariff (PDF) ↗</a>
-        {/if}
-      </p>
-
-      {#if shown.kind === 'plan'}
-        {@const plan = shown.plan}
-        <p>{plan.info.description}</p>
-        <section class="fees">
-          <FeesForInputs {app} {plan} />
-        </section>
-        <p class="change">
-          <button onclick={() => app.draftCopyOf(plan)}>✎ Change these fees</button>
-        </p>
-        {@const caveats = app.feesFor(plan).caveats}
-        {@const otherCaveats = [...broker.caveats, ...plan.info.caveats].filter(
-          ({ text }) => !caveats.includes(text),
-        )}
-        {#if caveats.length > 0}
-          <h3>Caveats for {app.purchase}</h3>
-          <Caveats notes={caveats} />
-        {/if}
-        <details>
-          <summary>
-            Full tariff{#if otherCaveats.length > 0}<span class="more">
-                , and {otherCaveats.length} caveat{otherCaveats.length === 1 ? '' : 's'} about other choices</span
-              >{/if}
-          </summary>
-          <div class="tariff">
-            <h4>Buying and selling</h4>
-            <table>
-              <tbody>
-                {#each plan.info.tariff.trading as { covers, price }, index (index)}
-                  <tr><td>{covers}</td><td>{price}</td></tr>
-                {/each}
-              </tbody>
-            </table>
-            <h4>Custody</h4>
-            <table>
-              <tbody>
-                {#each plan.info.tariff.custody as { covers, price }, index (index)}
-                  <tr><td>{covers}</td><td>{price}</td></tr>
-                {/each}
-              </tbody>
-            </table>
-            <h4>Conversion</h4>
-            <table>
-              <tbody>
-                <tr><td>Fee</td><td>{plan.info.tariff.conversion}</td></tr>
-                <tr><td>Markup</td><td>{plan.info.tariff.markup}</td></tr>
-              </tbody>
-            </table>
-            {#if otherCaveats.length > 0}
-              <h4>Caveats about other choices</h4>
-              <Caveats notes={otherCaveats} />
-            {/if}
-          </div>
-        </details>
-      {:else}
-        <p>{broker.description}</p>
-        {@const caveats = app.brokerCaveats(broker)}
-        {#if caveats.length > 0}
-          <h3>Caveats for {app.purchase}</h3>
-          <Caveats notes={caveats} />
-        {/if}
-        <h3>Plans</h3>
-        <ul class="plans">
-          {#each brokerPlans as plan (plan.id)}
-            <li>
-              <button onclick={() => (app.details = { kind: 'plan', plan })}>
-                <span class="plan-name"
-                  ><span class="mark" style:background={plan.color}></span>{plan.info.name}</span
-                >
-                <span class="plan-description">{plan.info.description}</span>
-              </button>
-            </li>
+      {#each app.about.sections as section, index (section.title)}
+        <section class="about" id="about-{index}">
+          <h3>{section.title}</h3>
+          {#each section.paragraphs as paragraph (paragraph)}
+            <p>{paragraph}</p>
           {/each}
-        </ul>
-      {/if}
+          {#if section.items.length > 0}
+            <ul>
+              {#each section.items as item (item.text)}
+                <li>
+                  {#if item.url}
+                    <a href={item.url} target="_blank" rel="noreferrer">{item.text} ↗</a>
+                  {:else}
+                    {item.text}
+                  {/if}
+                </li>
+              {/each}
+            </ul>
+          {/if}
+        </section>
+      {/each}
     </div>
+  {:else if shown && broker}
+    <!-- Each plan or broker starts afresh, its prices folded. -->
+    {#key shown.kind === 'plan' ? shown.plan.id : broker.name}
+      <div class="content">
+        <header>
+          <h2 id="details-title">
+            {#if shown.kind === 'plan'}
+              <span class="mark" style:background={shown.plan.color}></span>{shown.plan.info.name}
+            {:else}
+              {broker.name}
+            {/if}
+          </h2>
+          <button class="close" aria-label="Close" onclick={() => dialog.close()}>✕</button>
+        </header>
+        <p class="source">
+          {#if shown.kind === 'plan'}
+            <button class="link" onclick={() => (app.details = { kind: 'broker', broker })}
+              >{broker.name}</button
+            > ·
+          {/if}
+          {broker.tariffDate} · {broker.checked}
+          {#if broker.sourceUrl}
+            · <a href={broker.sourceUrl} target="_blank" rel="noreferrer">Tariff (PDF) ↗</a>
+          {/if}
+        </p>
+
+        {#if shown.kind === 'plan'}
+          {@const plan = shown.plan}
+          {@const tariff = plan.info.tariff}
+          <p>{plan.info.description}</p>
+          <section class="fees">
+            <FeesForInputs {app} {plan} />
+          </section>
+          <p class="change">
+            <button onclick={() => app.draftCopyOf(plan)}>✎ Change these fees</button>
+          </p>
+          {@const { caveats, others } = app.feesFor(plan)}
+          {#if caveats.length > 0}
+            <h3>Caveats for {app.purchase}</h3>
+            <CaveatGroups groups={caveats} />
+          {/if}
+          <details>
+            <summary>
+              All prices{#if others.length > 0}<span class="more">
+                  , and {others.length} caveat{others.length === 1 ? '' : 's'} about other choices or amounts</span
+                >{/if}
+            </summary>
+            <div class="tariff">
+              <h4>Buying and selling</h4>
+              <table>
+                <tbody>
+                  {#each tariff.trading as { covers, price }, index (index)}
+                    <tr><td>{covers}</td><td><Price {price} /></td></tr>
+                  {/each}
+                  {#if tariff.fractionsOn.length > 0}
+                    <tr><td>Fractions of a share</td><td>sold on {tariff.fractionsOn.join(', ')}</td></tr>
+                  {/if}
+                </tbody>
+              </table>
+              {#if tariff.tracks.length > 0}
+                <!-- Usually every track prices the same thing: then it's said once. -->
+                {@const covered = new Set(
+                  tariff.tracks.flatMap((track) => track.trading.map(({ covers }) => covers)),
+                )}
+                <h4>Tracks{covered.size === 1 ? ` for ${[...covered][0]}` : ''}: you choose one</h4>
+                <table>
+                  <tbody>
+                    {#each tariff.tracks as track (track.name)}
+                      {#each track.trading as { covers, price }, index (index)}
+                        <tr>
+                          <td
+                            >{track.name}{#if covered.size > 1}: {covers}{/if}</td
+                          >
+                          <td><Price {price} /></td>
+                        </tr>
+                      {/each}
+                    {/each}
+                  </tbody>
+                </table>
+              {/if}
+              {#if tariff.standingOrders.length > 0}
+                <h4>Buying by standing order</h4>
+                <table>
+                  <tbody>
+                    {#each tariff.standingOrders as { covers, price }, index (index)}
+                      <tr><td>{covers}</td><td><Price {price} /></td></tr>
+                    {/each}
+                  </tbody>
+                </table>
+              {/if}
+              <h4>Custody</h4>
+              <table>
+                <tbody>
+                  {#each tariff.custody as { covers, price }, index (index)}
+                    <tr><td>{covers}</td><td><Price {price} /></td></tr>
+                  {:else}
+                    <tr><td>Everything</td><td><Price price={{ text: 'none', nothing: true }} /></td></tr>
+                  {/each}
+                </tbody>
+              </table>
+              {#if tariff.handling}
+                <h4>Handling fee</h4>
+                <table>
+                  <tbody>
+                    <tr><td>The account</td><td><Price price={tariff.handling} /></td></tr>
+                  </tbody>
+                </table>
+              {/if}
+              <h4>Conversion</h4>
+              <table>
+                <tbody>
+                  <tr><td>Fee</td><td><Price price={tariff.conversion} /></td></tr>
+                  {#if tariff.secondConversion}
+                    <tr><td>Or, if less</td><td><Price price={tariff.secondConversion} /></td></tr>
+                  {/if}
+                  {#if tariff.standingOrderConversion}
+                    <tr
+                      ><td>By standing order</td><td><Price price={tariff.standingOrderConversion} /></td></tr
+                    >
+                  {/if}
+                  <tr><td>Markup</td><td><Price price={tariff.markup} /></td></tr>
+                </tbody>
+              </table>
+              {#if others.length > 0}
+                <h4>Caveats about other choices or amounts</h4>
+                <Caveats caveats={others} />
+              {/if}
+            </div>
+          </details>
+          <p class="about-link">
+            <button class="link" onclick={() => (app.details = { kind: 'about' })}
+              >How the numbers are made, and what isn't counted ↗</button
+            >
+          </p>
+        {:else}
+          <p>{broker.description}</p>
+          {@const caveats = app.brokerCaveats(broker)}
+          {#if caveats.length > 0}
+            <h3>Caveats for {app.purchase}</h3>
+            <CaveatGroups groups={caveats} />
+          {/if}
+          <h3>Plans</h3>
+          <ul class="plans">
+            {#each brokerPlans as plan (plan.id)}
+              <li>
+                <button onclick={() => (app.details = { kind: 'plan', plan })}>
+                  <span class="plan-name"
+                    ><span class="mark" style:background={plan.color}></span>{plan.info.name}</span
+                  >
+                  <span class="plan-description">{plan.info.description}</span>
+                </button>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/key}
   {/if}
 </dialog>
 
@@ -277,6 +387,28 @@
   }
   .change {
     margin: 10px 0 0;
+  }
+  .about-link {
+    margin: 16px 0 0;
+    font-size: 0.9rem;
+  }
+  /* Scrolled to from the title's links: its heading stays under the sticky
+     header otherwise. */
+  .about {
+    scroll-margin-top: 64px;
+  }
+  .about p {
+    margin: 8px 0;
+  }
+  .about ul {
+    margin: 8px 0;
+    padding-left: 20px;
+  }
+  .about li {
+    margin: 4px 0;
+  }
+  .about a {
+    color: var(--accent);
   }
   .mark {
     display: inline-block;

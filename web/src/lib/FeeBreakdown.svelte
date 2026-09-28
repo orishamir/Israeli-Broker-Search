@@ -30,6 +30,12 @@
     },
     { key: 'custody', name: 'Custody', color: '#199e70', explanation: 'Charged for holding the securities.' },
     {
+      key: 'handling',
+      name: 'Handling',
+      color: '#be55a9',
+      explanation: "The account's monthly fee, whatever it holds.",
+    },
+    {
       key: 'selling',
       name: 'Selling',
       color: '#c98500',
@@ -50,7 +56,7 @@
   /** Each fee button's explanation, shown on hover. */
   const popovers = $state<HTMLElement[]>([])
 
-  const notOffered = $derived(results.filter(({ outcome }) => !outcome).map(({ plan }) => plan.info.name))
+  const notOffered = $derived(results.filter(({ outcome }) => !outcome).map(({ plan }) => plan.label))
   const offered = $derived(
     results.filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined),
   )
@@ -80,7 +86,11 @@
 
   /** The bars' box, for fitting amounts into the parts of a bar. */
   let barsWidth = $state(0)
-  const nameWidth = $derived(barsWidth < 500 ? 84 : 120)
+  // Names wrap onto three lines on phones ("Leumi · Online, monthly standing
+  // order"), and each word must fit, bold, when pinned.
+  const narrow = $derived(barsWidth < 500)
+  const nameWidth = $derived(narrow ? 104 : 120)
+  const rowHeight = $derived(narrow ? 40 : 34)
 
   function barsOption(): ChartOption {
     const largest = Math.max(...rows.map(({ outcome }) => outcome.fees.total))
@@ -109,11 +119,11 @@
             width: nameWidth,
             overflow: 'break',
             // A dot in the plan's color (hollow for your own plans), and the
-            // name, bold on a tint of that color when pinned.
+            // name, on a tint of that color when pinned.
             formatter: (_id: string, index: number) => {
               const { plan } = rows[index]
               const style = app.pinned.has(plan.id) ? `pinned${index}` : 'name'
-              return `{dot${index}|${plan.yours ? '◯' : '●'}} {${style}|${plan.info.name}}`
+              return `{dot${index}|${plan.yours ? '◯' : '●'}} {${style}|${plan.label}}`
             },
             rich: {
               ...Object.fromEntries(
@@ -122,8 +132,9 @@
                   [
                     `pinned${index}`,
                     {
+                      // Not bold: ECharts wraps a name that's bolder than
+                      // the others unpredictably, sometimes onto three lines.
                       color: TEXT,
-                      fontWeight: 'bold',
                       backgroundColor: `${plan.color}40`,
                       borderRadius: 4,
                       padding: [2, 5],
@@ -309,7 +320,7 @@
 <div
   class="bars"
   bind:clientWidth={barsWidth}
-  style:height="{rows.length * 34 + 32}px"
+  style:height="{rows.length * rowHeight + 32}px"
   {@attach chart(barsOption, setup)}
   role="img"
   aria-label="Fees paid by each plan over the whole period, by kind"
@@ -320,7 +331,7 @@
 {/if}
 
 <h4>
-  Year by year: <span class="dot" style:background={shown.plan.color}></span>{shown.plan.info.name}
+  Year by year: <span class="dot" style:background={shown.plan.color}></span>{shown.plan.label}
   <span class="hint mouse">· hover or pin another plan to see it</span>
   <span class="hint touch">· tap another plan's bar to see it</span>
 </h4>
@@ -328,7 +339,7 @@
   class="over-time"
   {@attach chart(overTimeOption)}
   role="img"
-  aria-label="{shown.plan.info.name}'s fees piling up year by year, by kind"
+  aria-label="{shown.plan.label}'s fees piling up year by year, by kind"
 ></div>
 
 <style>

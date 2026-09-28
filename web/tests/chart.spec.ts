@@ -12,13 +12,13 @@ const chartBox = async (page: Page) => {
 }
 
 test('rows highlight on hover and pin on click', async ({ page }) => {
-  const pepper = page.locator('tbody tr', { hasText: 'Pepper' })
-  await pepper.hover()
-  await expect(pepper).toHaveClass(/highlighted/)
-  await pepper.click()
-  await page.locator('tbody tr', { hasText: 'Leumi 18+' }).click()
+  const meitav = page.locator('tbody tr', { hasText: 'Meitav Trade' })
+  await meitav.hover()
+  await expect(meitav).toHaveClass(/highlighted/)
+  await meitav.click()
+  await page.locator('tbody tr', { hasText: 'Bank Leumi' }).click()
   await page.mouse.move(0, 0)
-  await expect(pepper).toHaveClass(/highlighted/)
+  await expect(meitav).toHaveClass(/highlighted/)
   await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
   await expect(page.locator('.chart')).toHaveScreenshot('pinned.png')
 
@@ -26,7 +26,7 @@ test('rows highlight on hover and pin on click', async ({ page }) => {
   await expect(page.locator('.chart')).toHaveScreenshot('pinned-lost.png')
 
   await page.getByRole('button', { name: 'Unpin all' }).click()
-  await expect(pepper).not.toHaveClass(/highlighted/)
+  await expect(meitav).not.toHaveClass(/highlighted/)
 })
 
 test('the wheel zooms the years and R resets', async ({ page, isMobile }) => {

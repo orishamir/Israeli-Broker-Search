@@ -58,7 +58,7 @@
         Your {securityNoun} can be bought on different stock exchanges (<bdi lang="he">בורסות</bdi>): in Tel
         Aviv, or abroad in dollars or euros. Brokers (<bdi lang="he">בנקים ובתי השקעות</bdi>) charge different
         fees (<bdi lang="he">עמלות</bdi>) for each exchange, and abroad some also charge for converting your
-        shekels.
+        shekels (<bdi lang="he">המרת מט"ח</bdi>).
       </p>
     </Tip>
   </div>
@@ -138,14 +138,14 @@
       <output for="years">{app.years}</output>
     </div>
 
-    {#if app.exchange === 'Usa'}
+    {#if app.sharePriceSymbol}
       <span>
         <label for="share-price">Share price</label><Tip about="Share price">
-          Today's price of one share. Only matters for plans that charge per share. It grows with the yearly
-          return.
+          Today's price of one share. Brokers here sell whole shares only, so a deposit too small for a share
+          waits for the next purchase. It grows with the yearly return.
         </Tip>
       </span>
-      <NumberField id="share-price" prefix="$" bind:value={app.sharePrice} />
+      <NumberField id="share-price" prefix={app.sharePriceSymbol} bind:value={app.sharePrice} />
     {/if}
   </div>
 </section>

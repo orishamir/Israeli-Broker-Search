@@ -45,7 +45,11 @@
     originalPlan?.key.kind === 'listed'
       ? {
           name: originalPlan.info.name,
-          data: core.listedPlan(originalPlan.key.broker, originalPlan.key.plan),
+          data: core.listedPlan(
+            originalPlan.key.broker,
+            originalPlan.key.plan,
+            app.originalTrack(yours, originalPlan),
+          ),
         }
       : undefined,
   )

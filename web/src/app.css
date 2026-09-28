@@ -128,6 +128,18 @@ button:hover {
 .control > span {
   color: var(--weak);
 }
+/* A checkbox among the fields, in their column. */
+.fields > .check {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+/* A dropdown is as wide as its longest option, which could stick out on a
+   phone. */
+.control select {
+  max-width: 100%;
+}
 /* Room for a placeholder, like "not published". */
 .control .number.wide {
   flex-basis: 11rem;

@@ -51,47 +51,110 @@
   - textbox "Share price": /\d+/
   - heading "Brokers and plans to compare" [level=3]
   - button "What “Brokers and plans” means": "?"
-  - checkbox "Altshuler Shaham Trade" [checked]
+  - paragraph: "Ticked at first: each broker's usual plan, the one a new customer gets."
+  - checkbox "Altshuler Shaham Trade" [checked=mixed]
   - text: Altshuler Shaham Trade
-  - button "Caveats about Altshuler Shaham Trade": ⚠
   - button "About Altshuler Shaham Trade": ℹ
   - paragraph: Tariff date not stated
-  - list:
+  - list "Altshuler Shaham Trade":
     - listitem:
-      - checkbox "US 1¢/share" [checked]
-      - text: US 1¢/share
-      - button "About US 1¢/share": ℹ
-    - listitem:
-      - checkbox /US \$\d+ flat/ [checked]
-      - text: /US \$\d+ flat/
-      - button /About US \$\d+ flat/: ℹ
-    - listitem:
-      - checkbox /US \d+\.\d+%/ [checked]
-      - text: /US \d+\.\d+%/
-      - button /About US \d+\.\d+%/: ℹ
+      - checkbox "Full tariff"
+      - text: Full tariff
+      - button "Change a copy of Altshuler · Full tariff's fees": ✎
+      - button "About Altshuler · Full tariff": ℹ
     - listitem:
       - checkbox "New customers" [checked]
-      - text: New customers
-      - button "About New customers": ℹ
-  - checkbox "Bank Leumi" [checked]
+      - text: New customers usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Altshuler · New customers's fees": ✎
+      - button "About Altshuler · New customers": ℹ
+  - checkbox "Bank Leumi" [checked=mixed]
   - text: Bank Leumi
-  - button "Caveats about Bank Leumi": ⚠
+  - 'button "May cost more at Bank Leumi: see why"': ⚠
   - button "About Bank Leumi": ℹ
   - paragraph: /Tariff of \d+\/\d+\/\d+/
-  - list:
+  - list "Bank Leumi":
     - listitem:
       - checkbox "Online" [checked]
-      - text: Online
-      - button "About Online": ℹ
+      - text: Online usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Leumi · Online's fees": ✎
+      - button "About Leumi · Online": ℹ
     - listitem:
-      - checkbox /Online, 'Leumi \d+\+'/ [checked]
+      - checkbox /Online, 'Leumi \d+\+'/
       - text: /Online, 'Leumi \d+\+'/
-      - button /About Online, 'Leumi \d+\+'/: ℹ
+      - button /Change a copy of Leumi · Online, 'Leumi \d+\+''s fees/: ✎
+      - button /About Leumi · Online, 'Leumi \d+\+'/: ℹ
     - listitem:
-      - checkbox "Online, monthly standing order" [checked]
+      - checkbox "Online, monthly standing order"
       - text: Online, monthly standing order
-      - button "About Online, monthly standing order": ℹ
+      - button "Change a copy of Leumi · Online, monthly standing order's fees": ✎
+      - button "About Leumi · Online, monthly standing order": ℹ
     - listitem:
-      - checkbox "Pepper" [checked]
+      - checkbox "Pepper"
       - text: Pepper
-      - button "About Pepper": ℹ
+      - button "Change a copy of Leumi · Pepper's fees": ✎
+      - button "About Leumi · Pepper": ℹ
+  - checkbox "Excellence Trade" [checked=mixed]
+  - text: Excellence Trade
+  - button "About Excellence Trade": ℹ
+  - paragraph: Tariff date not stated
+  - list "Excellence Trade":
+    - listitem:
+      - checkbox "Full tariff"
+      - text: Full tariff
+      - button "Change a copy of Excellence · Full tariff's fees": ✎
+      - button "About Excellence · Full tariff": ℹ
+    - listitem:
+      - checkbox "Typical offer" [checked]
+      - text: Typical offer usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Excellence · Typical offer's fees": ✎
+      - button "About Excellence · Typical offer": ℹ
+  - checkbox "IBI" [checked=mixed]
+  - text: IBI
+  - button "About IBI": ℹ
+  - paragraph: /Tariff of \d+\/\d+\/\d+/
+  - list "IBI":
+    - listitem:
+      - checkbox "Full tariff"
+      - text: Full tariff
+      - button "Change a copy of IBI · Full tariff's fees": ✎
+      - button "About IBI · Full tariff": ℹ
+    - listitem:
+      - checkbox "Typical offer" [checked]
+      - text: Typical offer usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of IBI · Typical offer's fees": ✎
+      - button "About IBI · Typical offer": ℹ
+  - checkbox "Interactive Israel" [checked]
+  - text: Interactive Israel
+  - button "About Interactive Israel": ℹ
+  - paragraph: /Tariff of \d+\/\d+\/\d+/
+  - list "Interactive Israel":
+    - listitem:
+      - checkbox "Standard" [checked]
+      - text: Standard usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Interactive · Standard's fees": ✎
+      - button "About Interactive · Standard": ℹ
+  - checkbox "Meitav Trade" [checked=mixed]
+  - text: Meitav Trade
+  - button "About Meitav Trade": ℹ
+  - paragraph: /Tariff of \d+\/\d+/
+  - list "Meitav Trade":
+    - listitem:
+      - checkbox "Full tariff"
+      - text: Full tariff
+      - button "Change a copy of Meitav · Full tariff's fees": ✎
+      - button "About Meitav · Full tariff": ℹ
+    - listitem:
+      - checkbox "Typical offer" [checked]
+      - text: Typical offer usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Meitav · Typical offer's fees": ✎
+      - button "About Meitav · Typical offer": ℹ
+  - heading "Your plans" [level=3]
+  - button "What “Your plans” means": "?"
+  - paragraph: Think you can get lower fees, or use a broker that isn't listed? ✎ on a plan changes a copy of it.
+  - button "+ New plan"

@@ -42,7 +42,7 @@
     const faded = app.pinned.size > 0 && !pinned
     return {
       id: plan.id,
-      name: `${plan.subtitle} – ${plan.info.name}`,
+      name: plan.label,
       type: 'line',
       // Pinned plans show a dot and their value at each whole year; ones that
       // would overlap are hidden, so fewer show when zoomed out. Other plans

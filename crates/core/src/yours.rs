@@ -17,45 +17,30 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use strum::IntoEnumIterator;
 
-use crate::describe;
+use crate::describe::{self, PriceText, Priced};
+use crate::simulation::whole_shares;
 use crate::{
-    ConversionFee, Currency, CustodyFee, Exchange, Markup, Money, Percent, Period, Plan, Price,
-    Security, TradeFee, empty_or_contains, iso,
+    ConversionFee, Currency, CustodyFee, Exchange, HandlingFee, Markup, Money, Percent, PercentFee,
+    Period, Plan, Price, Security, TradeFee, empty_or_contains, iso,
 };
 
 // ─────────────────────────── Rows, by what they cover ───────────────────────────
 
-/// A row of a price list, seen as what it covers: trade rows cover pairs of
-/// security and exchange, custody rows cover exchanges.
+/// A row of a price list, seen as what it covers: pairs of security and
+/// exchange.
 trait Row: Clone {
-    type Covered: Copy + PartialEq;
-
     /// Everything the row covers, one by one.
-    fn covered(&self) -> Vec<Self::Covered>;
+    fn covered(&self) -> Vec<(Security, Exchange)>;
+
+    /// A copy of the row covering `securities` on `exchanges` instead.
+    fn covering_only(&self, securities: Vec<Security>, exchanges: Vec<Exchange>) -> Self;
 
     /// Copies of the row that together cover exactly `covered`, or none if
     /// it's empty.
-    fn covering(&self, covered: &[Self::Covered]) -> Vec<Self>;
-}
-
-impl Row for TradeFee {
-    type Covered = (Security, Exchange);
-
-    fn covered(&self) -> Vec<(Security, Exchange)> {
-        Exchange::iter()
-            .filter(|&exchange| empty_or_contains(&self.exchanges, exchange))
-            .flat_map(|exchange| {
-                Security::iter()
-                    .filter(|&security| empty_or_contains(&self.securities, security))
-                    .map(move |security| (security, exchange))
-            })
-            .collect()
-    }
-
     fn covering(&self, covered: &[(Security, Exchange)]) -> Vec<Self> {
         // A row covers every security it lists on every exchange it lists, so
         // exchanges with the same securities share a row.
-        let mut rows: Vec<TradeFee> = vec![];
+        let mut groups: Vec<(Vec<Security>, Vec<Exchange>)> = vec![];
         for exchange in Exchange::iter() {
             let securities: Vec<Security> = Security::iter()
                 .filter(|&security| covered.contains(&(security, exchange)))
@@ -63,40 +48,57 @@ impl Row for TradeFee {
             if securities.is_empty() {
                 continue;
             }
-            match rows.iter_mut().find(|row| row.securities == securities) {
-                Some(row) => row.exchanges.push(exchange),
-                None => rows.push(TradeFee {
-                    securities,
-                    exchanges: vec![exchange],
-                    price: self.price.clone(),
-                }),
+            match groups.iter_mut().find(|(each, _)| *each == securities) {
+                Some((_, exchanges)) => exchanges.push(exchange),
+                None => groups.push((securities, vec![exchange])),
             }
         }
-        for row in &mut rows {
-            row.securities = all_as_empty(&row.securities);
-            row.exchanges = all_as_empty(&row.exchanges);
+        groups
+            .into_iter()
+            .map(|(securities, exchanges)| {
+                self.covering_only(all_as_empty(&securities), all_as_empty(&exchanges))
+            })
+            .collect()
+    }
+}
+
+/// Every pair of `securities` and `exchanges`, empty meaning all.
+fn pairs(securities: &[Security], exchanges: &[Exchange]) -> Vec<(Security, Exchange)> {
+    Exchange::iter()
+        .filter(|&exchange| empty_or_contains(exchanges, exchange))
+        .flat_map(|exchange| {
+            Security::iter()
+                .filter(|&security| empty_or_contains(securities, security))
+                .map(move |security| (security, exchange))
+        })
+        .collect()
+}
+
+impl Row for TradeFee {
+    fn covered(&self) -> Vec<(Security, Exchange)> {
+        pairs(&self.securities, &self.exchanges)
+    }
+
+    fn covering_only(&self, securities: Vec<Security>, exchanges: Vec<Exchange>) -> Self {
+        TradeFee {
+            securities,
+            exchanges,
+            price: self.price.clone(),
         }
-        rows
     }
 }
 
 impl Row for CustodyFee {
-    type Covered = Exchange;
-
-    fn covered(&self) -> Vec<Exchange> {
-        Exchange::iter()
-            .filter(|&exchange| empty_or_contains(&self.exchanges, exchange))
-            .collect()
+    fn covered(&self) -> Vec<(Security, Exchange)> {
+        pairs(&self.securities, &self.exchanges)
     }
 
-    fn covering(&self, covered: &[Exchange]) -> Vec<Self> {
-        if covered.is_empty() {
-            return vec![];
-        }
-        vec![CustodyFee {
-            exchanges: all_as_empty(covered),
+    fn covering_only(&self, securities: Vec<Security>, exchanges: Vec<Exchange>) -> Self {
+        CustodyFee {
+            securities,
+            exchanges,
             ..self.clone()
-        }]
+        }
     }
 }
 
@@ -119,7 +121,7 @@ fn all_as_empty<T: IntoEnumIterator + PartialEq + Copy>(items: &[T]) -> Vec<T> {
 /// that only loses to more specific rows stays whole, since those still win
 /// once the rows are sorted.
 fn most_specific_first<R: Row>(rows: &[R]) -> Vec<R> {
-    let winner = |covered: R::Covered| {
+    let winner = |covered: (Security, Exchange)| {
         rows.iter()
             .position(|row| row.covered().contains(&covered))
             .expect("some row covers it")
@@ -195,16 +197,24 @@ pub enum PriceKind {
     PerShare,
     #[strum(to_string = "per order")]
     PerOrder,
+    /// The percentage in `amount`, plus `per_share`. Short enough for a
+    /// phone: after the field's "%", it reads "0.15 % + per share".
+    #[strum(to_string = "+ per share")]
+    PercentPlusPerShare,
 }
 
 /// A trade fee as the editor's fields. Empty fields are `None`: an empty
 /// amount is free, an empty bound is no bound.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+#[serde(rename_all = "camelCase")]
 pub struct TradeFields {
     pub kind: PriceKind,
     /// The percentage, or the amount per share or per order.
     pub amount: Option<Amount>,
+    /// Only for [`PriceKind::PercentPlusPerShare`]: the amount per share.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub per_share: Option<Amount>,
     /// Not for [`PriceKind::PerOrder`], which ignores them.
     pub min: Option<Amount>,
     pub max: Option<Amount>,
@@ -232,9 +242,24 @@ pub struct ConversionFields {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+#[serde(rename_all = "camelCase")]
 pub struct MarkupFields {
-    /// Empty means the broker doesn't publish it.
+    /// Empty, with no `per_dollar`, means the broker doesn't publish it.
     pub percent: Option<Amount>,
+    /// Shekels for every dollar converted, instead of a percentage.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub per_dollar: Option<Amount>,
+}
+
+/// A monthly handling fee as the editor's fields. An empty amount means none.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct HandlingFields {
+    /// In ₪.
+    pub per_month: Option<Amount>,
+    pub free_months: u32,
+    pub less_trade_fees: bool,
 }
 
 /// One fee in the editor: its fields, the same in words, and the original
@@ -246,7 +271,7 @@ pub struct Fee<F> {
     /// The symbol amounts are in: "$".
     pub currency: String,
     /// "$4 per order"
-    pub text: String,
+    pub price: PriceText,
     pub was: Option<Was<F>>,
 }
 
@@ -255,15 +280,15 @@ pub struct Fee<F> {
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub struct Was<F> {
     pub fields: F,
-    pub text: String,
+    pub price: PriceText,
 }
 
 impl<F> Fee<F> {
-    fn new(fields: F, currency: &Currency, text: String) -> Self {
+    fn new(fields: F, currency: &Currency, price: PriceText) -> Self {
         Fee {
             fields,
             currency: currency.symbol.to_owned(),
-            text,
+            price,
             was: None,
         }
     }
@@ -271,10 +296,10 @@ impl<F> Fee<F> {
     /// Adds what the original plan charges, if it's different.
     fn compared_to(self, original: Option<Fee<F>>) -> Self {
         let was = original
-            .filter(|original| original.text != self.text)
+            .filter(|original| original.price != self.price)
             .map(|original| Was {
                 fields: original.fields,
-                text: original.text,
+                price: original.price,
             });
         Fee { was, ..self }
     }
@@ -283,13 +308,25 @@ impl<F> Fee<F> {
 /// The fees for one security on one exchange: the editor's simple view.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+#[serde(rename_all = "camelCase")]
 pub struct SimpleFees {
     /// `None` if the plan doesn't offer it.
     pub trade: Option<Fee<TradeFields>>,
+    /// Only if the plan has a cheaper price for buying it by standing order.
+    pub standing_order: Option<Fee<TradeFields>>,
     pub custody: Fee<CustodyFields>,
+    pub handling: Fee<HandlingFields>,
     /// Only abroad: nothing is converted on Tel Aviv.
     pub conversion: Option<Fee<ConversionFields>>,
+    /// Only abroad, and only if the plan has a second conversion fee.
+    pub second_conversion: Option<Fee<ConversionFields>>,
+    /// Only abroad, and only if purchases by standing order convert
+    /// differently.
+    pub standing_order_conversion: Option<Fee<ConversionFields>>,
     pub markup: Option<Fee<MarkupFields>>,
+    /// Whether fractions of a share are sold, for a security that's
+    /// otherwise bought in whole shares there; `None` for others.
+    pub sells_fractions: Option<bool>,
 }
 
 /// Every row of a plan's price list: the editor's full view.
@@ -298,18 +335,33 @@ pub struct SimpleFees {
 #[serde(rename_all = "camelCase")]
 pub struct PriceList {
     pub trading: Vec<PriceRow<TradeFields>>,
+    /// Empty unless the plan has cheaper prices for buying by standing order.
+    pub standing_orders: Vec<PriceRow<TradeFields>>,
     pub custody: Vec<PriceRow<CustodyFields>>,
+    pub handling: Fee<HandlingFields>,
     pub conversion: Fee<ConversionFields>,
+    pub second_conversion: Option<Fee<ConversionFields>>,
+    pub standing_order_conversion: Option<Fee<ConversionFields>>,
     pub markup: Fee<MarkupFields>,
+    /// The exchanges where shares are otherwise bought whole, and whether
+    /// fractions of a share are sold there.
+    pub fractions: Vec<Fractions>,
     /// In ₪.
     pub min_first_deposit: Option<Amount>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub struct Fractions {
+    pub exchange: Exchange,
+    pub sold: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 #[serde(rename_all = "camelCase")]
 pub struct PriceRow<F> {
-    /// Empty means all. Always empty for custody, which covers exchanges.
+    /// Empty means all.
     pub securities: Vec<Security>,
     /// Empty means all.
     pub exchanges: Vec<Exchange>,
@@ -382,29 +434,35 @@ fn usual_currency(exchanges: &[Exchange]) -> &'static Currency {
 
 impl Price {
     fn fields(&self) -> TradeFields {
-        match self {
-            Price::Percent { percent, min, max } => TradeFields {
-                kind: PriceKind::Percent,
-                amount: Some(Amount(percent.0)),
-                min: field(*min),
-                max: field(*max),
-            },
+        let (kind, amount, per_share, min, max) = match *self {
+            Price::Percent { percent, min, max } => {
+                (PriceKind::Percent, Some(Amount(percent.0)), None, min, max)
+            }
             Price::PerShare {
                 per_share,
                 min,
                 max,
-            } => TradeFields {
-                kind: PriceKind::PerShare,
-                amount: field(Some(*per_share)),
-                min: field(*min),
-                max: field(*max),
-            },
-            Price::Flat(amount) => TradeFields {
-                kind: PriceKind::PerOrder,
-                amount: field(Some(*amount)),
-                min: None,
-                max: None,
-            },
+            } => (PriceKind::PerShare, field(Some(per_share)), None, min, max),
+            Price::Flat(amount) => (PriceKind::PerOrder, field(Some(amount)), None, None, None),
+            Price::PercentPlusPerShare {
+                percent,
+                per_share,
+                min,
+                max,
+            } => (
+                PriceKind::PercentPlusPerShare,
+                Some(Amount(percent.0)),
+                field(Some(per_share)),
+                min,
+                max,
+            ),
+        };
+        TradeFields {
+            kind,
+            amount,
+            per_share,
+            min: field(min),
+            max: field(max),
         }
     }
 
@@ -412,13 +470,16 @@ impl Price {
     fn currency(&self) -> Option<&'static Currency> {
         match self {
             Price::Percent { min, max, .. } => min.or(*max).map(|money| money.currency()),
-            Price::PerShare { per_share, .. } => Some(per_share.currency()),
+            Price::PerShare { per_share, .. } | Price::PercentPlusPerShare { per_share, .. } => {
+                Some(per_share.currency())
+            }
             Price::Flat(amount) => Some(amount.currency()),
         }
     }
 
     fn from_fields(fields: &TradeFields, currency: &'static Currency) -> Result<Self, InvalidFee> {
         let amount = amount_or_zero(fields.amount)?;
+        let money = |amount| Money::from_decimal(amount, currency);
         let (min, max) = bounds(fields.min, fields.max, currency)?;
         Ok(match fields.kind {
             PriceKind::Percent => Price::Percent {
@@ -427,11 +488,17 @@ impl Price {
                 max,
             },
             PriceKind::PerShare => Price::PerShare {
-                per_share: Money::from_decimal(amount, currency),
+                per_share: money(amount),
                 min,
                 max,
             },
-            PriceKind::PerOrder => Price::Flat(Money::from_decimal(amount, currency)),
+            PriceKind::PerOrder => Price::Flat(money(amount)),
+            PriceKind::PercentPlusPerShare => Price::PercentPlusPerShare {
+                percent: Percent(amount),
+                per_share: money(amount_or_zero(fields.per_share)?),
+                min,
+                max,
+            },
         })
     }
 }
@@ -444,7 +511,11 @@ impl TradeFee {
     }
 
     fn fee(&self) -> Fee<TradeFields> {
-        Fee::new(self.price.fields(), self.currency(), self.price.to_string())
+        Fee::new(
+            self.price.fields(),
+            self.currency(),
+            self.price.price_text(),
+        )
     }
 }
 
@@ -452,6 +523,7 @@ impl CustodyFee {
     /// What a plan without a custody row charges: nothing.
     fn none(exchanges: Vec<Exchange>) -> Self {
         CustodyFee {
+            securities: vec![],
             exchanges,
             percent: Percent(Decimal::ZERO),
             per: Period::Year,
@@ -471,7 +543,7 @@ impl CustodyFee {
             billed: self.billed,
             min: field(self.min),
         };
-        Fee::new(fields, self.currency(), self.to_string())
+        Fee::new(fields, self.currency(), self.price_text())
     }
 
     fn set(&mut self, fields: &CustodyFields) -> Result<(), InvalidFee> {
@@ -484,32 +556,76 @@ impl CustodyFee {
     }
 }
 
+impl PercentFee {
+    fn fields(&self) -> ConversionFields {
+        ConversionFields {
+            percent: Some(Amount(self.percent.0)),
+            min: field(self.min),
+            max: field(self.max),
+        }
+    }
+
+    fn from_fields(
+        fields: &ConversionFields,
+        currency: &'static Currency,
+    ) -> Result<Self, InvalidFee> {
+        let (min, max) = bounds(fields.min, fields.max, currency)?;
+        Ok(PercentFee {
+            percent: Percent(amount_or_zero(fields.percent)?),
+            min,
+            max,
+        })
+    }
+}
+
 impl ConversionFee {
+    /// The currency of its amounts: dollars, unless its bounds say otherwise.
     fn currency(&self) -> &'static Currency {
-        self.min
-            .or(self.max)
+        let second = self.or_if_less.unwrap_or_default();
+        [self.fee.min, self.fee.max, second.min, second.max]
+            .into_iter()
+            .flatten()
+            .next()
             .map_or(iso::USD, |money| money.currency())
     }
 
     fn fee(&self) -> Fee<ConversionFields> {
-        let fields = ConversionFields {
-            percent: Some(Amount(self.percent.0)),
-            min: field(self.min),
-            max: field(self.max),
-        };
-        Fee::new(fields, self.currency(), self.to_string())
+        Fee::new(self.fee.fields(), self.currency(), self.price_text())
+    }
+
+    fn second_fee(&self) -> Option<Fee<ConversionFields>> {
+        self.or_if_less
+            .map(|second| Fee::new(second.fields(), self.currency(), second.price_text()))
     }
 
     fn markup_fee(&self) -> Fee<MarkupFields> {
-        let percent = match self.markup {
-            Markup::UpTo(percent) => Some(Amount(percent.0)),
-            Markup::NotPublished => None,
+        let (percent, per_dollar) = match self.markup {
+            Markup::UpTo(percent) => (Some(Amount(percent.0)), None),
+            Markup::PerDollar(amount) => (None, field(Some(amount))),
+            // The market rate is a markup of 0%.
+            Markup::MarketRate => (Some(Amount(Decimal::ZERO)), None),
+            Markup::NotPublished => (None, None),
         };
         Fee::new(
-            MarkupFields { percent },
+            MarkupFields {
+                percent,
+                per_dollar,
+            },
             self.currency(),
-            self.markup.to_string(),
+            self.markup.price_text(),
         )
+    }
+}
+
+impl HandlingFee {
+    fn fee(handling: Option<&HandlingFee>) -> Fee<HandlingFields> {
+        let fields = HandlingFields {
+            per_month: handling.and_then(|fee| field(Some(fee.per_month))),
+            free_months: handling.map_or(0, |fee| fee.free_months),
+            less_trade_fees: handling.is_some_and(|fee| fee.less_trade_fees),
+        };
+        let text = handling.map_or_else(|| PriceText::nothing("none"), Priced::price_text);
+        Fee::new(fields, iso::ILS, text)
     }
 }
 
@@ -517,15 +633,21 @@ impl ConversionFee {
 
 impl Plan {
     /// A copy to change, named "Pepper, your deal". It charges exactly what
-    /// the original does, with its rows most specific first. The caveats stay
-    /// with the original: the user's fees are their own claim.
+    /// the original does on `track` (the first if none is given), with its
+    /// rows most specific first: a customer is on one track, so a copy has
+    /// no choice left. The caveats stay with the original: the user's fees
+    /// are their own claim.
     #[must_use]
-    pub fn copy_of(&self) -> Plan {
+    pub fn copy_of(&self, track: Option<usize>) -> Plan {
+        let index = track.unwrap_or(0);
+        let description = self.tracks.get(index).map_or_else(String::new, |track| {
+            format!("On the \u{201c}{}\u{201d} track.", track.name)
+        });
         Plan {
             name: format!("{}, your deal", self.name),
-            description: String::new(),
+            description,
             caveats: vec![],
-            ..self.most_specific_first()
+            ..self.on_track(index).most_specific_first()
         }
     }
 
@@ -550,8 +672,13 @@ impl Plan {
                 free(vec![Exchange::Tlv]),
                 free(vec![Exchange::Usa, Exchange::Europe]),
             ],
+            tracks: vec![],
+            standing_orders: vec![],
+            standing_order_conversion: None,
             custody: vec![CustodyFee::none(vec![])],
-            conversion: ConversionFee::default(),
+            conversion: ConversionFee::FREE,
+            handling: None,
+            fractions_on: vec![],
             min_first_deposit: None,
             caveats: vec![],
         }
@@ -564,6 +691,7 @@ impl Plan {
     pub fn most_specific_first(&self) -> Plan {
         Plan {
             trading: most_specific_first(&self.trading),
+            standing_orders: most_specific_first(&self.standing_orders),
             custody: most_specific_first(&self.custody),
             ..self.clone()
         }
@@ -572,6 +700,7 @@ impl Plan {
     /// Sorts the rows most specific first, after they change.
     pub fn sort_rows(&mut self) {
         sort_most_specific_first(&mut self.trading);
+        sort_most_specific_first(&mut self.standing_orders);
         sort_most_specific_first(&mut self.custody);
     }
 
@@ -592,29 +721,46 @@ impl Plan {
         original: Option<&Plan>,
     ) -> SimpleFees {
         let trade = |plan: &Plan| plan.trade_row(security, exchange).map(TradeFee::fee);
+        let standing_order = |plan: &Plan| {
+            plan.standing_order_row(security, exchange)
+                .map(TradeFee::fee)
+        };
         let custody = |plan: &Plan| {
-            plan.custody_row(exchange).map_or_else(
-                || Fee {
-                    text: "none".into(),
-                    ..CustodyFee::none(vec![exchange]).fee()
-                },
-                CustodyFee::fee,
-            )
+            plan.custody_row(security, exchange)
+                .map_or_else(|| CustodyFee::none(vec![exchange]).fee(), CustodyFee::fee)
+        };
+        let handling = |plan: &Plan| HandlingFee::fee(plan.handling.as_ref());
+        let second_conversion = |plan: &Plan| plan.conversion.second_fee();
+        let standing_order_conversion = |plan: &Plan| {
+            plan.standing_order_conversion
+                .as_ref()
+                .map(ConversionFee::fee)
         };
         let abroad = exchange != Exchange::Tlv;
         SimpleFees {
             trade: trade(self).map(|fee| fee.compared_to(original.and_then(trade))),
+            standing_order: standing_order(self)
+                .map(|fee| fee.compared_to(original.and_then(standing_order))),
             custody: custody(self).compared_to(original.map(custody)),
+            handling: handling(self).compared_to(original.map(handling)),
             conversion: abroad.then(|| {
                 self.conversion
                     .fee()
                     .compared_to(original.map(|plan| plan.conversion.fee()))
             }),
+            second_conversion: second_conversion(self)
+                .filter(|_| abroad)
+                .map(|fee| fee.compared_to(original.and_then(second_conversion))),
+            standing_order_conversion: standing_order_conversion(self)
+                .filter(|_| abroad)
+                .map(|fee| fee.compared_to(original.and_then(standing_order_conversion))),
             markup: abroad.then(|| {
                 self.conversion
                     .markup_fee()
                     .compared_to(original.map(|plan| plan.conversion.markup_fee()))
             }),
+            sells_fractions: whole_shares(security, exchange)
+                .then(|| self.sells_fractions_on(exchange)),
         }
     }
 
@@ -646,16 +792,35 @@ impl Plan {
         Ok(())
     }
 
-    /// Sets custody on `exchange`: the row it uses, or a new one for it.
+    /// Sets the standing order price for `security` on `exchange`, in the
+    /// row it uses. There's none to set if the plan has no such price.
+    pub fn set_standing_order(
+        &mut self,
+        security: Security,
+        exchange: Exchange,
+        fields: &TradeFields,
+    ) -> Result<(), InvalidFee> {
+        let row = self
+            .standing_orders
+            .iter_mut()
+            .find(|row| row.applies_to(security, exchange))
+            .ok_or(InvalidFee::NoSuchRow)?;
+        row.price = Price::from_fields(fields, row.currency())?;
+        Ok(())
+    }
+
+    /// Sets custody on `security` on `exchange`: the row it uses, or a new
+    /// one for the exchange.
     pub fn set_custody(
         &mut self,
+        security: Security,
         exchange: Exchange,
         fields: &CustodyFields,
     ) -> Result<(), InvalidFee> {
         let index = self
             .custody
             .iter()
-            .position(|row| empty_or_contains(&row.exchanges, exchange));
+            .position(|row| row.applies_to(security, exchange));
         if let Some(index) = index {
             return self.custody[index].set(fields);
         }
@@ -666,23 +831,70 @@ impl Plan {
         Ok(())
     }
 
-    pub fn set_conversion(&mut self, fields: &ConversionFields) -> Result<(), InvalidFee> {
-        let (min, max) = bounds(fields.min, fields.max, self.conversion.currency())?;
-        self.conversion = ConversionFee {
-            percent: Percent(amount_or_zero(fields.percent)?),
-            min,
-            max,
-            ..self.conversion
+    /// Sets the monthly handling fee; an empty amount removes it.
+    pub fn set_handling(&mut self, fields: &HandlingFields) -> Result<(), InvalidFee> {
+        self.handling = match fields.per_month {
+            Some(amount) => Some(HandlingFee {
+                per_month: Money::from_decimal(amount_or_zero(Some(amount))?, iso::ILS),
+                free_months: fields.free_months,
+                less_trade_fees: fields.less_trade_fees,
+            }),
+            None => None,
         };
         Ok(())
     }
 
+    pub fn set_conversion(&mut self, fields: &ConversionFields) -> Result<(), InvalidFee> {
+        self.conversion.fee = PercentFee::from_fields(fields, self.conversion.currency())?;
+        Ok(())
+    }
+
+    /// Sets the second conversion fee, of which each conversion pays the
+    /// lower.
+    pub fn set_second_conversion(&mut self, fields: &ConversionFields) -> Result<(), InvalidFee> {
+        let second = PercentFee::from_fields(fields, self.conversion.currency())?;
+        self.conversion.or_if_less = Some(second);
+        Ok(())
+    }
+
+    /// Sets what converting costs for purchases by standing order.
+    pub fn set_standing_order_conversion(
+        &mut self,
+        fields: &ConversionFields,
+    ) -> Result<(), InvalidFee> {
+        let conversion = self
+            .standing_order_conversion
+            .clone()
+            .unwrap_or(ConversionFee::FREE);
+        let fee = PercentFee::from_fields(fields, conversion.currency())?;
+        self.standing_order_conversion = Some(ConversionFee { fee, ..conversion });
+        Ok(())
+    }
+
     pub fn set_markup(&mut self, fields: &MarkupFields) -> Result<(), InvalidFee> {
-        self.conversion.markup = match fields.percent {
-            Some(percent) => Markup::UpTo(Percent(amount_or_zero(Some(percent))?)),
-            None => Markup::NotPublished,
+        self.conversion.markup = match (fields.per_dollar, fields.percent) {
+            (Some(per_dollar), _) => Markup::PerDollar(Money::from_decimal(
+                amount_or_zero(Some(per_dollar))?,
+                iso::ILS,
+            )),
+            (None, Some(percent)) => Markup::UpTo(Percent(amount_or_zero(Some(percent))?)),
+            (None, None) => Markup::NotPublished,
         };
         Ok(())
+    }
+
+    /// Sets whether fractions of a share are sold on `exchange`.
+    pub fn set_sells_fractions(&mut self, exchange: Exchange, sells: bool) {
+        // Rebuilt in the usual order. Empty means none here, not all.
+        self.fractions_on = Exchange::iter()
+            .filter(|&each| {
+                if each == exchange {
+                    sells
+                } else {
+                    self.fractions_on.contains(&each)
+                }
+            })
+            .collect();
     }
 
     /// Every row, and what the most specific rule does to each, compared to
@@ -690,33 +902,6 @@ impl Plan {
     #[must_use]
     pub fn price_list(&self, original: Option<&Plan>) -> PriceList {
         let original = original.map(Plan::most_specific_first);
-        let trading = self
-            .trading
-            .iter()
-            .enumerate()
-            .map(|(index, row)| {
-                let (by, never_used) = taken_by(&self.trading, index);
-                let was = original.as_ref().and_then(|original| {
-                    original
-                        .trading
-                        .iter()
-                        .find(|other| other.covered() == row.covered())
-                        .map(TradeFee::fee)
-                });
-                PriceRow {
-                    securities: row.securities.clone(),
-                    exchanges: row.exchanges.clone(),
-                    covers: row.coverage().to_string(),
-                    except: describe::except(
-                        &by.iter()
-                            .map(|&other| self.trading[other].coverage().to_string())
-                            .collect::<Vec<_>>(),
-                    ),
-                    never_used,
-                    fee: row.fee().compared_to(was),
-                }
-            })
-            .collect();
         let custody = self
             .custody
             .iter()
@@ -731,7 +916,7 @@ impl Plan {
                         .map(CustodyFee::fee)
                 });
                 PriceRow {
-                    securities: vec![],
+                    securities: row.securities.clone(),
                     exchanges: row.exchanges.clone(),
                     covers: row.coverage().to_string(),
                     except: describe::except(
@@ -745,16 +930,54 @@ impl Plan {
             })
             .collect();
         PriceList {
-            trading,
+            trading: trade_price_rows(
+                &self.trading,
+                original.as_ref().map(|plan| plan.trading.as_slice()),
+            ),
+            standing_orders: trade_price_rows(
+                &self.standing_orders,
+                original
+                    .as_ref()
+                    .map(|plan| plan.standing_orders.as_slice()),
+            ),
             custody,
+            handling: HandlingFee::fee(self.handling.as_ref()).compared_to(
+                original
+                    .as_ref()
+                    .map(|plan| HandlingFee::fee(plan.handling.as_ref())),
+            ),
             conversion: self
                 .conversion
                 .fee()
                 .compared_to(original.as_ref().map(|plan| plan.conversion.fee())),
+            second_conversion: self.conversion.second_fee().map(|fee| {
+                fee.compared_to(
+                    original
+                        .as_ref()
+                        .and_then(|plan| plan.conversion.second_fee()),
+                )
+            }),
+            standing_order_conversion: self.standing_order_conversion.as_ref().map(|fee| {
+                fee.fee().compared_to(
+                    original
+                        .as_ref()
+                        .and_then(|plan| plan.standing_order_conversion.as_ref())
+                        .map(ConversionFee::fee),
+                )
+            }),
             markup: self
                 .conversion
                 .markup_fee()
                 .compared_to(original.as_ref().map(|plan| plan.conversion.markup_fee())),
+            fractions: Exchange::iter()
+                .filter(|&exchange| {
+                    Security::iter().any(|security| whole_shares(security, exchange))
+                })
+                .map(|exchange| Fractions {
+                    exchange,
+                    sold: self.sells_fractions_on(exchange),
+                })
+                .collect(),
             min_first_deposit: field(self.min_first_deposit),
         }
     }
@@ -782,29 +1005,28 @@ impl Plan {
         exchanges: &[Exchange],
         fields: &TradeFields,
     ) -> Result<(), InvalidFee> {
-        let row = self.trading.get(index).ok_or(InvalidFee::NoSuchRow)?;
-        let exchanges = all_as_empty(exchanges);
-        // A row that moves between Tel Aviv and abroad without amounts of its
-        // own takes the currency of where it is now.
-        let currency = row
-            .price
-            .currency()
-            .unwrap_or_else(|| usual_currency(&exchanges));
-        self.trading[index] = TradeFee {
-            securities: all_as_empty(securities),
-            exchanges,
-            price: Price::from_fields(fields, currency)?,
-        };
-        self.sort_rows();
-        Ok(())
+        set_row(&mut self.trading, index, securities, exchanges, fields)
     }
 
     pub fn remove_trade_row(&mut self, index: usize) -> Result<(), InvalidFee> {
-        if index >= self.trading.len() {
-            return Err(InvalidFee::NoSuchRow);
-        }
-        self.trading.remove(index);
-        Ok(())
+        remove_row(&mut self.trading, index)
+    }
+
+    /// Changes what standing order row `index` covers and charges.
+    pub fn set_standing_order_row(
+        &mut self,
+        index: usize,
+        securities: &[Security],
+        exchanges: &[Exchange],
+        fields: &TradeFields,
+    ) -> Result<(), InvalidFee> {
+        set_row(
+            &mut self.standing_orders,
+            index,
+            securities,
+            exchanges,
+            fields,
+        )
     }
 
     /// Adds a free custody row for exactly `exchange`.
@@ -813,25 +1035,25 @@ impl Plan {
         self.sort_rows();
     }
 
+    /// Changes what custody row `index` covers and charges. Empty lists mean
+    /// all.
     pub fn set_custody_row(
         &mut self,
         index: usize,
+        securities: &[Security],
         exchanges: &[Exchange],
         fields: &CustodyFields,
     ) -> Result<(), InvalidFee> {
         let row = self.custody.get_mut(index).ok_or(InvalidFee::NoSuchRow)?;
         row.set(fields)?;
+        row.securities = all_as_empty(securities);
         row.exchanges = all_as_empty(exchanges);
         self.sort_rows();
         Ok(())
     }
 
     pub fn remove_custody_row(&mut self, index: usize) -> Result<(), InvalidFee> {
-        if index >= self.custody.len() {
-            return Err(InvalidFee::NoSuchRow);
-        }
-        self.custody.remove(index);
-        Ok(())
+        remove_row(&mut self.custody, index)
     }
 
     /// In ₪; empty for none.
@@ -841,18 +1063,99 @@ impl Plan {
     }
 }
 
+// A plan has two tables of trade rows, the usual one and standing orders',
+// which the editor shows and changes the same way.
+
+/// Every row of `rows`, and what the most specific rule does to each,
+/// compared to `original`'s row with the same coverage.
+fn trade_price_rows(
+    rows: &[TradeFee],
+    original: Option<&[TradeFee]>,
+) -> Vec<PriceRow<TradeFields>> {
+    rows.iter()
+        .enumerate()
+        .map(|(index, row)| {
+            let (by, never_used) = taken_by(rows, index);
+            let was = original.and_then(|original| {
+                original
+                    .iter()
+                    .find(|other| other.covered() == row.covered())
+                    .map(TradeFee::fee)
+            });
+            PriceRow {
+                securities: row.securities.clone(),
+                exchanges: row.exchanges.clone(),
+                covers: row.coverage().to_string(),
+                except: describe::except(
+                    &by.iter()
+                        .map(|&other| rows[other].coverage().to_string())
+                        .collect::<Vec<_>>(),
+                ),
+                never_used,
+                fee: row.fee().compared_to(was),
+            }
+        })
+        .collect()
+}
+
+/// Changes what row `index` covers and charges. Empty lists mean all.
+fn set_row(
+    rows: &mut [TradeFee],
+    index: usize,
+    securities: &[Security],
+    exchanges: &[Exchange],
+    fields: &TradeFields,
+) -> Result<(), InvalidFee> {
+    let row = rows.get(index).ok_or(InvalidFee::NoSuchRow)?;
+    let exchanges = all_as_empty(exchanges);
+    // A row that moves between Tel Aviv and abroad without amounts of its
+    // own takes the currency of where it is now.
+    let currency = row
+        .price
+        .currency()
+        .unwrap_or_else(|| usual_currency(&exchanges));
+    rows[index] = TradeFee {
+        securities: all_as_empty(securities),
+        exchanges,
+        price: Price::from_fields(fields, currency)?,
+    };
+    sort_most_specific_first(rows);
+    Ok(())
+}
+
+fn remove_row<R>(rows: &mut Vec<R>, index: usize) -> Result<(), InvalidFee> {
+    if index >= rows.len() {
+        return Err(InvalidFee::NoSuchRow);
+    }
+    rows.remove(index);
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use rust_decimal_macros::dec;
 
     use super::*;
-    use crate::tariffs::{altshuler, leumi};
+    use crate::tariffs::{self, altshuler};
     use crate::{Broker, IntoEnumIterator};
 
     fn listed() -> Vec<Plan> {
-        [altshuler(), leumi()]
+        tariffs::all()
             .into_iter()
             .flat_map(|broker: Broker| broker.plans)
+            .collect()
+    }
+
+    /// Every listed plan, and each on each of its tracks.
+    fn listed_on_tracks() -> Vec<Plan> {
+        listed()
+            .into_iter()
+            .flat_map(|plan| {
+                let on_tracks: Vec<Plan> = (0..plan.tracks.len())
+                    .map(|index| plan.on_track(index))
+                    .collect();
+                std::iter::once(plan).chain(on_tracks)
+            })
             .collect()
     }
 
@@ -860,18 +1163,21 @@ mod tests {
         listed().into_iter().find(|plan| plan.name == name).unwrap()
     }
 
-    /// What `plan` charges for each security on each exchange: the trade
-    /// price and custody row it uses.
-    fn prices(plan: &Plan) -> Vec<(Option<Price>, Option<CustodyFee>)> {
+    /// What `plan` charges for each security on each exchange: to buy or
+    /// sell, to buy by standing order, and to hold it.
+    fn prices(plan: &Plan) -> Vec<(Option<Price>, Option<Price>, Option<CustodyFee>)> {
         Exchange::iter()
             .flat_map(|exchange| {
                 Security::iter().map(move |security| {
-                    let custody = plan.custody_row(exchange).map(|row| CustodyFee {
+                    let custody = plan.custody_row(security, exchange).map(|row| CustodyFee {
                         exchanges: vec![],
                         ..row.clone()
                     });
                     let price = plan.trade_row(security, exchange).map(|r| r.price.clone());
-                    (price, custody)
+                    let standing_order = plan
+                        .standing_order_row(security, exchange)
+                        .map(|r| r.price.clone());
+                    (price, standing_order, custody)
                 })
             })
             .collect()
@@ -879,7 +1185,7 @@ mod tests {
 
     #[test]
     fn rewritten_plans_charge_the_same() {
-        for plan in listed() {
+        for plan in listed_on_tracks() {
             let rewritten = plan.most_specific_first();
             assert_eq!(prices(&rewritten), prices(&plan), "{}", plan.name);
             let sizes: Vec<usize> = rewritten
@@ -895,7 +1201,11 @@ mod tests {
     fn only_new_customers_is_rewritten() {
         for plan in listed() {
             if plan.name != "New customers" {
-                assert_eq!(plan.most_specific_first(), plan, "{}", plan.name);
+                // Only sorted: the listed order is the document's, but no
+                // row loses anything.
+                let mut sorted = plan.clone();
+                sorted.sort_rows();
+                assert_eq!(plan.most_specific_first(), sorted, "{}", plan.name);
             }
         }
         // Its offer row is laid over the regular list: the regular ETF and
@@ -949,22 +1259,23 @@ mod tests {
     #[test]
     fn a_copy_charges_what_the_original_does_without_its_caveats() {
         let pepper = named("Pepper");
-        let copy = pepper.copy_of();
+        let copy = pepper.copy_of(None);
         assert_eq!(copy.name, "Pepper, your deal");
         assert_eq!(copy.caveats, []);
         assert_eq!(prices(&copy), prices(&pepper));
         let simple = copy.simple_fees(Security::Etf, Exchange::Usa, Some(&pepper));
-        assert_eq!(simple.trade.unwrap().text, "$4 per order");
+        assert_eq!(simple.trade.unwrap().price.text, "$4 per order");
         assert!(simple.custody.was.is_none());
     }
 
     #[test]
     fn simple_fees_round_trip_and_show_the_original() {
         let pepper = named("Pepper");
-        let mut copy = pepper.copy_of();
+        let mut copy = pepper.copy_of(None);
         let fields = TradeFields {
             kind: PriceKind::Percent,
             amount: Some(Amount(dec!(0.1))),
+            per_share: None,
             min: Some(Amount(dec!(2))),
             max: None,
         };
@@ -975,8 +1286,8 @@ mod tests {
             .trade
             .unwrap();
         assert_eq!(trade.fields, fields);
-        assert_eq!(trade.text, "0.1%, min $2");
-        assert_eq!(trade.was.unwrap().text, "$4 per order");
+        assert_eq!(trade.price.text, "0.1%, min $2");
+        assert_eq!(trade.was.unwrap().price.text, "$4 per order");
 
         let custody = CustodyFields {
             percent: Some(Amount(dec!(0.1))),
@@ -984,22 +1295,28 @@ mod tests {
             billed: Period::Month,
             min: Some(Amount(dec!(20))),
         };
-        copy.set_custody(Exchange::Usa, &custody).unwrap();
+        copy.set_custody(Security::Etf, Exchange::Usa, &custody)
+            .unwrap();
         let simple = copy.simple_fees(Security::Etf, Exchange::Usa, None);
         assert_eq!(simple.custody.fields, custody);
         assert_eq!(simple.custody.currency, "₪");
 
-        copy.set_markup(&MarkupFields { percent: None }).unwrap();
+        copy.set_markup(&MarkupFields {
+            percent: None,
+            per_dollar: None,
+        })
+        .unwrap();
         assert_eq!(copy.conversion.markup, Markup::NotPublished);
     }
 
     #[test]
     fn a_shared_row_changes_everywhere_it_covers() {
         // Leumi Online prices the USA and Europe in one row.
-        let mut copy = named("Online").copy_of();
+        let mut copy = named("Online").copy_of(None);
         let fields = TradeFields {
             kind: PriceKind::PerOrder,
             amount: Some(Amount(dec!(5))),
+            per_share: None,
             min: None,
             max: None,
         };
@@ -1012,12 +1329,13 @@ mod tests {
     #[test]
     fn adding_a_fee_where_none_is_offered() {
         // Altshuler has no row for ETFs in Europe.
-        let mut copy = named("US 1¢/share").copy_of();
+        let mut copy = altshuler().plans[0].copy_of(None);
         let simple = copy.simple_fees(Security::Etf, Exchange::Europe, None);
         assert!(simple.trade.is_none());
         let fields = TradeFields {
             kind: PriceKind::Percent,
             amount: Some(Amount(dec!(0.2))),
+            per_share: None,
             min: None,
             max: None,
         };
@@ -1034,6 +1352,7 @@ mod tests {
         let fields = TradeFields {
             kind: PriceKind::PerOrder,
             amount: Some(Amount(dec!(1))),
+            per_share: None,
             min: None,
             max: None,
         };
@@ -1067,6 +1386,7 @@ mod tests {
         let with = |min, max| TradeFields {
             kind: PriceKind::Percent,
             amount: Some(Amount(dec!(0.1))),
+            per_share: None,
             min: Some(Amount(min)),
             max: Some(Amount(max)),
         };
@@ -1085,24 +1405,116 @@ mod tests {
     #[test]
     fn a_new_plan_is_free_until_filled_in() {
         let plan = Plan::new_own("Your plan");
-        for (price, custody) in prices(&plan) {
+        for (price, standing_order, custody) in prices(&plan) {
             assert_eq!(price.unwrap().to_string(), "0%");
+            assert_eq!(standing_order, None);
             assert!(custody.unwrap().percent.is_zero());
         }
         let simple = plan.simple_fees(Security::Etf, Exchange::Usa, None);
         assert_eq!(simple.trade.unwrap().currency, "$");
-        assert_eq!(simple.markup.unwrap().text, "none");
+        assert_eq!(simple.markup.unwrap().price.text, "none");
     }
 
     #[test]
     fn plans_survive_json() {
-        let plan = named("Online").copy_of();
+        let plan = named("Online").copy_of(None);
         let json = serde_json::to_string(&plan).unwrap();
         assert_eq!(serde_json::from_str::<Plan>(&json).unwrap(), plan);
+        for name in ["Online, monthly standing order", "Online, 'Leumi 18+'"] {
+            let plan = named(name).copy_of(None);
+            let json = serde_json::to_string(&plan).unwrap();
+            assert_eq!(serde_json::from_str::<Plan>(&json).unwrap(), plan);
+        }
+
+        // Saved before plans had standing orders: they have none.
+        let mut saved = serde_json::to_value(&plan).unwrap();
+        saved.as_object_mut().unwrap().remove("standing_orders");
+        assert_eq!(serde_json::from_value::<Plan>(saved).unwrap(), plan);
         let fields = serde_json::to_string(&MarkupFields {
             percent: Some(Amount(dec!(0.7))),
+            per_dollar: None,
         })
         .unwrap();
         assert_eq!(fields, r#"{"percent":0.7}"#);
+    }
+
+    #[test]
+    fn a_standing_order_price_is_edited() {
+        let listed = named("Online, monthly standing order");
+        let mut copy = listed.copy_of(None);
+        let (fund, tlv) = (Security::MutualFund, Exchange::Tlv);
+        let cheaper = TradeFields {
+            kind: PriceKind::Percent,
+            amount: Some(Amount(dec!(0.1))),
+            per_share: None,
+            min: Some(Amount(dec!(3))),
+            max: None,
+        };
+        copy.set_standing_order(fund, tlv, &cheaper).unwrap();
+        let simple = copy.simple_fees(fund, tlv, Some(&listed));
+        let standing_order = simple.standing_order.unwrap();
+        assert_eq!(standing_order.price.text, "0.1%, min ₪3");
+        assert_eq!(
+            standing_order.was.unwrap().price.text,
+            "0.225%, min ₪5, max ₪6,300"
+        );
+        // Buying or selling otherwise is still Online's.
+        assert_eq!(
+            simple.trade.unwrap().price.text,
+            "0.4%, min ₪26, max ₪6,300"
+        );
+
+        // ETFs have no standing order price to set.
+        let etf = copy.simple_fees(Security::Etf, tlv, None);
+        assert_eq!(etf.standing_order, None);
+        assert_eq!(
+            copy.set_standing_order(Security::Etf, tlv, &cheaper),
+            Err(InvalidFee::NoSuchRow)
+        );
+
+        let rows = copy.price_list(Some(&listed)).standing_orders;
+        assert_eq!(rows[0].covers, "Mutual fund on Tel Aviv");
+        let wider = copy.set_standing_order_row(0, &[], &[tlv], &cheaper);
+        assert_eq!(wider, Ok(()));
+        assert!(
+            copy.simple_fees(Security::Etf, tlv, None)
+                .standing_order
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn a_second_conversion_fee_is_edited() {
+        let listed = named("Online, 'Leumi 18+'");
+        let mut copy = listed.copy_of(None);
+        let (etf, usa) = (Security::Etf, Exchange::Usa);
+        let second = |plan: &Plan| plan.simple_fees(etf, usa, Some(&listed)).second_conversion;
+        assert_eq!(
+            second(&copy).unwrap().price.text,
+            "0.16%, min $5.76, max $2,400"
+        );
+        // Not shown on Tel Aviv, where nothing is converted.
+        assert_eq!(
+            copy.simple_fees(etf, Exchange::Tlv, None).second_conversion,
+            None
+        );
+
+        let fields = ConversionFields {
+            percent: Some(Amount(dec!(0.12))),
+            min: Some(Amount(dec!(4))),
+            max: None,
+        };
+        copy.set_second_conversion(&fields).unwrap();
+        let edited = second(&copy).unwrap();
+        assert_eq!(
+            (edited.price.text.as_str(), edited.currency.as_str()),
+            ("0.12%, min $4", "$")
+        );
+        assert_eq!(
+            edited.was.unwrap().price.text,
+            "0.16%, min $5.76, max $2,400"
+        );
+        let listed_online = named("Online");
+        assert_eq!(listed_online.price_list(None).second_conversion, None);
     }
 }

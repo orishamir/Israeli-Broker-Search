@@ -1,16 +1,19 @@
 <script lang="ts">
   import type { AppState, Plan } from './app.svelte'
+  import CaveatMark from './CaveatMark.svelte'
   import HebrewNames from './HebrewNames.svelte'
+  import Price from './Price.svelte'
   import Tip from './Tip.svelte'
 
-  /** `tips`: whether each fee's name explains itself. Not in the hover
-   * preview, which can't be hovered into. */
+  /** `tips`: whether each fee's name explains itself, and each mark opens
+   * its caveats. Not in the hover preview, which can't be hovered into. */
   let { app, plan, tips = true }: { app: AppState; plan: Plan; tips?: boolean } = $props()
 
-  const { fees, markup } = $derived(app.feesFor(plan))
+  const { fees } = $derived(app.feesFor(plan))
 </script>
 
-<!-- The fees that apply to what the user buys. -->
+<!-- The fees that apply to what the user buys, each marked with how sure its
+     number is where a caveat is about it. -->
 <div class="fees-for">
   <p class="for">For {app.purchase}:</p>
   <dl>
@@ -21,20 +24,23 @@
             <p>{fee.explanation}</p>
           </Tip>{/if}
       </dt>
-      <dd class:missing={fee.missing}>{fee.price}</dd>
-    {/each}
-    <!-- Part of conversion, the last fee: on its own line under it. -->
-    {#if markup}
-      <dd class="part">
-        <span class="part-name"
-          >markup{#if tips}<Tip about={markup.name}>
-              <HebrewNames names={markup.hebrewNames} />
-              <p>{markup.explanation}</p>
-            </Tip>{/if}</span
-        >
-        {markup.price}
+      <dd>
+        <Price price={fee.price} />{#if fee.mark}<CaveatMark mark={fee.mark} {tips} />{/if}
       </dd>
-    {/if}
+      <!-- Parts of the fee, each on its own line under it: a standing
+           order's price, a second conversion fee, the markup. -->
+      {#each fee.parts as part (part.name)}
+        <dd class="part">
+          <span class="part-name"
+            >{part.label}{#if tips}<Tip about={part.name}>
+                <HebrewNames names={part.hebrewNames} />
+                <p>{part.explanation}</p>
+              </Tip>{/if}</span
+          >
+          <Price price={part.price} />{#if part.mark}<CaveatMark mark={part.mark} {tips} />{/if}
+        </dd>
+      {/each}
+    {/each}
   </dl>
 </div>
 
@@ -62,10 +68,6 @@
   .part-name {
     margin-right: 6px;
     color: var(--weak);
-  }
-  .missing {
-    color: var(--weak);
-    font-style: italic;
   }
   .fees-for {
     container-type: inline-size;

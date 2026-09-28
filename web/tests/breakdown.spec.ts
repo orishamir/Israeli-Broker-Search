@@ -15,7 +15,7 @@ async function compare(page: Page, fee: string) {
 }
 
 test("each plan's fees, by kind, and the best plan's over time", async ({ page }) => {
-  await expect(overTime(page)).toContainText('New customers')
+  await expect(overTime(page)).toContainText('Interactive · Standard')
   await fitScreenToPage(page)
   await expect(card(page)).toHaveScreenshot('all.png')
 })
@@ -30,22 +30,23 @@ test('clicking a bar pins its plan and shows it over time', async ({ page, isMob
   // In view, or the click lands outside the screen.
   await page.locator('.bars').scrollIntoViewIfNeeded()
   const box = (await page.locator('.bars').boundingBox())!
-  // The second bar (fewest fees first): US 1¢/share. Just right of the names.
-  const x = box.x + (box.width < 500 ? 84 : 120) + 24
-  const y = box.y + 4 + 34.5 * 1.5
+  // The second bar (fewest fees first): Altshuler's. Just right of the names.
+  const narrow = box.width < 500
+  const x = box.x + (narrow ? 104 : 120) + 24
+  const y = box.y + 4 + (narrow ? 40 : 34.5) * 1.5
   if (isMobile) await page.touchscreen.tap(x, y)
   else await page.mouse.click(x, y)
   await page.mouse.move(0, 0)
-  await expect(page.locator('tbody tr.pinned')).toContainText('US 1¢/share')
-  await expect(overTime(page)).toContainText('US 1¢/share')
+  await expect(page.locator('tbody tr.pinned')).toContainText('New customers')
+  await expect(overTime(page)).toContainText('Altshuler · New customers')
 })
 
 test("a plan's fees link pins it, outlined in the breakdown, and shows it over time", async ({ page }) => {
-  const row = page.locator('tbody tr', { hasText: 'US 0.15%' })
+  const row = page.locator('tbody tr', { hasText: 'Excellence Trade' })
   await row.getByRole('button', { name: /see what they went to/ }).click()
   await page.mouse.move(0, 0)
   await expect(row).toHaveClass(/pinned/)
-  await expect(overTime(page)).toContainText('US 0.15%')
+  await expect(overTime(page)).toContainText('Excellence · Typical offer')
   await fitScreenToPage(page)
   await expect(card(page)).toHaveScreenshot('pinned.png')
 })
@@ -65,11 +66,13 @@ test("scrolling the page with a finger on the chart doesn't pick a plan", async 
   await touch('touchStart', [{ x, y }])
   for (let step = 1; step <= 8; step++) await touch('touchMove', [{ x, y: y - step * 25 }])
   await touch('touchEnd', [])
-  await expect(overTime(page)).toContainText('New customers')
+  await expect(overTime(page)).toContainText('Interactive · Standard')
   await expect(page.locator('tbody tr.pinned')).toHaveCount(0)
 })
 
 test('plans without a price are named, not just left out', async ({ page }) => {
   await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Europe').click()
-  await expect(page.getByText('Not offered for an ETF bought in Europe:')).toContainText('US 1¢/share')
+  await expect(page.getByText('Not offered for an ETF bought in Europe:')).toContainText(
+    'Altshuler · New customers',
+  )
 })

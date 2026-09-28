@@ -1,17 +1,21 @@
 <script lang="ts">
-  /** What the tariff leaves unclear, and how it was read. A note about
-   * other choices than the user's is titled with what it's about. */
-  let { notes }: { notes: (string | { text: string; covers: string })[] } = $props()
+  import type { CaveatText } from './core/core'
+
+  /** Caveats about other choices than the user's, or larger amounts: each
+   * titled with what it's about, since the same words can be about two
+   * different things, and labelled with how sure the number is. */
+  let { caveats }: { caveats: CaveatText[] } = $props()
 </script>
 
-{#if notes.length > 0}
+{#if caveats.length > 0}
   <ul>
-    {#each notes as note (typeof note === 'string' ? note : note.text)}
-      {#if typeof note === 'string'}
-        <li>{note}</li>
-      {:else}
-        <li><strong class="covers">{note.covers}</strong>{note.text}</li>
-      {/if}
+    <!-- Keyed by position: texts repeat across coverages. -->
+    {#each caveats as caveat, index (index)}
+      <li class:warning={caveat.kind === 'MayCostMore'}>
+        <span class="covers">{caveat.covers} <span class="kind">· {caveat.label}</span></span>
+        {caveat.text}
+        {#if caveat.support}<span class="support">Why: {caveat.support}.</span>{/if}
+      </li>
     {/each}
   </ul>
 {/if}
@@ -25,22 +29,31 @@
     list-style: none;
   }
   li {
-    padding: 8px 10px 8px 32px;
-    border-radius: 8px;
-    background: rgb(242 193 78 / 0.07);
+    padding: 8px 10px;
+    border-left: 3px solid var(--strong-border);
+    border-radius: 0 8px 8px 0;
+    background: var(--raised);
     color: var(--weak);
     font-size: 0.9rem;
-    position: relative;
+  }
+  li.warning {
+    border-left-color: var(--warning);
   }
   .covers {
     display: block;
     color: var(--text);
     font-weight: 600;
   }
-  li::before {
-    content: '⚠';
-    position: absolute;
-    left: 10px;
+  .kind {
+    color: var(--weak);
+    font-weight: normal;
+  }
+  .warning .kind {
     color: var(--warning);
+  }
+  .support {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.85rem;
   }
 </style>

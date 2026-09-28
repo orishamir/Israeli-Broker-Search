@@ -61,28 +61,35 @@ test('amounts show thousands separators, and the arrow keys step them', async ({
 })
 
 test("a plan's caveats and fees follow what's bought", async ({ page }) => {
-  const about = page.getByRole('button', { name: 'About Pepper' })
+  const about = page.getByRole('button', { name: 'About Leumi · Pepper' })
   const dialog = page.getByRole('dialog', { name: 'Pepper' })
+  // In the lists: a caveat about one fee is also in that fee's mark.
+  const caveat = (text: string) => dialog.getByRole('listitem').filter({ hasText: text })
 
   await about.click()
-  // The markup is part of conversion, abroad only.
-  await expect(dialog.locator('dd.part', { hasText: 'markup' })).toBeVisible()
-  await expect(dialog.getByText("doesn't publish its conversion markup")).toBeVisible()
-  await expect(dialog.getByText('₪4 is only stated')).toBeHidden()
+  // The markup is part of conversion, abroad only, and marked as a number
+  // that may be too low.
+  const markup = dialog.locator('dd.part', { hasText: 'markup' })
+  await expect(markup).toBeVisible()
+  await expect(markup.getByRole('button', { name: 'may cost more' })).toBeVisible()
+  await expect(caveat("doesn't publish its conversion markup")).toBeVisible()
+  await expect(caveat('₪4 is only stated')).toBeHidden()
+  await page.mouse.move(0, 0)
   await page.keyboard.press('Escape')
 
   await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
   await about.click()
-  await expect(dialog.locator('dd.part', { hasText: 'markup' })).toBeHidden()
-  await expect(dialog.getByText('₪4 is only stated')).toBeVisible()
-  await expect(dialog.getByText("doesn't publish its conversion markup")).toBeHidden()
-  // The rest are in the full tariff.
-  await dialog.getByText('Full tariff').click()
-  await expect(dialog.getByText("doesn't publish its conversion markup")).toBeVisible()
+  await expect(markup).toBeHidden()
+  // Selling everything at the end is an order well above ₪30,000.
+  await expect(caveat('₪4 is only stated')).toBeVisible()
+  await expect(caveat("doesn't publish its conversion markup")).toBeHidden()
+  // The rest are with all its prices.
+  await dialog.getByText('All prices').click()
+  await expect(caveat("doesn't publish its conversion markup")).toBeVisible()
 })
 
 test('a fee explains itself, with its Hebrew name', async ({ page, isMobile }) => {
-  await page.getByRole('button', { name: 'About Pepper' }).click()
+  await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
   const button = page.getByRole('dialog').getByRole('button', { name: 'What “Custody” means' })
   if (isMobile) await button.tap()
   else await button.hover()

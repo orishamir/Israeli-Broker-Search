@@ -17,12 +17,12 @@
     },
     {
       title: 'Fees paid',
-      explanation: 'Every fee charged: purchases, conversions, custody, and selling at the end.',
+      explanation: 'Every fee charged: purchases, conversions, custody, handling, and selling at the end.',
     },
     {
       title: 'Lost to fees',
       explanation:
-        'How much less you end up with than with no fees at all, after selling. Bigger than the fees paid, because money paid in fees stops growing.',
+        'How much less you end up with, after selling, than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned.',
     },
   ]
 </script>
@@ -40,7 +40,7 @@
   <tbody>
     <!-- Rows glide to their new place when the ranking changes. Plans that
          don't offer the security have no line to highlight. -->
-    {#each results as { plan, outcome, warning }, index (plan.id)}
+    {#each results as { plan, outcome, warning, mayCostMore, note }, index (plan.id)}
       <tr
         animate:flip={{ duration: duration(300) }}
         class:not-offered={!outcome}
@@ -59,6 +59,9 @@
               <span class:best={index === 0 && outcome}>{plan.info.name}</span>
               <span class="broker">{plan.subtitle}</span>
               {#if warning}<span class="warning">⚠ {warning}</span>{/if}
+              <!-- A number that may be too low: the plan stays ranked, flagged. -->
+              {#if mayCostMore}<span class="warning">⚠ {mayCostMore}</span>{/if}
+              {#if note}<span class="note">{note}</span>{/if}
             </span>
           </div>
         </td>
@@ -69,7 +72,7 @@
             <!-- Not also a click on the row, which would unpin it. -->
             <button
               class="link"
-              aria-label="{plan.info.name} fees: {shekels(outcome.fees.total)}, see what they went to"
+              aria-label="{plan.label} fees: {shekels(outcome.fees.total)}, see what they went to"
               onclick={(event) => {
                 event.stopPropagation()
                 app.showFees(plan.id)
@@ -147,14 +150,21 @@
     line-height: 1.25;
   }
   .broker,
-  .warning {
+  .warning,
+  .note {
     font-size: 0.75rem;
   }
-  .broker {
+  .broker,
+  .note {
     color: var(--weak);
   }
   .warning {
     color: var(--warning);
+  }
+  /* Long ones wrap, rather than widen the table past its card. */
+  .warning,
+  .note {
+    white-space: normal;
   }
   /* When the table is wider than its card, the amounts scroll sideways
      under the plan. */

@@ -1,6 +1,0 @@
-I have a bug/feature request:
-Currently, the selected plan isn't highlighted in the fee breakdown chart, and consequently the jump to fee breakdown doesnt work and the > isnt highlighted like a link.
-I want to be able to distinguish between selected plans and fee types in the fee breakdown chart
-
-
-Optimize tests

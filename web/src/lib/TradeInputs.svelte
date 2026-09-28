@@ -21,7 +21,7 @@
 
   const kinds = core.priceKinds()
   const id = $props.id()
-  const percent = $derived(fields.kind === 'Percent')
+  const percent = $derived(fields.kind === 'Percent' || fields.kind === 'PercentPlusPerShare')
 </script>
 
 <div class="fields">
@@ -43,13 +43,36 @@
       aria-label="{name}: unit"
       value={fields.kind}
       onchange={(event) =>
-        onchange({ ...fields, kind: event.currentTarget.value as PriceKind, amount: undefined })}
+        onchange({
+          ...fields,
+          kind: event.currentTarget.value as PriceKind,
+          amount: undefined,
+          perShare: undefined,
+        })}
     >
       {#each kinds as kind (kind.value)}
         <option value={kind.value}>{kind.name}</option>
       {/each}
     </select>
   </div>
+  {#if fields.kind === 'PercentPlusPerShare'}
+    <label class="label" for="{id}-per-share">Plus</label>
+    <div class="control">
+      <div class="number">
+        <NumberField
+          id="{id}-per-share"
+          label="{name}: per share"
+          prefix={currency}
+          step={0.01}
+          bind:value={
+            () => fields.perShare ?? null,
+            (perShare) => onchange({ ...fields, perShare: perShare ?? undefined })
+          }
+        />
+      </div>
+      <span>per share</span>
+    </div>
+  {/if}
   {#if fields.kind !== 'PerOrder'}
     <label class="label" for="{id}-min">Min</label>
     <div class="control">
