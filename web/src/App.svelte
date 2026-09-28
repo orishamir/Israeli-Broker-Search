@@ -71,8 +71,7 @@
           <div class="card stat best" style:--plan-color={best.plan.color}>
             <span class="label">Best: {best.plan.info.name}</span>
             <span class="value">{shekels(best.outcome.afterSelling)}</span>
-            <span class="note">{shekels(best.outcome.lostToFees)} lost to fees · {best.plan.broker.name}</span
-            >
+            <span class="note">{shekels(best.outcome.lostToFees)} lost to fees · {best.plan.subtitle}</span>
           </div>
         {/if}
       </div>

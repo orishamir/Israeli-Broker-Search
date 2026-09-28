@@ -121,7 +121,9 @@ pub fn purchase(security: Security, exchange: Exchange) -> impl Display {
 
 /// The kinds of fee a plan charges, to name and explain them. Its `Display`
 /// is its name: "Buy or sell", "Conversion markup".
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::Display)]
+/// In the order the editor shows them: `FeeKind::iter()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, strum::Display, strum::EnumIter)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum FeeKind {
     #[strum(to_string = "Buy or sell")]
     Trade,
@@ -199,6 +201,9 @@ impl FeeLine {
 pub struct FeesFor {
     /// Conversion fees only abroad: nothing is converted on Tel Aviv.
     pub fees: Vec<FeeLine>,
+    /// The conversion markup, shown as part of the conversion fee: it's the
+    /// other half of what converting costs. Only abroad, like conversion.
+    pub markup: Option<FeeLine>,
     pub caveats: Vec<String>,
 }
 
@@ -219,20 +224,23 @@ impl Plan {
                 "none",
             ),
         ];
-        if exchange != Exchange::Tlv {
+        let abroad = exchange != Exchange::Tlv;
+        if abroad {
             fees.push(FeeLine::new(
                 FeeKind::Conversion,
                 Some(self.conversion.to_string()),
                 "",
             ));
-            fees.push(FeeLine::new(
-                FeeKind::Markup,
-                Some(self.conversion.markup.to_string()),
-                "",
-            ));
         }
         FeesFor {
             fees,
+            markup: abroad.then(|| {
+                FeeLine::new(
+                    FeeKind::Markup,
+                    Some(self.conversion.markup.to_string()),
+                    "",
+                )
+            }),
             caveats: caveats_for(&self.caveats, security, exchange),
         }
     }
@@ -374,8 +382,21 @@ fn write_bounds(f: &mut Formatter<'_>, min: Option<Money>, max: Option<Money>) -
     Ok(())
 }
 
-/// "ETF, Stock", or `any` when the list is empty (a tariff row that doesn't
-/// limit it).
+/// "except Mutual fund on Tel Aviv (its own row above)", for a row of your
+/// plan that more specific rows take part of; `covers` is what each of them
+/// covers.
+#[must_use]
+pub fn except(covers: &[String]) -> Option<String> {
+    let (last, rest) = covers.split_last()?;
+    if rest.is_empty() {
+        return Some(format!("except {last} (its own row above)"));
+    }
+    Some(format!(
+        "except {} and {last} (their own rows above)",
+        rest.join(", ")
+    ))
+}
+
 impl Broker {
     /// What plan `plan` charges for `security` on `exchange`, with the
     /// broker's caveats first.
@@ -427,6 +448,8 @@ impl Caveat {
     }
 }
 
+/// "ETF, Stock", or `any` when the list is empty (a tariff row that doesn't
+/// limit it).
 fn list_or<T: Display>(items: &[T], any: &str) -> String {
     if items.is_empty() {
         any.to_owned()
@@ -471,9 +494,9 @@ mod tests {
                 ("Buy or sell", "0.3%, min $24, max $6,750"),
                 ("Custody", "0.2% a quarter (0.8% a year)"),
                 ("Conversion", "0.16%, min $5.76, max $2,400"),
-                ("Conversion markup", "not published"),
             ]
         );
+        assert_eq!(fees.markup.unwrap().price, "not published");
         assert_eq!(fees.fees[1].hebrew_names, ["דמי משמרת"]);
     }
 

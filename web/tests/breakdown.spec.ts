@@ -40,6 +40,16 @@ test('clicking a bar pins its plan and shows it over time', async ({ page, isMob
   await expect(overTime(page)).toContainText('US 1¢/share')
 })
 
+test("a plan's fees link pins it, outlined in the breakdown, and shows it over time", async ({ page }) => {
+  const row = page.locator('tbody tr', { hasText: 'US 0.15%' })
+  await row.getByRole('button', { name: /see what they went to/ }).click()
+  await page.mouse.move(0, 0)
+  await expect(row).toHaveClass(/pinned/)
+  await expect(overTime(page)).toContainText('US 0.15%')
+  await fitScreenToPage(page)
+  await expect(card(page)).toHaveScreenshot('pinned.png')
+})
+
 test("scrolling the page with a finger on the chart doesn't pick a plan", async ({
   page,
   browserName,

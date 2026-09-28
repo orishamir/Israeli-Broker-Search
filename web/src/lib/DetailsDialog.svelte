@@ -2,6 +2,7 @@
   import type { AppState, Details } from './app.svelte'
   import Caveats from './Caveats.svelte'
   import FeesForInputs from './FeesForInputs.svelte'
+  import PlanEditor from './PlanEditor.svelte'
 
   let { app }: { app: AppState } = $props()
 
@@ -18,8 +19,14 @@
     }
   })
 
-  const broker = $derived(shown?.kind === 'broker' ? shown.broker : shown?.plan.broker)
-  const brokerPlans = $derived(app.plans.filter((plan) => plan.broker === broker))
+  const broker = $derived(
+    shown?.kind === 'broker' ? shown.broker : shown?.kind === 'plan' ? shown.plan.broker : undefined,
+  )
+  const brokerPlans = $derived(app.listedPlans.filter((plan) => plan.broker === broker))
+  /** One of the user's own plans, as it is now: it changes while it's open. */
+  const yours = $derived(
+    shown?.kind === 'plan' && shown.plan.yours ? app.plansById.get(shown.plan.id)?.yours : undefined,
+  )
 </script>
 
 <!-- Clicking outside the dialog (on the backdrop) closes it; Esc too. -->
@@ -31,7 +38,27 @@
     if (event.target === dialog) dialog.close()
   }}
 >
-  {#if shown && broker}
+  {#if shown?.kind === 'draft'}
+    <div class="content">
+      <PlanEditor
+        {app}
+        yours={shown.draft}
+        draft
+        onchange={(draft) => (app.details = { kind: 'draft', draft })}
+        close={() => dialog.close()}
+      />
+    </div>
+  {:else if yours}
+    <div class="content">
+      <PlanEditor
+        {app}
+        {yours}
+        draft={false}
+        onchange={(changed) => app.updateYourPlan(changed)}
+        close={() => dialog.close()}
+      />
+    </div>
+  {:else if shown && broker}
     <div class="content">
       <header>
         <h2 id="details-title">
@@ -61,6 +88,9 @@
         <section class="fees">
           <FeesForInputs {app} {plan} />
         </section>
+        <p class="change">
+          <button onclick={() => app.draftCopyOf(plan)}>✎ Change these fees</button>
+        </p>
         {@const caveats = app.feesFor(plan).caveats}
         {@const otherCaveats = [...broker.caveats, ...plan.info.caveats].filter(
           ({ text }) => !caveats.includes(text),
@@ -101,13 +131,7 @@
             </table>
             {#if otherCaveats.length > 0}
               <h4>Caveats about other choices</h4>
-              <table>
-                <tbody>
-                  {#each otherCaveats as { text, covers } (text)}
-                    <tr><td>{covers}</td><td>{text}</td></tr>
-                  {/each}
-                </tbody>
-              </table>
+              <Caveats notes={otherCaveats} />
             {/if}
           </div>
         </details>
@@ -250,6 +274,9 @@
     padding: 12px 14px;
     border-radius: 10px;
     background: var(--raised);
+  }
+  .change {
+    margin: 10px 0 0;
   }
   .mark {
     display: inline-block;

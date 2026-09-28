@@ -54,10 +54,10 @@
         <td class="rank">{outcome ? index + 1 : '–'}</td>
         <td class="plan">
           <div>
-            <span class="mark" style:background={plan.color}></span>
+            <span class="mark" class:yours={plan.yours} style:--plan-color={plan.color}></span>
             <span class="names">
               <span class:best={index === 0 && outcome}>{plan.info.name}</span>
-              <span class="broker">{plan.broker.name}</span>
+              <span class="broker">{plan.subtitle}</span>
               {#if warning}<span class="warning">⚠ {warning}</span>{/if}
             </span>
           </div>
@@ -189,24 +189,30 @@
   .mark {
     display: inline-block;
     flex: none;
+    box-sizing: border-box;
     width: 10px;
     height: 10px;
     border-radius: 50%;
+    background: var(--plan-color);
+  }
+  /* Your own plans are hollow, like their dotted lines in the charts. */
+  .mark.yours {
+    border: 2px solid var(--plan-color);
+    background: none;
   }
   .not-offered .mark {
     opacity: 0.3;
   }
-  /* A link to the plan's fee breakdown: it looks like the other amounts,
-     plus an arrow, until pointed at. */
+  /* A link to the plan's fee breakdown, colored like one. */
   .link {
     padding: 0;
     border: none;
     background: none;
+    color: var(--accent);
     font-variant-numeric: tabular-nums;
   }
   .link:hover {
     background: none;
-    color: var(--accent);
     text-decoration: underline;
   }
 </style>

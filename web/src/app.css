@@ -102,6 +102,41 @@ button:hover {
   outline-offset: 2px;
 }
 
+/* An editor's fields, one per line, each after its label. The labels are
+   a fixed column, so every field starts in the same place. */
+.fields {
+  display: grid;
+  grid-template-columns: 5.5rem minmax(0, 1fr);
+  gap: 6px 8px;
+  /* Each label beside its field's first line, even when a dropdown wraps
+     under the field. */
+  align-items: start;
+}
+.fields > .label {
+  padding-top: 7px;
+  color: var(--weak);
+}
+/* A field and what goes with it: its unit's dropdown, or words after it.
+   On narrow screens the dropdown goes under the field, still in its column. */
+.control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+.control > span {
+  color: var(--weak);
+}
+/* Room for a placeholder, like "not published". */
+.control .number.wide {
+  flex-basis: 11rem;
+}
+.control .number {
+  flex: 0 1 9rem;
+  min-width: 6rem;
+}
+
 /* A row of radio buttons, each its own outlined button. */
 .choices {
   display: flex;

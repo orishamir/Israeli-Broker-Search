@@ -42,7 +42,7 @@
     const faded = app.pinned.size > 0 && !pinned
     return {
       id: plan.id,
-      name: `${plan.broker.name} – ${plan.info.name}`,
+      name: `${plan.subtitle} – ${plan.info.name}`,
       type: 'line',
       // Pinned plans show a dot and their value at each whole year; ones that
       // would overlap are hidden, so fewer show when zoomed out. Other plans
@@ -54,7 +54,8 @@
           })
         : points(lost ? outcome.lostByMonth : outcome.valueByMonth),
       color: plan.color,
-      lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1 },
+      // Your own plans are dotted: a copy has its original's color.
+      lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1, type: plan.yours ? 'dotted' : 'solid' },
       itemStyle: { opacity: faded ? 0.4 : 1 },
       showSymbol: pinned,
       // Otherwise ECharts skips some of them on lines with many points.

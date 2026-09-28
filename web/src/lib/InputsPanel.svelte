@@ -5,6 +5,7 @@
   import HebrewNames from './HebrewNames.svelte'
   import NumberField from './NumberField.svelte'
   import Tip from './Tip.svelte'
+  import YourPlans from './YourPlans.svelte'
 
   let { app }: { app: AppState } = $props()
 
@@ -161,6 +162,20 @@
     </Tip>
   </div>
   <BrokerPicker {app} />
+</section>
+
+<section class="card">
+  <div class="heading">
+    <h3>Your plans</h3>
+    <Tip about="Your plans">
+      <p>
+        Banks and investment houses often give a discount on fees (<bdi lang="he">הנחה בעמלות</bdi>) if you
+        bargain (<bdi lang="he">מיקוח</bdi>). Copy a plan with ✎ and change the fees you think you can get, or
+        add one that isn't listed with + New plan.
+      </p>
+    </Tip>
+  </div>
+  <YourPlans {app} />
 </section>
 
 <style>

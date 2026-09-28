@@ -99,7 +99,8 @@
         {
           type: 'category',
           inverse: true,
-          data: rows.map(({ plan }) => plan.info.name),
+          // Ids, not names, which can repeat: the formatter shows the names.
+          data: rows.map(({ plan }) => plan.id),
           axisTick: { show: false },
           axisLine: { show: false },
           triggerEvent: true,
@@ -107,13 +108,30 @@
             color: TEXT,
             width: nameWidth,
             overflow: 'break',
-            // A dot in the plan's color, and the name, bold when pinned.
-            formatter: (name: string, index: number) =>
-              `{dot${index}|●} {${app.pinned.has(rows[index].plan.id) ? 'pinned' : 'name'}|${name}}`,
+            // A dot in the plan's color (hollow for your own plans), and the
+            // name, bold on a tint of that color when pinned.
+            formatter: (_id: string, index: number) => {
+              const { plan } = rows[index]
+              const style = app.pinned.has(plan.id) ? `pinned${index}` : 'name'
+              return `{dot${index}|${plan.yours ? '◯' : '●'}} {${style}|${plan.info.name}}`
+            },
             rich: {
-              ...Object.fromEntries(rows.map(({ plan }, index) => [`dot${index}`, { color: plan.color }])),
+              ...Object.fromEntries(
+                rows.flatMap(({ plan }, index) => [
+                  [`dot${index}`, { color: plan.color }],
+                  [
+                    `pinned${index}`,
+                    {
+                      color: TEXT,
+                      fontWeight: 'bold',
+                      backgroundColor: `${plan.color}40`,
+                      borderRadius: 4,
+                      padding: [2, 5],
+                    },
+                  ],
+                ]),
+              ),
               name: { color: TEXT },
-              pinned: { color: TEXT, fontWeight: 'bold' },
             },
           },
         },
@@ -137,27 +155,48 @@
       // focused fee wouldn't move to the start of the bars.
       series: [
         {
-          // Behind each pinned or hovered plan, a band in its color, like its
-          // table row. It shares the row's place (barGap), under the fees.
+          // Around each pinned or hovered plan, from its name to its total, an
+          // outline in its color. Only an outline: filled colors in the bars
+          // are always fees, and the plans' colors look much like the fees'.
           // Pinned ones are drawn here; a hovered one is highlighted (see
           // `setup`), since redrawing would lose a tap that's also a hover.
-          type: 'bar',
-          barWidth: '100%',
-          barGap: '-100%',
+          type: 'custom',
           silent: true,
           tooltip: { show: false },
-          data: rows.map(({ plan }) => ({
-            value: largest,
-            itemStyle: { color: app.pinned.has(plan.id) ? `${plan.color}29` : 'transparent' },
-            emphasis: { itemStyle: { color: `${plan.color}29` } },
-          })),
+          data: rows.map((_, index) => [0, index]),
+          renderItem: (_params, api) => {
+            const index = api.value(1) as number
+            const { color, id } = rows[index].plan
+            const [, middle] = api.coord([0, index])
+            const [, height] = api.size!([0, 1]) as number[]
+            return {
+              type: 'rect',
+              shape: {
+                x: 1,
+                y: middle - height / 2 + 2,
+                width: api.getWidth() - 2,
+                height: height - 4,
+                r: 6,
+              },
+              style: {
+                fill: 'transparent',
+                stroke: app.pinned.has(id) ? color : 'transparent',
+                lineWidth: 1.5,
+              },
+              emphasis: { style: { stroke: color } },
+            }
+          },
         },
         ...stacking.map((type): BarSeriesOption => ({
           name: type.name,
           type: 'bar',
           stack: 'fees',
           barWidth: 18,
-          data: rows.map(({ outcome }) => outcome.fees[type.key]),
+          // Once plans are pinned, the others fade a little.
+          data: rows.map(({ plan, outcome }) => ({
+            value: outcome.fees[type.key],
+            itemStyle: { opacity: app.pinned.size === 0 || app.pinned.has(plan.id) ? 1 : 0.6 },
+          })),
           color: colorOf(type),
           // A thin gap between the parts of a bar.
           itemStyle: { borderColor: SURFACE, borderWidth: 1 },
@@ -220,7 +259,7 @@
   function setup(instance: ECharts) {
     const planAt = (event: { componentType?: string; dataIndex?: number; value?: unknown }) =>
       event.componentType === 'yAxis'
-        ? rows.find(({ plan }) => plan.info.name === event.value)?.plan
+        ? rows.find(({ plan }) => plan.id === event.value)?.plan
         : rows[event.dataIndex ?? -1]?.plan
     instance.on('mouseover', (event) => {
       if (!touchScreen) app.hovered = planAt(event)?.id ?? null

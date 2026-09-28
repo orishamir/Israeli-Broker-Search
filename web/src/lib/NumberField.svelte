@@ -3,14 +3,25 @@
    * field rather than a number one, to show thousands separators. Commas
    * typed or left in are ignored, and the text is tidied on leaving; not
    * while editing, which would lose the selection and move the caret. The
-   * value is null while the field is empty or isn't a number. */
+   * value is null while the field is empty or isn't a number. `label` is its
+   * name for screen readers, when no <label> names it. */
   let {
     id,
     value = $bindable(),
     prefix = '',
     suffix = '',
     step = 1,
-  }: { id: string; value: number | null; prefix?: string; suffix?: string; step?: number } = $props()
+    label,
+    placeholder,
+  }: {
+    id: string
+    value: number | null
+    prefix?: string
+    suffix?: string
+    step?: number
+    label?: string
+    placeholder?: string
+  } = $props()
 
   const format = (number: number | null) =>
     number === null ? '' : number.toLocaleString('en-US', { maximumFractionDigits: 4 })
@@ -46,6 +57,8 @@
     type="text"
     inputmode="decimal"
     autocomplete="off"
+    aria-label={label}
+    {placeholder}
     bind:value={text}
     oninput={() => (value = parse(text))}
     onfocus={() => (focused = true)}
@@ -89,6 +102,10 @@
     outline: none;
     background: transparent;
     font-variant-numeric: tabular-nums;
+  }
+  input::placeholder {
+    color: var(--weak);
+    opacity: 0.7;
   }
   .unit {
     color: var(--weak);

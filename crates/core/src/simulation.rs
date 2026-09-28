@@ -13,9 +13,7 @@
 use crate::money::{Currency, ExchangeRates, Money, iso};
 use rust_decimal::Decimal;
 
-use crate::{
-    Broker, ConversionFee, Exchange, Holding, Percent, Plan, Price, Security, Trade, TradeFee,
-};
+use crate::{ConversionFee, Exchange, Holding, Percent, Plan, Price, Security, Trade, TradeFee};
 
 /// What the user invests in, and how.
 #[derive(Debug, Clone)]
@@ -199,31 +197,24 @@ pub struct Comparison {
 
 #[derive(Debug, Clone)]
 pub struct PlanOutcome {
-    /// Where the plan is in the brokers list.
-    pub broker: usize,
-    pub plan: usize,
+    /// Where the plan is in the list given to [`compare`].
+    pub index: usize,
     /// `None` if the plan doesn't offer the security on that exchange.
     pub outcome: Option<Outcome>,
 }
 
-/// Runs `scenario` on each of `plans` (broker and plan positions in
-/// `brokers`), sorted by what's left after selling, most first. Plans that
-/// don't offer the security go last.
+/// Runs `scenario` on each of `plans`, sorted by what's left after selling,
+/// most first. Plans that don't offer the security go last.
 #[must_use]
-pub fn compare(
-    brokers: &[Broker],
-    plans: &[(usize, usize)],
-    scenario: &Scenario,
-    rates: &ExchangeRates,
-) -> Comparison {
+pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> Comparison {
     let no_fees =
         simulate(&free_plan(), scenario, rates).expect("the free plan covers every trade");
     let mut plans: Vec<PlanOutcome> = plans
         .iter()
-        .map(|&(broker, plan)| PlanOutcome {
-            broker,
-            plan,
-            outcome: simulate(&brokers[broker].plans[plan], scenario, rates),
+        .enumerate()
+        .map(|(index, plan)| PlanOutcome {
+            index,
+            outcome: simulate(plan, scenario, rates),
         })
         .collect();
     plans.sort_by_key(|plan| std::cmp::Reverse(plan.outcome.as_ref().map(|o| o.after_selling)));
@@ -435,18 +426,15 @@ mod tests {
 
     #[test]
     fn compare_puts_the_best_first_and_unoffered_last() {
-        let brokers = [crate::tariffs::altshuler(), crate::tariffs::leumi()];
+        let (altshuler, leumi) = (crate::tariffs::altshuler(), crate::tariffs::leumi());
         let s = Scenario {
             exchange: Exchange::Europe, // Altshuler doesn't offer it
             ..scenario()
         };
-        let comparison = compare(&brokers, &[(0, 0), (1, 0), (1, 3)], &s, &rates());
-        let order: Vec<(usize, usize)> = comparison
-            .plans
-            .iter()
-            .map(|p| (p.broker, p.plan))
-            .collect();
-        assert_eq!(order, [(1, 3), (1, 0), (0, 0)]); // Pepper, Online, then Altshuler
+        let plans = [&altshuler.plans[0], &leumi.plans[0], &leumi.plans[3]];
+        let comparison = compare(&plans, &s, &rates());
+        let order: Vec<usize> = comparison.plans.iter().map(|p| p.index).collect();
+        assert_eq!(order, [2, 1, 0]); // Pepper, Online, then Altshuler
         assert!(comparison.plans[2].outcome.is_none());
         assert_eq!(comparison.no_fees.fees, Fees::default());
     }

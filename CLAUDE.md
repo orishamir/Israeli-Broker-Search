@@ -8,10 +8,14 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 
 - `crates/core` (lib `broker_fees`): `tariffs.rs` holds the real price lists,
   `simulation.rs` runs them over the years, `describe.rs` holds all text shown
-  to users (fee names, explanations, caveats, Hebrew names).
+  to users (fee names, explanations, caveats, Hebrew names), `yours.rs` holds
+  the user's own plans (changed copies of listed plans, and plans of their
+  own) and the editor's fields.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`.
-- `web`: the app; state lives in `src/lib/app.svelte.ts`.
+- `web`: the app; state lives in `src/lib/app.svelte.ts`. Your plans are
+  kept in localStorage (`saved.ts`) as core `Plan`s the web side never looks
+  inside (`PlanData`).
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from.
 
 Keep as much logic as possible in Rust; the web side displays what it returns.
@@ -30,36 +34,7 @@ quietly keep running the old core.
 - `crates/core/tests/real_tariffs.rs` checks the tariffs against amounts
   worked out by hand from `policies`. A tariff change needs a case there,
   with the arithmetic in a comment.
-- Playwright runs every test on desktop, Galaxy S24 and iPhone 15 (WebKit).
-  `layout.spec.ts` also runs on six more screen sizes; to cover another, add
-  it to `layoutOnly` in `playwright.config.ts`.
-- Import `test`/`expect` from `./fixtures`: it mocks the exchange rates, and
-  waits until the app is drawn, since a half-drawn page looks settled to
-  screenshots.
-- `layoutProblems` (`layout.spec.ts`) checks, on every device and state:
-  - no sideways scroll;
-  - nothing sticks out of a card or dialog, except inside a sideways scroller;
-  - fields are ≥16px, or iPhones zoom in;
-  - each `.choices` group stays on one row.
-
-  A new view, dialog or choice gets a state there. A new class of layout bug
-  gets a rule there, not a one-off assertion. Tests loop over every option
-  (all securities and exchanges), not just the defaults.
-- Split mouse and touch tests with `isMobile`, and give each `test.skip` a
-  reason. Real swipes need CDP `Input.dispatchTouchEvent` on a Chromium phone
-  (see `breakdown.spec.ts`), because `tap()` can't scroll.
-- Charts are canvases: click at positions computed from the chart's box, after
-  scrolling it into view.
-- Animations are off (`reducedMotion`).
-- Before a screenshot, call `page.mouse.move(0, 0)` so no hover tip opens.
-  Before a full-page one, call `fitScreenToPage`: Chromium phones otherwise
-  lose touch emulation.
-- Screenshot baselines pass differences up to 0.2% of pixels, which misses
-  subtle changes such as a line's opacity; assert those instead. After
-  `--update-snapshots`, look at the changed PNGs before committing them.
-- Hidden content (a closed `<details>`, a popover) still has a size, so use
-  `checkVisibility`. Mobile WebKit has no mouse wheel.
-- A full run takes about 30 s. Run it twice after timing-related changes.
+- Playwright conventions are in `web/tests/CLAUDE.md`.
 
 ## Conventions
 

@@ -65,14 +65,15 @@ test("a plan's caveats and fees follow what's bought", async ({ page }) => {
   const dialog = page.getByRole('dialog', { name: 'Pepper' })
 
   await about.click()
-  await expect(dialog.locator('dt', { hasText: 'Conversion markup' })).toBeVisible()
+  // The markup is part of conversion, abroad only.
+  await expect(dialog.locator('dd.part', { hasText: 'markup' })).toBeVisible()
   await expect(dialog.getByText("doesn't publish its conversion markup")).toBeVisible()
   await expect(dialog.getByText('₪4 is only stated')).toBeHidden()
   await page.keyboard.press('Escape')
 
   await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
   await about.click()
-  await expect(dialog.locator('dt', { hasText: 'Conversion markup' })).toBeHidden()
+  await expect(dialog.locator('dd.part', { hasText: 'markup' })).toBeHidden()
   await expect(dialog.getByText('₪4 is only stated')).toBeVisible()
   await expect(dialog.getByText("doesn't publish its conversion markup")).toBeHidden()
   // The rest are in the full tariff.

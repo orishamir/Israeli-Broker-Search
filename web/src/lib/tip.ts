@@ -5,12 +5,23 @@ import type { Attachment } from 'svelte/attachments'
 let closeOpen: (() => void) | null = null
 
 /** Shows `popover` (a `popover="manual"` element) next to the element this is
- * attached to: while the mouse is over it or it has keyboard focus, and, if
- * `onClick`, from a click or tap until the next tap elsewhere or Esc. Manual
- * rather than auto popovers, because an auto one closes when its own trigger
- * is pressed, and the click then reopens it. */
+ * attached to: if `hover`, while the mouse is over it or it has keyboard
+ * focus, and, if `onClick`, from a click or tap until the next tap elsewhere
+ * or Esc. Manual rather than auto popovers, because an auto one closes when
+ * its own trigger is pressed, and the click then reopens it.
+ *
+ * `below` places it under the element rather than above, as menus are.
+ * `onClose` is called when the user closes it (not when it's removed). */
 export const tip =
-  (popover: HTMLElement, { onClick = true } = {}): Attachment<HTMLElement> =>
+  (
+    popover: HTMLElement,
+    {
+      onClick = true,
+      hover = true,
+      below = false,
+      onClose,
+    }: { onClick?: boolean; hover?: boolean; below?: boolean; onClose?: () => void } = {},
+  ): Attachment<HTMLElement> =>
   (trigger) => {
     let stopPositioning: (() => void) | null = null
     /** Opened by a click, so leaving with the mouse doesn't close it. */
@@ -20,7 +31,7 @@ export const tip =
     const place = () =>
       computePosition(trigger, popover, {
         strategy: 'fixed',
-        placement: 'top',
+        placement: below ? 'bottom-start' : 'top',
         middleware: [
           offset(8),
           flip(),
@@ -39,7 +50,7 @@ export const tip =
         popover.style.top = `${y}px`
       })
 
-    function close() {
+    function close({ byUser = true } = {}) {
       clearTimeout(hoverTimer)
       if (!stopPositioning) return
       stopPositioning()
@@ -50,6 +61,7 @@ export const tip =
       document.removeEventListener('pointerdown', onPointerDownElsewhere, true)
       document.removeEventListener('keydown', onKeyDown)
       if (closeOpen === close) closeOpen = null
+      if (byUser) onClose?.()
     }
 
     function open() {
@@ -68,11 +80,14 @@ export const tip =
       if (!trigger.contains(target) && !popover.contains(target)) close()
     }
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') close()
+      if (event.key !== 'Escape') return
+      // Only the popover: in a dialog, Esc would close the dialog too.
+      event.preventDefault()
+      close()
     }
 
     function onPointerEnter(event: PointerEvent) {
-      if (event.pointerType !== 'mouse') return
+      if (!hover || event.pointerType !== 'mouse') return
       hoverTimer = setTimeout(open, 150)
     }
     function onPointerLeave(event: PointerEvent) {
@@ -86,7 +101,7 @@ export const tip =
       clicked = true
     }
     function onFocus() {
-      if (trigger.matches(':focus-visible, :has(:focus-visible)')) open()
+      if (hover && trigger.matches(':focus-visible, :has(:focus-visible)')) open()
     }
     function onBlur() {
       if (!clicked) close()
@@ -99,7 +114,7 @@ export const tip =
     trigger.addEventListener('focusout', onBlur)
     if (onClick) trigger.addEventListener('click', onClickTrigger)
     return () => {
-      close()
+      close({ byUser: false })
       trigger.removeEventListener('pointerenter', onPointerEnter)
       trigger.removeEventListener('pointerleave', onPointerLeave)
       trigger.removeEventListener('focusin', onFocus)

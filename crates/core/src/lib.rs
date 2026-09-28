@@ -40,6 +40,7 @@ pub mod money;
 mod percent;
 pub mod simulation;
 pub mod tariffs;
+pub mod yours;
 
 pub use money::{Currency, ExchangeRates, Money, ils, iso, usd};
 pub use percent::Percent;
@@ -104,7 +105,9 @@ impl Exchange {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+/// In the order to offer them: `Period::iter()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Period {
     Month,
     Quarter,

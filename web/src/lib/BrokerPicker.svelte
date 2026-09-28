@@ -1,28 +1,17 @@
 <script lang="ts">
-  import { fade } from 'svelte/transition'
-  import type { AppState, Plan } from './app.svelte'
-  import FeesForInputs from './FeesForInputs.svelte'
-  import { duration } from './motion'
+  import type { AppState } from './app.svelte'
+  import PlanPreview, { previewBeside, type Preview } from './PlanPreview.svelte'
 
   let { app }: { app: AppState } = $props()
 
   const brokers = $derived(
     app.brokers.map((broker) => ({
       broker,
-      plans: app.plans.filter((plan) => plan.broker === broker),
+      plans: app.listedPlans.filter((plan) => plan.broker === broker),
     })),
   )
 
-  /** The plan under the mouse, and where to show its preview: beside it,
-   * going down from it, or up from it when it's low in the window. */
-  let preview = $state<{ plan: Plan; left: number; top?: number; bottom?: number } | null>(null)
-
-  function showPreview(plan: Plan, row: HTMLElement) {
-    const { top, bottom, right } = row.getBoundingClientRect()
-    const left = right + 16
-    preview =
-      top < innerHeight / 2 ? { plan, left, top: top - 8 } : { plan, left, bottom: innerHeight - bottom - 8 }
-  }
+  let preview = $state<Preview | null>(null)
 </script>
 
 {#each brokers as { broker, plans } (broker.name)}
@@ -57,7 +46,7 @@
       {#each plans as plan (plan.id)}
         <li
           class="row"
-          onmouseenter={(event) => showPreview(plan, event.currentTarget)}
+          onmouseenter={(event) => (preview = previewBeside(plan, event.currentTarget))}
           onmouseleave={() => (preview = null)}
           onpointerenter={(event) => {
             // Also stands out in the table and the chart. Mouse only: a tap
@@ -79,6 +68,11 @@
           </label>
           <button
             class="icon-button"
+            aria-label="Change a copy of {plan.info.name}'s fees"
+            onclick={() => app.draftCopyOf(plan)}>✎</button
+          >
+          <button
+            class="icon-button"
             aria-label="About {plan.info.name}"
             onclick={() => (app.details = { kind: 'plan', plan })}>ℹ</button
           >
@@ -88,26 +82,7 @@
   </div>
 {/each}
 
-<!-- Shown after a moment of hovering; it glides from plan to plan. Not on
-     touch screens, where there's no hovering. -->
-{#if preview && !app.details}
-  {@const plan = preview.plan}
-  <div
-    class="popover preview"
-    style:top={preview.top === undefined ? undefined : `${preview.top}px`}
-    style:bottom={preview.bottom === undefined ? undefined : `${preview.bottom}px`}
-    style:left="{preview.left}px"
-    style:--plan-color={plan.color}
-    in:fade={{ delay: 350, duration: duration(150) }}
-    out:fade={{ duration: duration(100) }}
-  >
-    <strong>{plan.info.name}</strong>
-    <span class="broker-of">{plan.broker.name}</span>
-    <p>{plan.info.description}</p>
-    <FeesForInputs {app} {plan} tips={false} />
-    <p class="hint">ℹ shows the full details and caveats</p>
-  </div>
-{/if}
+<PlanPreview {app} {preview} />
 
 <style>
   .broker + .broker {
@@ -145,7 +120,7 @@
   li:hover {
     background: var(--raised);
   }
-  /* The ℹ of a plan shows on hover; it's always there on touch screens. */
+  /* A plan's ✎ and ℹ show on hover; they're always there on touch screens. */
   @media (hover: hover) {
     li .icon-button {
       opacity: 0;
@@ -155,34 +130,5 @@
     li .icon-button:focus-visible {
       opacity: 1;
     }
-  }
-  .preview {
-    position: fixed;
-    z-index: 10;
-    width: 360px;
-    max-width: 360px;
-    border-left: 3px solid var(--plan-color);
-    pointer-events: none;
-    transition:
-      top 180ms ease-out,
-      bottom 180ms ease-out;
-  }
-  @media (hover: none) {
-    .preview {
-      display: none;
-    }
-  }
-  .broker-of {
-    margin-left: 6px;
-    color: var(--weak);
-    font-size: 0.8rem;
-  }
-  .preview p {
-    margin: 6px 0 10px;
-  }
-  .preview .hint {
-    margin: 10px 0 0;
-    font-size: 0.8rem;
-    color: var(--weak);
   }
 </style>

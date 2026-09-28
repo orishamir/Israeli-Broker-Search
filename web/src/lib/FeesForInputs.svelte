@@ -7,7 +7,7 @@
    * preview, which can't be hovered into. */
   let { app, plan, tips = true }: { app: AppState; plan: Plan; tips?: boolean } = $props()
 
-  const fees = $derived(app.feesFor(plan).fees)
+  const { fees, markup } = $derived(app.feesFor(plan))
 </script>
 
 <!-- The fees that apply to what the user buys. -->
@@ -23,6 +23,18 @@
       </dt>
       <dd class:missing={fee.missing}>{fee.price}</dd>
     {/each}
+    <!-- Part of conversion, the last fee: on its own line under it. -->
+    {#if markup}
+      <dd class="part">
+        <span class="part-name"
+          >markup{#if tips}<Tip about={markup.name}>
+              <HebrewNames names={markup.hebrewNames} />
+              <p>{markup.explanation}</p>
+            </Tip>{/if}</span
+        >
+        {markup.price}
+      </dd>
+    {/if}
   </dl>
 </div>
 
@@ -44,6 +56,13 @@
   dd {
     margin: 0;
   }
+  .part {
+    grid-column: 2;
+  }
+  .part-name {
+    margin-right: 6px;
+    color: var(--weak);
+  }
   .missing {
     color: var(--weak);
     font-style: italic;
@@ -59,6 +78,9 @@
     }
     dd + dt {
       margin-top: 6px;
+    }
+    .part {
+      grid-column: 1;
     }
   }
 </style>

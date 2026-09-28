@@ -1,0 +1,270 @@
+<script lang="ts">
+  import { planId, type AppState, type EditorView, type YourPlan } from './app.svelte'
+  import Choices from './Choices.svelte'
+  import * as core from './core/core'
+  import type { Choice, PlanData } from './core/core'
+  import type { Change, Original } from './editor'
+  import PriceList from './PriceList.svelte'
+  import SimpleFees from './SimpleFees.svelte'
+
+  /** One of the user's own plans, in the details dialog. A draft (not added
+   * yet) has Cancel and Add plan; a plan already added saves as it changes. */
+  let {
+    app,
+    yours,
+    draft,
+    onchange,
+    close,
+  }: {
+    app: AppState
+    yours: YourPlan
+    draft: boolean
+    onchange: (yours: YourPlan) => void
+    close: () => void
+  } = $props()
+
+  const views: Choice<EditorView>[] = [
+    {
+      value: 'simple',
+      name: 'Simple',
+      explanation: 'The fees for what you buy: each one’s price and minimum.',
+      hebrewNames: [],
+    },
+    {
+      value: 'full',
+      name: 'Full price list',
+      explanation:
+        'Every row of the price list, for every security and exchange, with maximums and how often custody is charged.',
+      hebrewNames: [],
+    },
+  ]
+
+  const info = $derived(core.planInfo(yours.plan))
+  const originalPlan = $derived(app.originalOf(yours))
+  const original: Original | undefined = $derived(
+    originalPlan?.key.kind === 'listed'
+      ? {
+          name: originalPlan.info.name,
+          data: core.listedPlan(originalPlan.key.broker, originalPlan.key.plan),
+        }
+      : undefined,
+  )
+  /** A draft isn't in the app's plans yet: it gets its color when added. */
+  const color = $derived(
+    app.plansById.get(planId({ kind: 'yours', id: yours.id }))?.color ?? originalPlan?.color ?? 'var(--weak)',
+  )
+
+  /** Why a field couldn't be saved, by field. */
+  let errors = $state<Record<string, string>>({})
+  const change: Change = (field, update) => {
+    let plan: PlanData
+    try {
+      plan = update(yours.plan)
+    } catch (error) {
+      errors[field] = error instanceof Error ? error.message : String(error)
+      return
+    }
+    delete errors[field]
+    onchange({ ...yours, plan })
+  }
+
+  let confirmingDelete = $state(false)
+</script>
+
+<header>
+  <!-- The dialog's name; the field shows it. -->
+  <h2 id="details-title" class="visually-hidden">{info.name}</h2>
+  <span class="ring" style:--plan-color={color}></span>
+  <input
+    class="name"
+    type="text"
+    aria-label="Plan name"
+    autocomplete="off"
+    bind:value={() => info.name, (name) => change('name', (plan) => core.rename(plan, name))}
+  />
+  <button class="close" aria-label="Close" onclick={close}>✕</button>
+</header>
+{#if errors.name}<p class="error">{errors.name}</p>{/if}
+
+<p class="source">
+  {#if originalPlan}
+    Copy of
+    {#if draft}
+      {originalPlan.info.name}
+    {:else}
+      <button class="link" onclick={() => (app.details = { kind: 'plan', plan: originalPlan })}
+        >{originalPlan.info.name}</button
+      >
+    {/if}
+    · {originalPlan.subtitle}
+  {:else}
+    <label class="broker">
+      Broker
+      <input
+        type="text"
+        placeholder="optional"
+        autocomplete="off"
+        value={yours.brokerName ?? ''}
+        oninput={(event) => onchange({ ...yours, brokerName: event.currentTarget.value || null })}
+      />
+    </label>
+  {/if}
+</p>
+
+<div class="view">
+  <Choices label="View" options={views} bind:value={app.editorView} />
+</div>
+
+{#if app.editorView === 'simple'}
+  <div class="fees">
+    <SimpleFees {app} {yours} {original} {change} {errors} />
+  </div>
+{:else}
+  <PriceList {app} {yours} {original} {change} {errors} />
+{/if}
+
+<footer>
+  {#if draft}
+    <button onclick={close}>Cancel</button>
+    <button
+      class="primary"
+      onclick={() => {
+        app.addYourPlan(yours)
+        close()
+      }}>Add plan</button
+    >
+  {:else if confirmingDelete}
+    <span class="confirm">Delete “{info.name}”?</span>
+    <button
+      class="danger"
+      onclick={() => {
+        app.deleteYourPlan(yours.id)
+        close()
+      }}>Delete</button
+    >
+    <button onclick={() => (confirmingDelete = false)}>Keep</button>
+  {:else}
+    <button onclick={() => (confirmingDelete = true)}>Delete plan</button>
+    <button class="primary" onclick={close}>Done</button>
+  {/if}
+</footer>
+
+<style>
+  /* The name stays while the rest scrolls, as in the other dialogs. */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    margin: -20px -24px 0;
+    padding: 20px 24px 8px;
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .ring {
+    flex: none;
+    width: 10px;
+    height: 10px;
+    border: 2px solid var(--plan-color);
+    border-radius: 50%;
+  }
+  input[type='text'] {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--raised);
+  }
+  input[type='text']:hover {
+    border-color: var(--strong-border);
+  }
+  input[type='text']:focus-visible {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgb(123 155 255 / 0.25);
+  }
+  input[type='text']::placeholder {
+    color: var(--weak);
+  }
+  .name {
+    flex: 1;
+    font-weight: 600;
+  }
+  .close {
+    border: none;
+    background: transparent;
+    color: var(--weak);
+    padding: 2px 8px;
+  }
+  .close:hover {
+    color: var(--text);
+    background: var(--raised);
+  }
+  .source {
+    margin: 4px 0 12px;
+    color: var(--weak);
+    font-size: 0.9rem;
+  }
+  .broker {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .broker input {
+    flex: 1;
+    max-width: 16rem;
+    color: var(--text);
+  }
+  .link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+  }
+  .link:hover {
+    background: none;
+    text-decoration: underline;
+  }
+  .view {
+    margin-bottom: 14px;
+  }
+  .fees {
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--raised);
+  }
+  .fees :global(.field),
+  .fees :global(select) {
+    background: var(--surface);
+  }
+  .error {
+    margin: 4px 0 0;
+    color: var(--error);
+    font-size: 0.85rem;
+  }
+  footer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 16px;
+  }
+  /* Delete goes on the left, away from the main button. */
+  footer > :first-child:not(.primary) {
+    margin-right: auto;
+  }
+  .confirm {
+    margin-right: auto;
+  }
+  .primary {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .danger {
+    border-color: var(--error);
+    color: var(--error);
+  }
+</style>

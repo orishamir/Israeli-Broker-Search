@@ -101,3 +101,26 @@ test("with a plan's details open", async ({ page }) => {
   expect(await layoutProblems(page), 'dialog').toEqual([])
   await expect(page.getByRole('dialog')).toHaveScreenshot('plan-dialog.png')
 })
+
+test('with a plan of your own', async ({ page }) => {
+  await page.getByRole('button', { name: "Change a copy of Pepper's fees" }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Add plan' }).click()
+  await page.mouse.move(0, 0)
+  await check(page, 'your-plans')
+})
+
+test('in the plan editor', async ({ page }) => {
+  await page.getByRole('button', { name: "Change a copy of Pepper's fees" }).click()
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  expect(await layoutProblems(page), 'simple').toEqual([])
+  await expect(dialog).toHaveScreenshot('editor.png')
+
+  await dialog.getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await page.mouse.move(0, 0)
+  expect(await layoutProblems(page), 'full price list').toEqual([])
+  await expect(dialog).toHaveScreenshot('editor-full.png')
+
+  await dialog.getByRole('button', { name: 'Anything on USA, Europe ▾' }).click()
+  expect(await layoutProblems(page), 'checklist').toEqual([])
+})
