@@ -14,13 +14,13 @@ fn rates() -> ExchangeRates {
 }
 
 fn plan(b: Broker, name: &str) -> Plan {
-    b.plans.into_iter().find(|p| p.name == name).unwrap()
+    b.plans.into_iter().find(|p| p.name.en == name).unwrap()
 }
 
 /// Plan `name` of `b`, for a customer on its track called `track`.
 fn on_track(b: Broker, name: &str, track: &str) -> Plan {
     let p = plan(b, name);
-    let index = p.tracks.iter().position(|t| t.name == track).unwrap();
+    let index = p.tracks.iter().position(|t| t.name.en == track).unwrap();
     p.on_track(index)
 }
 
@@ -120,7 +120,7 @@ fn the_cheapest_track_is_picked() {
             sell_at_end: true,
         };
         let outcome = simulate(&p, &scenario, &rates()).unwrap();
-        p.tracks[outcome.track.unwrap()].name.clone()
+        p.tracks[outcome.track.unwrap()].name.en.to_string()
     };
     // ₪3,700 a month is $1,000, less the 0.7% markup: about $990 to buy
     // with. In $100 shares, 1¢ a share and 0.15% both pay their $9 minimum
@@ -203,10 +203,11 @@ fn altshuler_new_customers() {
     assert_eq!(p.custody_per_year(&holdings, &rates()), ils(dec!(0)));
 
     assert_eq!(
-        p.first_deposit_warning(ils(dec!(4999))).as_deref(),
+        p.first_deposit_warning(ils(dec!(4999)), Lang::En)
+            .as_deref(),
         Some("Needs a one-time deposit of at least ₪5,000")
     );
-    assert_eq!(p.first_deposit_warning(ils(dec!(5000))), None);
+    assert_eq!(p.first_deposit_warning(ils(dec!(5000)), Lang::En), None);
 }
 
 #[test]
@@ -217,7 +218,7 @@ fn no_row_means_none_not_free() {
         assert_eq!(
             trade_fee(&p, security, Europe, dec!(10), eur(dec!(1000))),
             None,
-            "{security}"
+            "{security:?}"
         );
     }
     assert_eq!(
@@ -276,13 +277,13 @@ fn conversion_fee_vs_spread() {
 fn every_broker_names_its_new_customer_plan() {
     for b in tariffs::all() {
         let plan = &b.plans[b.new_customer_plan];
-        let expected = match b.short_name.as_str() {
+        let expected = match &*b.short_name.en {
             "Altshuler" => "New customers",
             "Leumi" => "Online",
             "Interactive" => "Standard",
             _ => "Typical offer",
         };
-        assert_eq!(plan.name, expected, "{}", b.name);
+        assert_eq!(plan.name.en, expected, "{}", b.name.en);
     }
 }
 
@@ -293,7 +294,7 @@ fn no_caveat_is_shown_twice() {
             for exchange in Exchange::iter() {
                 for security in Security::iter() {
                     let buying = Buying::any_amount(security, exchange);
-                    let fees = b.describe_fees_for(p, buying, None, &rates());
+                    let fees = b.describe_fees_for(p, buying, None, &rates(), Lang::En);
                     let caveats: Vec<&str> = fees
                         .caveats
                         .iter()
@@ -306,8 +307,8 @@ fn no_caveat_is_shown_twice() {
                         unique.len(),
                         caveats.len(),
                         "{} {}: {caveats:?}",
-                        b.name,
-                        p.name
+                        b.name.en,
+                        p.name.en
                     );
                 }
             }
@@ -339,8 +340,8 @@ fn every_markup_says_how_sure_it_is() {
                         }
                     )),
                     "{} {}: unpublished markup without a \"may cost more\" caveat",
-                    b.name,
-                    p.name
+                    b.name.en,
+                    p.name.en
                 ),
                 Markup::UpTo(percent) if !percent.is_zero() => assert!(
                     says(&|basis| matches!(
@@ -348,14 +349,14 @@ fn every_markup_says_how_sure_it_is() {
                         Basis::Assumed { errs: Errs::AtMost } | Basis::Reading { .. }
                     )),
                     "{} {}: a maximum markup without an \"at most\" caveat or a reading",
-                    b.name,
-                    p.name
+                    b.name.en,
+                    p.name.en
                 ),
                 Markup::MarketRate => assert!(
                     says(&|basis| *basis == Basis::Published),
                     "{} {}: a market-rate markup without the caveat saying who publishes it",
-                    b.name,
-                    p.name
+                    b.name.en,
+                    p.name.en
                 ),
                 Markup::UpTo(_) | Markup::PerDollar(_) => {}
             }
@@ -376,8 +377,8 @@ fn offers_say_where_the_full_tariff_is_used() {
         (meitav(), "Typical offer"),
     ];
     for (b, offer) in offers {
-        let full = b.plans.iter().find(|p| p.name == "Full tariff").unwrap();
-        let offer = b.plans.iter().find(|p| p.name == offer).unwrap();
+        let full = b.plans.iter().find(|p| p.name.en == "Full tariff").unwrap();
+        let offer = b.plans.iter().find(|p| p.name.en == offer).unwrap();
         for exchange in Exchange::iter() {
             for security in Security::iter() {
                 let (Some(full_row), Some(offer_row)) = (
@@ -399,8 +400,8 @@ fn offers_say_where_the_full_tariff_is_used() {
                 });
                 assert!(
                     says_so,
-                    "{} {}: {security} on {exchange} costs the full tariff without a caveat",
-                    b.name, offer.name
+                    "{} {}: {security:?} on {exchange:?} costs the full tariff without a caveat",
+                    b.name.en, offer.name.en
                 );
             }
         }
@@ -421,7 +422,7 @@ fn every_reading_links_to_its_source() {
                 assert!(
                     !c.sources.is_empty(),
                     "{}: {:?} has no source",
-                    b.name,
+                    b.name.en,
                     c.text
                 );
             }
@@ -429,24 +430,29 @@ fn every_reading_links_to_its_source() {
                 assert!(
                     !source.name.is_empty(),
                     "{}: a source without a name",
-                    b.name
+                    b.name.en
                 );
                 assert!(
                     source.url.starts_with("https://"),
                     "{}: {} isn't a link: {}",
-                    b.name,
-                    source.name,
+                    b.name.en,
+                    source.name.en,
                     source.url
                 );
             }
         }
         // The broker's list starts with its tariff and names each page once.
-        let sources = b.sources();
-        assert_eq!(sources[0].name, "Tariff (PDF)", "{}", b.name);
+        let sources = b.sources(Lang::En);
+        assert_eq!(sources[0].name, "Tariff (PDF)", "{}", b.name.en);
         let mut urls: Vec<&str> = sources.iter().map(|s| s.url.as_str()).collect();
         urls.sort_unstable();
         urls.dedup();
-        assert_eq!(urls.len(), sources.len(), "{}: a page listed twice", b.name);
+        assert_eq!(
+            urls.len(),
+            sources.len(),
+            "{}: a page listed twice",
+            b.name.en
+        );
     }
 }
 
@@ -563,7 +569,7 @@ fn leumi_18_plus_custody_is_half_of_online() {
 fn leumi_plans_have_their_own_words_and_caveats() {
     let leumi = leumi();
     let descriptions: std::collections::HashSet<&str> =
-        leumi.plans.iter().map(|p| p.description.as_str()).collect();
+        leumi.plans.iter().map(|p| &*p.description.en).collect();
     assert_eq!(descriptions.len(), leumi.plans.len());
     let plus18 = plan(leumi.clone(), "Online, 'Leumi 18+'");
     assert!(
@@ -592,14 +598,14 @@ fn leumi_plans_have_their_own_words_and_caveats() {
 #[test]
 fn every_broker_and_plan_is_described() {
     for broker in broker_fees::tariffs::all() {
-        assert!(!broker.description.is_empty(), "{}", broker.name);
-        assert!(!broker.short_name.is_empty(), "{}", broker.name);
+        assert!(!broker.description.is_empty(), "{}", broker.name.en);
+        assert!(!broker.short_name.is_empty(), "{}", broker.name.en);
         for plan in &broker.plans {
             assert!(
                 !plan.description.is_empty(),
                 "{} · {}",
-                broker.name,
-                plan.name
+                broker.name.en,
+                plan.name.en
             );
         }
     }
@@ -697,7 +703,8 @@ fn excellence_typical_offer() {
     assert_eq!(fee.for_month(24, dec!(3)), dec!(12));
     assert_eq!(fee.for_month(24, dec!(20)), dec!(0));
     assert_eq!(
-        p.first_deposit_warning(ils(dec!(9999))).as_deref(),
+        p.first_deposit_warning(ils(dec!(9999)), Lang::En)
+            .as_deref(),
         Some("Needs a one-time deposit of at least ₪10,000")
     );
 }
@@ -752,7 +759,8 @@ fn ibi_full_tariff() {
     assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(7)));
     assert_eq!(handling(&p, 0), dec!(50));
     assert_eq!(
-        p.first_deposit_warning(ils(dec!(14999))).as_deref(),
+        p.first_deposit_warning(ils(dec!(14999)), Lang::En)
+            .as_deref(),
         Some("Needs a one-time deposit of at least ₪15,000")
     );
 }
@@ -839,7 +847,7 @@ fn interactive_prices() {
     // No custody, handling fee or minimum deposit.
     assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(0)));
     assert_eq!(handling(&p, 0), dec!(0));
-    assert_eq!(p.first_deposit_warning(ils(dec!(1))), None);
+    assert_eq!(p.first_deposit_warning(ils(dec!(1)), Lang::En), None);
     // Fractions of US shares.
     assert!(p.sells_fractions_on(Usa));
     assert!(!p.sells_fractions_on(Europe));

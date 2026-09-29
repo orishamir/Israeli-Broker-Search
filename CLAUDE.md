@@ -11,14 +11,16 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
   yearly cost like a fund's fee, in today's money, and over a range of
   deposits: `sweep`), `describe.rs` holds all text shown to users (fee
   names, explanations, caveat kinds, the "About the numbers" page, Hebrew
-  names), `yours.rs` holds the user's own plans (changed copies of listed
-  plans, and plans of their own) and the editor's fields, `examples.rs` the
-  ready-made patterns behind the example chips.
+  names), in both languages (see "Two languages" below), `yours.rs` holds
+  the user's own plans (changed copies of listed plans, and plans of their
+  own) and the editor's fields, `examples.rs` the ready-made patterns behind
+  the example chips.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`.
-- `web`: the app; state lives in `src/lib/app.svelte.ts`. Your plans are
-  kept in localStorage (`saved.ts`) as core `Plan`s the web side never looks
-  inside (`PlanData`). The charts' options are pure functions in
+- `web`: the app; state lives in `src/lib/app.svelte.ts`. The page's own
+  words are in `src/lib/text/en.ts` and `he.ts`, read through `text.ts`
+  (`t`, `lang`, `rtl`). Your plans are kept in localStorage (`saved.ts`) as
+  core `Plan`s the web side never looks inside (`PlanData`). The charts' options are pure functions in
   `growth-chart.ts`, `crossover-chart.ts` (the chart by deposit) and
   `fee-breakdown.ts`; the components only wire them to ECharts and the
   state, so the options are unit-tested without a browser. `link.ts` puts a
@@ -63,7 +65,9 @@ quietly keep running the old core.
   unclear row, and what backs the reading), `at_most` (a stand-in on the
   expensive side), `may_cost_more(text, summary)` (the cheap side: the
   summary is flagged under the plan in the results table, and ⚠ means only
-  that, everywhere), `not_counted` (a real cost left out, and why).
+  that, everywhere), `not_counted` (a real cost left out, and why). Every
+  text, name and source name is a `Text` pair, written `t("English",
+  "עברית")`: the compiler refuses a caveat with one language.
   `.about_fee(kind)` marks it beside that fee's price; `.when_above(amount)`
   shows it only when the user's biggest order (usually the sale at the end)
   reaches the amount. `.source(&page)` links the page it rests on (the
@@ -172,6 +176,35 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   - the other lines fade only a little.
 - **The dark theme only.** It should feel fast.
 
+## Two languages
+
+The page is shown in English or Hebrew: a Hebrew browser gets Hebrew,
+right to left, and the header's switch changes it (remembered in
+localStorage; the switch reloads the page with the comparison in its
+address, so every text is asked for once, in one language).
+
+- Core: `Lang` (`En`, `He`) and `Text { en, he }` in `lib.rs`. Every
+  function that makes words takes a `lang`; a fixed text is
+  `lang.pick("English", "עברית")`, data is a `Text` (`text[lang]`). Nothing
+  falls back to English: a missing translation doesn't compile. Names of
+  enums are `Named::name(lang)`; there's no `Display` for user-facing types.
+- Wasm: `setLang` once, before anything else; every binding answers in it.
+  Links and saved copies name plans by their English names (`englishName`,
+  `englishLabel`), the same in every language.
+- Web: `t.<key>` from `text.ts`; `he.ts` is typed as `en.ts`, so a missing
+  key fails svelte-check. Tips with `<bdi lang="he">` terms inside English
+  keep their markup in the component, under `{#if lang === 'he'}`.
+- Hebrew in Rust strings goes on one line, however long (rustfmt leaves
+  it), with ״ (U+05F4) for quotes so nothing needs escaping. Second person
+  is plural ("שלכם", "סמנו").
+- CSS is direction-neutral: logical properties (`margin-inline-start`,
+  `text-align: start`, `inset-inline-start`), except where a physical
+  measurement is used (`offsetLeft` moves the choices' highlight from the
+  left). A line of numbers with `=` or `·` gets `<bdi dir="ltr">`, or it
+  reads backwards. The charts stay left to right.
+- `tests/hebrew.spec.ts` covers the Hebrew page; the other specs run in
+  English (Playwright's default locale).
+
 ## Hebrew
 
 Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
@@ -182,7 +215,10 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
 - bonds → אג"ח;
 - ETFs → קרנות סל (תעודות סל until 2018); index funds → קרנות מחקות, which
   every tariff prices apart from managed funds (קרנות מנוהלות, mostly free
-  to trade), so never say קרן נאמנות for what the app compares.
+  to trade), so never say קרן נאמנות for what the app compares;
+- a US commission track (per share, per order) → שיטת חיוב, not מסלול,
+  which is a plan; a joining offer → מבצע הצטרפות; custody → דמי משמרת;
+  the monthly handling fee → דמי טיפול; the conversion markup → מרווח המרה.
 
 - Hebrew inside English goes in `<bdi lang="he">`. In Rust strings, join a
   phrase's words with `\u{a0}`: a phrase split across lines reads backwards.

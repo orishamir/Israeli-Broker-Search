@@ -2,6 +2,7 @@
   import * as core from './core/core'
   import type { PriceKind, TradeFields } from './core/core'
   import NumberField from './NumberField.svelte'
+  import { t } from './text'
 
   /** A trade fee's fields, one per line. `full` adds the maximum, which only
    * matters for very large trades. */
@@ -25,7 +26,7 @@
 </script>
 
 <div class="fields">
-  <label class="label" for="{id}-amount">Price</label>
+  <label class="label" for="{id}-amount">{t.price}</label>
   <div class="control">
     <div class="number">
       <NumberField
@@ -56,7 +57,7 @@
     </select>
   </div>
   {#if fields.kind === 'PercentPlusPerShare'}
-    <label class="label" for="{id}-per-share">Plus</label>
+    <label class="label" for="{id}-per-share">{t.plus}</label>
     <div class="control">
       <div class="number">
         <NumberField
@@ -70,11 +71,11 @@
           }
         />
       </div>
-      <span>per share</span>
+      <span>{t.perShare}</span>
     </div>
   {/if}
   {#if fields.kind !== 'PerOrder'}
-    <label class="label" for="{id}-min">Min</label>
+    <label class="label" for="{id}-min">{t.min}</label>
     <div class="control">
       <div class="number">
         <NumberField
@@ -86,7 +87,7 @@
       </div>
     </div>
     {#if full}
-      <label class="label" for="{id}-max">Max</label>
+      <label class="label" for="{id}-max">{t.max}</label>
       <div class="control">
         <div class="number">
           <NumberField

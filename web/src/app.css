@@ -197,6 +197,7 @@ button:active:not(.link) {
 .choices .highlight {
   position: absolute;
   top: 0;
+  /* From the left even in Hebrew: it's moved by `offsetLeft`, which is. */
   left: 0;
   width: var(--w);
   height: var(--h);
@@ -270,7 +271,7 @@ button:active:not(.link) {
   font-weight: normal;
   letter-spacing: normal;
   line-height: 1.45;
-  text-align: left;
+  text-align: start;
   text-transform: none;
   white-space: normal;
 }

@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppState } from './app.svelte'
   import { touchScreen } from './pointer'
+  import { t } from './text'
   import { tip } from './tip'
 
   /** A button that copies a link to the comparison as it is: on a phone,
@@ -35,14 +36,14 @@
 </script>
 
 <div class="share">
-  <span class="status" role="status">{status === 'copied' ? 'Link copied' : ''}</span>
+  <span class="status" role="status">{status === 'copied' ? t.linkCopied : ''}</span>
   {#if status === 'failed'}
     <input
       class="link"
       type="text"
       readonly
       value={link}
-      aria-label="Link to this comparison"
+      aria-label={t.linkToComparison}
       onfocus={(event) => event.currentTarget.select()}
     />
   {/if}
@@ -56,14 +57,11 @@
         stroke-linecap="round"
       />
     </svg>
-    Share
+    {t.share}
   </button>
 </div>
 <div class="popover" popover="manual" role="tooltip" bind:this={popover}>
-  <p>
-    Copies a link to this comparison: what you buy, your deposits and expectations, and the plans you ticked.
-    Your own plans among them travel with the link, so whoever opens it sees them too.
-  </p>
+  <p>{t.shareTip}</p>
 </div>
 
 <style>
@@ -74,7 +72,7 @@
     align-items: center;
     justify-content: end;
     gap: 8px;
-    margin-left: auto;
+    margin-inline-start: auto;
   }
   button {
     display: inline-flex;

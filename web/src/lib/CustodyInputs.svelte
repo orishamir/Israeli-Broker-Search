@@ -2,6 +2,7 @@
   import * as core from './core/core'
   import type { CustodyFields, Period } from './core/core'
   import NumberField from './NumberField.svelte'
+  import { t } from './text'
 
   /** Custody's fields, one per line. `full` lets the billing period change;
    * otherwise it's only named, after the minimum it applies to. */
@@ -23,7 +24,7 @@
 </script>
 
 <div class="fields">
-  <label class="label" for="{id}-percent">Rate</label>
+  <label class="label" for="{id}-percent">{t.rate}</label>
   <div class="control">
     <div class="number">
       <NumberField
@@ -42,11 +43,11 @@
       onchange={(event) => onchange({ ...fields, per: event.currentTarget.value as Period })}
     >
       {#each periods as period (period.value)}
-        <option value={period.value}>a {period.name}</option>
+        <option value={period.value}>{period.each}</option>
       {/each}
     </select>
   </div>
-  <label class="label" for="{id}-min">Min</label>
+  <label class="label" for="{id}-min">{t.min}</label>
   <div class="control">
     <div class="number">
       <NumberField
@@ -57,10 +58,10 @@
       />
     </div>
     <!-- The minimum is per charge, so it's named with the billing period. -->
-    <span>a {billed?.name}</span>
+    <span>{billed?.each}</span>
   </div>
   {#if full}
-    <label class="label" for="{id}-billed">Charged</label>
+    <label class="label" for="{id}-billed">{t.charged}</label>
     <div class="control">
       <select
         id="{id}-billed"

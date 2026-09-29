@@ -12,34 +12,38 @@
   import Share from './lib/Share.svelte'
   import { percent, shekels } from './lib/format'
   import { duration, reducedMotion } from './lib/motion'
+  import { lang, switchLang, t } from './lib/text'
+  import { en } from './lib/text/en'
   import { cubicOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
 
   const views: Choice<ChartView>[] = [
     {
       value: 'value',
-      name: 'Value',
-      explanation: 'What each plan is worth, year by year, before selling.',
+      name: t.valueView,
+      englishName: en.valueView,
+      explanation: t.valueViewTip,
       hebrewNames: [],
     },
     {
       value: 'lost',
-      name: 'Lost to fees',
-      explanation:
-        'How much less each plan has than with no fees and buying every month, year by year. Shows where plans overtake each other. The end is after selling, as in the table.',
+      name: t.lostView,
+      englishName: en.lostView,
+      explanation: t.lostViewTip,
       hebrewNames: [],
     },
     {
       value: 'crossover',
-      name: 'By deposit',
-      explanation:
-        "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking flips. Plans with minimum fees cost a lot for small deposits and little for large ones. The dashed line is your deposit.",
+      name: t.byDepositView,
+      englishName: en.byDepositView,
+      explanation: t.byDepositViewTip,
       hebrewNames: [],
     },
     {
       value: 'breakdown',
-      name: 'Breakdown',
-      explanation: 'What each plan pays in fees, by kind, and how they pile up over the years.',
+      name: t.breakdownView,
+      englishName: en.breakdownView,
+      explanation: t.breakdownViewTip,
       hebrewNames: [],
     },
   ]
@@ -101,10 +105,20 @@
 <!-- index.html's skeleton repeats the title and the line under it. -->
 <header class="top">
   <div class="title">
-    <h1>Broker fees, compounded</h1>
-    <Share {app} />
+    <h1>{t.title}</h1>
+    <div class="actions">
+      <!-- The other language, named in itself, so anyone can find their own. -->
+      <button
+        class="language"
+        lang={lang === 'he' ? 'en' : 'he'}
+        aria-label={t.switchLanguage}
+        onclick={() => switchLang(lang === 'he' ? 'en' : 'he', app.shareLink().split('#')[1] ?? '')}
+        >{t.otherLanguage}</button
+      >
+      <Share {app} />
+    </div>
   </div>
-  <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds, bonds and stocks.</p>
+  <p>{t.subtitle}</p>
   <!-- The page on how the numbers are made, opened at each of its sections. -->
   <p class="about">
     {#each app.about.sections as section, index (section.title)}
@@ -123,25 +137,25 @@
 
   <main>
     {#if 'error' in app.comparison}
-      <p class="card error">Check your inputs: {app.comparison.error}.</p>
+      <p class="card error">{t.checkInputs(app.comparison.error)}</p>
     {:else}
       <div class="stats" bind:this={stats}>
         <div class="card stat">
-          <span class="label">You deposit</span>
+          <span class="label">{t.youDeposit}</span>
           <span class="value">{shekels(deposited.current)}</span>
-          <span class="note">over {app.years} years{app.inTodaysMoney ? ', in today’s money' : ''}</span>
+          <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
         </div>
         <div class="card stat">
-          <span class="label">With no fees</span>
+          <span class="label">{t.withNoFees}</span>
           <span class="value">{shekels(noFees.current)}</span>
-          <span class="note">{app.sellAtEnd ? 'if sold at the end, before tax' : 'held at the end'}</span>
+          <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
         </div>
         {#if best?.outcome}
           <div class="card stat best" style:--plan-color={best.plan.color}>
-            <span class="label">Best: {best.plan.label}</span>
+            <span class="label">{t.best(best.plan.label)}</span>
             <span class="value">{shekels(bestValue.current)}</span>
             <span class="note"
-              >{shekels(bestLost.current)} lost to fees · {percent(best.outcome.yearlyCostPercent)} a year</span
+              >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
             >
             {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
           </div>
@@ -149,7 +163,7 @@
       </div>
 
       {#if app.comparison.results.length === 0}
-        <p class="card empty">Tick a broker on the left to compare.</p>
+        <p class="card empty">{t.tickABroker}</p>
       {:else}
         <section class="card table">
           <div class="scrolls">
@@ -159,16 +173,16 @@
 
         <section class="card" id="chart">
           <div class="chart-bar">
-            <Choices label="Chart" options={views} bind:value={app.chartView} wraps />
+            <Choices label={t.chart} options={views} bind:value={app.chartView} wraps />
             {#if app.pinned.size === 0}
-              <span class="hint mouse">Click a row or a {lines ? 'line' : 'bar'} to pin it</span>
-              <span class="hint touch">Tap a row or a {lines ? 'line' : 'bar'} to pin it</span>
+              <span class="hint mouse">{t.pinHintMouse(!lines)}</span>
+              <span class="hint touch">{t.pinHintTouch(!lines)}</span>
             {:else}
-              <button onclick={() => app.pinned.clear()}>Unpin all</button>
+              <button onclick={() => app.pinned.clear()}>{t.unpinAll}</button>
             {/if}
             {#if overYears}
-              <span class="hint right mouse">Wheel: zoom years · Drag: move · R: reset</span>
-              <span class="hint right touch">Drag the slider's ends to zoom</span>
+              <span class="hint right mouse">{t.zoomHintMouse}</span>
+              <span class="hint right touch">{t.zoomHintTouch}</span>
             {/if}
           </div>
           <!-- Every view stays, so switching back is instant: a hidden one
@@ -202,9 +216,9 @@
     style:--plan-color={best.plan.color}
     onclick={() => stats?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' })}
   >
-    <span class="bar-label">Best: {best.plan.label}</span>
+    <span class="bar-label">{t.best(best.plan.label)}</span>
     <span class="bar-note"
-      >{percent(best.outcome.yearlyCostPercent)} a year · {shekels(best.outcome.lostToFees)} lost to fees</span
+      >{t.yearlyAndLost(percent(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees))}</span
     >
     <span class="bar-arrow" aria-hidden="true">↓</span>
   </button>
@@ -340,7 +354,7 @@
       border-top: 2px solid var(--plan-color);
       background: var(--raised);
       box-shadow: var(--shadow);
-      text-align: left;
+      text-align: start;
       transition:
         translate 200ms var(--ease-out),
         opacity 200ms var(--ease-out);
@@ -379,6 +393,12 @@
       radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.6), transparent) right / 16px 100% no-repeat
         scroll;
   }
+  :global(html[dir='rtl']) .scrolls {
+    background:
+      linear-gradient(to right, var(--surface) 40%, transparent) left / 40px 100% no-repeat local,
+      radial-gradient(farthest-side at 0% 50%, rgb(0 0 0 / 0.6), transparent) left / 16px 100% no-repeat
+        scroll;
+  }
   .chart-bar {
     display: flex;
     flex-wrap: wrap;
@@ -400,7 +420,14 @@
     color: var(--weak);
   }
   .right {
-    margin-left: auto;
+    margin-inline-start: auto;
+  }
+  /* The language switch and Share, at the end of the title's row. */
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-inline-start: auto;
   }
   /* Mouse or finger, whichever this screen mostly uses. */
   @media (pointer: coarse) {

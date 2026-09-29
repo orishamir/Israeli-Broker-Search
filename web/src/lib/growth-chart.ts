@@ -5,6 +5,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { ChartOption } from './echarts.svelte'
 import { compactShekels, elapsed, readableOn, shekels } from './format'
+import { t } from './text'
 
 // The page's colors (see app.css).
 const WEAK = '#8e95a5'
@@ -98,7 +99,7 @@ export function growthOption(view: GrowthView): ChartOption {
   if (view.noFees) {
     series.unshift({
       id: NO_FEES,
-      name: 'No fees',
+      name: t.noFees,
       type: 'line',
       data: points(view.noFees),
       color: WEAK,
@@ -113,7 +114,7 @@ export function growthOption(view: GrowthView): ChartOption {
     grid: { left: 16, right: 90, top: 24, bottom: view.touch ? 88 : 32 },
     xAxis: {
       type: 'value',
-      name: 'Years',
+      name: t.years,
       nameLocation: 'middle',
       nameGap: 26,
       minInterval: 1,

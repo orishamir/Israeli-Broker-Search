@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
   import { tip } from './tip'
+  import { t } from './text'
 
   /** A small "?" that explains `about`, on hover, focus or tap. */
   let { about, children }: { about: string; children: Snippet } = $props()
@@ -12,7 +13,7 @@
 <button
   type="button"
   class="tip-button"
-  aria-label="What “{about}” means"
+  aria-label={t.whatMeans(about)}
   aria-describedby={id}
   {@attach popover && tip(popover)}>?</button
 >
@@ -24,7 +25,7 @@
     place-items: center;
     width: 16px;
     height: 16px;
-    margin-left: 5px;
+    margin-inline-start: 5px;
     padding: 0;
     border: 1px solid var(--strong-border);
     border-radius: 50%;

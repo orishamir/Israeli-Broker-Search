@@ -33,6 +33,7 @@ catch the bug:
   | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved | `editor`    |
   | app.css, anything about size or position                            | `layout`    |
   | main.ts, index.html, Share, link.ts                                 | `app`       |
+  | text.ts, text/\*.ts, the language switch, anything right-to-left    | `hebrew`    |
 
   `npx playwright test --project=desktop tests/editor.spec.ts`. The `=`
   matters: `--project desktop tests/x.spec.ts` reads the path as a second
@@ -66,10 +67,12 @@ catch the bug:
   a rule, not a screenshot. `breakdown.spec.ts` measures every word of every
   plan's name in the page's font against the bars' name column, so a word
   is never broken ("Excellenc/e").
-- **Pictures, 18 in all, for what rules can't see** (a color, an
-  alignment): the start page on each of the nine devices, and, on the
-  narrowest phone and the desktop only (`@pictures`), a plan's details, the
-  editor in both views, and the fee breakdown. What comes from the tariffs
+- **Pictures, 21 in all, for what rules can't see** (a color, an
+  alignment): the start page on each of the nine devices, the same in
+  Hebrew on the desktop and the two phones (`hebrew.spec.ts`, which runs
+  with a Hebrew browser locale), and, on the narrowest phone and the
+  desktop only (`@pictures`), a plan's details, the editor in both views,
+  and the fee breakdown. What comes from the tariffs
   is masked, so they change only when the page itself does; the breakdown's
   bars can't be, since the amounts are the picture, so a tariff change
   re-records those two. A growth chart is checked by comparing its canvas

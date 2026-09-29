@@ -20,6 +20,7 @@
   import { touchScreen } from './pointer'
   import { tip } from './tip'
   import Tip from './Tip.svelte'
+  import { t } from './text'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
 
@@ -91,9 +92,10 @@
 <!-- The legend is also the control: a fee's button compares the plans by
      it. One row where it fits, else two by two. -->
 <p class="label">
-  <span class="mouse">Click</span><span class="touch">Tap</span> a fee to compare the plans by it
+  <span class="mouse">{t.clickAFee}</span><span class="touch">{t.tapAFee}</span>
+  {t.aFeeToCompare}
 </p>
-<div class="fees" role="group" aria-label="Compare the plans by">
+<div class="fees" role="group" aria-label={t.compareBy}>
   {#each FEE_TYPES as type, index (type.key)}
     {@const popover = popovers[index]}
     <button
@@ -119,28 +121,28 @@
   style:height="{rows.length * rowHeight(narrow.current) + 32}px"
   {@attach chart(bars, setup)}
   role="img"
-  aria-label="Fees paid by each plan over the whole period, by kind"
+  aria-label={t.barsAria}
 ></div>
 
 {#if notOffered.length > 0}
   <p class="hint">
-    Not offered for {app.purchase}:
+    {t.notOfferedFor(app.purchase)}:
     {#each notOffered as { plan, notOffered: reason }, index (plan.id)}
-      {index > 0 ? ', ' : ''}{plan.label}<Tip about="Not offered">{reason}</Tip>
+      {index > 0 ? ', ' : ''}{plan.label}<Tip about={t.notOffered}>{reason}</Tip>
     {/each}
   </p>
 {/if}
 
 <h4>
-  Year by year: <span class="dot" style:background={shown.plan.color}></span>{shown.plan.label}
-  <span class="hint mouse">· hover or pin another plan to see it</span>
-  <span class="hint touch">· tap another plan's bar to see it</span>
+  {t.yearByYear} <span class="dot" style:background={shown.plan.color}></span>{shown.plan.label}
+  <span class="hint mouse">{t.hoverOrPin}</span>
+  <span class="hint touch">{t.tapAnotherBar}</span>
 </h4>
 <div
   class="over-time"
   {@attach chart(overTime)}
   role="img"
-  aria-label="{shown.plan.label}'s fees piling up year by year, by kind"
+  aria-label={t.overTimeAria(shown.plan.label)}
 ></div>
 
 <style>

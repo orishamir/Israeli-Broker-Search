@@ -8,6 +8,7 @@
   import FeesForInputs from './FeesForInputs.svelte'
   import Price from './Price.svelte'
   import PlanEditor from './PlanEditor.svelte'
+  import { t } from './text'
 
   let { app }: { app: AppState } = $props()
 
@@ -86,8 +87,8 @@
   {:else if shown?.kind === 'about'}
     <div class="content">
       <header>
-        <h2 id="details-title">About the numbers</h2>
-        <button class="close" aria-label="Close" onclick={() => dialog.close()}>✕</button>
+        <h2 id="details-title">{t.aboutTheNumbers}</h2>
+        <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
       </header>
       {#each app.about.sections as section, index (section.title)}
         <section class="about" id="about-{index}">
@@ -130,7 +131,7 @@
               {broker.name}
             {/if}
           </h2>
-          <button class="close" aria-label="Close" onclick={() => dialog.close()}>✕</button>
+          <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
         </header>
         <p class="source">
           {#if shown.kind === 'plan'}
@@ -140,7 +141,7 @@
           {/if}
           {broker.tariffDate} · {broker.checked}
           {#if broker.sourceUrl}
-            · <a href={broker.sourceUrl} target="_blank" rel="noreferrer">Tariff (PDF) ↗</a>
+            · <a href={broker.sourceUrl} target="_blank" rel="noreferrer">{t.tariffPdf} ↗</a>
           {/if}
         </p>
 
@@ -152,28 +153,28 @@
             <FeesForInputs {app} {plan} />
           </section>
           <p class="change">
-            <button onclick={() => app.draftCopyOf(plan)}>✎ Change these fees</button>
+            <button onclick={() => app.draftCopyOf(plan)}>{t.changeTheseFees}</button>
           </p>
           {@const { caveats, others } = app.feesFor(plan)}
           {#if caveats.length > 0}
-            <h3>Caveats for {app.purchase}</h3>
+            <h3>{t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
           <details>
             <summary>
-              All prices{#if others.length > 0}<span class="more">
-                  , and {others.length} caveat{others.length === 1 ? '' : 's'} about other choices or amounts</span
+              {t.allPrices}{#if others.length > 0}<span class="more"
+                  >{t.andCaveatsAboutOthers(others.length)}</span
                 >{/if}
             </summary>
             <div class="tariff">
-              <h4>Buying and selling</h4>
+              <h4>{t.buyingAndSelling}</h4>
               <table>
                 <tbody>
                   {#each tariff.trading as { covers, price }, index (index)}
                     <tr><td>{covers}</td><td><Price {price} /></td></tr>
                   {/each}
                   {#if tariff.fractionsOn.length > 0}
-                    <tr><td>Fractions of a share</td><td>sold on {tariff.fractionsOn.join(', ')}</td></tr>
+                    <tr><td>{t.fractionsOfAShare}</td><td>{t.soldOn(tariff.fractionsOn.join(', '))}</td></tr>
                   {/if}
                 </tbody>
               </table>
@@ -182,7 +183,7 @@
                 {@const covered = new Set(
                   tariff.tracks.flatMap((track) => track.trading.map(({ covers }) => covers)),
                 )}
-                <h4>Tracks{covered.size === 1 ? ` for ${[...covered][0]}` : ''}: you choose one</h4>
+                <h4>{t.tracksYouChoose(covered.size === 1 ? [...covered][0] : undefined)}</h4>
                 <table>
                   <tbody>
                     {#each tariff.tracks as track (track.name)}
@@ -199,7 +200,7 @@
                 </table>
               {/if}
               {#if tariff.standingOrders.length > 0}
-                <h4>Buying by standing order</h4>
+                <h4>{t.buyingByStandingOrder}</h4>
                 <table>
                   <tbody>
                     {#each tariff.standingOrders as { covers, price }, index (index)}
@@ -208,41 +209,42 @@
                   </tbody>
                 </table>
               {/if}
-              <h4>Custody</h4>
+              <h4>{t.custody}</h4>
               <table>
                 <tbody>
                   {#each tariff.custody as { covers, price }, index (index)}
                     <tr><td>{covers}</td><td><Price {price} /></td></tr>
                   {:else}
-                    <tr><td>Everything</td><td><Price price={{ text: 'none', nothing: true }} /></td></tr>
+                    <tr><td>{t.everything}</td><td><Price price={{ text: t.none, nothing: true }} /></td></tr>
                   {/each}
                 </tbody>
               </table>
               {#if tariff.handling}
-                <h4>Handling fee</h4>
+                <h4>{t.handlingFee}</h4>
                 <table>
                   <tbody>
-                    <tr><td>The account</td><td><Price price={tariff.handling} /></td></tr>
+                    <tr><td>{t.theAccount}</td><td><Price price={tariff.handling} /></td></tr>
                   </tbody>
                 </table>
               {/if}
-              <h4>Conversion</h4>
+              <h4>{t.conversion}</h4>
               <table>
                 <tbody>
-                  <tr><td>Fee</td><td><Price price={tariff.conversion} /></td></tr>
+                  <tr><td>{t.fee}</td><td><Price price={tariff.conversion} /></td></tr>
                   {#if tariff.secondConversion}
-                    <tr><td>Or, if less</td><td><Price price={tariff.secondConversion} /></td></tr>
+                    <tr><td>{t.orIfLess}</td><td><Price price={tariff.secondConversion} /></td></tr>
                   {/if}
                   {#if tariff.standingOrderConversion}
                     <tr
-                      ><td>By standing order</td><td><Price price={tariff.standingOrderConversion} /></td></tr
+                      ><td>{t.byStandingOrder}</td><td><Price price={tariff.standingOrderConversion} /></td
+                      ></tr
                     >
                   {/if}
-                  <tr><td>Markup</td><td><Price price={tariff.markup} /></td></tr>
+                  <tr><td>{t.markup}</td><td><Price price={tariff.markup} /></td></tr>
                 </tbody>
               </table>
               {#if others.length > 0}
-                <h4>Caveats about other choices or amounts</h4>
+                <h4>{t.caveatsAboutOthers}</h4>
                 <Caveats caveats={others} />
               {/if}
             </div>
@@ -250,17 +252,17 @@
           <p class="sources-line"><Sources sources={plan.info.sources} /></p>
           <p class="about-link">
             <button class="link" onclick={() => (app.details = { kind: 'about' })}
-              >How the numbers are made, and what isn't counted ↗</button
+              >{t.howTheNumbersAreMade}</button
             >
           </p>
         {:else}
           <p>{broker.description}</p>
           {@const caveats = app.brokerCaveats(broker)}
           {#if caveats.length > 0}
-            <h3>Caveats for {app.purchase}</h3>
+            <h3>{t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
-          <h3>Plans</h3>
+          <h3>{t.plans}</h3>
           <ul class="plans">
             {#each brokerPlans as plan (plan.id)}
               <li>
@@ -427,7 +429,7 @@
   }
   .about ul {
     margin: 8px 0;
-    padding-left: 20px;
+    padding-inline-start: 20px;
   }
   .about li {
     margin: 4px 0;
@@ -439,7 +441,7 @@
     display: inline-block;
     width: 12px;
     height: 12px;
-    margin-right: 8px;
+    margin-inline-end: 8px;
     border-radius: 3px;
   }
 
@@ -496,7 +498,7 @@
     gap: 2px;
     width: 100%;
     padding: 10px 12px;
-    text-align: left;
+    text-align: start;
     border-radius: 10px;
   }
   .plan-name {

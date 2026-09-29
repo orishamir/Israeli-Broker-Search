@@ -2,6 +2,7 @@
   import type { Mark } from './core/core'
   import Sources from './Sources.svelte'
   import { tip } from './tip'
+  import { t } from './text'
 
   /** How sure a fee's number is, in a word or two beside its price, with the
    * caveats that say why on hover or tap. Without `tips` (in the hover
@@ -23,7 +24,7 @@
   <div {id} class="popover" popover="manual" role="tooltip" bind:this={popover}>
     {#each mark.caveats as caveat (caveat.text)}
       <p>{caveat.text}</p>
-      {#if caveat.support}<p class="support">Why: {caveat.support}.</p>{/if}
+      {#if caveat.support}<p class="support">{t.why} {caveat.support}.</p>{/if}
       <Sources sources={caveat.sources} />
     {/each}
   </div>
@@ -34,7 +35,7 @@
 <style>
   .mark {
     display: inline-block;
-    margin-left: 8px;
+    margin-inline-start: 8px;
     padding: 0 7px;
     border: 1px solid var(--strong-border);
     border-radius: 999px;

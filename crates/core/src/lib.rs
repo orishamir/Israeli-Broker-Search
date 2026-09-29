@@ -48,56 +48,154 @@ pub use describe::FeeKind;
 pub use money::{Currency, ExchangeRates, Money, ils, iso, usd};
 pub use percent::Percent;
 // For `Security::iter()` and `Exchange::iter()`.
+use std::borrow::Cow;
+use std::ops::Index;
+
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 pub use strum::IntoEnumIterator;
 use time::Date;
 
+// ─────────────────────────── Languages ───────────────────────────
+
+/// The language the app is shown in. Every text a user sees comes in both,
+/// as a [`Text`] or through [`Lang::pick`], so nothing falls back to English
+/// unnoticed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, strum::EnumIter)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub enum Lang {
+    #[default]
+    En,
+    He,
+}
+
+impl Lang {
+    /// `en` or `he`, whichever this is: for a fixed text, where building a
+    /// [`Text`] every time would be a waste.
+    #[must_use]
+    pub const fn pick<'a>(self, en: &'a str, he: &'a str) -> &'a str {
+        match self {
+            Lang::En => en,
+            Lang::He => he,
+        }
+    }
+}
+
+/// A text in both languages. Both are required, so a missing translation is
+/// a compile error rather than an English fallback. Read one with the
+/// language as an index: `text[lang]`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub struct Text {
+    pub en: Cow<'static, str>,
+    pub he: Cow<'static, str>,
+}
+
+impl Text {
+    #[must_use]
+    pub const fn new(en: &'static str, he: &'static str) -> Self {
+        Text {
+            en: Cow::Borrowed(en),
+            he: Cow::Borrowed(he),
+        }
+    }
+
+    /// A text built at run time, `format!`ed in each language.
+    #[must_use]
+    pub fn owned(en: String, he: String) -> Self {
+        Text {
+            en: Cow::Owned(en),
+            he: Cow::Owned(he),
+        }
+    }
+
+    /// The same in both languages: a name the user typed, a number.
+    #[must_use]
+    pub fn same(text: &str) -> Self {
+        Text::owned(text.to_owned(), text.to_owned())
+    }
+
+    /// Empty in both languages.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.en.is_empty() && self.he.is_empty()
+    }
+}
+
+impl Index<Lang> for Text {
+    type Output = str;
+
+    fn index(&self, lang: Lang) -> &str {
+        match lang {
+            Lang::En => &self.en,
+            Lang::He => &self.he,
+        }
+    }
+}
+
+/// Something with a name in each language: "ETF", "קרן\u{a0}סל".
+pub trait Named {
+    fn name(self, lang: Lang) -> &'static str;
+}
+
 /// What kind of security is traded. Brokers price these differently, even on
 /// the same exchange: Altshuler charges an ETF on the Tel Aviv exchange a
 /// ₪3.5 minimum, but an index fund ₪16.
 ///
-/// In the order to offer them: `Security::iter()`. Its `Display` is its name:
-/// "ETF", "Index fund".
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter, strum::Display,
-)]
+/// In the order to offer them: `Security::iter()`. Its name in each language
+/// is [`Named::name`]: "ETF", "Index fund".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Security {
     /// Exchange-traded fund, e.g. an S&P 500 tracker. In Israel, a Keren Sal.
-    #[strum(to_string = "ETF")]
     Etf,
     /// A mutual fund that tracks an index, bought from the fund manager at
     /// the day's price rather than traded continuously. In Israel, a Keren
     /// Mechaka. Every tariff prices it apart from managed (active) funds,
     /// which mostly cost nothing to trade and aren't compared. It was
     /// "Mutual fund" until September 2026, and saved plans from then say so.
-    #[strum(to_string = "Index fund")]
     #[serde(alias = "MutualFund")]
     IndexFund,
     Bond,
     Stock,
 }
 
+impl Named for Security {
+    fn name(self, lang: Lang) -> &'static str {
+        match self {
+            Security::Etf => lang.pick("ETF", "קרן סל"),
+            Security::IndexFund => lang.pick("Index fund", "קרן מחקה"),
+            Security::Bond => lang.pick("Bond", "אג\u{5f4}ח"),
+            Security::Stock => lang.pick("Stock", "מניה"),
+        }
+    }
+}
+
 /// Where the security is traded. Decides both the trade fee row and the
 /// custody row: Leumi charges 0.15% a quarter to hold Tel Aviv securities but
 /// 0.2% for foreign ones.
 ///
-/// In the order to offer them: `Exchange::iter()`. Its `Display` is its name:
-/// "Tel Aviv", "USA".
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter, strum::Display,
-)]
+/// In the order to offer them: `Exchange::iter()`. Its name in each language
+/// is [`Named::name`]: "Tel Aviv", "USA".
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Exchange {
     /// Tel Aviv Stock Exchange.
-    #[strum(to_string = "Tel Aviv")]
     Tlv,
     /// Any US exchange (NYSE, Nasdaq).
-    #[strum(to_string = "USA")]
     Usa,
     /// Any European exchange.
     Europe,
+}
+
+impl Named for Exchange {
+    fn name(self, lang: Lang) -> &'static str {
+        match self {
+            Exchange::Tlv => lang.pick("Tel Aviv", "תל אביב"),
+            Exchange::Usa => lang.pick("USA", "ארה\u{5f4}ב"),
+            Exchange::Europe => lang.pick("Europe", "אירופה"),
+        }
+    }
 }
 
 impl Exchange {
@@ -464,11 +562,10 @@ impl ConversionFee {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Plan {
     /// Shown in comparisons, e.g. "Online" or "Full tariff".
-    pub name: String,
+    pub name: Text,
     /// What the plan is, in plain words, for someone who hasn't read the
     /// tariff: who it's for and how it differs from the broker's other plans.
-    #[serde(default)]
-    pub description: String,
+    pub description: Text,
     /// The trade fee table. The first row that covers a trade is used.
     pub trading: Vec<TradeFee>,
     /// Price options chosen when opening the account, for some trades (see
@@ -514,7 +611,7 @@ pub struct Plan {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Track {
     /// "1¢ a share"
-    pub name: String,
+    pub name: Text,
     /// Trade rows used before the plan's own, for what they cover.
     pub trading: Vec<TradeFee>,
 }
@@ -563,7 +660,7 @@ pub enum Basis {
     Published,
     /// The tariff is unclear or silent, and this is how it was read, with
     /// what supports the reading: "the exchange's June 2026 averages".
-    Reading { support: String },
+    Reading { support: Text },
     /// Nothing to go on: a stand-in value, and which way it errs.
     Assumed { errs: Errs },
     /// A real cost the model leaves out, and why.
@@ -579,14 +676,14 @@ pub enum Errs {
     /// On the cheap side: the plan may cost more than shown, so the
     /// comparison flags it, with a few words on what: "conversion markup
     /// not published".
-    MayCostMore { summary: String },
+    MayCostMore { summary: Text },
 }
 
 /// A page a number comes from, to link to: "IBI's currency FAQ".
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
-pub struct Source {
-    pub name: String,
+pub struct Page {
+    pub name: Text,
     pub url: String,
 }
 
@@ -597,12 +694,12 @@ pub struct Source {
 /// what order size.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Caveat {
-    pub text: String,
+    pub text: Text,
     pub basis: Basis,
     /// The pages it rests on, linked beside it. A reading always has one:
     /// the tariff itself, the broker's site or a comparison site.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub sources: Vec<Source>,
+    pub sources: Vec<Page>,
     /// The fee it's about, if one: marked beside that fee's price.
     #[serde(default)]
     pub fee: Option<FeeKind>,
@@ -619,9 +716,9 @@ pub struct Caveat {
 }
 
 impl Caveat {
-    fn with(text: &str, basis: Basis) -> Self {
+    fn with(text: Text, basis: Basis) -> Self {
         Caveat {
-            text: text.to_owned(),
+            text,
             basis,
             sources: vec![],
             fee: None,
@@ -633,58 +730,51 @@ impl Caveat {
 
     /// What the tariff or the broker's site says.
     #[must_use]
-    pub fn published(text: &str) -> Self {
+    pub fn published(text: Text) -> Self {
         Caveat::with(text, Basis::Published)
     }
 
     /// How an unclear or silent row was read, and `support`: what backs
     /// the reading.
     #[must_use]
-    pub fn reading(text: &str, support: &str) -> Self {
-        Caveat::with(
-            text,
-            Basis::Reading {
-                support: support.to_owned(),
-            },
-        )
+    pub fn reading(text: Text, support: Text) -> Self {
+        Caveat::with(text, Basis::Reading { support })
     }
 
     /// A stand-in on the expensive side: the full price or maximum.
     #[must_use]
-    pub fn at_most(text: &str) -> Self {
+    pub fn at_most(text: Text) -> Self {
         Caveat::with(text, Basis::Assumed { errs: Errs::AtMost })
     }
 
     /// A stand-in on the cheap side. `summary` flags it in the comparison:
     /// "conversion markup not published".
     #[must_use]
-    pub fn may_cost_more(text: &str, summary: &str) -> Self {
+    pub fn may_cost_more(text: Text, summary: Text) -> Self {
         Caveat::with(
             text,
             Basis::Assumed {
-                errs: Errs::MayCostMore {
-                    summary: summary.to_owned(),
-                },
+                errs: Errs::MayCostMore { summary },
             },
         )
     }
 
     /// A real cost the model leaves out.
     #[must_use]
-    pub fn not_counted(text: &str) -> Self {
+    pub fn not_counted(text: Text) -> Self {
         Caveat::with(text, Basis::NotCounted)
     }
 
     /// Resting on `source`, a page to link beside it.
     #[must_use]
-    pub fn source(mut self, source: &Source) -> Self {
+    pub fn source(mut self, source: &Page) -> Self {
         self.sources.push(source.clone());
         self
     }
 
     /// Resting on each of `sources`.
     #[must_use]
-    pub fn sources(mut self, sources: &[&Source]) -> Self {
+    pub fn sources(mut self, sources: &[&Page]) -> Self {
         self.sources
             .extend(sources.iter().map(|&source| source.clone()));
         self
@@ -711,7 +801,7 @@ impl Caveat {
 
     /// The summary the comparison flags, if it may cost more.
     #[must_use]
-    pub fn may_cost_more_summary(&self) -> Option<&str> {
+    pub fn may_cost_more_summary(&self) -> Option<&Text> {
         match &self.basis {
             Basis::Assumed {
                 errs: Errs::MayCostMore { summary },
@@ -889,10 +979,10 @@ pub enum BrokerKind {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Broker {
     /// E.g. "Bank Leumi".
-    pub name: String,
+    pub name: Text,
     /// Its name beside a plan's, where plan names repeat: "Leumi" in "Leumi ·
     /// Online".
-    pub short_name: String,
+    pub short_name: Text,
     /// A bank or an investment house, which decides what "usual" means.
     pub kind: BrokerKind,
     /// Which of `plans` a new customer usually gets: the one compared at
@@ -900,8 +990,7 @@ pub struct Broker {
     #[serde(default)]
     pub new_customer_plan: usize,
     /// What kind of broker it is and how its plans relate, in plain words.
-    #[serde(default)]
-    pub description: String,
+    pub description: Text,
     /// The date on the tariff document the numbers came from, if it has one.
     /// Tariffs change several times a year, so keep it next to the numbers.
     pub tariff_date: Option<TariffDate>,

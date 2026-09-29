@@ -23,8 +23,8 @@
   /* Set in from the fee's own fields, with a line joining it to them. */
   .part {
     margin-top: 10px;
-    padding-left: 10px;
-    border-left: 2px solid var(--border);
+    padding-inline-start: 10px;
+    border-inline-start: 2px solid var(--border);
   }
   .part-name {
     margin: 0 0 4px;

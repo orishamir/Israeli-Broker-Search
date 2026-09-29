@@ -1,5 +1,7 @@
 // Amounts in shekels, formatted by the browser's Intl.
 
+import { t } from './text'
+
 const whole = new Intl.NumberFormat('en-IL', {
   style: 'currency',
   currency: 'ILS',
@@ -33,9 +35,7 @@ export function readableOn(color: string): string {
 /** "After 15 years, 5 months": a chart's time, from a count of years. */
 export function elapsed(years: number): string {
   const months = Math.round(years * 12)
-  const plural = (count: number, unit: string) => `${count} ${unit}${count === 1 ? '' : 's'}`
-  const whole = plural(Math.floor(months / 12), 'year')
-  return months % 12 === 0 ? `After ${whole}` : `After ${whole}, ${plural(months % 12, 'month')}`
+  return t.after(Math.floor(months / 12), months % 12)
 }
 
 const twoDecimals = new Intl.NumberFormat('en-IL', {

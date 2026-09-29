@@ -4,7 +4,7 @@
 //! prints the timings, so a change that slows the app shows up as a number.
 
 use broker_fees::simulation::{Scenario, compare, simulate};
-use broker_fees::{Buying, Exchange, ExchangeRates, Percent, Plan, Security, tariffs};
+use broker_fees::{Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Security, tariffs};
 use rust_decimal_macros::dec;
 
 fn main() {
@@ -63,7 +63,8 @@ fn describe_fees(bencher: divan::Bencher) {
     let leumi = tariffs::leumi();
     let buying = Buying::any_amount(Security::Etf, Exchange::Usa);
     let rates = rates();
-    bencher.bench_local(|| leumi.describe_fees_for(&leumi.plans[3], buying, None, &rates));
+    bencher
+        .bench_local(|| leumi.describe_fees_for(&leumi.plans[3], buying, None, &rates, Lang::En));
 }
 
 /// The editor's full view of a copy, compared with its original.
@@ -71,7 +72,7 @@ fn describe_fees(bencher: divan::Bencher) {
 fn price_list(bencher: divan::Bencher) {
     let leumi = tariffs::leumi();
     let copy = leumi.plans[3].copy_of(None);
-    bencher.bench_local(|| copy.price_list(Some(&leumi.plans[3])));
+    bencher.bench_local(|| copy.price_list(Some(&leumi.plans[3]), Lang::En));
 }
 
 /// A plan through JSON and back: what crossing to JavaScript costs.

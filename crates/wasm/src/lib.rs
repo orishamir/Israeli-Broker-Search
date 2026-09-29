@@ -11,8 +11,10 @@
     reason = "wasm-bindgen's exported functions must take their arguments by value"
 )]
 
+use std::cell::Cell;
+
 use broker_fees::describe::{
-    self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced,
+    self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced, Source,
 };
 use broker_fees::examples;
 use broker_fees::simulation::{self, Fees, InvalidScenario, Outcome, Scenario, Swept};
@@ -21,8 +23,8 @@ use broker_fees::yours::{
     PriceList, SimpleFees, TradeFields,
 };
 use broker_fees::{
-    Broker, Buying, Exchange, ExchangeRates, IntoEnumIterator, Money, Percent, Period, Plan,
-    Security, Source, TradeFee, ils, tariffs,
+    Broker, Buying, Exchange, ExchangeRates, IntoEnumIterator, Lang, Money, Named, Percent, Period,
+    Plan, Security, TradeFee, ils, tariffs,
 };
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -34,6 +36,37 @@ fn all_brokers() -> Vec<Broker> {
     tariffs::all()
 }
 
+// ─────────────────────────── Language ───────────────────────────
+
+thread_local! {
+    /// The language every binding answers in. WebAssembly runs on one
+    /// thread, so a thread-local is the whole picture.
+    static LANG: Cell<Lang> = const { Cell::new(Lang::En) };
+}
+
+/// Sets the language the app is shown in. Everything the bindings return
+/// after this is in it.
+#[wasm_bindgen(js_name = setLang)]
+pub fn set_lang(lang: Ts<Lang>) -> Result<(), JsError> {
+    let lang = lang.to_rust()?;
+    LANG.with(|current| current.set(lang));
+    Ok(())
+}
+
+fn lang() -> Lang {
+    LANG.with(Cell::get)
+}
+
+/// An error for the app to show, in the app's language.
+fn shown(text: &str) -> JsError {
+    JsError::new(text)
+}
+
+/// Inputs the simulation can't run with, as the error the app shows.
+fn invalid(error: InvalidInputs) -> JsError {
+    shown(&error.text(lang()))
+}
+
 // ─────────────────────────── Choices ───────────────────────────
 
 /// Something the user can pick, with its name to show and what it means.
@@ -42,17 +75,20 @@ fn all_brokers() -> Vec<Broker> {
 pub struct Choice<T> {
     pub value: T,
     pub name: String,
+    /// Its English name, shown beside the Hebrew one in Hebrew.
+    pub english_name: String,
     pub explanation: String,
     /// What Israeli brokers call it: "קרן סל".
     pub hebrew_names: Vec<String>,
 }
 
-impl<T: Copy + Explained> From<T> for Choice<T> {
-    fn from(value: T) -> Self {
+impl<T: Explained> Choice<T> {
+    fn new(value: T, lang: Lang) -> Self {
         Choice {
             value,
-            name: value.to_string(),
-            explanation: value.explanation().to_owned(),
+            name: value.name(lang).to_owned(),
+            english_name: value.name(Lang::En).to_owned(),
+            explanation: value.explanation(lang).to_owned(),
             hebrew_names: value
                 .hebrew_names()
                 .iter()
@@ -66,7 +102,7 @@ impl<T: Copy + Explained> From<T> for Choice<T> {
 #[wasm_bindgen]
 pub fn securities() -> Result<Vec<Ts<Choice<Security>>>, JsError> {
     Security::iter()
-        .map(|security| Ok(Choice::from(security).into_ts()?))
+        .map(|security| Ok(Choice::new(security, lang()).into_ts()?))
         .collect()
 }
 
@@ -74,7 +110,7 @@ pub fn securities() -> Result<Vec<Ts<Choice<Security>>>, JsError> {
 #[wasm_bindgen]
 pub fn exchanges() -> Result<Vec<Ts<Choice<Exchange>>>, JsError> {
     Exchange::iter()
-        .map(|exchange| Ok(Choice::from(exchange).into_ts()?))
+        .map(|exchange| Ok(Choice::new(exchange, lang()).into_ts()?))
         .collect()
 }
 
@@ -84,6 +120,7 @@ pub fn exchanges() -> Result<Vec<Ts<Choice<Exchange>>>, JsError> {
 pub struct FeeKindChoice {
     pub value: FeeKind,
     pub name: String,
+    pub english_name: String,
     /// "by standing order", under "Buy or sell".
     pub label: String,
     pub explanation: String,
@@ -98,13 +135,15 @@ pub fn fee_kinds() -> Result<Vec<Ts<FeeKindChoice>>, JsError> {
             let Choice {
                 value,
                 name,
+                english_name,
                 explanation,
                 hebrew_names,
-            } = Choice::from(kind);
-            let label = kind.label().to_owned();
+            } = Choice::new(kind, lang());
+            let label = kind.label(lang()).to_owned();
             Ok(FeeKindChoice {
                 value,
                 name,
+                english_name,
                 label,
                 explanation,
                 hebrew_names,
@@ -121,8 +160,13 @@ pub fn fee_kinds() -> Result<Vec<Ts<FeeKindChoice>>, JsError> {
 #[serde(rename_all = "camelCase")]
 pub struct BrokerInfo {
     pub name: String,
+    /// The English name, which saved copies of its plans name it by.
+    pub english_name: String,
     /// "Leumi", beside a plan's name where plan names repeat: "Leumi · Online".
     pub short_name: String,
+    /// The English short name, for links, which name plans the same in
+    /// every language.
+    pub english_short_name: String,
     /// Which of `plans` a new customer usually gets, compared at first.
     pub new_customer_plan: usize,
     pub description: String,
@@ -141,24 +185,26 @@ pub struct BrokerInfo {
     pub plans: Vec<PlanInfo>,
 }
 
-impl From<&Broker> for BrokerInfo {
-    fn from(broker: &Broker) -> Self {
+impl BrokerInfo {
+    fn new(broker: &Broker, lang: Lang) -> Self {
         BrokerInfo {
-            name: broker.name.clone(),
-            short_name: broker.short_name.clone(),
+            name: broker.name[lang].to_owned(),
+            english_name: broker.name.en.to_string(),
+            short_name: broker.short_name[lang].to_owned(),
+            english_short_name: broker.short_name.en.to_string(),
             new_customer_plan: broker.new_customer_plan,
-            description: broker.description.clone(),
-            usual_plan: broker.usual_plan_text(),
-            tariff_date: broker.tariff_date_text().to_string(),
-            checked: Broker::checked_text(),
+            description: broker.description[lang].to_owned(),
+            usual_plan: broker.usual_plan_text(lang),
+            tariff_date: broker.tariff_date_text(lang),
+            checked: Broker::checked_text(lang),
             source_url: broker.source_url.clone(),
-            sources: broker.sources(),
+            sources: broker.sources(lang),
             plans: broker
                 .plans
                 .iter()
                 .map(|plan| PlanInfo {
-                    sources: broker.sources_for(plan),
-                    ..PlanInfo::from(plan)
+                    sources: broker.sources_for(plan, lang),
+                    ..PlanInfo::new(plan, lang)
                 })
                 .collect(),
         }
@@ -169,6 +215,9 @@ impl From<&Broker> for BrokerInfo {
 #[serde(rename_all = "camelCase")]
 pub struct PlanInfo {
     pub name: String,
+    /// The English name, for links, which name plans the same in every
+    /// language.
+    pub english_name: String,
     pub description: String,
     /// Every row of the plan's tariff, in words.
     pub tariff: TariffInfo,
@@ -177,19 +226,20 @@ pub struct PlanInfo {
     pub sources: Vec<Source>,
 }
 
-impl From<&Plan> for PlanInfo {
-    fn from(plan: &Plan) -> Self {
+impl PlanInfo {
+    fn new(plan: &Plan, lang: Lang) -> Self {
         let trade_rows = |rows: &[TradeFee]| {
             rows.iter()
                 .map(|row| TariffRow {
-                    covers: row.coverage().to_string(),
-                    price: row.price.price_text(),
+                    covers: row.coverage(lang),
+                    price: row.price.price_text(lang),
                 })
                 .collect()
         };
         PlanInfo {
-            name: plan.name.clone(),
-            description: plan.description.clone(),
+            name: plan.name[lang].to_owned(),
+            english_name: plan.name.en.to_string(),
+            description: plan.description[lang].to_owned(),
             // Filled in by the broker, which knows its tariff and its caveats.
             sources: vec![],
             tariff: TariffInfo {
@@ -198,7 +248,8 @@ impl From<&Plan> for PlanInfo {
                     .tracks
                     .iter()
                     .map(|track| TrackInfo {
-                        name: track.name.clone(),
+                        name: track.name[lang].to_owned(),
+                        english_name: track.name.en.to_string(),
                         trading: trade_rows(&track.trading),
                     })
                     .collect(),
@@ -207,19 +258,23 @@ impl From<&Plan> for PlanInfo {
                     .custody
                     .iter()
                     .map(|row| TariffRow {
-                        covers: row.coverage().to_string(),
-                        price: row.price_text(),
+                        covers: row.coverage(lang),
+                        price: row.price_text(lang),
                     })
                     .collect(),
-                handling: plan.handling.map(|fee| fee.price_text()),
-                conversion: plan.conversion.price_text(),
-                second_conversion: plan.conversion.or_if_less.map(|fee| fee.price_text()),
+                handling: plan.handling.map(|fee| fee.price_text(lang)),
+                conversion: plan.conversion.price_text(lang),
+                second_conversion: plan.conversion.or_if_less.map(|fee| fee.price_text(lang)),
                 standing_order_conversion: plan
                     .standing_order_conversion
                     .as_ref()
-                    .map(Priced::price_text),
-                markup: plan.conversion.markup.price_text(),
-                fractions_on: plan.fractions_on.iter().map(ToString::to_string).collect(),
+                    .map(|fee| fee.price_text(lang)),
+                markup: plan.conversion.markup.price_text(lang),
+                fractions_on: plan
+                    .fractions_on
+                    .iter()
+                    .map(|exchange| exchange.name(lang).to_owned())
+                    .collect(),
             },
         }
     }
@@ -253,6 +308,8 @@ pub struct TariffInfo {
 #[serde(rename_all = "camelCase")]
 pub struct TrackInfo {
     pub name: String,
+    /// The English name, which a copy made on the track is saved with.
+    pub english_name: String,
     pub trading: Vec<TariffRow>,
 }
 
@@ -270,7 +327,7 @@ pub struct TariffRow {
 pub fn brokers() -> Result<Vec<Ts<BrokerInfo>>, JsError> {
     all_brokers()
         .iter()
-        .map(|broker| Ok(BrokerInfo::from(broker).into_ts()?))
+        .map(|broker| Ok(BrokerInfo::new(broker, lang()).into_ts()?))
         .collect()
 }
 
@@ -336,7 +393,7 @@ pub fn fees_for(
         .ok_or_else(|| JsError::new("no such plan"))?;
     let (buying, rates) = purchase.to_rust()?.buying();
     Ok(broker
-        .describe_fees_for(plan, buying, track, &rates)
+        .describe_fees_for(plan, buying, track, &rates, lang())
         .into_ts()?)
 }
 
@@ -353,7 +410,7 @@ pub fn broker_caveats(
         .ok_or_else(|| JsError::new("no such broker"))?;
     let (buying, rates) = purchase.to_rust()?.buying();
     broker
-        .caveats_for(buying, &rates)
+        .caveats_for(buying, &rates, lang())
         .into_iter()
         .map(|group| Ok(group.into_ts()?))
         .collect()
@@ -363,13 +420,17 @@ pub fn broker_caveats(
 /// counted, and the sources.
 #[wasm_bindgen]
 pub fn about() -> Result<Ts<About>, JsError> {
-    Ok(describe::about().into_ts()?)
+    Ok(describe::about(lang()).into_ts()?)
 }
 
 /// "an ETF bought in the USA"
 #[wasm_bindgen(js_name = purchasePhrase)]
 pub fn purchase_phrase(security: Ts<Security>, exchange: Ts<Exchange>) -> Result<String, JsError> {
-    Ok(describe::purchase(security.to_rust()?, exchange.to_rust()?).to_string())
+    Ok(describe::purchase(
+        security.to_rust()?,
+        exchange.to_rust()?,
+        lang(),
+    ))
 }
 
 // ─────────────────────────── Comparing plans ───────────────────────────
@@ -422,21 +483,112 @@ pub struct YourPlanInput {
     pub plan: PlanData,
 }
 
-/// Inputs the simulation can't run with. Each holds what's wrong, in words.
+/// A field of the inputs, to name in an error: "the one-time deposit".
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Field {
+    FirstDeposit,
+    MonthlyDeposit,
+    DepositGrowth,
+    YearlyReturn,
+    SharePrice,
+    Inflation,
+    UsdRate,
+    EurRate,
+}
+
+impl Named for Field {
+    fn name(self, lang: Lang) -> &'static str {
+        match self {
+            Field::FirstDeposit => lang.pick("the one-time deposit", "ההפקדה החד-פעמית"),
+            Field::MonthlyDeposit => lang.pick("the monthly deposit", "ההפקדה החודשית"),
+            Field::DepositGrowth => {
+                lang.pick("the deposits' yearly growth", "הגידול השנתי של ההפקדות")
+            }
+            Field::YearlyReturn => lang.pick("the yearly return", "התשואה השנתית"),
+            Field::SharePrice => lang.pick("the share price", "מחיר המניה"),
+            Field::Inflation => lang.pick("the inflation", "האינפלציה"),
+            Field::UsdRate => lang.pick("the dollar's rate", "שער הדולר"),
+            Field::EurRate => lang.pick("the euro's rate", "שער האירו"),
+        }
+    }
+}
+
+/// A problem with the inputs that isn't about one field's number.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Problem {
+    NoSuchPlan,
+    NoYears,
+    NeverBuys,
+    SharePriceZero,
+    InflationTooLow,
+    RatesNotPositive,
+}
+
+impl Named for Problem {
+    fn name(self, lang: Lang) -> &'static str {
+        match self {
+            Problem::NoSuchPlan => lang.pick("there's no such plan", "אין מסלול כזה"),
+            Problem::NoYears => lang.pick("invest for at least a year", "השקיעו לפחות שנה אחת"),
+            Problem::NeverBuys => {
+                lang.pick("buy at least every 12 months", "קנו לפחות פעם ב-12 חודשים")
+            }
+            Problem::SharePriceZero => lang.pick(
+                "the share price must be more than 0",
+                "מחיר המניה חייב להיות גדול מ-0",
+            ),
+            Problem::InflationTooLow => lang.pick(
+                "inflation can't be −100% or below",
+                "האינפלציה לא יכולה להיות −100% או פחות",
+            ),
+            Problem::RatesNotPositive => lang.pick(
+                "exchange rates must be more than 0",
+                "שערי החליפין חייבים להיות גדולים מ-0",
+            ),
+        }
+    }
+}
+
+/// Inputs the simulation can't run with. Each holds what's wrong; its
+/// `Display` says so in English, and [`InvalidInputs::text`] in the app's
+/// language.
 #[derive(Debug, PartialEq, thiserror::Error)]
 pub enum InvalidInputs {
     /// An empty field: "the one-time deposit".
-    #[error("fill in {0}")]
-    Missing(&'static str),
+    #[error("fill in {}", .0.name(Lang::En))]
+    Missing(Field),
     /// A negative amount: "the one-time deposit".
-    #[error("{0} can't be negative")]
-    Negative(&'static str),
+    #[error("{} can't be negative", .0.name(Lang::En))]
+    Negative(Field),
     /// Any other problem: "invest for at least a year".
-    #[error("{0}")]
-    Other(&'static str),
+    #[error("{}", .0.name(Lang::En))]
+    Other(Problem),
     /// Numbers the simulation can't handle: "the yearly return can't be below −100%".
     #[error(transparent)]
     Scenario(#[from] InvalidScenario),
+}
+
+impl InvalidInputs {
+    /// What's wrong, in `lang`.
+    fn text(&self, lang: Lang) -> String {
+        match self {
+            InvalidInputs::Missing(field) => {
+                let field = field.name(lang);
+                match lang {
+                    Lang::En => format!("fill in {field}"),
+                    Lang::He => format!("מלאו את {field}"),
+                }
+            }
+            InvalidInputs::Negative(field) => {
+                let field = field.name(lang);
+                match lang {
+                    Lang::En => format!("{field} can't be negative"),
+                    Lang::He => format!("אי אפשר להזין ערך שלילי ב{field}"),
+                }
+            }
+            InvalidInputs::Other(problem) => problem.name(lang).to_owned(),
+            InvalidInputs::Scenario(error) => error.text(lang).to_owned(),
+        }
+    }
 }
 
 /// The plans `inputs` compares, in its order.
@@ -458,17 +610,17 @@ fn chosen_plans<'a>(
                 .map(|yours| &yours.plan.0),
         })
         .collect::<Option<Vec<&Plan>>>()
-        .ok_or(InvalidInputs::Other("there's no such plan"))
+        .ok_or(InvalidInputs::Other(Problem::NoSuchPlan))
 }
 
 /// What `inputs` describes, checked. The share price is needed only if it
 /// matters on one of `plans`: otherwise its field is hidden.
 fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs> {
     if inputs.years == 0 {
-        return Err(InvalidInputs::Other("invest for at least a year"));
+        return Err(InvalidInputs::Other(Problem::NoYears));
     }
     if inputs.buy_every_months == 0 {
-        return Err(InvalidInputs::Other("buy at least every 12 months"));
+        return Err(InvalidInputs::Other(Problem::NeverBuys));
     }
     let amount = |value, what| {
         let amount = filled_in(value, what)?;
@@ -478,9 +630,9 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
         Ok(amount)
     };
     let share_price = if simulation::share_price_matters(inputs.security, inputs.exchange, plans) {
-        let share_price = amount(inputs.share_price, "the share price")?;
+        let share_price = amount(inputs.share_price, Field::SharePrice)?;
         if share_price.is_zero() {
-            return Err(InvalidInputs::Other("the share price must be more than 0"));
+            return Err(InvalidInputs::Other(Problem::SharePriceZero));
         }
         share_price
     } else {
@@ -489,15 +641,15 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
     let scenario = Scenario {
         security: inputs.security,
         exchange: inputs.exchange,
-        first_deposit: amount(inputs.first_deposit, "the one-time deposit")?,
-        monthly_deposit: amount(inputs.monthly_deposit, "the monthly deposit")?,
+        first_deposit: amount(inputs.first_deposit, Field::FirstDeposit)?,
+        monthly_deposit: amount(inputs.monthly_deposit, Field::MonthlyDeposit)?,
         deposit_growth: Percent(filled_in(
             inputs.deposit_growth_percent,
-            "the deposits' yearly growth",
+            Field::DepositGrowth,
         )?),
         yearly_return: Percent(filled_in(
             inputs.yearly_return_percent,
-            "the yearly return",
+            Field::YearlyReturn,
         )?),
         years: inputs.years,
         buy_every_months: inputs.buy_every_months,
@@ -510,19 +662,19 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
 
 /// The inflation to take off, checked: prices can't fall to nothing.
 fn inflation(inputs: &Inputs) -> Result<Percent, InvalidInputs> {
-    let inflation = filled_in(inputs.inflation_percent, "the inflation")?;
+    let inflation = filled_in(inputs.inflation_percent, Field::Inflation)?;
     if inflation <= -Decimal::ONE_HUNDRED {
-        return Err(InvalidInputs::Other("inflation can't be −100% or below"));
+        return Err(InvalidInputs::Other(Problem::InflationTooLow));
     }
     Ok(Percent(inflation))
 }
 
 fn exchange_rates(inputs: &Inputs) -> Result<ExchangeRates, InvalidInputs> {
     ExchangeRates::new(
-        filled_in(inputs.ils_per_usd, "the dollar's rate")?,
-        filled_in(inputs.ils_per_eur, "the euro's rate")?,
+        filled_in(inputs.ils_per_usd, Field::UsdRate)?,
+        filled_in(inputs.ils_per_eur, Field::EurRate)?,
     )
-    .map_err(|_| InvalidInputs::Other("exchange rates must be more than 0"))
+    .map_err(|_| InvalidInputs::Other(Problem::RatesNotPositive))
 }
 
 /// A plan: a listed one, by the positions of its broker in [`brokers`] and
@@ -647,7 +799,9 @@ impl From<&Fees> for FeeAmounts {
 /// Simulates the chosen plans for `inputs` and ranks them.
 #[wasm_bindgen]
 pub fn compare(inputs: Ts<Inputs>) -> Result<Ts<ComparisonData>, JsError> {
-    Ok(compare_plans(&inputs.to_rust()?)?.into_ts()?)
+    Ok(compare_plans(&inputs.to_rust()?)
+        .map_err(invalid)?
+        .into_ts()?)
 }
 
 pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
@@ -683,13 +837,14 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                 let plan = plans[compared.index];
                 let key = &inputs.plans[compared.index];
                 let outcome = compared.outcome.as_ref();
-                let fees_warning = || outcome.and_then(|outcome| outcome.warning(deposited));
+                let fees_warning =
+                    || outcome.and_then(|outcome| outcome.warning(deposited, lang()));
                 let track = outcome.and_then(|outcome| outcome.track);
                 // Only a listed plan has caveats; the user's own are their
                 // own claim.
                 let may_cost_more = match key {
                     PlanKey::Listed { broker, .. } => {
-                        brokers[*broker].may_cost_more(plan, buying, &rates)
+                        brokers[*broker].may_cost_more(plan, buying, &rates, lang())
                     }
                     PlanKey::Yours { .. } => None,
                 };
@@ -698,16 +853,23 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                     outcome: outcome.map(|outcome| OutcomeData::compared_to(outcome, no_fees)),
                     track,
                     warning: plan
-                        .first_deposit_warning(ils(scenario.first_deposit))
+                        .first_deposit_warning(ils(scenario.first_deposit), lang())
                         .or_else(|| fees_warning().map(str::to_owned)),
                     may_cost_more,
-                    note: plan.track_note(security, exchange, track).or_else(|| {
-                        plan.standing_order_note(security, exchange, scenario.buy_every_months)
+                    note: plan
+                        .track_note(security, exchange, track, lang())
+                        .or_else(|| {
+                            plan.standing_order_note(
+                                security,
+                                exchange,
+                                scenario.buy_every_months,
+                                lang(),
+                            )
                             .map(str::to_owned)
-                    }),
+                        }),
                     not_offered: outcome
                         .is_none()
-                        .then(|| plan.not_offered_reason(security, exchange)),
+                        .then(|| plan.not_offered_reason(security, exchange, lang())),
                 }
             })
             .collect(),
@@ -741,7 +903,9 @@ pub struct PlanSweepData {
 /// be left at zero.
 #[wasm_bindgen]
 pub fn sweep(inputs: Ts<Inputs>, swept: Ts<Swept>) -> Result<Ts<SweepData>, JsError> {
-    Ok(sweep_plans(&inputs.to_rust()?, swept.to_rust()?)?.into_ts()?)
+    Ok(sweep_plans(&inputs.to_rust()?, swept.to_rust()?)
+        .map_err(invalid)?
+        .into_ts()?)
 }
 
 pub fn sweep_plans(inputs: &Inputs, swept: Swept) -> Result<SweepData, InvalidInputs> {
@@ -790,8 +954,8 @@ pub fn examples() -> Result<Vec<Ts<ExampleData>>, JsError> {
         .map(|example| {
             let scenario = example.scenario;
             Ok(ExampleData {
-                name: example.name.to_owned(),
-                explanation: example.explanation.to_owned(),
+                name: example.name[lang()].to_owned(),
+                explanation: example.explanation[lang()].to_owned(),
                 security: scenario.security,
                 exchange: scenario.exchange,
                 first_deposit: number(scenario.first_deposit),
@@ -811,7 +975,7 @@ pub fn examples() -> Result<Vec<Ts<ExampleData>>, JsError> {
 pub fn share_price_symbol(inputs: Ts<Inputs>) -> Result<Option<String>, JsError> {
     let inputs = inputs.to_rust()?;
     let brokers = all_brokers();
-    let plans = chosen_plans(&inputs, &brokers)?;
+    let plans = chosen_plans(&inputs, &brokers).map_err(invalid)?;
     let matters = simulation::share_price_matters(inputs.security, inputs.exchange, &plans);
     Ok(matters.then(|| inputs.exchange.currency().symbol.to_owned()))
 }
@@ -838,17 +1002,19 @@ pub struct Coverage {
 
 /// A choice in one of the editor's dropdowns: "per order".
 #[derive(Debug, Serialize, Tsify)]
-pub struct Named<T> {
+#[serde(rename = "Named")]
+pub struct NamedChoice<T> {
     pub value: T,
     pub name: String,
 }
 
-/// A period, as the editor names it: "quarter" (as in "a quarter"), and
-/// "quarterly" (as in "charged quarterly").
+/// A period, as the editor names it: "quarter", "a quarter" (after a
+/// minimum) and "quarterly" (as in "charged quarterly").
 #[derive(Debug, Serialize, Tsify)]
 pub struct PeriodName {
     pub value: Period,
     pub name: String,
+    pub each: String,
     pub adverb: String,
 }
 
@@ -866,7 +1032,7 @@ fn changed(
     change: impl FnOnce(&mut Plan) -> Result<(), InvalidFee>,
 ) -> Result<Ts<PlanData>, JsError> {
     let PlanData(mut plan) = plan.to_rust()?;
-    change(&mut plan)?;
+    change(&mut plan).map_err(|error| shown(error.text(lang())))?;
     Ok(PlanData(plan).into_ts()?)
 }
 
@@ -904,7 +1070,7 @@ pub fn new_plan(name: String) -> Result<Ts<PlanData>, JsError> {
 /// A plan of the user's own, as the table and dialogs show plans.
 #[wasm_bindgen(js_name = planInfo)]
 pub fn plan_info(plan: Ts<PlanData>) -> Result<Ts<PlanInfo>, JsError> {
-    Ok(PlanInfo::from(&plan.to_rust()?.0).into_ts()?)
+    Ok(PlanInfo::new(&plan.to_rust()?.0, lang()).into_ts()?)
 }
 
 /// Like [`fees_for`], for one of the user's own plans.
@@ -914,7 +1080,7 @@ pub fn fees_for_plan(plan: Ts<PlanData>, purchase: Ts<Purchase>) -> Result<Ts<Fe
     Ok(plan
         .to_rust()?
         .0
-        .describe_fees_for(buying, None, &[], &rates)
+        .describe_fees_for(buying, None, &[], &rates, lang())
         .into_ts()?)
 }
 
@@ -931,7 +1097,12 @@ pub fn simple_fees(
     Ok(plan
         .to_rust()?
         .0
-        .simple_fees(security.to_rust()?, exchange.to_rust()?, original.as_ref())
+        .simple_fees(
+            security.to_rust()?,
+            exchange.to_rust()?,
+            original.as_ref(),
+            lang(),
+        )
         .into_ts()?)
 }
 
@@ -942,7 +1113,11 @@ pub fn price_list(
     original: Option<Ts<PlanData>>,
 ) -> Result<Ts<PriceList>, JsError> {
     let original = self::original(original)?;
-    Ok(plan.to_rust()?.0.price_list(original.as_ref()).into_ts()?)
+    Ok(plan
+        .to_rust()?
+        .0
+        .price_list(original.as_ref(), lang())
+        .into_ts()?)
 }
 
 #[wasm_bindgen(js_name = setTrade)]
@@ -1135,11 +1310,11 @@ pub fn rename(plan: Ts<PlanData>, name: String) -> Result<Ts<PlanData>, JsError>
 
 /// The ways a trade's price can be stated, for the editor's dropdown.
 #[wasm_bindgen(js_name = priceKinds)]
-pub fn price_kinds() -> Result<Vec<Ts<Named<PriceKind>>>, JsError> {
+pub fn price_kinds() -> Result<Vec<Ts<NamedChoice<PriceKind>>>, JsError> {
     PriceKind::iter()
         .map(|value| {
-            let name = value.to_string();
-            Ok(Named { value, name }.into_ts()?)
+            let name = value.name(lang()).to_owned();
+            Ok(NamedChoice { value, name }.into_ts()?)
         })
         .collect()
 }
@@ -1149,10 +1324,15 @@ pub fn price_kinds() -> Result<Vec<Ts<Named<PriceKind>>>, JsError> {
 pub fn periods() -> Result<Vec<Ts<PeriodName>>, JsError> {
     Period::iter()
         .map(|value| {
-            let (name, adverb) = (value.to_string(), value.adverb().to_owned());
+            let (name, each, adverb) = (
+                value.name(lang()).to_owned(),
+                value.each(lang()).to_owned(),
+                value.adverb(lang()).to_owned(),
+            );
             Ok(PeriodName {
                 value,
                 name,
+                each,
                 adverb,
             }
             .into_ts()?)
@@ -1167,7 +1347,7 @@ fn number(value: Decimal) -> f64 {
 /// Inputs come as numbers; four decimal places are plenty for money and rates.
 /// `None` for NaN and infinities.
 /// A field's number, or which field to fill in.
-fn filled_in(value: Option<f64>, what: &'static str) -> Result<Decimal, InvalidInputs> {
+fn filled_in(value: Option<f64>, what: Field) -> Result<Decimal, InvalidInputs> {
     value.and_then(decimal).ok_or(InvalidInputs::Missing(what))
 }
 
@@ -1260,7 +1440,7 @@ mod tests {
         assert!(matches!(with(|i| i.buy_every_months = 0), Some(Other(_))));
         assert_eq!(
             with(|i| i.monthly_deposit = Some(-5.0)),
-            Some(Negative("the monthly deposit"))
+            Some(Negative(Field::MonthlyDeposit))
         );
         assert!(matches!(
             with(|i| i.ils_per_usd = Some(0.0)),
@@ -1268,7 +1448,7 @@ mod tests {
         ));
         assert_eq!(
             with(|i| i.share_price = Some(f64::NAN)),
-            Some(Missing("the share price"))
+            Some(Missing(Field::SharePrice))
         );
         assert_eq!(
             with(|i| i.yearly_return_percent = None).map(|error| error.to_string()),
@@ -1347,7 +1527,7 @@ mod tests {
             .find(|p| p.key == full_tariff)
             .unwrap();
         let track = altshuler.track.expect("its tracks price US ETFs");
-        let name = &listed(0, 0).unwrap().tracks[track].name;
+        let name = &listed(0, 0).unwrap().tracks[track].name.en;
         assert_eq!(
             altshuler.note,
             Some(format!("US track: {name}, the cheapest for you"))
@@ -1398,7 +1578,7 @@ mod tests {
 
     #[test]
     fn broker_info_describes_every_plan() {
-        let leumi = BrokerInfo::from(&tariffs::leumi());
+        let leumi = BrokerInfo::new(&tariffs::leumi(), Lang::En);
         assert_eq!(leumi.tariff_date, "Tariff of 29/06/2026");
         assert_eq!(leumi.plans.len(), 4);
         assert_eq!(leumi.plans[0].tariff.trading.len(), 2);
@@ -1420,7 +1600,14 @@ mod tests {
 
     #[test]
     fn choices_have_display_names() {
-        let choice = Choice::from(Security::IndexFund);
+        let choice = Choice::new(Security::IndexFund, Lang::En);
         assert_eq!(choice.name, "Index fund");
+        let hebrew = Choice::new(Security::IndexFund, Lang::He);
+        assert_eq!(hebrew.name, "קרן מחקה");
+        assert_eq!(hebrew.english_name, "Index fund");
+        assert_eq!(
+            BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
+            "תעריפון מ-29/06/2026"
+        );
     }
 }

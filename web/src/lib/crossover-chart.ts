@@ -7,6 +7,7 @@ import type { LineSeriesOption } from 'echarts/charts'
 import type { Swept } from './core/core'
 import type { ChartOption } from './echarts.svelte'
 import { compactPercent, compactShekels, percent, readableOn, shekels } from './format'
+import { t } from './text'
 
 // The page's colors (see app.css).
 const WEAK = '#8e95a5'
@@ -42,7 +43,7 @@ export interface CrossoverView {
 
 /** "₪2,000 a month", "₪200,000 at once" */
 export const depositText = (amount: number, swept: Swept): string =>
-  `${shekels(amount)} ${swept === 'Monthly' ? 'a month' : 'at once'}`
+  `${shekels(amount)} ${swept === 'Monthly' ? t.aMonth : t.atOnce}`
 
 const compactLabel = ({ value }: { value: unknown }) => percent((value as number[])[1])
 
@@ -99,7 +100,7 @@ export function crossoverOption(view: CrossoverView): ChartOption {
   if (yours !== null) {
     series.push({
       id: YOURS,
-      name: 'Your deposit',
+      name: t.yourDeposit,
       type: 'line',
       data: [],
       silent: true,
@@ -109,7 +110,7 @@ export function crossoverOption(view: CrossoverView): ChartOption {
         animation: false,
         data: [{ xAxis: yours }],
         lineStyle: { type: 'dashed', color: WEAK, width: 1.5 },
-        label: { formatter: `You: ${depositText(yours, view.swept)}`, position: 'insideEndTop', color: WEAK },
+        label: { formatter: t.you(depositText(yours, view.swept)), position: 'insideEndTop', color: WEAK },
       },
     })
   }
@@ -120,7 +121,7 @@ export function crossoverOption(view: CrossoverView): ChartOption {
       logBase: 10,
       min: Math.min(first, yours ?? first),
       max: Math.max(last, yours ?? last),
-      name: view.swept === 'Monthly' ? 'Deposit a month' : 'One-time deposit',
+      name: view.swept === 'Monthly' ? t.depositAMonth : t.oneTimeDeposit,
       nameLocation: 'middle',
       nameGap: 28,
       nameTextStyle: { color: WEAK },
@@ -133,7 +134,7 @@ export function crossoverOption(view: CrossoverView): ChartOption {
     yAxis: {
       type: 'log',
       logBase: 10,
-      name: 'Yearly cost',
+      name: t.yearlyCost,
       nameTextStyle: { color: WEAK, align: 'left' },
       axisLabel: { formatter: compactPercent, color: WEAK },
       splitLine: { lineStyle: { color: GRID } },

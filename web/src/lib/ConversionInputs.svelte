@@ -4,6 +4,7 @@
   import HebrewNames from './HebrewNames.svelte'
   import NumberField from './NumberField.svelte'
   import Tip from './Tip.svelte'
+  import { t } from './text'
 
   /** Conversion's fields, one per line: the listed fee, and the markup, the
    * other half of what converting costs. `full` adds the maximum. A second
@@ -32,7 +33,7 @@
 </script>
 
 <div class="fields">
-  <label class="label" for="{id}-percent">Fee</label>
+  <label class="label" for="{id}-percent">{t.fee}</label>
   <div class="control">
     <div class="number">
       <NumberField
@@ -46,7 +47,7 @@
       />
     </div>
   </div>
-  <label class="label" for="{id}-min">Min</label>
+  <label class="label" for="{id}-min">{t.min}</label>
   <div class="control">
     <div class="number">
       <NumberField
@@ -58,7 +59,7 @@
     </div>
   </div>
   {#if full}
-    <label class="label" for="{id}-max">Max</label>
+    <label class="label" for="{id}-max">{t.max}</label>
     <div class="control">
       <div class="number">
         <NumberField
@@ -72,7 +73,7 @@
   {/if}
   {#if markup && onmarkupchange}
     <span class="label"
-      ><label for="{id}-markup">Markup</label><Tip about={markupKind.name}>
+      ><label for="{id}-markup">{t.markup}</label><Tip about={markupKind.name}>
         <HebrewNames names={markupKind.hebrewNames} />
         <p>{markupKind.explanation}</p>
       </Tip></span
@@ -87,7 +88,7 @@
           prefix={perDollar ? '₪' : ''}
           suffix={perDollar ? '' : '%'}
           step={0.01}
-          placeholder="not published"
+          placeholder={t.notPublished}
           bind:value={
             () => (perDollar ? markup.perDollar : markup.percent) ?? null,
             (amount) =>
@@ -109,10 +110,10 @@
               : { percent: undefined },
           )}
       >
-        <option value="percent">percent</option>
-        <option value="perDollar">per dollar</option>
+        <option value="percent">{t.markupPercent}</option>
+        <option value="perDollar">{t.markupPerDollar}</option>
       </select>
-      {#if !perDollar && markup.percent === undefined}<span>counted as 0</span>{/if}
+      {#if !perDollar && markup.percent === undefined}<span>{t.countedAs0}</span>{/if}
     </div>
   {/if}
 </div>

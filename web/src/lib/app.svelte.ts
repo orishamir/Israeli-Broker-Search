@@ -21,6 +21,7 @@ import type {
 import { encode, type Shared } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
 import { load, save } from './saved'
+import { t } from './text'
 
 /** Chosen to differ as much as they can on the dark background, with color
  * blindness too: the first 8 clearly, the rest less so, as 14 colors can't
@@ -69,6 +70,9 @@ export interface Plan {
   /** Its name with its broker's, where the subtitle isn't beside it: plan
    * names repeat across brokers. "Meitav · Typical offer". */
   label: string
+  /** The label in English, the same in every language: how links name
+   * listed plans. */
+  englishLabel: string
   /** A listed plan's broker. */
   broker?: BrokerInfo
   /** One of the user's own. */
@@ -167,6 +171,7 @@ export class AppState {
         id: planId({ kind: 'listed', broker: brokerIndex, plan: planIndex }),
         subtitle: broker.name,
         label: `${broker.shortName} · ${info.name}`,
+        englishLabel: `${broker.englishShortName} · ${info.englishName}`,
       })),
     )
     return plans.map((plan) => withColor(plan, () => this.colorOf(plan.id)))
@@ -189,15 +194,16 @@ export class AppState {
           id,
           info,
           subtitle: original
-            ? `Your deal · ${original.subtitle}`
+            ? t.yourDeal(original.subtitle)
             : brokerName
-              ? `${brokerName} · your own`
-              : 'Your own',
+              ? t.brokerYourOwn(brokerName)
+              : t.yourOwn,
           label: original
             ? `${original.broker!.shortName} · ${info.name}`
             : brokerName
               ? `${brokerName} · ${info.name}`
               : info.name,
+          englishLabel: info.name,
           yours,
           original,
         },
@@ -306,15 +312,20 @@ export class AppState {
   /** The listed plan `yours` is a copy of, if it's still listed. */
   originalOf(yours: YourPlan): Plan | undefined {
     const { basedOn } = yours
+    // Named in English, the same in every language.
     return basedOn
-      ? this.listedPlans.find((plan) => plan.subtitle === basedOn.broker && plan.info.name === basedOn.plan)
+      ? this.listedPlans.find(
+          (plan) => plan.broker!.englishName === basedOn.broker && plan.info.englishName === basedOn.plan,
+        )
       : undefined
   }
 
   /** The position of the track `yours` was copied on, in its original's
    * tracks; none if it wasn't on one, or the track is gone. */
   originalTrack(yours: YourPlan, original: Plan): number | undefined {
-    const track = original.info.tariff.tracks.findIndex(({ name }) => name === yours.basedOn?.track)
+    const track = original.info.tariff.tracks.findIndex(
+      ({ englishName }) => englishName === yours.basedOn?.track,
+    )
     return track === -1 ? undefined : track
   }
 
@@ -330,7 +341,11 @@ export class AppState {
         id: crypto.randomUUID(),
         plan: core.copyOf(plan.key.broker, plan.key.plan, track),
         brokerName: broker,
-        basedOn: { broker, plan: plan.info.name, track: plan.info.tariff.tracks[track ?? 0]?.name },
+        basedOn: {
+          broker: plan.broker!.englishName,
+          plan: plan.info.englishName,
+          track: plan.info.tariff.tracks[track ?? 0]?.englishName,
+        },
       },
     }
   }
@@ -339,8 +354,8 @@ export class AppState {
    * "Your plan", or "Your plan 2" if that's taken, and so on. */
   draftNewPlan() {
     const names = this.plans.map((plan) => plan.info.name)
-    let name = 'Your plan'
-    for (let count = 2; names.includes(name); count++) name = `Your plan ${count}`
+    let name = t.yourPlan
+    for (let count = 2; names.includes(name); count++) name = t.yourPlanNumbered(count)
     this.details = {
       kind: 'draft',
       draft: { id: crypto.randomUUID(), plan: core.newPlan(name), brokerName: null, basedOn: null },
@@ -472,7 +487,7 @@ export class AppState {
       years: this.years,
       buyEveryMonths: this.buyEveryMonths,
       sharePrice: this.sharePrice ?? undefined,
-      plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.label),
+      plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.englishLabel),
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
     }
     // The expert inputs only when they'd change something.
@@ -518,7 +533,7 @@ export class AppState {
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
       const ids = new Set(yours.map(({ id }) => planId({ kind: 'yours', id })))
       for (const plan of this.plans) {
-        if ((plan.key.kind === 'listed' && labels.has(plan.label)) || ids.has(plan.id))
+        if ((plan.key.kind === 'listed' && labels.has(plan.englishLabel)) || ids.has(plan.id))
           this.selected.add(plan.id)
       }
     }

@@ -19,6 +19,7 @@
   import type { AppState } from './app.svelte'
   import FeesForInputs from './FeesForInputs.svelte'
   import { duration } from './motion'
+  import { t } from './text'
 
   let { app, preview }: { app: AppState; preview: Preview | null } = $props()
 </script>
@@ -41,9 +42,7 @@
     {#if plan.info.description}<p>{plan.info.description}</p>{/if}
     <FeesForInputs {app} {plan} tips={false} />
     <p class="hint">
-      {plan.yours
-        ? '✎ changes its fees'
-        : 'ℹ shows the full details and caveats · ✎ changes a copy of its fees'}
+      {plan.yours ? t.previewHintYours : t.previewHint}
     </p>
   </div>
 {/if}
@@ -54,7 +53,7 @@
     z-index: 10;
     width: 360px;
     max-width: 360px;
-    border-left: 3px solid var(--plan-color);
+    border-inline-start: 3px solid var(--plan-color);
     pointer-events: none;
     transition:
       top 180ms ease-out,
@@ -66,7 +65,7 @@
     }
   }
   .broker-of {
-    margin-left: 6px;
+    margin-inline-start: 6px;
     color: var(--weak);
     font-size: 0.8rem;
   }

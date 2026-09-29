@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppState } from './app.svelte'
   import PlanPreview, { previewBeside, type Preview } from './PlanPreview.svelte'
+  import { t } from './text'
 
   /** The user's own plans, to tick for comparing and to open in the editor. */
   let { app }: { app: AppState } = $props()
@@ -11,7 +12,7 @@
 
 {#if plans.length === 0}
   <p class="empty">
-    Think you can get lower fees, or use a broker that isn't listed? ✎ on a plan changes a copy of it.
+    {t.thinkLowerFees}
   </p>
 {:else}
   <ul>
@@ -38,22 +39,20 @@
           <span class="names">
             <span>{plan.info.name}</span>
             <span class="subtitle">
-              {plan.original
-                ? `Copy of ${plan.original.info.name} · ${plan.original.subtitle}`
-                : plan.subtitle}
+              {plan.original ? t.copyOf(plan.original.info.name, plan.original.subtitle) : plan.subtitle}
             </span>
           </span>
         </label>
         <button
           class="icon-button"
-          aria-label="Change {plan.info.name}"
+          aria-label={t.change(plan.info.name)}
           onclick={() => (app.details = { kind: 'plan', plan })}>✎</button
         >
       </li>
     {/each}
   </ul>
 {/if}
-<button class="add" onclick={() => app.draftNewPlan()}>+ New plan</button>
+<button class="add" onclick={() => app.draftNewPlan()}>{t.newPlan}</button>
 
 <PlanPreview {app} {preview} />
 

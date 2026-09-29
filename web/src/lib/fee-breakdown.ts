@@ -6,6 +6,7 @@ import type { BarSeriesOption } from 'echarts/charts'
 import type { FeeAmounts } from './core/core'
 import type { ChartOption } from './echarts.svelte'
 import { compactShekels, readableOn, shekels } from './format'
+import { t } from './text'
 
 export type FeeType = Exclude<keyof FeeAmounts, 'total'>
 
@@ -16,31 +17,11 @@ export type Focus = 'all' | FeeType
  * for color blindness in this order, where each differs from its
  * neighbors; not every pair differs, so a focused fee fades the others. */
 export const FEE_TYPES: { key: FeeType; name: string; color: string; explanation: string }[] = [
-  {
-    key: 'purchases',
-    name: 'Purchases',
-    color: '#3987e5',
-    explanation: 'The trade fee on every purchase.',
-  },
-  {
-    key: 'conversions',
-    name: 'Conversions',
-    color: '#d95926',
-    explanation: "Converting shekels to the security's currency: the fee and the markup.",
-  },
-  { key: 'custody', name: 'Custody', color: '#199e70', explanation: 'Charged for holding the securities.' },
-  {
-    key: 'handling',
-    name: 'Handling',
-    color: '#be55a9',
-    explanation: "The account's monthly fee, whatever it holds.",
-  },
-  {
-    key: 'selling',
-    name: 'Selling',
-    color: '#c98500',
-    explanation: 'Selling everything at the end, and converting back to shekels.',
-  },
+  { key: 'purchases', name: t.purchases, color: '#3987e5', explanation: t.purchasesTip },
+  { key: 'conversions', name: t.conversions, color: '#d95926', explanation: t.conversionsTip },
+  { key: 'custody', name: t.custody, color: '#199e70', explanation: t.custodyTip },
+  { key: 'handling', name: t.handling, color: '#be55a9', explanation: t.handlingTip },
+  { key: 'selling', name: t.selling, color: '#c98500', explanation: t.sellingTip },
 ]
 
 // The page's colors (see app.css).
@@ -238,7 +219,7 @@ export function overTimeOption(feesUpToYear: FeeAmounts[], focus: Focus): ChartO
     grid: { left: 4, right: 12, top: 12, bottom: 28 },
     xAxis: {
       type: 'value',
-      name: 'Years',
+      name: t.years,
       nameLocation: 'middle',
       nameGap: 24,
       nameTextStyle: { color: WEAK },
@@ -257,7 +238,7 @@ export function overTimeOption(feesUpToYear: FeeAmounts[], focus: Focus): ChartO
     tooltip: {
       trigger: 'axis',
       valueFormatter: (value) => shekels(value as number),
-      axisPointer: { label: { formatter: ({ value }) => `After ${value} years` } },
+      axisPointer: { label: { formatter: ({ value }) => t.after(Number(value), 0) } },
     },
     series: stacking(focus).map((type) => ({
       name: type.name,

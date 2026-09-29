@@ -5,11 +5,14 @@
   import type { OutcomeData } from './core/core'
   import { percent, shekels } from './format'
   import { duration, reducedMotion } from './motion'
+  import { t } from './text'
   import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
 
   interface Column {
+    /** The same in every language, for the fees column's link. */
+    key: 'yearly' | 'lost' | 'sold' | 'fees' | 'held'
     title: string
     explanation: string
     /** The cell's text for an outcome. */
@@ -22,38 +25,40 @@
    * today's money. */
   const columns: Column[] = $derived.by(() => {
     const selling = app.sellAtEnd
-    const money = app.inTodaysMoney
-      ? ' In today’s money: divided by how much prices will have risen by then.'
-      : ''
+    const money = app.inTodaysMoney ? t.inTodaysMoneyNote : ''
     const columns: Column[] = [
       {
-        title: 'Yearly cost',
-        explanation:
-          'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
+        key: 'yearly',
+        title: t.yearlyCost,
+        explanation: t.yearlyCostTip,
         text: (outcome) => percent(outcome.yearlyCostPercent),
       },
       {
-        title: 'Lost to fees',
-        explanation: `How much less you end up with${selling ? ', after selling,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.${money}`,
+        key: 'lost',
+        title: t.lostToFees,
+        explanation: t.lostToFeesTip(selling) + money,
         text: (outcome) => shekels(outcome.lostToFees),
       },
     ]
     if (selling) {
       columns.push({
-        title: 'Value if sold',
-        explanation: `What you'd get in shekels by selling everything at the end, after the sell fee and converting back. Before tax. Abroad, that's one more trade fee and one more conversion.${money}`,
+        key: 'sold',
+        title: t.valueIfSold,
+        explanation: t.valueIfSoldTip + money,
         text: (outcome) => shekels(outcome.afterSelling),
       })
     }
     columns.push(
       {
-        title: 'Fees paid',
-        explanation: `Every fee charged: purchases, conversions, custody, handling${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.${money}`,
+        key: 'fees',
+        title: t.feesPaid,
+        explanation: t.feesPaidTip(selling) + money,
         text: (outcome) => shekels(outcome.fees.total),
       },
       {
-        title: 'Value held',
-        explanation: `What the investment is worth at the end, without selling.${money}`,
+        key: 'held',
+        title: t.valueHeld,
+        explanation: t.valueHeldTip + money,
         text: (outcome) => shekels(outcome.held),
       },
     )
@@ -64,8 +69,8 @@
 <table>
   <thead>
     <tr>
-      <th class="rank"><span class="visually-hidden">Rank</span></th>
-      <th class="plan">Plan</th>
+      <th class="rank"><span class="visually-hidden">{t.rank}</span></th>
+      <th class="plan">{t.plan}</th>
       {#each columns as { title, explanation } (title)}
         <th class="amount">{title}<Tip about={title}>{explanation}</Tip></th>
       {/each}
@@ -102,11 +107,11 @@
         {#if outcome}
           {#each columns as column (column.title)}
             <td class="amount">
-              {#if column.title === 'Fees paid'}
+              {#if column.key === 'fees'}
                 <!-- Not also a click on the row, which would unpin it. -->
                 <button
                   class="link"
-                  aria-label="{plan.label} fees: {column.text(outcome)}, see what they went to"
+                  aria-label={t.feesLink(plan.label, column.text(outcome))}
                   onclick={(event) => {
                     event.stopPropagation()
                     app.showFees(plan.id)
@@ -125,7 +130,7 @@
           {/each}
         {:else}
           <td class="amount" colspan={columns.length}
-            >Not offered for {app.purchase}<Tip about="Not offered">{notOffered}</Tip></td
+            >{t.notOfferedFor(app.purchase)}<Tip about={t.notOffered}>{notOffered}</Tip></td
           >
         {/if}
       </tr>
@@ -142,7 +147,7 @@
   th,
   td {
     padding: 9px 10px;
-    text-align: left;
+    text-align: start;
     white-space: nowrap;
   }
   th {
@@ -186,13 +191,16 @@
   tbody tr.pinned td:first-child {
     box-shadow: inset 3px 0 var(--plan-color);
   }
+  :global(html[dir='rtl']) tbody tr.pinned td:first-child {
+    box-shadow: inset -3px 0 var(--plan-color);
+  }
   .rank {
     width: 1px;
-    padding-right: 0;
+    padding-inline-end: 0;
     color: var(--weak);
     font-size: 0.75rem;
     font-variant-numeric: tabular-nums;
-    text-align: right;
+    text-align: end;
   }
   .plan div {
     display: flex;
@@ -225,7 +233,7 @@
   @container (width < 760px) {
     .plan {
       position: sticky;
-      left: 0;
+      inset-inline-start: 0;
       z-index: 1;
       background: var(--row-background, var(--surface));
     }

@@ -12,6 +12,7 @@
   import Tip from './Tip.svelte'
   import TradeInputs from './TradeInputs.svelte'
   import Was from './Was.svelte'
+  import { t } from './text'
 
   /** The editor's full view: every row of the price list, for every
    * security and exchange. Where rows overlap, the more specific one counts;
@@ -46,7 +47,7 @@
     <button
       type="button"
       onclick={() => change('trading', (plan) => core.addTradeRow(plan, app.security, app.exchange))}
-      >+ Row</button
+      >{t.addRow}</button
     >
   </div>
   {#each list.trading as row, index (index)}
@@ -63,12 +64,12 @@
         <button
           type="button"
           class="icon-button"
-          aria-label="Remove the row for {row.covers}"
+          aria-label={t.removeRow(row.covers)}
           onclick={() => change('trading', (plan) => core.removeTradeRow(plan, index))}>✕</button
         >
       </div>
       {#if row.neverUsed}
-        <p class="note warning">⚠ Never used: more specific rows cover all of it.</p>
+        <p class="note warning">{t.neverUsed}</p>
       {:else if row.except}
         <p class="note">{row.except}</p>
       {/if}
@@ -92,7 +93,7 @@
       {#if errors[`trading-${index}`]}<p class="error">{errors[`trading-${index}`]}</p>{/if}
     </div>
   {:else}
-    <p class="note">Nothing can be bought: add a row.</p>
+    <p class="note">{t.nothingCanBeBought}</p>
   {/each}
   {#if errors.trading}<p class="error">{errors.trading}</p>{/if}
 </section>
@@ -117,7 +118,7 @@
           />
         </div>
         {#if row.neverUsed}
-          <p class="note warning">⚠ Never used: more specific rows cover all of it.</p>
+          <p class="note warning">{t.neverUsed}</p>
         {:else if row.except}
           <p class="note">{row.except}</p>
         {/if}
@@ -152,7 +153,7 @@
   <div class="section-heading">
     <h4><FeeName kind={custodyKind} /></h4>
     <button type="button" onclick={() => change('custody', (plan) => core.addCustodyRow(plan, app.exchange))}
-      >+ Row</button
+      >{t.addRow}</button
     >
   </div>
   {#each list.custody as row, index (index)}
@@ -169,12 +170,12 @@
         <button
           type="button"
           class="icon-button"
-          aria-label="Remove the custody row for {row.covers}"
+          aria-label={t.removeCustodyRow(row.covers)}
           onclick={() => change('custody', (plan) => core.removeCustodyRow(plan, index))}>✕</button
         >
       </div>
       {#if row.neverUsed}
-        <p class="note warning">⚠ Never used: more specific rows cover all of it.</p>
+        <p class="note warning">{t.neverUsed}</p>
       {:else if row.except}
         <p class="note">{row.except}</p>
       {/if}
@@ -197,7 +198,7 @@
       {#if errors[`custody-${index}`]}<p class="error">{errors[`custody-${index}`]}</p>{/if}
     </div>
   {:else}
-    <p class="note">No custody fee.</p>
+    <p class="note">{t.noCustodyFee}</p>
   {/each}
   {#if errors.custody}<p class="error">{errors.custody}</p>{/if}
 </section>
@@ -276,7 +277,7 @@
       <ConversionInputs
         fields={byStandingOrder.fields}
         currency={byStandingOrder.currency}
-        name="Conversion {standingOrderKind.label}"
+        name={t.conversionByStandingOrder(standingOrderKind.label)}
         full
         onchange={(fields) =>
           change('standingOrderConversion', (plan) => core.setStandingOrderConversion(plan, fields))}
@@ -297,13 +298,8 @@
 
 <section>
   <h4 id="{id}-fractions">
-    Fractions of a share<Tip about="Fractions of a share">
-      <p>
-        Stocks and ETFs abroad are bought in whole shares, unless the broker sells fractions: then all of each
-        deposit is invested, even when it's less than a share's price. At $500 a share, a ₪2,000 deposit buys
-        a share and a bit instead of one share with the rest waiting. A price per share counts a fraction as a
-        whole share.
-      </p>
+    {t.fractionsOfAShare}<Tip about={t.fractionsOfAShare}>
+      <p>{t.fractionsTipFull}</p>
     </Tip>
   </h4>
   <div class="choices-row" role="group" aria-labelledby="{id}-fractions">
@@ -326,8 +322,8 @@
 
 <section>
   <h4>
-    <label for="{id}-deposit">Least first deposit</label><Tip about="Least first deposit">
-      <p>The least the account can be opened with. The table warns when your one-time deposit is less.</p>
+    <label for="{id}-deposit">{t.leastFirstDeposit}</label><Tip about={t.leastFirstDeposit}>
+      <p>{t.leastFirstDepositTip}</p>
     </Tip>
   </h4>
   <div class="control">
@@ -335,7 +331,7 @@
       <NumberField
         id="{id}-deposit"
         prefix="₪"
-        placeholder="none"
+        placeholder={t.none}
         bind:value={
           () => list.minFirstDeposit ?? null,
           (amount) => change('deposit', (plan) => core.setMinFirstDeposit(plan, amount))

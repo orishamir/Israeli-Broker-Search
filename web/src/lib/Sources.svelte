@@ -1,9 +1,10 @@
 <script lang="ts">
   import type { Source } from './core/core'
+  import { t } from './text'
 
   /** Links to the pages a number rests on, small and last: "Sources: IBI's
    * currency FAQ ↗ · tradingil.co.il on conversion costs ↗". */
-  let { sources, label = 'Sources' }: { sources: Source[]; label?: string } = $props()
+  let { sources, label = t.sources }: { sources: Source[]; label?: string } = $props()
 </script>
 
 {#if sources.length > 0}
