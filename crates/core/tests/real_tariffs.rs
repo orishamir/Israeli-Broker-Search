@@ -596,6 +596,32 @@ fn leumi_plans_have_their_own_words_and_caveats() {
     );
 }
 
+/// A plan's description says what it is, who can join and on what terms;
+/// its prices are in the sections under it, filtered by what the user buys.
+/// So no percentages, cents or amounts small enough to be a fee: only the
+/// large ones of a condition ("at least ₪5,000", "up to ₪200,000").
+#[test]
+fn plan_descriptions_leave_prices_to_the_price_list() {
+    for broker in broker_fees::tariffs::all() {
+        for plan in &broker.plans {
+            for text in [&*plan.description.en, &*plan.description.he] {
+                let name = format!("{} · {}: {text}", broker.name.en, plan.name.en);
+                assert!(!text.contains(['%', '¢']), "{name}");
+                for (at, _) in text.match_indices(['₪', '$', '€']) {
+                    let digits: String = text[at..]
+                        .chars()
+                        .skip(1)
+                        .take_while(|c| c.is_ascii_digit() || *c == ',')
+                        .filter(char::is_ascii_digit)
+                        .collect();
+                    let amount: u64 = digits.parse().unwrap_or(0);
+                    assert!(digits.is_empty() || amount >= 1000, "{name}");
+                }
+            }
+        }
+    }
+}
+
 /// No broker or plan is left unexplained.
 #[test]
 fn every_broker_and_plan_is_described() {

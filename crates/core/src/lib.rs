@@ -564,7 +564,9 @@ pub struct Plan {
     /// Shown in comparisons, e.g. "Online" or "Full tariff".
     pub name: Text,
     /// What the plan is, in plain words, for someone who hasn't read the
-    /// tariff: who it's for and how it differs from the broker's other plans.
+    /// tariff: who it's for, on what terms, and how it differs from the
+    /// broker's other plans. Not its prices: the plan's details show those
+    /// under it, only the ones that apply to what the user buys.
     pub description: Text,
     /// The trade fee table. The first row that covers a trade is used.
     pub trading: Vec<TradeFee>,

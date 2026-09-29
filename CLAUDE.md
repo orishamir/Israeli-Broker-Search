@@ -61,6 +61,9 @@ quietly keep running the old core.
   `trade_row` doesn't see tracks; go through `simulate`, `on_track` or
   `describe_fees_for`.
 - Each broker's `new_customer_plan` is ticked at first.
+- A plan's `description` says what it is, who can join and on what terms,
+  never its prices: the details show those under it, filtered by what the
+  user buys (a test rejects percentages, cents and small amounts).
 - **Nothing is defaulted.** Every plan spells out all its fields, and the fee
   types have no `Default`: a forgotten fee would read as free, the same as a
   waived one. Say `ConversionFee::FREE` / `Markup::NONE` where that's meant,

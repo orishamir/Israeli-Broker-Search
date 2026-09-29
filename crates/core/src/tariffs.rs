@@ -380,10 +380,11 @@ pub fn altshuler() -> Broker {
     // which its fine print refers to.
     let new_customers = Plan {
         name: t("New customers", "לקוחות חדשים"),
-        description: t("Altshuler's offer for opening a new account with at least ₪5,000: \
-                      nothing for keeping the account, with no end date; Tel Aviv stocks, ETFs \
-                      and index funds for 0.07% (at least ₪2.90); and US stocks and ETFs for \
-                      1¢ a share (at least $6).", "מבצע ההצטרפות של אלטשולר לפתיחת חשבון חדש עם ₪5,000 לפחות: בלי דמי משמרת או דמי ניהול, ללא הגבלת זמן; מניות, קרנות סל וקרנות מחקות בתל אביב ב-0.07% (מינימום ₪2.90); ומניות וקרנות סל בארה״ב ב-1¢ למניה (מינימום $6)."),
+        description: t(
+            "Altshuler's offer for opening a new account with at least ₪5,000. It has no \
+             end date.",
+            "מבצע ההצטרפות של אלטשולר לפתיחת חשבון חדש עם ₪5,000 לפחות. אין לו תאריך סיום.",
+        ),
         trading: [
             vec![
                 // The offer names continuously-traded ETFs (במסלול רציף), which
@@ -599,11 +600,11 @@ pub fn leumi() -> Broker {
     // Customer group from Nispach Alef. Only the parts that differ from Online.
     let plus18 = Plan {
         name: t("Online, 'Leumi 18+'", "אונליין, 'לאומי 18+'"),
-        description: t("Online prices with the 'Leumi 18+' customer-group discount: half \
-                      the share of your holdings, Tel Aviv bonds for 0.35% instead of 0.4%, and half \
-                      the branch's conversion fee where that's less than the online one. \
-                      It's a group for young customers; check your eligibility with the \
-                      bank.", "מחירי אונליין עם הנחת קבוצת הלקוחות 'לאומי 18+': חצי מדמי המשמרת, אג״ח בתל אביב ב-0.35% במקום 0.4%, וחצי מעמלת ההמרה של הסניף כשהיא נמוכה מזו של אונליין. זו קבוצה ללקוחות צעירים; בדקו את זכאותכם מול הבנק."),
+        description: t(
+            "Online prices with the discounts of 'Leumi 18+', a customer group for young \
+             customers. Check your eligibility with the bank.",
+            "מחירי אונליין עם ההנחות של 'לאומי 18+', קבוצת לקוחות לצעירים. בדקו את זכאותכם מול הבנק.",
+        ),
         // The group's 0.35% on bonds beats online's 0.4%, but comes with the
         // branch's minimum and maximum (₪27, ₪7,000), and benefits don't
         // stack: each fee is the better of the two. The group's rate within
@@ -672,10 +673,10 @@ pub fn leumi() -> Broker {
             "אונליין, הוראת קבע חודשית",
         ),
         description: t(
-            "Not a separate account: an Online customer buying Tel Aviv index \
-                      funds by monthly standing order, which costs 0.225% (at least ₪5) \
-                      instead of 0.4% (at least ₪26). Everything else is priced as Online.",
-            "לא חשבון נפרד: לקוח אונליין שקונה קרנות מחקות בתל אביב בהוראת קבע חודשית, שעולה 0.225% (מינימום ₪5) במקום 0.4% (מינימום ₪26). כל השאר מתומחר כמו אונליין.",
+            "Not a separate account: an Online customer buying Tel Aviv index funds by \
+             monthly standing order, which the tariff prices lower. Everything else is \
+             priced as Online.",
+            "לא חשבון נפרד: לקוח אונליין שקונה קרנות מחקות בתל אביב בהוראת קבע חודשית, שהתעריפון מתמחר בזול יותר. כל השאר מתומחר כמו אונליין.",
         ),
         standing_orders: vec![trade(
             &[IndexFund],
@@ -699,9 +700,11 @@ pub fn leumi() -> Broker {
 
     let pepper = Plan {
         name: t("Pepper", "פפר"),
-        description: t("Leumi's digital-bank app. Flat trade fees (₪4 in Tel Aviv, $4 abroad \
-                      per order), a smaller share of foreign holdings, and half-price \
-                      conversion.", "אפליקציית הבנק הדיגיטלי של לאומי. עמלות מסחר קבועות (₪4 בתל אביב, $4 בחו״ל לפקודה), דמי משמרת נמוכים יותר על החזקות בחו״ל, והמרה בחצי מחיר."),
+        description: t(
+            "Leumi's digital-bank app, with its own, simpler prices: a flat fee for each \
+             order.",
+            "אפליקציית הבנק הדיגיטלי של לאומי, עם מחירים משלה ופשוטים יותר: עמלה קבועה לכל פקודה.",
+        ),
         trading: vec![
             TradeFee {
                 securities: vec![IndexFund],
@@ -872,10 +875,11 @@ pub fn excellence() -> Broker {
 
     let full_tariff = Plan {
         name: t("Full tariff", "תעריפון מלא"),
-        description: t("Excellence's published maximum prices, including 0.6% of your \
-                      holdings a quarter plus ₪99 a month for the account. US trades are priced by \
-                      the trading system you choose; the app uses the cheapest for your \
-                      inputs.", "מחירי המקסימום שאקסלנס מפרסמת, כולל דמי משמרת של 0.6% לרבעון ועוד ₪99 לחודש על החשבון. עסקאות בארה״ב מתומחרות לפי מערכת המסחר שבוחרים; האפליקציה משתמשת בזולה ביותר לנתונים שלכם."),
+        description: t(
+            "Excellence's published maximum prices. US trades are priced by the trading \
+             system you choose; the app uses the cheapest for your inputs.",
+            "מחירי המקסימום שאקסלנס מפרסמת. עסקאות בארה״ב מתומחרות לפי מערכת המסחר שבוחרים; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
+        ),
         trading: vec![tel_aviv(&[]), outside_us.clone()],
         tracks: us_tracks(&[]),
         standing_orders: vec![],
@@ -934,11 +938,11 @@ pub fn excellence() -> Broker {
 
     let typical_offer = Plan {
         name: t("Typical offer", "מבצע הצטרפות"),
-        description: t("What new customers are usually offered: 0.07% for Tel Aviv stocks, \
-                      ETFs and index funds and 0.06% for bonds (at least ₪3), US stocks and \
-                      ETFs for 1¢ a share (at least $6), the account free for two years and \
-                      then ₪15 a month less that month's trade fees; converting costs 2 \
-                      agorot a dollar.", "מה שמוצע בדרך כלל ללקוחות חדשים: 0.07% על מניות, קרנות סל וקרנות מחקות בתל אביב ו-0.06% על אג״ח (מינימום ₪3), מניות וקרנות סל בארה״ב ב-1¢ למניה (מינימום $6), החשבון חינם שנתיים ואז ₪15 לחודש בקיזוז עמלות המסחר של אותו חודש; המרה עולה 2 אגורות לדולר."),
+        description: t(
+            "What new customers are usually offered, as comparison sites list it; where the \
+             offer says nothing, the full tariff's price is used.",
+            "מה שמוצע בדרך כלל ללקוחות חדשים, כפי שאתרי השוואה מציגים אותו; היכן שההצעה לא אומרת דבר, נלקח המחיר מהתעריפון המלא.",
+        ),
         trading: vec![
             trade(
                 &[Stock, Etf, IndexFund],
@@ -1086,10 +1090,9 @@ pub fn ibi() -> Broker {
     let full_tariff = Plan {
         name: t("Full tariff", "תעריפון מלא"),
         description: t(
-            "IBI's published maximum prices, including ₪50 a month for the \
-                      account plus 0.1% of your holdings a quarter. For US stocks and ETFs you choose \
-                      one of four tracks; the app uses the cheapest for your inputs.",
-            "מחירי המקסימום ש-IBI מפרסמת, כולל ₪50 לחודש על החשבון ועוד דמי משמרת של 0.1% לרבעון. למניות וקרנות סל בארה״ב בוחרים אחת מארבע שיטות חיוב; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
+            "IBI's published maximum prices. For US stocks and ETFs you choose one of four \
+             tracks; the app uses the cheapest for your inputs.",
+            "מחירי המקסימום ש-IBI מפרסמת. למניות וקרנות סל בארה״ב בוחרים אחת מארבע שיטות חיוב; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
         ),
         trading: [
             vec![
@@ -1177,10 +1180,11 @@ pub fn ibi() -> Broker {
 
     let typical_offer = Plan {
         name: t("Typical offer", "מבצע הצטרפות"),
-        description: t("What new customers are usually offered: 0.08% for Tel Aviv stocks, \
-                      ETFs and bonds (at least ₪2.35) and index funds (at least ₪5), US \
-                      stocks and ETFs for 1¢ a share (at least $7.50), and ₪15 a month for \
-                      the account, less that month's trade fees.", "מה שמוצע בדרך כלל ללקוחות חדשים: 0.08% על מניות, קרנות סל ואג״ח בתל אביב (מינימום ₪2.35) ועל קרנות מחקות (מינימום ₪5), מניות וקרנות סל בארה״ב ב-1¢ למניה (מינימום $7.50), ו-₪15 לחודש על החשבון בקיזוז עמלות המסחר של אותו חודש."),
+        description: t(
+            "What new customers are usually offered, as comparison sites list it; where the \
+             offer says nothing, the full tariff's price is used.",
+            "מה שמוצע בדרך כלל ללקוחות חדשים, כפי שאתרי השוואה מציגים אותו; היכן שההצעה לא אומרת דבר, נלקח המחיר מהתעריפון המלא.",
+        ),
         trading: [
             vec![
                 trade(
@@ -1358,9 +1362,11 @@ pub fn interactive() -> Broker {
     };
     let standard = Plan {
         name: t("Standard", "רגיל"),
-        description: t("Its one price list: US stocks and ETFs for 1¢ a share (at least \
-                      $2.50), European ones for 0.15% (at least €2.50), converting shekels \
-                      for ₪10, nothing for keeping the account, and no minimum deposit.", "תעריפון אחד: מניות וקרנות סל בארה״ב ב-1¢ למניה (מינימום $2.50), באירופה ב-0.15% (מינימום €2.50), המרת שקלים ב-₪10, ללא דמי ניהול חשבון או הפקדת מינימום."),
+        description: t(
+            "Interactive Israel's only price list. Opening an account takes no minimum \
+             deposit.",
+            "התעריפון היחיד של אינטראקטיב ישראל. פתיחת חשבון לא דורשת הפקדת מינימום.",
+        ),
         trading: vec![
             us_shares.clone(),
             trade(
@@ -1500,11 +1506,11 @@ pub fn meitav() -> Broker {
 
     let full_tariff = Plan {
         name: t("Full tariff", "תעריפון מלא"),
-        description: t("Meitav Trade's published maximum prices, including at least \
-                      ₪270 a quarter as a share of your holdings plus ₪90 a month for the \
-                      account. For US stocks \
-                      you choose one of two tracks; the app uses the cheapest for your \
-                      inputs.", "מחירי המקסימום שמיטב טרייד מפרסמת, כולל דמי משמרת של ₪270 לרבעון לפחות ועוד ₪90 לחודש על החשבון. למניות בארה״ב בוחרים אחת משתי שיטות חיוב; האפליקציה משתמשת בזולה ביותר לנתונים שלכם."),
+        description: t(
+            "Meitav Trade's published maximum prices. For US stocks you choose one of two \
+             tracks; the app uses the cheapest for your inputs.",
+            "מחירי המקסימום שמיטב טרייד מפרסמת. למניות בארה״ב בוחרים אחת משתי שיטות חיוב; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
+        ),
         trading: [vec![tel_aviv(&[])], abroad.clone()].concat(),
         tracks: vec![
             Track {
@@ -1569,10 +1575,11 @@ pub fn meitav() -> Broker {
 
     let typical_offer = Plan {
         name: t("Typical offer", "מבצע הצטרפות"),
-        description: t("What new customers are usually offered: 0.07% for Tel Aviv ETFs and \
-                      0.08% for stocks and bonds (at least ₪4.65), US stocks and ETFs for \
-                      1¢ a share (at least $5), no conversion fee, and the account free for \
-                      two years and then ₪15 a month less that month's trade fees.", "מה שמוצע בדרך כלל ללקוחות חדשים: 0.07% על קרנות סל בתל אביב ו-0.08% על מניות ואג״ח (מינימום ₪4.65), מניות וקרנות סל בארה״ב ב-1¢ למניה (מינימום $5), ללא עמלת המרה, והחשבון חינם שנתיים ואז ₪15 לחודש בקיזוז עמלות המסחר של אותו חודש."),
+        description: t(
+            "What new customers are usually offered, as comparison sites list it; where the \
+             offer says nothing, the full tariff's price is used.",
+            "מה שמוצע בדרך כלל ללקוחות חדשים, כפי שאתרי השוואה מציגים אותו; היכן שההצעה לא אומרת דבר, נלקח המחיר מהתעריפון המלא.",
+        ),
         trading: [
             vec![
                 trade(&[Etf], &[Tlv], percent(dec!(0.07), Some(ils(dec!(4.65))))),
@@ -1747,10 +1754,9 @@ pub fn mizrahi() -> Broker {
         name: t("Online", "אונליין"),
         description: t(
             "Mizrahi-Tefahot's prices for trading yourself on its website or in its \
-             capital-market app (the tariff's appendix on direct channels): 0.52% on Tel \
-             Aviv (at least ₪45) and 0.3% abroad (at least $25). Through a banker at a \
-             branch it's 0.64% and 0.89%.",
-            "המחירים של מזרחי-טפחות למסחר עצמאי באתר או באפליקציית שוק ההון (נספח הערוצים הישירים בתעריפון): 0.52% בתל אביב (מינימום ₪45) ו-0.3% בחו״ל (מינימום $25). דרך בנקאי בסניף זה 0.64% ו-0.89%.",
+             capital-market app (the tariff's appendix on direct channels). Trading through \
+             a banker at a branch costs more.",
+            "המחירים של מזרחי-טפחות למסחר עצמאי באתר או באפליקציית שוק ההון (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי בסניף עולה יותר.",
         ),
         trading: vec![
             trade(
@@ -1812,12 +1818,11 @@ pub fn mizrahi() -> Broker {
     let young = Plan {
         name: t("Online, young customers", "אונליין, לקוחות צעירים"),
         description: t(
-            "Online prices with the tariff's discounts for its young customer groups: \
-             ages 14 to 21½, soldiers and national-service volunteers, discharged \
-             soldiers (three years, or to age 30) and students (four years, or to 35). \
-             Tel Aviv costs 0.4% instead of 0.52%, conversion is half price, and the \
-             exchange rate is 0.3% better. Check your eligibility with the bank.",
-            "מחירי אונליין עם ההנחות שבתעריפון לקבוצות הלקוחות הצעירים: גילאי 14 עד 21½, חיילים ובנות שירות לאומי, חיילים משוחררים (שלוש שנים, או עד גיל 30) וסטודנטים (ארבע שנים, או עד גיל 35). תל אביב עולה 0.4% במקום 0.52%, ההמרה בחצי מחיר, ושער החליפין טוב ב-0.3%. בדקו את זכאותכם מול הבנק.",
+            "Online prices with the tariff's discounts for its young customer groups: ages \
+             14 to 21½, soldiers and national-service volunteers, discharged soldiers \
+             (three years, or to age 30) and students (four years, or to 35). Check your \
+             eligibility with the bank.",
+            "מחירי אונליין עם ההנחות שבתעריפון לקבוצות הלקוחות הצעירים: גילאי 14 עד 21½, חיילים ובנות שירות לאומי, חיילים משוחררים (שלוש שנים, או עד גיל 30) וסטודנטים (ארבע שנים, או עד גיל 35). בדקו את זכאותכם מול הבנק.",
         ),
         trading: vec![
             trade(
@@ -1991,9 +1996,8 @@ pub fn otsar_hahayal() -> Broker {
         name: t("Online", "אונליין"),
         description: t(
             "The bank's prices for trading yourself on its website or in its app (the \
-             tariff's appendix on direct channels): 0.3% on Tel Aviv (at least ₪39) and \
-             0.25% abroad (at least $39). Through a banker it's 0.64% and 0.85%.",
-            "המחירים של הבנק למסחר עצמאי באתר או באפליקציה (נספח הערוצים הישירים בתעריפון): 0.3% בתל אביב (מינימום ₪39) ו-0.25% בחו״ל (מינימום $39). דרך בנקאי זה 0.64% ו-0.85%.",
+             tariff's appendix on direct channels). Trading through a banker costs more.",
+            "המחירים של הבנק למסחר עצמאי באתר או באפליקציה (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי עולה יותר.",
         ),
         trading: vec![
             trade(&[], &[Tlv], online_tlv.clone()),
@@ -2036,9 +2040,9 @@ pub fn otsar_hahayal() -> Broker {
         name: t("Online, standing order", "אונליין, הוראת קבע"),
         description: t(
             "Not a separate account: an Online customer buying Tel Aviv index funds or \
-             foreign ETFs by monthly standing order, whose minimum the tariff lowers to \
-             ₪7 and $4.50 instead of ₪39 and $39. Everything else is priced as Online.",
-            "לא חשבון נפרד: לקוח אונליין שקונה קרנות מחקות בתל אביב או קרנות סל בחו״ל בהוראת קבע חודשית, שהתעריפון מוריד את המינימום שלה ל-₪7 ו-$4.50 במקום ₪39 ו-$39. כל השאר מתומחר כמו אונליין.",
+             foreign ETFs by monthly standing order, for which the tariff lowers the \
+             minimum fee. Everything else is priced as Online.",
+            "לא חשבון נפרד: לקוח אונליין שקונה קרנות מחקות בתל אביב או קרנות סל בחו״ל בהוראת קבע חודשית, שהתעריפון מוריד לה את העמלה המינימלית. כל השאר מתומחר כמו אונליין.",
         ),
         standing_orders: vec![
             trade(
@@ -2094,11 +2098,9 @@ pub fn otsar_hahayal() -> Broker {
         description: t(
             "The bank's club for the security forces' family: customers whose salary or \
              pension comes from the IDF, the Ministry of Defence or another body in its \
-             joining form, or who show an employee card. Tel Aviv costs 0.175% online \
-             (at least ₪10), abroad 0.3% (at least $18), and nothing is charged for \
-             keeping the account. Until 30 November 2030, under the bank's agreement \
-             with the Ministry of Defence.",
-            "המועדון של הבנק למשפחת כוחות הביטחון: לקוחות שמשכורתם או גמלתם מגיעה מצה״ל, ממשרד הביטחון או מגוף אחר שבטופס ההצטרפות, או שמציגים תעודת עובד. תל אביב עולה 0.175% באונליין (מינימום ₪10), חו״ל 0.3% (מינימום $18), ולא משלמים על החזקת החשבון. עד 30 בנובמבר 2030, לפי ההסכם בין הבנק למשרד הביטחון.",
+             joining form, or who show an employee card. Until 30 November 2030, under the \
+             bank's agreement with the Ministry of Defence.",
+            "המועדון של הבנק למשפחת כוחות הביטחון: לקוחות שמשכורתם או גמלתם מגיעה מצה״ל, ממשרד הביטחון או מגוף אחר שבטופס ההצטרפות, או שמציגים תעודת עובד. עד 30 בנובמבר 2030, לפי ההסכם בין הבנק למשרד הביטחון.",
         ),
         trading: vec![
             trade(&[], &[Tlv], percent(dec!(0.175), Some(ils(dec!(10))))),
@@ -2151,10 +2153,9 @@ pub fn otsar_hahayal() -> Broker {
         name: t("Top Trade", "טופ טרייד"),
         description: t(
             "The bank's plan for customers aged 18 to 30 who trade themselves, without \
-             advice, with a portfolio of up to ₪200,000: ₪5 an order on Tel Aviv, $5 an \
-             order abroad, and nothing for keeping the account. The bank may change or \
-             end it at any time.",
-            "המסלול של הבנק ללקוחות בגילאי 18 עד 30 שסוחרים עצמאית, בלי ייעוץ, עם תיק של עד ₪200,000: ₪5 לפקודה בתל אביב, $5 לפקודה בחו״ל, ולא משלמים על החזקת החשבון. הבנק רשאי לשנות או להפסיק אותו בכל עת.",
+             advice, with a portfolio of up to ₪200,000. The bank may change or end it at \
+             any time.",
+            "המסלול של הבנק ללקוחות בגילאי 18 עד 30 שסוחרים עצמאית, בלי ייעוץ, עם תיק של עד ₪200,000. הבנק רשאי לשנות או להפסיק אותו בכל עת.",
         ),
         trading: vec![
             trade(&[], &[Tlv], Price::Flat(ils(dec!(5)))),
