@@ -8,7 +8,15 @@
 
   let { app, results, noFees }: { app: AppState; results: Result[]; noFees: OutcomeData } = $props()
 
-  const lost = $derived(app.chartView === 'lost')
+  /** Lost to fees rather than the value: as the view shown, or while another
+   * chart is, as the last one shown, so that coming back to it (the fee
+   * breakdown and back) doesn't redraw the chart. It's first drawn while one
+   * of its own views is shown, so the first value is never used. */
+  let lastLost = false
+  const lost = $derived.by(() => {
+    if (app.chartView === 'lost' || app.chartView === 'value') lastLost = app.chartView === 'lost'
+    return lastLost
+  })
 
   const option = () =>
     growthOption({

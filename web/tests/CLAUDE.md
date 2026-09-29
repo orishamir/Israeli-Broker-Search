@@ -64,9 +64,9 @@ catch the bug:
   tip on the screen. A test plants each of those bugs and checks the rules
   notice, so a rule that never fires can't pass for a clean page. A new
   view, dialog or choice gets a state there; a new class of layout bug gets
-  a rule, not a screenshot. `breakdown.spec.ts` measures every word of every
-  plan's name in the page's font against the bars' name column, so a word
-  is never broken ("Excellenc/e").
+  a rule, not a screenshot. `breakdown.spec.ts` records what the chart
+  draws (`fillText`) and checks that every plan's name is drawn whole, on
+  one line: none cut to fit the screen.
 - **Pictures, 21 in all, for what rules can't see** (a color, an
   alignment): the start page on each of the nine devices, the same in
   Hebrew on the desktop and the two phones (`hebrew.spec.ts`, which runs

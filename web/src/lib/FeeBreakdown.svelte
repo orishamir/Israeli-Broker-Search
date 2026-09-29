@@ -5,13 +5,14 @@
   import type { OutcomeData } from './core/core'
   import { chart } from './echarts.svelte'
   import {
+    barsHeight,
     barsOption,
     byFee,
     colorOf,
     FEE_TYPES,
+    NAME_SIZE,
     NARROW_SCREEN,
     overTimeOption,
-    rowHeight,
     type Bar,
     type FeeType,
     type Focus,
@@ -55,12 +56,21 @@
     return byId(app.hovered) ?? byId([...app.pinned].at(-1)) ?? offered[0]
   })
 
-  /** The bars' box, for fitting amounts into the parts of a bar. */
+  /** The bars' box, for fitting names and amounts. */
   let barsWidth = $state(0)
+  /** Hidden, the box is 0 px wide: the width it was shown at stands, or the
+   * chart would be drawn again, for nothing, each time the view is left. */
+  const setBarsWidth = (width: number) => {
+    if (width > 0) barsWidth = width
+  }
   const narrow = new MediaQuery(NARROW_SCREEN)
 
-  const bars = () =>
-    barsOption({ bars: rows, focus, pinned: app.pinned, width: barsWidth, narrow: narrow.current })
+  /** A text's width as the chart draws it: the page's font, at the names' size. */
+  const context = document.createElement('canvas').getContext('2d')!
+  context.font = `${NAME_SIZE}px ${getComputedStyle(document.documentElement).fontFamily}`
+  const measure = (text: string) => context.measureText(text).width
+
+  const bars = () => barsOption({ bars: rows, focus, pinned: app.pinned, width: barsWidth, measure })
   const overTime = () => overTimeOption(shown.outcome.feesUpToYear, focus)
 
   /** Hovering a bar or a plan's name shows it over time; clicking pins it. */
@@ -117,8 +127,8 @@
 
 <div
   class="bars"
-  bind:clientWidth={barsWidth}
-  style:height="{rows.length * rowHeight(narrow.current) + 32}px"
+  bind:clientWidth={null, setBarsWidth}
+  style:height="{barsHeight(rows.length, narrow.current)}px"
   {@attach chart(bars, setup)}
   role="img"
   aria-label={t.barsAria}

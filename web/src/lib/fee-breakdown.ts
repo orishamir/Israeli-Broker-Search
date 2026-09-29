@@ -63,28 +63,63 @@ export interface BarsView {
   bars: Bar[]
   focus: Focus
   pinned: ReadonlySet<string>
-  /** The box's width in pixels, for fitting amounts into the parts of a bar. */
+  /** The box's width in pixels, for fitting names and amounts. */
   width: number
-  /** A phone-sized screen (see `NARROW_SCREEN`). */
-  narrow: boolean
+  /** A text's width in pixels, in the names' font (see `fitName`). */
+  measure: (text: string) => number
 }
 
-/** Screens where the names get less room and the rows more height: names
- * wrap onto three lines there ("Leumi · Online, monthly standing order"),
- * and each word must fit, bold, when pinned. Decided by the screen rather
- * than the box's own width: a height set from an observed width would
- * change the box again while the browser is still reporting its size. */
+/** Screens where the rows get a little more height, for a finger. Decided
+ * by the screen rather than the box's own width: a height set from an
+ * observed width would change the box again while the browser is still
+ * reporting its size. */
 export const NARROW_SCREEN = '(width < 560px)'
-export const nameWidth = (narrow: boolean) => (narrow ? 104 : 120)
-export const rowHeight = (narrow: boolean) => (narrow ? 40 : 34)
+export const rowHeight = (narrow: boolean) => (narrow ? 46 : 44)
+/** The names' font size: ECharts' default. */
+export const NAME_SIZE = 12
 
-export function barsOption({ bars, focus, pinned, width, narrow }: BarsView): ChartOption {
+// Each row, top to bottom: the plan's name on a line of its own, a gap, and
+// its bar. ECharts centers both a row's bar and its name in the row, so an
+// empty slot the height of the name's line goes above each bar, and the
+// name is moved up into it.
+const NAME_LINE = 15
+const GAP = 3
+const BAR = 16
+const NAME_ABOVE = (GAP + BAR) / 2
+const BAR_BELOW = (NAME_LINE + GAP) / 2
+
+/** Around the rows: room for the axis below them. */
+const MARGIN = { left: 4, right: 4, top: 4, bottom: 24 }
+/** The bars' box: a row for each plan, and the axis. */
+export const barsHeight = (rows: number, narrow: boolean) =>
+  rows * rowHeight(narrow) + MARGIN.top + MARGIN.bottom
+/** Where the name and the bar of row `index` are, down from the box's top. */
+export const nameY = (index: number, narrow: boolean) =>
+  MARGIN.top + (index + 0.5) * rowHeight(narrow) - NAME_ABOVE
+export const barY = (index: number, narrow: boolean) =>
+  MARGIN.top + (index + 0.5) * rowHeight(narrow) + BAR_BELOW
+
+/** `name`, or as much of it as fits in `room`, then "…". Measured here:
+ * ECharts guesses every letter outside ASCII to be as wide as a Chinese one
+ * (zrender 6's `measureCharWidth`) when it cuts or wraps a text, so it cut
+ * Hebrew names at half the room. Only a name of your own can be that long. */
+export function fitName(name: string, room: number, measure: (text: string) => number): string {
+  if (measure(name) <= room) return name
+  // By code point, so no emoji is cut in half.
+  const kept = [...name]
+  while (kept.length > 0 && measure(`${kept.join('')}…`) > room) kept.pop()
+  return `${kept.join('').trimEnd()}…`
+}
+
+export function barsOption({ bars, focus, pinned, width, measure }: BarsView): ChartOption {
   const largest = Math.max(...bars.map(({ fees }) => fees.total))
-  // Roughly: the box without the names and the totals.
-  const pixelsPerShekel = Math.max(width - nameWidth(narrow) - 60, 0) / largest
+  // Roughly: the box without the totals.
+  const pixelsPerShekel = Math.max(width - 60, 0) / largest
   const fits = (amount: number) => amount * pixelsPerShekel > 44
+  // The box, less its margins and a pinned name's padding.
+  const room = width - MARGIN.left - MARGIN.right - 2 * 5
   return {
-    grid: { left: 4, right: 4, top: 4, bottom: 24 },
+    grid: { ...MARGIN },
     xAxis: {
       type: 'value',
       max: largest,
@@ -101,15 +136,23 @@ export function barsOption({ bars, focus, pinned, width, narrow }: BarsView): Ch
         axisLine: { show: false },
         triggerEvent: true,
         axisLabel: {
+          // Above the bar, from where it starts: padding below the name
+          // moves it up into the slot over the bar.
+          inside: true,
+          margin: 0,
+          padding: [0, 0, 2 * NAME_ABOVE, 0],
           color: TEXT,
-          width: nameWidth(narrow),
-          overflow: 'break',
+          fontSize: NAME_SIZE,
+          // Every name: ECharts skips labels it thinks would crowd.
+          interval: 0,
           // A dot in the plan's color (hollow for your own plans), and the
           // name, on a tint of that color when pinned.
           formatter: (_id: string, index: number) => {
             const bar = bars[index]
+            const dot = bar.hollow ? '◯' : '●'
             const style = pinned.has(bar.id) ? `pinned${index}` : 'name'
-            return `{dot${index}|${bar.hollow ? '◯' : '●'}} {${style}|${bar.label}}`
+            const name = fitName(bar.label, room - measure(`${dot} `), measure)
+            return `{dot${index}|${dot}} {${style}|${name}}`
           },
           rich: {
             ...Object.fromEntries(
@@ -118,8 +161,6 @@ export function barsOption({ bars, focus, pinned, width, narrow }: BarsView): Ch
                 [
                   `pinned${index}`,
                   {
-                    // Not bold: ECharts wraps a name that's bolder than
-                    // the others unpredictably, sometimes onto three lines.
                     color: TEXT,
                     backgroundColor: `${bar.color}40`,
                     borderRadius: 4,
@@ -133,19 +174,29 @@ export function barsOption({ bars, focus, pinned, width, narrow }: BarsView): Ch
         },
       },
       {
-        // Each plan's total, at the end of its bar.
+        // Each plan's total, level with its bar.
         type: 'category',
         inverse: true,
         position: 'right',
         data: bars.map(({ fees }) => compactShekels(fees.total)),
         axisTick: { show: false },
         axisLine: { show: false },
-        axisLabel: { color: TEXT, fontWeight: 'bold' },
+        axisLabel: {
+          // Padding moves only rich text, as the names are: plain text stays
+          // in the middle of the row.
+          padding: [2 * BAR_BELOW, 0, 0, 0],
+          formatter: (total: string) => `{total|${total}}`,
+          rich: { total: { color: TEXT, fontWeight: 'bold' } },
+        },
       },
     ],
     tooltip: {
       trigger: 'axis',
-      axisPointer: { type: 'shadow' },
+      axisPointer: {
+        type: 'shadow',
+        // Headed by the plan's name: the axis holds ids.
+        label: { formatter: ({ value }) => bars.find(({ id }) => id === value)?.label ?? '' },
+      },
       valueFormatter: (value) => shekels(value as number),
     },
     // No ids: ECharts would then keep each series' old position, and a
@@ -157,9 +208,9 @@ export function barsOption({ bars, focus, pinned, width, narrow }: BarsView): Ch
         // are always fees, and the plans' colors look much like the fees'.
         // Pinned ones are drawn here; a hovered one is highlighted (see the
         // component's `setup`), since redrawing would lose a tap that's also
-        // a hover.
+        // a hover. Clear inside, but not empty: a click or a tap anywhere on
+        // the row picks its plan, not only on its name or its bar.
         type: 'custom',
-        silent: true,
         tooltip: { show: false },
         data: bars.map((_, index) => [0, index]),
         renderItem: (_params, api) => {
@@ -185,11 +236,22 @@ export function barsOption({ bars, focus, pinned, width, narrow }: BarsView): Ch
           }
         },
       },
+      {
+        // The empty slot above each bar, where its name goes. Being the
+        // first bars, they're put first in each row, at the top.
+        type: 'bar',
+        barWidth: NAME_LINE,
+        data: bars.map(() => 0),
+        silent: true,
+        tooltip: { show: false },
+      },
       ...stacking(focus).map((type): BarSeriesOption => ({
         name: type.name,
         type: 'bar',
         stack: 'fees',
-        barWidth: 18,
+        barWidth: BAR,
+        // ECharts puts a gap after each slot, as a share of its height.
+        barGap: `${(GAP / NAME_LINE) * 100}%`,
         // Once plans are pinned, the others fade a little.
         data: bars.map(({ id, fees }) => ({
           value: fees[type.key],

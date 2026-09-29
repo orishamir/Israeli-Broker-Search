@@ -207,7 +207,7 @@ test('with the exchange rates open, and a tip open', { tag: '@phone' }, async ({
 })
 
 test('on the fee breakdown', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
+  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
   await checkLayout(page, 'breakdown')
 })
 
@@ -272,7 +272,7 @@ test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page 
     await page.getByRole('checkbox', { name: broker, exact: true }).check()
   }
   await checkLayout(page, 'every plan')
-  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
+  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
   await checkLayout(page, 'every plan, breakdown')
 })
 
@@ -284,7 +284,7 @@ test('pinning and switching views leave the chart where it is', { tag: '@phone' 
   await page.getByLabel('More options', { exact: true }).check()
   const bar = page.locator('.chart-bar')
   const heights: Record<string, number> = {}
-  for (const view of ['Value', 'Lost to fees', 'By deposit', 'Breakdown']) {
+  for (const view of ['Lost to fees', 'Value', 'By deposit', 'Fee breakdown']) {
     await choice(page, 'Chart', view).click()
     heights[view] = (await bar.boundingBox())!.height
     await page.locator('tbody tr td.rank').first().click()
@@ -358,7 +358,7 @@ test.describe('pictures', { tag: '@pictures' }, () => {
   })
 
   test('of the fee breakdown', async ({ page }) => {
-    await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
+    await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
     await page.mouse.move(0, 0)
     const card = page.locator('section.card', { has: page.locator('.bars') })
     await fitScreenToPage(page)

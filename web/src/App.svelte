@@ -20,17 +20,17 @@
 
   const allViews: Choice<ChartView>[] = [
     {
-      value: 'value',
-      name: t.valueView,
-      englishName: en.valueView,
-      explanation: t.valueViewTip,
-      hebrewNames: [],
-    },
-    {
       value: 'lost',
       name: t.lostView,
       englishName: en.lostView,
       explanation: t.lostViewTip,
+      hebrewNames: [],
+    },
+    {
+      value: 'value',
+      name: t.valueView,
+      englishName: en.valueView,
+      explanation: t.valueViewTip,
       hebrewNames: [],
     },
     {

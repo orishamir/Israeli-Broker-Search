@@ -103,6 +103,8 @@ export interface Result {
 }
 
 export type ChartView = 'value' | 'lost' | 'crossover' | 'breakdown'
+/** The chart shown at first: what the fees cost, over the years. */
+const FIRST_VIEW: ChartView = 'lost'
 
 /** What happens at the end of the years: everything is sold, or kept. */
 export type AtEnd = 'sell' | 'hold'
@@ -279,11 +281,11 @@ export class AppState {
   /** The editor's view, as last chosen. */
   editorView = $state<EditorView>(load<EditorView>('editor-view', 'simple'))
 
-  private chosenView = $state<ChartView>('value')
+  private chosenView = $state<ChartView>(FIRST_VIEW)
   /** The chart shown. The chart by deposit is for experts: without More
-   * options it's the value instead, and the choice comes back with them. */
+   * options it's the first one instead, and the choice comes back with them. */
   get chartView(): ChartView {
-    return this.chosenView === 'crossover' && !this.moreOptions ? 'value' : this.chosenView
+    return this.chosenView === 'crossover' && !this.moreOptions ? FIRST_VIEW : this.chosenView
   }
   set chartView(view: ChartView) {
     this.chosenView = view

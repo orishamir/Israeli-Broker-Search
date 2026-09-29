@@ -174,7 +174,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const churn = async (rounds: number) => {
     for (let round = 0; round < rounds; round++) {
       await monthly.fill(String(1000 + round * 10))
-      await choice('Chart', round % 2 ? 'Breakdown' : 'Value').click()
+      await choice('Chart', round % 2 ? 'Fee breakdown' : 'Lost to fees').click()
       await openDetails()
     }
   }
@@ -252,8 +252,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         typical(
           page,
           thereAndBack(
-            () => choice('Chart', 'Breakdown').click(),
-            () => choice('Chart', 'Value').click(),
+            () => choice('Chart', 'Fee breakdown').click(),
+            () => choice('Chart', 'Lost to fees').click(),
           ),
         ),
     },
@@ -268,7 +268,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
           page,
           thereAndBack(
             () => choice('Chart', 'By deposit').click(),
-            () => choice('Chart', 'Value').click(),
+            () => choice('Chart', 'Lost to fees').click(),
           ),
         )
         await moreOptions.uncheck()
@@ -308,7 +308,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       measure: async () => {
         await moreOptions.check()
         const gap = await longestFrameGap(page, () => choice('Chart', 'By deposit').click())
-        await choice('Chart', 'Value').click()
+        await choice('Chart', 'Lost to fees').click()
         await moreOptions.uncheck()
         return gap
       },

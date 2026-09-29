@@ -154,7 +154,7 @@ test('every plan can be compared at once', async ({ page }) => {
   for (const broker of brokers()) await checkbox(page, broker.name).check()
   await expect(rows(page)).toHaveCount(listedPlans.length)
   expect(await rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
-  await choice(page, 'Chart', 'Breakdown').click()
+  await choice(page, 'Chart', 'Fee breakdown').click()
   // Away from the plans, or the one under the pointer shows year by year.
   await away(page)
   const best = expectedRows(await inputsOnPage(page))[0]

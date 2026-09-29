@@ -318,13 +318,14 @@ function start_from(link: string): AppState {
   return app
 }
 
-test('the chart by deposit is shown only with More options, and comes back with them', () => {
+test('the chart starts on what was lost to fees; the one by deposit is shown only with More options', () => {
   const app = start()
+  expect(app.chartView).toBe('lost')
   app.moreOptions = true
   app.chartView = 'crossover'
   expect(app.chartView).toBe('crossover')
   app.moreOptions = false
-  expect(app.chartView).toBe('value')
+  expect(app.chartView).toBe('lost')
   app.moreOptions = true
   expect(app.chartView).toBe('crossover')
 })

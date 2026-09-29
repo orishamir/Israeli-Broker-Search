@@ -81,7 +81,7 @@ export const en = {
   byDepositView: 'By deposit',
   byDepositViewTip:
     "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking flips. Plans with minimum fees cost a lot for small deposits and little for large ones. The dashed line is your deposit.",
-  breakdownView: 'Breakdown',
+  breakdownView: 'Fee breakdown',
   breakdownViewTip: 'What each plan pays in fees, by kind, and how they pile up over the years.',
   pinHintMouse: (bars: boolean) => `Click a row or a ${bars ? 'bar' : 'line'} to pin it`,
   pinHintTouch: (bars: boolean) => `Tap a row or a ${bars ? 'bar' : 'line'} to pin it`,

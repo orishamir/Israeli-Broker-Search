@@ -135,6 +135,9 @@ export function chart(
       const { width, height } = entry.contentRect
       if (width === 0 || height === 0) {
         shown = false
+        // A draw still waiting would draw what the chart was told as it was
+        // hidden (the fee breakdown once drew itself 0 px wide).
+        cancelDraw()
         return
       }
       if (!instance) {

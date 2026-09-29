@@ -58,6 +58,21 @@ export const canvasPicture = (chart: Locator) =>
     .first()
     .evaluate((canvas: HTMLCanvasElement) => canvas.toDataURL())
 
+/** Records every text drawn on a canvas from now on (what a chart draws,
+ * which a picture can't read); the function returned lists them. */
+export async function recordDrawnText(page: Page) {
+  await page.evaluate(() => {
+    const drawn: string[] = []
+    Object.assign(window, { drawn })
+    const fill = CanvasRenderingContext2D.prototype.fillText
+    CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+      drawn.push(text)
+      fill.call(this, text, ...rest)
+    }
+  })
+  return () => page.evaluate(() => (window as unknown as { drawn: string[] }).drawn)
+}
+
 /** Makes the screen as tall as the page, before a picture of all of it.
  * Chromium's phones lose their touch emulation while capturing past the
  * bottom of the screen, and draw the page as for a mouse ("Click" rather

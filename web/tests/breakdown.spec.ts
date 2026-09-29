@@ -1,12 +1,12 @@
-import { nameWidth } from '../src/lib/fee-breakdown'
+import { barY, nameY, NARROW_SCREEN } from '../src/lib/fee-breakdown'
 import { brokers, compare, expectedRows, inputsOnPage, listedPlans, purchasePhrase, rowOfKey } from './core'
-import { away, canvasPicture, checkbox, choice, expect, test, type Page } from './fixtures'
+import { away, canvasPicture, checkbox, choice, expect, recordDrawnText, test, type Page } from './fixtures'
 
 // The fee breakdown: comparing by one fee, and picking a plan to see year by
 // year. The bars' options are checked in src/lib/fee-breakdown.test.ts.
 
 test.beforeEach(async ({ page }) => {
-  await choice(page, 'Chart', 'Breakdown').click()
+  await choice(page, 'Chart', 'Fee breakdown').click()
   await away(page)
 })
 
@@ -41,19 +41,26 @@ test(
   },
 )
 
-/** Where the second bar is (fewest fees first), just right of the names. */
-async function secondBar(page: Page) {
+/** Places on the second row (fewest fees first): its name, its bar a little
+ * after it starts, the room beside the bar, and its total. */
+async function secondRow(page: Page) {
   // In view, or the click lands outside the screen.
   await page.locator('.bars').scrollIntoViewIfNeeded()
   const box = (await page.locator('.bars').boundingBox())!
-  const narrow = page.viewportSize()!.width < 560
-  return { x: box.x + (narrow ? 104 : 120) + 24, y: box.y + 4 + (narrow ? 40 : 34.5) * 1.5 }
+  const narrow = await page.evaluate((query) => matchMedia(query).matches, NARROW_SCREEN)
+  const [name, bar] = [box.y + nameY(1, narrow), box.y + barY(1, narrow)]
+  return {
+    name: { x: box.x + 30, y: name },
+    bar: { x: box.x + 24, y: bar },
+    beside: { x: box.x + box.width * 0.8, y: bar },
+    total: { x: box.x + box.width - 20, y: bar },
+  }
 }
 
 test('clicking a bar pins its plan and shows it over time', async ({ page }) => {
   const second = (await byFees(page))[1]
-  const { x, y } = await secondBar(page)
-  await page.mouse.click(x, y)
+  const { bar } = await secondRow(page)
+  await page.mouse.click(bar.x, bar.y)
   await away(page)
   await expect(rowOfKey(page, second.key)).toHaveClass(/pinned/)
   await expect(overTime(page)).toContainText(second.label)
@@ -61,10 +68,30 @@ test('clicking a bar pins its plan and shows it over time', async ({ page }) => 
 
 test('tapping a bar pins its plan and shows it over time', { tag: '@touch' }, async ({ page }) => {
   const second = (await byFees(page))[1]
-  const { x, y } = await secondBar(page)
-  await page.touchscreen.tap(x, y)
+  const { bar } = await secondRow(page)
+  await page.touchscreen.tap(bar.x, bar.y)
   await expect(rowOfKey(page, second.key)).toHaveClass(/pinned/)
   await expect(overTime(page)).toContainText(second.label)
+})
+
+/** Presses each part of the second row twice: once pins its plan, and the
+ * second time unpins it. The whole row is the plan's, as its outline shows. */
+async function pressEachPart(page: Page, press: (x: number, y: number) => Promise<void>) {
+  const row = rowOfKey(page, (await byFees(page))[1].key)
+  for (const [part, { x, y }] of Object.entries(await secondRow(page))) {
+    await press(x, y)
+    await expect(row, `pinned from its ${part}`).toHaveClass(/pinned/)
+    await press(x, y)
+    await expect(row, `unpinned from its ${part}`).not.toHaveClass(/pinned/)
+  }
+}
+
+test('clicking anywhere on a row pins its plan, and again unpins it', async ({ page }) => {
+  await pressEachPart(page, (x, y) => page.mouse.click(x, y))
+})
+
+test('tapping anywhere on a row pins its plan, and again unpins it', { tag: '@touch' }, async ({ page }) => {
+  await pressEachPart(page, (x, y) => page.touchscreen.tap(x, y))
 })
 
 test(
@@ -97,18 +124,11 @@ test('plans without a price are named, not just left out', { tag: '@phone' }, as
   for (const label of unoffered) await expect(hint).toContainText(label)
 })
 
-// A name column too narrow for a word breaks the word ("Excellenc/e"): every
-// word of every plan's name must fit a line of the column, in the page's font
-// at ECharts' size, on this screen's column width.
-test("every word of a plan's name fits the bars' name column", { tag: '@phone' }, async ({ page }) => {
+// Each name is drawn whole, on its line above the bar: none is cut to fit
+// the box (see `fitName`), on this screen and in the page's font.
+test("every plan's name is drawn whole, on one line", { tag: '@phone' }, async ({ page }) => {
+  const drawn = await recordDrawnText(page)
   for (const broker of brokers()) await checkbox(page, broker.name).check()
-  const room = nameWidth(page.viewportSize()!.width < 560) - 2 * 5
-  const words = [...new Set(listedPlans.flatMap(({ label }) => label.split(' ')))]
-  const widths = await page.evaluate((words) => {
-    const context = document.createElement('canvas').getContext('2d')!
-    context.font = `12px ${getComputedStyle(document.documentElement).fontFamily}`
-    return words.map((word) => context.measureText(word).width)
-  }, words)
-  const tooWide = words.filter((_, index) => widths[index] > room)
-  expect(tooWide, `wider than the ${room}px column`).toEqual([])
+  const names = (await byFees(page)).map(({ label }) => label)
+  await expect.poll(drawn).toEqual(expect.arrayContaining(names))
 })

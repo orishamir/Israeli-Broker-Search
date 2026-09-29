@@ -1,5 +1,5 @@
 import { compare, inputsOnPage, listed, rowOf, rowOfKey } from './core'
-import { away, canvasPicture, choice, expect, test, type Page } from './fixtures'
+import { away, canvasPicture, choice, expect, recordDrawnText, test, type Page } from './fixtures'
 
 // The growth chart: pinning and hovering, linked with the table, and zooming.
 // What the lines look like is checked in src/lib/growth-chart.test.ts; here,
@@ -30,12 +30,31 @@ test('rows highlight on hover and pin on click, and the chart redraws them', asy
   await expect.poll(() => canvasPicture(chart)).not.toBe(plain)
 
   const pinned = await canvasPicture(chart)
-  await choice(page, 'Chart', 'Lost to fees').click()
+  await choice(page, 'Chart', 'Value').click()
   await expect.poll(() => canvasPicture(chart)).not.toBe(pinned)
 
   await page.getByRole('button', { name: 'Unpin all' }).click()
   await expect(meitav).not.toHaveClass(/highlighted/)
   await expect(page.getByRole('button', { name: 'Unpin all' })).toBeHidden()
+})
+
+// A chart behind another view keeps its canvas, so coming back to it has
+// nothing to draw. Switching back from the fee breakdown to Lost to fees
+// used to draw the whole chart again, which took twice as long on a phone.
+test('coming back to the chart over the years draws nothing again', async ({ page }) => {
+  /** Resolves once a change has been drawn: charts draw just after the paint
+   * that follows it, and this waits a frame longer. */
+  const drawingDone = () =>
+    page.evaluate(async () => {
+      for (let frame = 0; frame < 3; frame++) await new Promise((resolve) => requestAnimationFrame(resolve))
+      await new Promise((resolve) => setTimeout(resolve))
+    })
+  await choice(page, 'Chart', 'Fee breakdown').click()
+  await drawingDone()
+  const drawn = await recordDrawnText(page)
+  await choice(page, 'Chart', 'Lost to fees').click()
+  await drawingDone()
+  expect(await drawn()).toEqual([])
 })
 
 test('the wheel zooms the years, dragging moves, and R resets', async ({ page }) => {
@@ -110,7 +129,8 @@ test('a first tap on the chart moves neither the page nor its zoom', { tag: '@to
   )
   await page.touchscreen.tap(box.x + box.width * 0.2, box.y + 150)
   expect(await views).toHaveLength(1)
-  const tooltip = (await page.locator('.chart > div', { hasText: 'No fees' }).boundingBox())!
+  // Headed by the time, in either view over the years.
+  const tooltip = (await page.locator('.chart > div', { hasText: 'After' }).boundingBox())!
   expect(tooltip.x).toBeGreaterThanOrEqual(box.x)
   expect(tooltip.x + tooltip.width).toBeLessThanOrEqual(box.x + box.width)
 })
@@ -135,7 +155,7 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
   await rowOfKey(page, key)
     .getByRole('button', { name: /see what they went to$/ })
     .click()
-  await expect(page.getByRole('radio', { name: 'Breakdown' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'Fee breakdown' })).toBeChecked()
   await expect(page.locator('h4', { hasText: 'Year by year' })).toContainText(label)
   await expect(rowOfKey(page, key)).toHaveClass(/pinned/)
   await expect(page.locator('#chart')).toBeInViewport()

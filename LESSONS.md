@@ -240,9 +240,36 @@ all. Read those three first.
   was about 3 ms and Svelte about 1 ms. Measured with the Event Timing API
   (see Recipes): click-to-paint went from 90–190 ms to 30–50 ms once the
   chart drew after the paint.
-- Category-axis labels with `width` and `overflow: 'break'` break inside a
-  word that doesn't fit ("Excellenc/e"): size the column for the longest word
-  as it's drawn, padded if pinned.
+- The fee breakdown's names used to be wrapped by ECharts (`width`,
+  `overflow: 'break'`) in a column beside the bars. In Hebrew they broke at
+  half the column's width, and their dots stood far from them: zrender 6
+  wraps and cuts by `measureCharWidth`, which gives every character outside
+  ASCII the width of 国 (about the font size, twice a Hebrew letter; "·"
+  and curly quotes count as much). ECharts 6.1.0 was the newest, and no
+  report upstream was found. A text ECharts draws whole is measured right,
+  by `measureText`: each name now has a line of its own above its bar, cut
+  if need be by `fitName`, which measures on a canvas.
+- The name above its bar: ECharts centers a bar in its row, so an empty bar
+  series before the fees takes the top of each row, and padding below the
+  names moves them up into it. Padding moves a middle-aligned label only
+  when it's rich text; plain text stays in the middle (the totals are rich
+  text for that reason alone).
+- Switching from the fee breakdown back to Lost to fees took 48 ms on the
+  throttled phone, back to Value 24: the growth chart read
+  `chartView === 'lost'`, false while the breakdown was shown, so its option
+  changed and the whole chart was drawn again on coming back (Value was
+  false throughout). It now keeps the view it was last shown with
+  (`lastLost`). Likewise the breakdown's width, which `bind:clientWidth`
+  set to 0 as its view was hidden: that change could still draw it, 0 px
+  wide with every name cut to "…", on a canvas the next visit showed for a
+  frame. The breakdown keeps its last width, and a chart being hidden
+  cancels a draw still waiting. `chart.spec.ts` records what's drawn
+  (`recordDrawnText`) to check that coming back draws nothing.
+- In the fee breakdown, only a plan's name and its bar picked it: the
+  outline around each row (the custom series) was `silent`, so a click
+  beside a bar or on its total did nothing, though the outline shows the
+  row as one thing. Filled with `transparent` and not silent, it takes the
+  pointer for the whole row; the bars and names still get theirs.
 - Pinned names were bold and wrapped differently about one render in twenty;
   with a single weight, 120 runs of 120 matched. `--repeat-each=40` shows
   whether a flake is gone.

@@ -133,14 +133,18 @@ the unit tests in Node, then the browser.
   - The `chart` attachment draws just after the paint that follows a change,
     so typing shows first, and not at all while its element has no size (a
     hidden view). Both chart views stay mounted; a hidden one keeps its
-    canvas.
+    canvas. An option must not read what hiding its view changes (its box's
+    width, which goes to 0; whether its own view is chosen), or coming back
+    draws it all again: keep the value it was last shown with.
   - Never change options on hover: it redraws and loses the click, since a tap
     is a hover and a click at once. Use `dispatchAction` (highlight).
   - On touch screens (`pointer.ts`), ignore `mouseover`, because a scrolling
     finger fires it.
   - Series `id`s make `replaceMerge` keep the old order.
   - Events carry `seriesIndex`, not `seriesId`.
-  - Labels wrap unpredictably when some are bolder than others.
+  - Never let ECharts wrap or cut a label (`overflow`): zrender 6 guesses
+    every letter outside ASCII to be as wide as a Chinese one, so Hebrew
+    broke at half the width. Measure on a canvas instead (`fitName`).
   - Tooltips are `confine`d and the chart card clips (`overflow: clip`):
     ECharts shows a tooltip mid-chart before moving it to the pointer, and
     on a phone anything past the screen's edge zooms the page out (a jump);
