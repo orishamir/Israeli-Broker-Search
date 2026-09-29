@@ -19,7 +19,7 @@ export default ts.config(
     rules: {
       ...playwright.configs['flat/recommended'].rules,
       // The layout tests assert through `checkLayout`.
-      'playwright/expect-expect': ['warn', { assertFunctionNames: ['checkLayout'] }],
+      'playwright/expect-expect': ['warn', { assertFunctionNames: ['checkLayout', 'pressEachPart'] }],
     },
   },
   // The measurements wait on purpose: for the browser to report an event's
