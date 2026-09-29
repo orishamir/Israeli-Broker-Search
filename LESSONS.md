@@ -1,8 +1,9 @@
-# Notes for AI agents
+# Lessons learned
 
 What was learned building this app that `CLAUDE.md`, `web/tests/CLAUDE.md`
 and `policies/sources.md` don't already say: traps that cost time, and ways of
-working that paid off. Read those three first.
+working that paid off. Written for whoever works on it next, AI agents most of
+all. Read those three first.
 
 ## Researching a broker's fees
 
@@ -74,6 +75,9 @@ working that paid off. Read those three first.
   `--update-snapshots=all tests/x.spec.ts`.
 - When the permission classifier blocked Bash and WebSearch, the user allowed
   them in `.claude/settings.local.json`.
+- `pkill -f <pattern>` kills the shell running the command itself when the
+  pattern appears anywhere in that command (exit code 144, nothing after it
+  runs). Stop a server by its port instead: `fuser -k 4173/tcp`.
 
 ## The core
 
@@ -139,9 +143,29 @@ working that paid off. Read those three first.
   `layoutProblems` flags cut-off dropdowns.
 - Table cells are `nowrap`: a long warning widened the table past its card
   until warnings and notes were allowed to wrap.
+- Loading: `index.html` draws the page's shape before any script, with
+  pulsing blocks where the words go, and `main.ts` fades it out once the app
+  has mounted. Its styles repeat app.css and App.svelte on purpose: it must
+  show before they arrive. `vite.config.ts` adds a `<link rel="preload">` for
+  the `.wasm` to the built page; without it the browser asked for it only
+  after the JavaScript had run, one after the other (check `dist/index.html`,
+  and that the wasm request starts with the JavaScript's).
+- The chart attachment (`echarts.svelte.ts`) makes the ECharts instance in a
+  ResizeObserver callback, once the element has a size, so `setup`'s effects
+  live in an `$effect.root`. The option is a `$derived` read only while
+  shown, and drawn in a timer set from an animation frame: that runs once the
+  frame is painted, so the typed digit and the table show first. Changes
+  under 250 ms apart don't glide.
+- The `.choices` highlight is placed by `Choices.svelte` in CSS variables;
+  `--glide` is 0 until it has been placed once, and while the buttons resize.
 
 ## Charts
 
+- What a keystroke cost on a phone (4× CPU throttling) was ECharts'
+  `setOption` and first frame, about 40 ms of a 55 ms task; the wasm call
+  was about 3 ms and Svelte about 1 ms. Measured with the Event Timing API
+  (see Recipes): click-to-paint went from 90–190 ms to 30–50 ms once the
+  chart drew after the paint.
 - Category-axis labels with `width` and `overflow: 'break'` break inside a
   word that doesn't fit ("Excellenc/e"): size the column for the longest word
   as it's drawn, padded if pinned.
@@ -197,6 +221,40 @@ process.stdout.write(await page.evaluate(() => document.body.innerText))
 await browser.close()
 ```
 
+How long the page takes to respond, by interaction, on a throttled phone.
+The Event Timing API gives each event's time to the next paint (at least
+16 ms, rounded to 8); anything over about 50 ms is felt.
+
+```js
+// node latency.mjs  (the app served on 4173)
+import { chromium, devices } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+
+const browser = await chromium.launch()
+const context = await browser.newContext(devices['Galaxy S24'])
+const page = await context.newPage()
+await page.addInitScript(() => {
+  window.events = []
+  new PerformanceObserver((list) => {
+    for (const e of list.getEntries()) window.events.push([e.name, e.duration])
+  }).observe({ type: 'event', durationThreshold: 16 })
+})
+const cdp = await context.newCDPSession(page)
+await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
+await page.goto('http://localhost:4173/')
+await page.locator('.chart canvas').first().waitFor()
+const worst = async (label, act) => {
+  await page.evaluate(() => (window.events = []))
+  await act()
+  await page.waitForTimeout(300)
+  const events = await page.evaluate(() => window.events)
+  console.log(label, Math.max(0, ...events.map(([, d]) => d)), 'ms')
+}
+await worst('typing', () => page.getByLabel('Every month').pressSequentially('2500', { delay: 120 }))
+await worst('security', () => page.getByRole('radiogroup', { name: 'Security' }).getByText('Bond').click())
+await worst('breakdown', () => page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click())
+await browser.close()
+```
+
 Many baselines at once: paste them into one labelled sheet, and read that
 image instead of each file.
 
@@ -231,9 +289,16 @@ sheet.save(out)
   shows the real problem.
 - Check phones at the narrowest size too (`devices['iPhone SE (3rd gen)']`),
   besides the Samsung the user tests on.
+- For anything that moves, a live page beats ASCII: the motion options were
+  chosen from a published mockup page with each proposal beside the current
+  behaviour, opened on the phone too.
 
 ## Open ends
 
+- Scrolling to the end of a dialog scrolls the page behind it. The fix,
+  `overscroll-behavior: contain`, is out because the Baseline plugin rejects
+  the property (Safari lacks it only on the page root); a lint exception is
+  the user's call.
 - A plan with tracks that isn't ticked has no picked track, so its fee list
   shows all its tracks instead of the cheapest.
 - Leumi's markup is a dated reading of its published buy/sell rates

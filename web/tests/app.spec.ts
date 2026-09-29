@@ -10,6 +10,8 @@ test('ranks every plan, best first', async ({ page }) => {
   await expect(rows(page)).toHaveCount(6)
   await expect(rows(page).first()).toContainText('Standard')
   await expect(page.getByText('$1 = ₪3.0338 · €1 = ₪3.4594 · 2026-09-25')).toBeVisible()
+  // The page's shape from index.html, shown while loading, is gone.
+  await expect(page.locator('#skeleton')).toHaveCount(0)
   await fitScreenToPage(page)
   await expect(page).toHaveScreenshot('ranked.png', { fullPage: true })
 })

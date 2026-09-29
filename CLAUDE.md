@@ -91,6 +91,10 @@ quietly keep running the old core.
   typing. A repeated key in a keyed `{#each}` throws at runtime, unseen by
   svelte-check.
 - **ECharts:**
+  - The `chart` attachment draws just after the paint that follows a change,
+    so typing shows first, and not at all while its element has no size (a
+    hidden view). Both chart views stay mounted; a hidden one keeps its
+    canvas.
   - Never change options on hover: it redraws and loses the click, since a tap
     is a hover and a click at once. Use `dispatchAction` (highlight).
   - On touch screens (`pointer.ts`), ignore `mouseover`, because a scrolling
@@ -101,8 +105,11 @@ quietly keep running the old core.
 - **CSS:**
   - A grid child with a wide table needs `minmax(0, 1fr)`, or the page widens.
   - A chosen button must keep its width: bold wrapped the row.
+  - The Baseline plugin rejects `overscroll-behavior` (Safari lacks it on the
+    page root) and, until October 2026, `:popover-open`: tips carry an `open`
+    class from `tip.ts` instead.
 
-More traps, tariff research and this machine's tool quirks: `for-ai.md`.
+More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
 
 ## UI/UX preferences
 
@@ -125,7 +132,11 @@ More traps, tariff research and this machine's tool quirks: `for-ai.md`.
 - **One style:**
   - one tooltip style everywhere;
   - outlined buttons;
-  - units inside the fields.
+  - units inside the fields;
+  - motion through the tokens in `app.css`: `--ease-out` for what arrives,
+    `--ease-in` and less time for what leaves; presses sink a little; a
+    change closer than 250 ms to the last one (typing) snaps instead of
+    gliding; nothing moves under `prefers-reduced-motion`.
 - **Charts:**
   - time is shown as an axis, never a slider, and never in 3D;
   - the table and charts are linked, for hovering and pinning;

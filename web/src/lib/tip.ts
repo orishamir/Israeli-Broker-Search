@@ -3,6 +3,10 @@ import type { Attachment } from 'svelte/attachments'
 
 /** Closes the open tip, so only one is open at a time. */
 let closeOpen: (() => void) | null = null
+/** When the last tip closed: straight after one, the next opens at once and
+ * without its rise, as the system's own tooltips do. */
+let lastClosed = -Infinity
+const warm = () => performance.now() - lastClosed < 300
 
 /** Shows `popover` (a `popover="manual"` element) next to the element this is
  * attached to: if `hover`, while the mouse is over it or it has keyboard
@@ -45,9 +49,11 @@ export const tip =
             },
           }),
         ],
-      }).then(({ x, y }) => {
+      }).then(({ x, y, placement }) => {
         popover.style.left = `${x}px`
         popover.style.top = `${y}px`
+        // It rises towards the trigger (see `.popover` in app.css).
+        popover.style.setProperty('--rise', placement.startsWith('top') ? '4px' : '-4px')
       })
 
     function close({ byUser = true } = {}) {
@@ -56,7 +62,9 @@ export const tip =
       stopPositioning()
       stopPositioning = null
       clicked = false
+      popover.classList.remove('open')
       popover.hidePopover()
+      lastClosed = performance.now()
       if (onClick) trigger.setAttribute('aria-expanded', 'false')
       document.removeEventListener('pointerdown', onPointerDownElsewhere, true)
       document.removeEventListener('keydown', onKeyDown)
@@ -68,7 +76,10 @@ export const tip =
       if (stopPositioning) return
       if (closeOpen) closeOpen()
       closeOpen = close
+      // `warm` and `open` drive the fade in app.css.
+      popover.classList.toggle('warm', warm())
       popover.showPopover()
+      popover.classList.add('open')
       if (onClick) trigger.setAttribute('aria-expanded', 'true')
       stopPositioning = autoUpdate(trigger, popover, place)
       document.addEventListener('pointerdown', onPointerDownElsewhere, true)
@@ -88,7 +99,7 @@ export const tip =
 
     function onPointerEnter(event: PointerEvent) {
       if (!hover || event.pointerType !== 'mouse') return
-      hoverTimer = setTimeout(open, 150)
+      hoverTimer = setTimeout(open, warm() ? 0 : 150)
     }
     function onPointerLeave(event: PointerEvent) {
       if (event.pointerType !== 'mouse') return

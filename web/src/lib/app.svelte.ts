@@ -15,7 +15,7 @@ import type {
   Purchase,
   Security,
 } from './core/core'
-import { DEFAULT_RATES, fetchRates } from './rates'
+import { DEFAULT_RATES, todaysRates } from './rates'
 import { load, save } from './saved'
 
 /** Chosen to differ as much as they can on the dark background, with color
@@ -446,7 +446,7 @@ export class AppState {
 
   private async loadRates() {
     try {
-      const { ilsPerUsd, ilsPerEur, date } = await fetchRates()
+      const { ilsPerUsd, ilsPerEur, date } = await todaysRates()
       this.ilsPerUsd = ilsPerUsd
       this.ilsPerEur = ilsPerEur
       this.ratesStatus = { kind: 'downloaded', date }

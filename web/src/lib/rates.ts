@@ -25,3 +25,11 @@ export async function fetchRates(): Promise<Rates & { date: string }> {
   const ilsPerUsd = Math.round((rates.ILS / rates.USD) * 10_000) / 10_000
   return { ilsPerEur: rates.ILS, ilsPerUsd, date }
 }
+
+let pending: Promise<Rates & { date: string }> | undefined
+
+/** Today's rates, asked for once: main.ts asks as early as it can, while the
+ * core still downloads, and the app gets the same answer. */
+export function todaysRates(): Promise<Rates & { date: string }> {
+  return (pending ??= fetchRates())
+}

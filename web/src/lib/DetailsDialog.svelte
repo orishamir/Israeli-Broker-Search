@@ -290,41 +290,56 @@
     background: var(--surface);
     color: var(--text);
     box-shadow: var(--shadow);
-    /* Fades and rises in, and back out; the backdrop blurs the page. */
+    /* Arrives rising and growing a little, on a curve that starts fast and
+       settles; leaves faster, since closing should get out of the way. The
+       backdrop blurs the page. */
     opacity: 0;
-    translate: 0 12px;
-    scale: 0.98;
+    translate: 0 16px;
+    scale: 0.96;
     transition:
-      opacity 200ms ease-out,
-      translate 200ms ease-out,
-      scale 200ms ease-out,
-      overlay 200ms allow-discrete,
-      display 200ms allow-discrete;
+      opacity 140ms var(--ease-in),
+      translate 140ms var(--ease-in),
+      scale 140ms var(--ease-in),
+      overlay 140ms allow-discrete,
+      display 140ms allow-discrete;
   }
   dialog[open] {
     opacity: 1;
     translate: 0;
     scale: 1;
+    transition:
+      opacity 260ms var(--ease-out),
+      translate 260ms var(--ease-out),
+      scale 260ms var(--ease-out),
+      overlay 260ms allow-discrete,
+      display 260ms allow-discrete;
   }
   @starting-style {
     dialog[open] {
       opacity: 0;
-      translate: 0 12px;
-      scale: 0.98;
+      translate: 0 16px;
+      scale: 0.96;
     }
   }
+  /* The curves are spelled out: older browsers' backdrops don't inherit the
+     page's variables. */
   dialog::backdrop {
     background: rgb(0 0 0 / 0);
     backdrop-filter: blur(0);
     transition:
-      background 200ms,
-      backdrop-filter 200ms,
-      overlay 200ms allow-discrete,
-      display 200ms allow-discrete;
+      background 140ms cubic-bezier(0.4, 0, 1, 1),
+      backdrop-filter 140ms cubic-bezier(0.4, 0, 1, 1),
+      overlay 140ms allow-discrete,
+      display 140ms allow-discrete;
   }
   dialog[open]::backdrop {
     background: rgb(0 0 0 / 0.55);
     backdrop-filter: blur(3px);
+    transition:
+      background 260ms cubic-bezier(0.2, 0, 0, 1),
+      backdrop-filter 260ms cubic-bezier(0.2, 0, 0, 1),
+      overlay 260ms allow-discrete,
+      display 260ms allow-discrete;
   }
   @starting-style {
     dialog[open]::backdrop {
@@ -439,7 +454,7 @@
     block-size: 0;
     overflow: hidden;
     transition:
-      block-size 250ms ease-out,
+      block-size 250ms var(--ease-out),
       content-visibility 250ms allow-discrete;
   }
   details[open]::details-content {

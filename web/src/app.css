@@ -1,6 +1,8 @@
 /* The app is dark only. */
 :root {
   color-scheme: dark;
+  /* Android's gray flash on every tap: the controls respond themselves. */
+  -webkit-tap-highlight-color: transparent;
   font-family:
     'Segoe UI Variable Text',
     system-ui,
@@ -25,8 +27,13 @@
   --warning: #f2c14e;
   --error: #ff8080;
   --radius: 12px;
+  --raised-strong: #262b38;
   --shadow: 0 12px 40px rgb(0 0 0 / 0.5);
-  --quick: 150ms ease-out;
+  /* Motion: things arrive on a curve that starts fast and settles, and
+     leave on one that gets out of the way, in less time. */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --quick: 150ms var(--ease-out);
 
   color: var(--text);
   background: var(--background);
@@ -89,13 +96,22 @@ button {
   border-radius: 8px;
   background: var(--raised);
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
   transition:
     background var(--quick),
-    border-color var(--quick);
+    border-color var(--quick),
+    scale 200ms var(--ease-out);
 }
 button:hover {
   border-color: var(--strong-border);
-  background: #262b38;
+  background: var(--raised-strong);
+}
+/* Pressed: sinks a little at once, and springs back on release. Not text
+   links, which would wobble. */
+button:active:not(.link) {
+  scale: 0.96;
+  transition-duration: 60ms;
 }
 :focus-visible {
   outline: 2px solid var(--accent);
@@ -151,20 +167,46 @@ button:hover {
 
 /* A row of radio buttons, each its own outlined button. */
 .choices {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
 }
 .choices label {
+  /* Above the highlight. */
+  position: relative;
   padding: 4px 9px;
   border: 1px solid var(--strong-border);
   border-radius: 8px;
   color: var(--weak);
   cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
   transition:
-    background var(--quick),
     border-color var(--quick),
-    color var(--quick);
+    color 220ms var(--ease-out),
+    scale 200ms var(--ease-out);
+}
+.choices label:active {
+  scale: 0.97;
+  transition-duration: 60ms;
+}
+/* The chosen button is marked by one highlight that glides between the
+   buttons. `Choices.svelte` puts it under the chosen one, and sets `--glide`
+   only once it's in place, so it doesn't fly in from the corner at first. */
+.choices .highlight {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--w);
+  height: var(--h);
+  translate: var(--x) var(--y);
+  border-radius: 8px;
+  background: var(--accent);
+  transition:
+    translate var(--glide, 0ms) var(--ease-out),
+    width var(--glide, 0ms) var(--ease-out),
+    height var(--glide, 0ms) var(--ease-out);
 }
 /* Narrow cards (phones): tighter, so four choices fit on a line. */
 @container (width < 320px) {
@@ -177,10 +219,9 @@ button:hover {
   color: var(--text);
 }
 /* Not bold: a bolder choice would be wider, and choosing one could push
-   the last onto a second row. */
+   the last onto a second row. The highlight is its background. */
 .choices label:has(input:checked) {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: transparent;
   color: var(--on-accent);
 }
 .choices input {
@@ -228,6 +269,42 @@ button:hover {
   margin: 0;
   /* Taller than the space left: scrolls inside (see tip.ts). */
   overflow-y: auto;
+  /* Fades in while rising a little towards what it explains (`--rise`, set
+     by tip.ts: up when the tip is above it, down when below), and fades
+     out faster. */
+  opacity: 0;
+  translate: 0 var(--rise, 4px);
+  transition:
+    opacity 80ms var(--ease-in),
+    translate 80ms var(--ease-in),
+    overlay 80ms allow-discrete,
+    display 80ms allow-discrete;
+}
+/* `open` is set by tip.ts as it shows the popover: what `:popover-open`
+   would say, which isn't widely available yet. */
+.popover.open {
+  opacity: 1;
+  translate: 0;
+  transition:
+    opacity 120ms var(--ease-out),
+    translate 120ms var(--ease-out),
+    overlay 120ms allow-discrete,
+    display 120ms allow-discrete;
+}
+@starting-style {
+  .popover.open {
+    opacity: 0;
+    translate: 0 var(--rise, 4px);
+  }
+}
+/* Straight from one tip to the next (tip.ts): quicker, and no rise. */
+.popover.warm.open {
+  transition-duration: 60ms;
+}
+@starting-style {
+  .popover.warm.open {
+    translate: 0;
+  }
 }
 .popover p {
   margin: 0;

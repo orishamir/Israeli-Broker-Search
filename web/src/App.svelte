@@ -8,6 +8,9 @@
   import InputsPanel from './lib/InputsPanel.svelte'
   import ResultsTable from './lib/ResultsTable.svelte'
   import { shekels } from './lib/format'
+  import { duration } from './lib/motion'
+  import { cubicOut } from 'svelte/easing'
+  import { Tween } from 'svelte/motion'
 
   const views: Choice<ChartView>[] = [
     {
@@ -40,8 +43,22 @@
       ? app.comparison.results.find((result) => result.outcome && !result.warning)
       : undefined,
   )
+
+  /** The summary's numbers roll to their new values rather than jump. Each
+   * keeps its last value while the inputs are invalid, when the cards are
+   * hidden: otherwise they'd roll up from 0 when the cards return. */
+  const rolling = (value: () => number | undefined) => {
+    let last = 0
+    return Tween.of(() => (last = value() ?? last), { duration: duration(240), easing: cubicOut })
+  }
+  const comparison = () => ('results' in app.comparison ? app.comparison : undefined)
+  const deposited = rolling(() => comparison()?.deposited)
+  const noFees = rolling(() => comparison()?.noFees.afterSelling)
+  const bestValue = rolling(() => best?.outcome?.afterSelling)
+  const bestLost = rolling(() => best?.outcome?.lostToFees)
 </script>
 
+<!-- index.html's skeleton repeats the title and the line under it. -->
 <header class="top">
   <h1>Broker fees, compounded</h1>
   <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds and bonds.</p>
@@ -68,19 +85,19 @@
       <div class="stats">
         <div class="card stat">
           <span class="label">You deposit</span>
-          <span class="value">{shekels(app.comparison.deposited)}</span>
+          <span class="value">{shekels(deposited.current)}</span>
           <span class="note">over {app.years} years</span>
         </div>
         <div class="card stat">
           <span class="label">With no fees</span>
-          <span class="value">{shekels(app.comparison.noFees.afterSelling)}</span>
+          <span class="value">{shekels(noFees.current)}</span>
           <span class="note">buying every month</span>
         </div>
         {#if best?.outcome}
           <div class="card stat best" style:--plan-color={best.plan.color}>
             <span class="label">Best: {best.plan.label}</span>
-            <span class="value">{shekels(best.outcome.afterSelling)}</span>
-            <span class="note">{shekels(best.outcome.lostToFees)} lost to fees</span>
+            <span class="value">{shekels(bestValue.current)}</span>
+            <span class="note">{shekels(bestLost.current)} lost to fees</span>
           </div>
         {/if}
       </div>
@@ -108,11 +125,14 @@
               <span class="hint right touch">Drag the slider's ends to zoom</span>
             {/if}
           </div>
-          {#if lines}
+          <!-- Both views stay, so switching back is instant: a hidden one
+               isn't drawn (see echarts.svelte.ts), and the shown one fades in. -->
+          <div class="view" hidden={!lines} inert={!lines}>
             <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
-          {:else}
+          </div>
+          <div class="view" hidden={lines} inert={lines}>
             <FeeBreakdown {app} results={app.comparison.results} />
-          {/if}
+          </div>
         </section>
       {/if}
     {/if}
@@ -235,6 +255,15 @@
     gap: 8px 16px;
     align-items: center;
     margin-bottom: 4px;
+  }
+  /* The view switched to fades in; the other is just gone. */
+  .view {
+    transition: opacity 150ms var(--ease-out);
+  }
+  @starting-style {
+    .view:not([hidden]) {
+      opacity: 0;
+    }
   }
   .hint {
     font-size: 0.85rem;

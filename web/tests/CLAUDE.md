@@ -37,3 +37,6 @@ CLAUDE.md ("Done means", "Saving tokens").
 - Hidden content (a closed `<details>`, a popover) still has a size, so use
   `checkVisibility`. Mobile WebKit has no mouse wheel.
 - A full run takes about a minute. Run it twice after timing-related changes.
+- The chart draws just after the paint that follows a change, and only while
+  its view is shown. `expect` retries cover that; a bare `evaluate` right
+  after a change still sees the old chart.

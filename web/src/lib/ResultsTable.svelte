@@ -3,7 +3,7 @@
   import { flip } from 'svelte/animate'
   import type { AppState, Result } from './app.svelte'
   import { shekels } from './format'
-  import { duration } from './motion'
+  import { duration, reducedMotion } from './motion'
   import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
@@ -78,7 +78,11 @@
                 event.stopPropagation()
                 app.showFees(plan.id)
                 // Where the breakdown is, below the table (far below, on phones).
-                tick().then(() => document.getElementById('chart')?.scrollIntoView({ block: 'start' }))
+                tick().then(() =>
+                  document
+                    .getElementById('chart')
+                    ?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' }),
+                )
               }}>{shekels(outcome.fees.total)} ›</button
             >
           </td>
@@ -126,6 +130,10 @@
   }
   tbody tr:hover {
     background: var(--raised);
+  }
+  /* A tap shows at once (the hovered row is highlighted instead). */
+  tbody tr:active {
+    background: var(--raised-strong);
   }
   /* Tinted in the plan's color, like its line in the chart. */
   tbody tr.highlighted {
