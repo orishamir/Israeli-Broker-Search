@@ -98,6 +98,9 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.
+- In CI (`.github/workflows/deploy.yml`) only the desktop project runs, with
+  `--ignore-snapshots`: the runner's fonts differ from the ones the pictures
+  were recorded with. Phones and the performance suite are run here.
 - A full run takes about 60 s (224 tests on 9 devices), the desktop alone
   10 s. Run it twice after timing-related changes.
 

@@ -1172,6 +1172,10 @@ fn decimal(value: f64) -> Option<Decimal> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::float_cmp,
+    reason = "the numbers compared are made the same way, or are zero"
+)]
 mod tests {
     use super::*;
 

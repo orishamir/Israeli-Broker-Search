@@ -1,0 +1,89 @@
+# Tests, then the site on GitHub Pages: every push to main, or by hand from
+# the Actions tab. A failing test stops the deploy. The browser tests run
+# Playwright's desktop project only, without its snapshots: the pictures
+# were recorded on a developer's machine, whose fonts the runner lacks; the
+# phone projects and the performance suite stay local ("Done means" in
+# CLAUDE.md).
+name: Test and deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    # A newer push replaces a test run still going.
+    concurrency:
+      group: test-${{ github.ref }}
+      cancel-in-progress: true
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-pack
+        run: curl -sSf https://rustwasm.github.io/wasm-pack/installer/init.sh | sh
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Rust checks
+        working-directory: .
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+
+      - run: npm ci
+      - name: Build the WebAssembly
+        run: npm run wasm
+      - name: Unit tests
+        run: npx vitest run
+      - name: Lint
+        run: npm run lint
+      - name: Browser tests
+        run: |
+          npx playwright install --with-deps chromium
+          npx playwright test --project=desktop --ignore-snapshots
+
+      - name: Build the site
+        run: npx vite build
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    # Deploys queue rather than cancel: one in progress finishes.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/configure-pages@v5
+        with:
+          # Turns Pages on for the repository if it isn't yet, where the
+          # token may; otherwise it's a one-off in Settings › Pages.
+          enablement: true
+      - id: deployment
+        uses: actions/deploy-pages@v4

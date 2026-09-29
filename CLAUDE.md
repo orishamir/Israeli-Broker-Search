@@ -200,6 +200,14 @@ here: if a pattern fails, use Python), `head`/`tail`, `sed -n 'X,Yp'` or
 (`web/tests/CLAUDE.md` says which). Look at pictures only through one
 contact sheet (LESSONS.md, "Recipes"), and only at the ones that changed.
 
-## Not yet
+## Deploying
 
-- No deploying or publishing until the app is finished.
+The site is GitHub Pages, at
+https://orishamir.github.io/Israeli-Broker-Search/, built and deployed by
+`.github/workflows/deploy.yml` on every push to `main` (or by hand from the
+Actions tab). Its `test` job gates the deploy: the Rust checks and tests on
+stable, the unit tests, the linters, and Playwright's desktop project with
+`--ignore-snapshots`, since the pictures were recorded on this machine's
+fonts; the phone projects and the performance suite stay local. Vite's
+`base: './'` makes the build work under the repository's path. The
+build itself (`npm run build`) never touches the tariffs' PDFs.
