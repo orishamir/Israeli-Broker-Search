@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { AppState } from './app.svelte'
   import PlanPreview, { previewBeside, type Preview } from './PlanPreview.svelte'
+  import { t } from './text'
   import Tip from './Tip.svelte'
 
   let { app }: { app: AppState } = $props()
@@ -15,7 +16,7 @@
   let preview = $state<Preview | null>(null)
 </script>
 
-<p class="intro">Ticked at first: each broker's usual plan, the one a new customer gets.</p>
+<p class="intro">{t.tickedAtFirst}</p>
 
 {#each brokers as { broker, plans } (broker.name)}
   {@const ids = plans.map((plan) => plan.id)}
@@ -35,13 +36,13 @@
       {#if app.brokerCaveats(broker).some((group) => group.kind === 'MayCostMore')}
         <button
           class="icon-button warning"
-          aria-label="May cost more at {broker.name}: see why"
+          aria-label={t.mayCostMoreAt(broker.name)}
           onclick={() => (app.details = { kind: 'broker', broker })}>⚠</button
         >
       {/if}
       <button
         class="icon-button"
-        aria-label="About {broker.name}"
+        aria-label={t.about(broker.name)}
         onclick={() => (app.details = { kind: 'broker', broker })}>ℹ</button
       >
     </div>
@@ -75,19 +76,19 @@
           <!-- Outside the label: its ? would become part of the checkbox's name. -->
           {#if usual}
             <span class="usual"
-              >usual<Tip about="usual">
+              >{t.usual}<Tip about={t.usual}>
                 <p>{broker.usualPlan}</p>
               </Tip></span
             >
           {/if}
           <button
             class="icon-button"
-            aria-label="Change a copy of {plan.label}'s fees"
+            aria-label={t.changeACopy(plan.label)}
             onclick={() => app.draftCopyOf(plan)}>✎</button
           >
           <button
             class="icon-button"
-            aria-label="About {plan.label}"
+            aria-label={t.about(plan.label)}
             onclick={() => (app.details = { kind: 'plan', plan })}>ℹ</button
           >
         </li>
@@ -119,7 +120,7 @@
   }
   .usual {
     flex: 1;
-    margin-left: 6px;
+    margin-inline-start: 6px;
     color: var(--weak);
     font-size: 0.75rem;
   }
@@ -132,7 +133,8 @@
     font-weight: 600;
   }
   .date {
-    margin: 0 0 4px 24px;
+    margin: 0 0 4px;
+    margin-inline-start: 24px;
     font-size: 0.75rem;
     color: var(--weak);
   }
@@ -142,7 +144,8 @@
     list-style: none;
   }
   li {
-    padding: 2px 4px 2px 22px;
+    padding: 2px 4px;
+    padding-inline-start: 22px;
     border-radius: 6px;
     transition: background var(--quick);
   }

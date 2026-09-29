@@ -10,6 +10,27 @@
     />
     <meta name="theme-color" content="#0d0f14" />
     <title>Broker fees, compounded</title>
+    <!-- The language, before anything is drawn: the one remembered from the
+         switch, else the browser's. main.ts sets it again once the app runs. -->
+    <script>
+      ;(function () {
+        var lang = null
+        try {
+          lang = localStorage.getItem('lang')
+        } catch (error) {
+          lang = null
+        }
+        if (lang !== 'en' && lang !== 'he') {
+          var languages = navigator.languages || []
+          lang = 'en'
+          for (var i = 0; i < languages.length; i++) {
+            if (languages[i].toLowerCase().indexOf('he') === 0) lang = 'he'
+          }
+        }
+        document.documentElement.lang = lang
+        document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr'
+      })()
+    </script>
     <!-- The preview a shared link gets in WhatsApp and the like. -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Broker fees, compounded" />
@@ -45,6 +66,10 @@
         line-height: 1.45;
         pointer-events: none;
         transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1);
+      }
+      html[lang='he'] #skeleton [data-lang='en'],
+      html:not([lang='he']) #skeleton [data-lang='he'] {
+        display: none;
       }
       #skeleton.done {
         opacity: 0;
@@ -123,8 +148,15 @@
   <body>
     <div id="skeleton" aria-hidden="true">
       <header>
-        <h1>Broker fees, compounded</h1>
-        <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds, bonds and stocks.</p>
+        <h1 data-lang="en">Broker fees, compounded</h1>
+        <p data-lang="en">
+          What Israeli brokers' fees cost you over the years, for ETFs, index funds, bonds and stocks.
+        </p>
+        <h1 data-lang="he">עמלות המסחר, בריבית דריבית</h1>
+        <p data-lang="he">
+          כמה העמלות של הבנקים ובתי ההשקעות בישראל עולות לכם לאורך השנים, על קרנות סל, קרנות מחקות, אג״ח
+          ומניות.
+        </p>
         <div class="block" style="width: 32%"></div>
       </header>
       <div class="layout">

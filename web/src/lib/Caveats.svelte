@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { CaveatText } from './core/core'
   import Sources from './Sources.svelte'
+  import { t } from './text'
 
   /** Caveats about other choices than the user's, or larger amounts: each
    * titled with what it's about, since the same words can be about two
@@ -15,7 +16,7 @@
       <li class:warning={caveat.kind === 'MayCostMore'}>
         <span class="covers">{caveat.covers} <span class="kind">· {caveat.label}</span></span>
         {caveat.text}
-        {#if caveat.support}<span class="support">Why: {caveat.support}.</span>{/if}
+        {#if caveat.support}<span class="support">{t.why} {caveat.support}.</span>{/if}
         <Sources sources={caveat.sources} />
       </li>
     {/each}
@@ -32,14 +33,14 @@
   }
   li {
     padding: 8px 10px;
-    border-left: 3px solid var(--strong-border);
+    border-inline-start: 3px solid var(--strong-border);
     border-radius: 0 8px 8px 0;
     background: var(--raised);
     color: var(--weak);
     font-size: 0.9rem;
   }
   li.warning {
-    border-left-color: var(--warning);
+    border-inline-start-color: var(--warning);
   }
   .covers {
     display: block;

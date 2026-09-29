@@ -6,6 +6,8 @@
   import type { Change, Original } from './editor'
   import PriceList from './PriceList.svelte'
   import SimpleFees from './SimpleFees.svelte'
+  import { t } from './text'
+  import { en } from './text/en'
 
   /** One of the user's own plans, in the details dialog. A draft (not added
    * yet) has Cancel and Add plan; a plan already added saves as it changes. */
@@ -24,17 +26,12 @@
   } = $props()
 
   const views: Choice<EditorView>[] = [
-    {
-      value: 'simple',
-      name: 'Simple',
-      explanation: 'The fees for what you buy: each one’s price and minimum.',
-      hebrewNames: [],
-    },
+    { value: 'simple', name: t.simple, englishName: en.simple, explanation: t.simpleTip, hebrewNames: [] },
     {
       value: 'full',
-      name: 'Full price list',
-      explanation:
-        'Every row of the price list, for every security and exchange, with maximums and how often custody is charged.',
+      name: t.fullPriceList,
+      englishName: en.fullPriceList,
+      explanation: t.fullPriceListTip,
       hebrewNames: [],
     },
   ]
@@ -82,17 +79,17 @@
   <input
     class="name"
     type="text"
-    aria-label="Plan name"
+    aria-label={t.planName}
     autocomplete="off"
     bind:value={() => info.name, (name) => change('name', (plan) => core.rename(plan, name))}
   />
-  <button class="close" aria-label="Close" onclick={close}>✕</button>
+  <button class="close" aria-label={t.close} onclick={close}>✕</button>
 </header>
 {#if errors.name}<p class="error">{errors.name}</p>{/if}
 
 <p class="source">
   {#if originalPlan}
-    Copy of
+    {t.copyOfWord}
     {#if draft}
       {originalPlan.info.name}
     {:else}
@@ -103,10 +100,10 @@
     · {originalPlan.subtitle}
   {:else}
     <label class="broker">
-      Broker
+      {t.broker}
       <input
         type="text"
-        placeholder="optional"
+        placeholder={t.optional}
         autocomplete="off"
         value={yours.brokerName ?? ''}
         oninput={(event) => onchange({ ...yours, brokerName: event.currentTarget.value || null })}
@@ -116,7 +113,7 @@
 </p>
 
 <div class="view">
-  <Choices label="View" options={views} bind:value={app.editorView} />
+  <Choices label={t.view} options={views} bind:value={app.editorView} />
 </div>
 
 {#if app.editorView === 'simple'}
@@ -129,27 +126,27 @@
 
 <footer>
   {#if draft}
-    <button onclick={close}>Cancel</button>
+    <button onclick={close}>{t.cancel}</button>
     <button
       class="primary"
       onclick={() => {
         app.addYourPlan(yours)
         close()
-      }}>Add plan</button
+      }}>{t.addPlan}</button
     >
   {:else if confirmingDelete}
-    <span class="confirm">Delete “{info.name}”?</span>
+    <span class="confirm">{t.deleteQuestion(info.name)}</span>
     <button
       class="danger"
       onclick={() => {
         app.deleteYourPlan(yours.id)
         close()
-      }}>Delete</button
+      }}>{t.delete}</button
     >
-    <button onclick={() => (confirmingDelete = false)}>Keep</button>
+    <button onclick={() => (confirmingDelete = false)}>{t.keepPlan}</button>
   {:else}
-    <button onclick={() => (confirmingDelete = true)}>Delete plan</button>
-    <button class="primary" onclick={close}>Done</button>
+    <button onclick={() => (confirmingDelete = true)}>{t.deletePlan}</button>
+    <button class="primary" onclick={close}>{t.done}</button>
   {/if}
 </footer>
 
@@ -258,10 +255,10 @@
   }
   /* Delete goes on the left, away from the main button. */
   footer > :first-child:not(.primary) {
-    margin-right: auto;
+    margin-inline-end: auto;
   }
   .confirm {
-    margin-right: auto;
+    margin-inline-end: auto;
   }
   .primary {
     border-color: var(--accent);

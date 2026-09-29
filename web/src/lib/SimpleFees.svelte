@@ -10,6 +10,7 @@
   import Tip from './Tip.svelte'
   import TradeInputs from './TradeInputs.svelte'
   import Was from './Was.svelte'
+  import { t } from './text'
 
   /** The editor's simple view: the fees for what the user buys, each with its
    * price, unit and minimum. */
@@ -38,7 +39,7 @@
 </script>
 
 <div class="fees-for">
-  <p class="for">For {app.purchase}:</p>
+  <p class="for">{t.forPurchase(app.purchase)}</p>
   <dl>
     <dt><FeeName kind={tradeKind} /></dt>
     <dd>
@@ -60,7 +61,7 @@
         {/if}
       {:else}
         <p class="missing">
-          not offered
+          {t.notOfferedHere}
           <button
             type="button"
             onclick={() =>
@@ -71,7 +72,7 @@
                   min: undefined,
                   max: undefined,
                 }),
-              )}>+ Add a fee</button
+              )}>{t.addAFee}</button
           >
         </p>
       {/if}
@@ -88,13 +89,9 @@
                   core.setSellsFractions(plan, exchange, event.currentTarget.checked),
                 )}
             />
-            Sells fractions of a share</label
-          ><Tip about="Fractions of a share">
-            <p>
-              All of each deposit is invested, even when it's less than a share's price: at $500 a share, a
-              ₪2,000 deposit buys a share and a bit instead of one share with the rest waiting. A price per
-              share counts a fraction as a whole share.
-            </p>
+            {t.sellsFractions}</label
+          ><Tip about={t.fractionsOfAShare}>
+            <p>{t.sellsFractionsTip}</p>
           </Tip>
         </p>
         {#if errors.fractions}<p class="error">{errors.fractions}</p>{/if}
@@ -217,7 +214,7 @@
             <ConversionInputs
               fields={byStandingOrder.fields}
               currency={byStandingOrder.currency}
-              name="Conversion {standingOrderKind.label}"
+              name={t.conversionByStandingOrder(standingOrderKind.label)}
               onchange={(fields) =>
                 change('standingOrderConversion', (plan) => core.setStandingOrderConversion(plan, fields))}
             />

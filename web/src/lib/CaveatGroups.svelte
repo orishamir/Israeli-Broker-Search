@@ -2,6 +2,7 @@
   import type { CaveatGroup } from './core/core'
   import Sources from './Sources.svelte'
   import Tip from './Tip.svelte'
+  import { t } from './text'
 
   /** The caveats that matter to what the user buys, under a label per kind
    * (how sure the number is), most serious first. A reading says what
@@ -21,7 +22,7 @@
       {#each group.caveats as caveat, index (index)}
         <li>
           {caveat.text}
-          {#if caveat.support}<span class="support">Why: {caveat.support}.</span>{/if}
+          {#if caveat.support}<span class="support">{t.why} {caveat.support}.</span>{/if}
           <Sources sources={caveat.sources} />
         </li>
       {/each}
@@ -58,14 +59,14 @@
   }
   li {
     padding: 8px 10px;
-    border-left: 3px solid var(--strong-border);
+    border-inline-start: 3px solid var(--strong-border);
     border-radius: 0 8px 8px 0;
     background: var(--raised);
     color: var(--text);
     font-size: 0.9rem;
   }
   .warning li {
-    border-left-color: var(--warning);
+    border-inline-start-color: var(--warning);
     background: rgb(242 193 78 / 0.07);
   }
   .support {

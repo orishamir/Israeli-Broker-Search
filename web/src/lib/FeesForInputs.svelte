@@ -4,6 +4,7 @@
   import HebrewNames from './HebrewNames.svelte'
   import Price from './Price.svelte'
   import Tip from './Tip.svelte'
+  import { t } from './text'
 
   /** `tips`: whether each fee's name explains itself, and each mark opens
    * its caveats. Not in the hover preview, which can't be hovered into. */
@@ -15,7 +16,7 @@
 <!-- The fees that apply to what the user buys, each marked with how sure its
      number is where a caveat is about it. -->
 <div class="fees-for">
-  <p class="for">For {app.purchase}:</p>
+  <p class="for">{t.forPurchase(app.purchase)}</p>
   <dl>
     {#each fees as fee (fee.name)}
       <dt>
@@ -66,7 +67,7 @@
     grid-column: 2;
   }
   .part-name {
-    margin-right: 6px;
+    margin-inline-end: 6px;
     color: var(--weak);
   }
   .fees-for {

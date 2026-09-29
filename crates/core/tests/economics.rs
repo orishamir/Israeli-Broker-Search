@@ -48,7 +48,7 @@ fn listed_plans() -> Vec<(String, Plan)> {
             broker
                 .plans
                 .into_iter()
-                .map(move |plan| (format!("{} · {}", broker.short_name, plan.name), plan))
+                .map(move |plan| (format!("{} · {}", broker.short_name.en, plan.name.en), plan))
         })
         .collect()
 }
@@ -59,7 +59,7 @@ fn usual_plans() -> Vec<(String, Plan)> {
         .into_iter()
         .map(|mut broker| {
             let plan = broker.plans.swap_remove(broker.new_customer_plan);
-            (format!("{} · {}", broker.short_name, plan.name), plan)
+            (format!("{} · {}", broker.short_name.en, plan.name.en), plan)
         })
         .collect()
 }
@@ -120,7 +120,7 @@ fn without_growth_deposits_end_as_value_or_fees() {
                 let gap = scenario.deposited() - outcome.after_selling - outcome.fees.total();
                 assert!(
                     close(gap, Decimal::ZERO),
-                    "{name}, {security} on {exchange}, every {buy_every_months} months: \
+                    "{name}, {security:?} on {exchange:?}, every {buy_every_months} months: \
                      ₪{gap} unaccounted for"
                 );
             }
@@ -140,7 +140,7 @@ fn selling_costs_the_gap_between_held_and_sold() {
             };
             assert!(
                 close(outcome.held - outcome.after_selling, outcome.fees.selling),
-                "{name}, {security} on {exchange}: held {}, sold {}, selling fees {}",
+                "{name}, {security:?} on {exchange:?}: held {}, sold {}, selling fees {}",
                 outcome.held,
                 outcome.after_selling,
                 outcome.fees.selling
@@ -193,7 +193,7 @@ fn never_worth_more_than_with_no_fees_in_any_month() {
                 let worst = outcome.lost_by_month(&comparison.no_fees).min().unwrap();
                 assert!(
                     close(worst.min(Decimal::ZERO), Decimal::ZERO),
-                    "{name}, {security} on {exchange} at {yearly_return}%: \
+                    "{name}, {security:?} on {exchange:?} at {yearly_return}%: \
                      worth ₪{} more than with no fees in some month",
                     -worst
                 );
@@ -289,9 +289,9 @@ fn exchange_rates_dont_touch_tel_aviv() {
             let other = simulate(&plan, &scenario, &other_rates).unwrap();
             assert_eq!(
                 usual.after_selling, other.after_selling,
-                "{name}, {security}"
+                "{name}, {security:?}"
             );
-            assert_eq!(usual.fees, other.fees, "{name}, {security}");
+            assert_eq!(usual.fees, other.fees, "{name}, {security:?}");
         }
     }
 }
@@ -304,11 +304,11 @@ fn exchange_rates_dont_touch_tel_aviv() {
 #[test]
 fn the_ranking_flips_where_the_fees_cross() {
     let percentage = Plan {
-        name: "0.4%".into(),
+        name: Text::same("0.4%"),
         ..priced(percent(dec!(0.4)))
     };
     let flat = Plan {
-        name: "₪26 an order".into(),
+        name: Text::same("₪26 an order"),
         ..priced(Price::Flat(ils(dec!(26))))
     };
     let ranking = |monthly_deposit| {
@@ -453,7 +453,7 @@ fn raising_any_fee_never_helps() {
                 let after = simulate(&plan, &scenario, &rates()).unwrap();
                 assert!(
                     after.after_selling <= before.after_selling,
-                    "a higher {fee} left more: ₪{} rather than ₪{} ({security} on {exchange}, \
+                    "a higher {fee} left more: ₪{} rather than ₪{} ({security:?} on {exchange:?}, \
                      shares at {share_price})",
                     after.after_selling,
                     before.after_selling
@@ -488,9 +488,9 @@ fn the_track_used_is_the_cheapest() {
                     let alone = simulate(&plan.on_track(index), &scenario, &rates()).unwrap();
                     assert!(
                         alone.after_selling <= chosen.after_selling,
-                        "{name}, {security} on {exchange} at {share_price}: \
+                        "{name}, {security:?} on {exchange:?} at {share_price}: \
                          track {} ends with ₪{}, the one used with ₪{}",
-                        track.name,
+                        track.name.en,
                         alone.after_selling,
                         chosen.after_selling
                     );
@@ -542,12 +542,12 @@ fn usual_plans_lose_a_plausible_share() {
                 outcome.lost_to_fees(&comparison.no_fees) / comparison.no_fees.after_selling;
             assert!(
                 (dec!(0.001)..dec!(0.34)).contains(&share),
-                "{name}, {security} on {exchange}: {:.1}% lost to fees",
+                "{name}, {security:?} on {exchange:?}: {:.1}% lost to fees",
                 share * Decimal::ONE_HUNDRED
             );
             assert!(
                 outcome.fees.total() < scenario.deposited(),
-                "{name}, {security} on {exchange}: fees of ₪{} on ₪{} deposited",
+                "{name}, {security:?} on {exchange:?}: fees of ₪{} on ₪{} deposited",
                 outcome.fees.total(),
                 scenario.deposited()
             );
@@ -572,12 +572,12 @@ fn the_comparison_ranks_by_what_is_left() {
         let offered: Vec<Decimal> = left.iter().flatten().copied().collect();
         assert!(
             offered.windows(2).all(|pair| pair[0] >= pair[1]),
-            "{security} on {exchange}: {left:?}"
+            "{security:?} on {exchange:?}: {left:?}"
         );
         let first_unoffered = left.iter().position(Option::is_none).unwrap_or(left.len());
         assert!(
             left[first_unoffered..].iter().all(Option::is_none),
-            "{security} on {exchange}: {left:?}"
+            "{security:?} on {exchange:?}: {left:?}"
         );
     }
 }

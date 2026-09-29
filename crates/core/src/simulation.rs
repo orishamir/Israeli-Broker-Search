@@ -37,8 +37,8 @@ use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    ConversionFee, Exchange, Holding, IntoEnumIterator, Percent, Plan, Price, Security, Trade,
-    TradeFee,
+    ConversionFee, Exchange, Holding, IntoEnumIterator, Lang, Percent, Plan, Price, Security, Text,
+    Trade, TradeFee,
 };
 
 /// What the user invests in, and how.
@@ -85,6 +85,27 @@ pub enum InvalidScenario {
     /// Beyond [`LARGEST_VALUE`], where the decimal arithmetic could overflow.
     #[error("the deposits would grow too large to calculate")]
     TooLarge,
+}
+
+impl InvalidScenario {
+    /// The message in `lang`; its `Display` is the English one.
+    #[must_use]
+    pub fn text(self, lang: Lang) -> &'static str {
+        match self {
+            InvalidScenario::ReturnBelowMinus100 => lang.pick(
+                "the yearly return can't be below −100%",
+                "התשואה השנתית לא יכולה להיות מתחת ל-−100%",
+            ),
+            InvalidScenario::DepositGrowthBelowMinus100 => lang.pick(
+                "the deposits can't shrink by more than 100% a year",
+                "ההפקדות לא יכולות לקטון ביותר מ-100% בשנה",
+            ),
+            InvalidScenario::TooLarge => lang.pick(
+                "the deposits would grow too large to calculate",
+                "ההפקדות יגדלו יותר מדי בשביל החישוב",
+            ),
+        }
+    }
 }
 
 impl Scenario {
@@ -689,8 +710,8 @@ pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept:
 #[must_use]
 pub fn free_plan() -> Plan {
     Plan {
-        name: "No fees".into(),
-        description: String::new(),
+        name: Text::new("No fees", "ללא עמלות"),
+        description: Text::same(""),
         trading: vec![TradeFee {
             securities: vec![],
             exchanges: vec![],
@@ -1193,8 +1214,11 @@ mod tests {
                 for compared in &comparison.plans {
                     if let Some(outcome) = &compared.outcome {
                         let lost = outcome.lost_to_fees(&comparison.no_fees);
-                        let name = &plans[compared.index].name;
-                        assert!(lost > dec!(0), "{name}, {security} on {exchange}: {lost}");
+                        let name = &plans[compared.index].name.en;
+                        assert!(
+                            lost > dec!(0),
+                            "{name}, {security:?} on {exchange:?}: {lost}"
+                        );
                     }
                 }
             }
@@ -1463,7 +1487,7 @@ mod tests {
                     outcome.value_by_month.last(),
                     Some(&outcome.held),
                     "{}",
-                    plan.name
+                    plan.name.en
                 );
                 // One loss per value, the last after selling.
                 assert_eq!(outcome.lost_by_month(&outcome).count(), 2 * 12 + 1);

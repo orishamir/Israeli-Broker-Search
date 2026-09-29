@@ -5,23 +5,23 @@
 use rust_decimal_macros::dec;
 
 use crate::simulation::Scenario;
-use crate::{Exchange, Percent, Security};
+use crate::{Exchange, Percent, Security, Text};
 
 /// One pattern: a short name for its button, the pattern in words, and the
 /// inputs it sets.
 #[derive(Debug, Clone)]
 pub struct Example {
     /// "Monthly, Tel Aviv"
-    pub name: &'static str,
+    pub name: Text,
     /// "₪2,000 a month into an index fund on Tel Aviv, for 20 years…"
-    pub explanation: &'static str,
+    pub explanation: Text,
     pub scenario: Scenario,
 }
 
 /// The examples, in the order to offer them.
 #[must_use]
 pub fn all() -> Vec<Example> {
-    let example = |name, explanation, scenario| Example {
+    let example = |name: Text, explanation: Text, scenario| Example {
         name,
         explanation,
         scenario,
@@ -42,9 +42,12 @@ pub fn all() -> Vec<Example> {
     };
     vec![
         example(
-            "Monthly, Tel Aviv",
-            "₪2,000 a month into an index fund on Tel Aviv, for 20 years, expecting 10% a year \
-             (the S&P 500's long-run average): steady saving from a salary, in shekels.",
+            Text::new("Monthly, Tel Aviv", "חודשי, תל אביב"),
+            Text::new(
+                "₪2,000 a month into an index fund on Tel Aviv, for 20 years, expecting 10% a \
+                 year (the S&P 500's long-run average): steady saving from a salary, in shekels.",
+                "₪2,000 בחודש לקרן מחקה בתל אביב, ל-20 שנה, בציפייה ל-10% בשנה (הממוצע ארוך הטווח של S&P 500): חיסכון קבוע מהמשכורת, בשקלים.",
+            ),
             Scenario {
                 security: Security::IndexFund,
                 exchange: Exchange::Tlv,
@@ -53,9 +56,12 @@ pub fn all() -> Vec<Example> {
             },
         ),
         example(
-            "Monthly, US ETF",
-            "₪10,000 to start, then ₪3,000 a month into an ETF in the USA, for 20 years at 10% a \
-             year: the same saving in dollars, where converting the shekels costs too.",
+            Text::new("Monthly, US ETF", "חודשי, קרן סל בארה\u{5f4}ב"),
+            Text::new(
+                "₪10,000 to start, then ₪3,000 a month into an ETF in the USA, for 20 years at \
+                 10% a year: the same saving in dollars, where converting the shekels costs too.",
+                "₪10,000 להתחלה, ואז ₪3,000 בחודש לקרן סל בארה״ב, ל-20 שנה ב-10% בשנה: אותו חיסכון בדולרים, שבו גם המרת השקלים עולה כסף.",
+            ),
             Scenario {
                 first_deposit: dec!(10000),
                 monthly_deposit: dec!(3000),
@@ -63,10 +69,13 @@ pub fn all() -> Vec<Example> {
             },
         ),
         example(
-            "One lump sum",
-            "₪200,000 at once into an ETF in the USA, and nothing more, for 10 years at 10% a \
-             year: an inheritance or a bonus. One purchase, so what's charged for holding \
-             matters most.",
+            Text::new("One lump sum", "סכום חד-פעמי"),
+            Text::new(
+                "₪200,000 at once into an ETF in the USA, and nothing more, for 10 years at 10% \
+                 a year: an inheritance or a bonus. One purchase, so what's charged for holding \
+                 matters most.",
+                "₪200,000 בבת אחת לקרן סל בארה״ב, ולא יותר, ל-10 שנים ב-10% בשנה: ירושה או בונוס. קנייה אחת, ולכן מה שנגבה על ההחזקה חשוב ביותר.",
+            ),
             Scenario {
                 first_deposit: dec!(200_000),
                 years: 10,
@@ -74,10 +83,13 @@ pub fn all() -> Vec<Example> {
             },
         ),
         example(
-            "Bonds, 5 years",
-            "₪100,000 to start, then ₪1,000 a month into bonds on Tel Aviv, for 5 years at 4% a \
-             year: money that's needed before long, where a small fee is a large share of \
-             the interest.",
+            Text::new("Bonds, 5 years", "אג\u{5f4}ח, 5 שנים"),
+            Text::new(
+                "₪100,000 to start, then ₪1,000 a month into bonds on Tel Aviv, for 5 years at \
+                 4% a year: money that's needed before long, where a small fee is a large share \
+                 of the interest.",
+                "₪100,000 להתחלה, ואז ₪1,000 בחודש לאג״ח בתל אביב, ל-5 שנים ב-4% בשנה: כסף שיידרש בקרוב, שבו עמלה קטנה היא חלק גדול מהריבית.",
+            ),
             Scenario {
                 security: Security::Bond,
                 exchange: Exchange::Tlv,
@@ -98,7 +110,7 @@ mod tests {
     #[test]
     fn every_example_can_be_simulated_and_differs_in_name() {
         let examples = all();
-        let names: Vec<&str> = examples.iter().map(|example| example.name).collect();
+        let names: Vec<&str> = examples.iter().map(|example| &*example.name.en).collect();
         assert_eq!(
             names,
             [
@@ -110,7 +122,8 @@ mod tests {
         );
         for example in &examples {
             example.scenario.check().unwrap();
-            assert_ne!(example.explanation, "");
+            assert!(!example.explanation.is_empty());
+            assert!(!example.name.he.is_empty());
         }
     }
 }

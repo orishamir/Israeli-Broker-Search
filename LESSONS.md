@@ -195,6 +195,16 @@ all. Read those three first.
   and `grid-column` on another, auto-placement put the arrow first.
 - Svelte sets a `bind:this` to `null`, not `undefined`, when the element
   unmounts (the summary, on bad inputs): test with `!element`.
+- Right to left (Hebrew): logical CSS properties mirror the layout for
+  free, but `offsetLeft` stays physical, so the choices' highlight keeps
+  `left: 0`. A line mixing numbers, `=` and `·` reads backwards in RTL
+  unless it's wrapped in `<bdi dir="ltr">` (the exchange rates). ECharts
+  is left to right whatever the page is, which is right for axes.
+- Two languages: the core's `Text` pairs and `lang.pick` make a missing
+  Hebrew a compile error; the web's `he.ts` is typed as `en.ts` for the
+  same reason. The switch reloads the page (state in the hash) rather than
+  re-rendering: the core's texts are read once, at construction, by
+  `AppState`, and a live switch would have to rebuild all of it.
 - Loading: `index.html` draws the page's shape before any script, with
   pulsing blocks where the words go, and `main.ts` fades it out once the app
   has mounted. Its styles repeat app.css and App.svelte on purpose: it must

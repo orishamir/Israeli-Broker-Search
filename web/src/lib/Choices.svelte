@@ -58,7 +58,7 @@
   {#if option.explanation}
     <div class="popover" popover="manual" role="tooltip" bind:this={popovers[index]}>
       <p><strong>{option.name}</strong></p>
-      <HebrewNames names={option.hebrewNames} />
+      <HebrewNames names={option.hebrewNames} english={option.englishName} main={option.name} />
       <p>{option.explanation}</p>
     </div>
   {/if}

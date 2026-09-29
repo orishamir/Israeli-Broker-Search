@@ -1,3 +1,5 @@
+import { t } from './text'
+
 /** What a dollar and a euro cost in shekels. */
 export interface Rates {
   ilsPerUsd: number
@@ -15,7 +17,7 @@ export const DEFAULT_RATES: Rates = { ilsPerUsd: 3.7, ilsPerEur: 4.3 }
 export async function fetchRates(): Promise<Rates & { date: string }> {
   const response = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,ILS')
   if (!response.ok) {
-    throw new Error(`the rates service answered ${response.status}`)
+    throw new Error(t.ratesServiceAnswered(response.status))
   }
   const { date, rates } = (await response.json()) as {
     date: string

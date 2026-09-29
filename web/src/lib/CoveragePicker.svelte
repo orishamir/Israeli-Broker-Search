@@ -2,6 +2,7 @@
   import type { AppState } from './app.svelte'
   import type { Coverage } from './core/core'
   import { tip } from './tip'
+  import { t } from './text'
 
   /** What a row of the price list covers, as a button that opens a
    * checklist. Ticks apply when the checklist closes: the rows sort
@@ -41,8 +42,8 @@
   aria-haspopup="true"
   {@attach popover && tip(popover, { hover: false, below: true, onClose: apply })}>{covers} ▾</button
 >
-<div class="popover checklist" popover="manual" role="group" aria-label="What it covers" bind:this={popover}>
-  <p class="heading" id="{id}-securities">Securities</p>
+<div class="popover checklist" popover="manual" role="group" aria-label={t.whatItCovers} bind:this={popover}>
+  <p class="heading" id="{id}-securities">{t.securities}</p>
   <div class="options" role="group" aria-labelledby="{id}-securities">
     {#each app.securities as security (security.value)}
       <label>
@@ -59,7 +60,7 @@
       </label>
     {/each}
   </div>
-  <p class="heading" id="{id}-exchanges">Exchanges</p>
+  <p class="heading" id="{id}-exchanges">{t.exchanges}</p>
   <div class="options" role="group" aria-labelledby="{id}-exchanges">
     {#each app.exchanges as exchange (exchange.value)}
       <label>
@@ -76,13 +77,13 @@
       </label>
     {/each}
   </div>
-  <p class="note">None ticked means all.</p>
+  <p class="note">{t.noneTickedMeansAll}</p>
 </div>
 
 <style>
   .coverage {
     max-width: 100%;
-    text-align: left;
+    text-align: start;
     font-weight: 600;
   }
   .heading {

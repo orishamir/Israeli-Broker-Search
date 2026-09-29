@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { HandlingFields } from './core/core'
   import NumberField from './NumberField.svelte'
+  import { t } from './text'
 
   /** The handling fee's fields, one per line. `full` adds whether a month's
    * trade fees are taken off it. */
@@ -18,30 +19,30 @@
 </script>
 
 <div class="fields">
-  <label class="label" for="{id}-amount">Fee</label>
+  <label class="label" for="{id}-amount">{t.fee}</label>
   <div class="control">
     <div class="number wide">
       <NumberField
         id="{id}-amount"
         label="Handling fee: a month"
         prefix="₪"
-        placeholder="none"
+        placeholder={t.none}
         bind:value={
           () => fields.perMonth ?? null,
           (perMonth) => onchange({ ...fields, perMonth: perMonth ?? undefined })
         }
       />
     </div>
-    <span>a month</span>
+    <span>{t.aMonth}</span>
   </div>
   {#if fields.perMonth !== undefined}
-    <label class="label" for="{id}-free">Free for</label>
+    <label class="label" for="{id}-free">{t.freeFor}</label>
     <div class="control">
       <div class="number">
         <NumberField
           id="{id}-free"
           label="Handling fee: free months"
-          suffix="months"
+          suffix={t.months}
           bind:value={
             () => fields.freeMonths,
             // Whole months: the core counts them.
@@ -49,7 +50,7 @@
           }
         />
       </div>
-      <span>after opening</span>
+      <span>{t.afterOpening}</span>
     </div>
     {#if full}
       <label class="check">
@@ -58,7 +59,7 @@
           checked={fields.lessTradeFees}
           onchange={(event) => onchange({ ...fields, lessTradeFees: event.currentTarget.checked })}
         />
-        Less that month's trade fees
+        {t.lessTradeFees}
       </label>
     {/if}
   {/if}
