@@ -2,3 +2,5 @@
 # cargo mutants writes its results here.
 /mutants.out
 /mutants.out.old
+# Personal Claude Code settings.
+.claude/settings.local.json

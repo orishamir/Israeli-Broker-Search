@@ -3,6 +3,8 @@ name = "broker-fees"
 description = "Israeli brokers' tariffs, and a simulation of what they cost an investor over the years."
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [features]
 # TypeScript types for the types the web app's WebAssembly API uses.

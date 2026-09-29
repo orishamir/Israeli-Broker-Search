@@ -3,6 +3,8 @@ name = "broker-fees-wasm"
 description = "The core's API for the web app, compiled to WebAssembly."
 version.workspace = true
 edition.workspace = true
+license.workspace = true
+repository.workspace = true
 
 [lib]
 # cdylib for WebAssembly; rlib so `cargo test` can call it natively.
