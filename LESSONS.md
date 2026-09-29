@@ -247,6 +247,27 @@ all. Read those three first.
   with a single weight, 120 runs of 120 matched. `--repeat-each=40` shows
   whether a flake is gone.
 
+- The first tap on the growth chart jumped the page on phones: ECharts
+  shows a tooltip where the last one was before moving it beside the
+  pointer, and the first one starts in the middle of the chart, so for a
+  moment it reached past a 360 px screen. The browser zoomed the page out to
+  fit it (the layout viewport went to 511×1108 CSS px, scrolled up 328 px),
+  and back once the tooltip moved; when the tooltip hid first, the page
+  stayed zoomed out. Where it then landed was past the chart's left edge
+  (the chart is narrower than twice the tooltip): cut off by the screen in
+  English, and in Hebrew the page could scroll sideways to it, since a
+  right-to-left page scrolls to what's on its left. `confine: true` (in the
+  shared options) keeps where it lands inside the chart; `overflow: clip`
+  on the chart card keeps the moment before from widening the page. Only
+  Chromium's mobile mode (`isMobile`) zooms; WebKit's iPhone and a desktop
+  window don't.
+- Pinning the first plan swapped the hint above the chart for "Unpin all",
+  taller and narrower, and the zoom hint came and went with the view: the
+  chart moved by 2–28 px depending on the width. Alternatives that take
+  turns now share one grid cell (`grid-area: 1 / 1`), the unused ones
+  `visibility: hidden`, so the cell is as big as the biggest; the zoom hint
+  sits under the chart it zooms.
+
 ## Playwright
 
 - Screenshots were the suite's biggest coupling: 208 baselines on 9
@@ -275,6 +296,11 @@ all. Read those three first.
   `toMatchAriaSnapshot`.
 - An aria snapshot matches partially: adding a name (an `aria-label`) doesn't
   fail it.
+
+- A click that "intercepts pointer events" on another element and then
+  succeeds on a retry can hide a real jump: Playwright scrolls again before
+  each retry. Log the page's scroll events around the click (a capture
+  listener) before blaming the test; that's how the tooltip's zoom showed.
 
 - `getByRole('status')` also matches an `<output>` (a slider's readout):
   its implicit role is status. Find a live region by its text instead.
@@ -347,6 +373,27 @@ await browser.close()
 
 How long the page takes to respond, by interaction: `npm run test:perf`
 in `web/` (see "Speed" below), which prints a table and keeps a budget.
+
+A jump that lasts a frame or two, which pictures and videos miss: record
+what could move, every frame, in the page, around the action, and print
+only the changes (`chart.spec.ts`, "a first tap", does it as a test):
+
+```js
+const chart = document.querySelector('.chart')
+const log = []
+const t0 = performance.now()
+let last = ''
+const step = () => {
+  const state = `${innerWidth}×${innerHeight} ${scrollX},${scrollY} ${chart.getBoundingClientRect().top}`
+  if (state !== last) log.push(`${Math.round(performance.now() - t0)}ms ${state}`)
+  last = state
+  if (performance.now() - t0 < 1500) requestAnimationFrame(step)
+}
+step()
+```
+
+On a phone, `innerWidth` growing past the screen's width means the page
+was zoomed out.
 
 ## Speed
 

@@ -135,6 +135,10 @@ the unit tests in Node, then the browser.
   - Series `id`s make `replaceMerge` keep the old order.
   - Events carry `seriesIndex`, not `seriesId`.
   - Labels wrap unpredictably when some are bolder than others.
+  - Tooltips are `confine`d and the chart card clips (`overflow: clip`):
+    ECharts shows a tooltip mid-chart before moving it to the pointer, and
+    on a phone anything past the screen's edge zooms the page out (a jump);
+    past the left edge, a right-to-left page scrolls sideways to it.
 - **CSS:**
   - A grid child with a wide table needs `minmax(0, 1fr)`, or the page widens.
   - A chosen button must keep its width: bold wrapped the row.

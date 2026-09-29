@@ -86,6 +86,35 @@ test('tapping a line pins it', { tag: '@touch' }, async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
 })
 
+// ECharts shows its first tooltip in the middle of the chart before moving
+// it beside the finger: on a phone that reached past the screen, and the
+// browser zoomed the page out to fit it, so the page jumped. Where it ends
+// up must be inside the chart too: past its left edge, a right-to-left page
+// could be scrolled sideways to it.
+test('a first tap on the chart moves neither the page nor its zoom', { tag: '@touch' }, async ({ page }) => {
+  const box = await chartBox(page)
+  // How wide the page is laid out (wider when zoomed out) and where it's
+  // scrolled to, every frame for a second.
+  const views = page.evaluate(
+    () =>
+      new Promise<string[]>((resolve) => {
+        const seen = new Set<string>()
+        const start = performance.now()
+        const record = () => {
+          seen.add(`${innerWidth}×${innerHeight} at ${scrollX}, ${scrollY}`)
+          if (performance.now() - start < 1000) requestAnimationFrame(record)
+          else resolve([...seen])
+        }
+        record()
+      }),
+  )
+  await page.touchscreen.tap(box.x + box.width * 0.2, box.y + 150)
+  expect(await views).toHaveLength(1)
+  const tooltip = (await page.locator('.chart > div', { hasText: 'No fees' }).boundingBox())!
+  expect(tooltip.x).toBeGreaterThanOrEqual(box.x)
+  expect(tooltip.x + tooltip.width).toBeLessThanOrEqual(box.x + box.width)
+})
+
 test('on touch screens, the slider zooms the years', { tag: '@touch' }, async ({ page }) => {
   const chart = page.locator('.chart')
   const box = await chartBox(page)

@@ -1,4 +1,4 @@
-import { expect, fitScreenToPage, test, type Page } from './fixtures'
+import { choice, expect, fitScreenToPage, test, type Page } from './fixtures'
 
 // Runs on every device in playwright.config.ts, including the layout-only
 // ones: rules that hold at any screen size, in every state of the page. The
@@ -273,6 +273,23 @@ test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page 
   await checkLayout(page, 'every plan')
   await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
   await checkLayout(page, 'every plan, breakdown')
+})
+
+// The chart is right under the bar with the choices and the pin hint, so
+// the bar must keep its height: pinning the first plan swaps the hint for a
+// button, and the hint's words change with the view.
+test('pinning and switching views leave the chart where it is', { tag: '@phone' }, async ({ page }) => {
+  const bar = page.locator('.chart-bar')
+  const heights: Record<string, number> = {}
+  for (const view of ['Value', 'Lost to fees', 'By deposit', 'Breakdown']) {
+    await choice(page, 'Chart', view).click()
+    heights[view] = (await bar.boundingBox())!.height
+    await page.locator('tbody tr td.rank').first().click()
+    await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
+    heights[`${view}, pinned`] = (await bar.boundingBox())!.height
+    await page.getByRole('button', { name: 'Unpin all' }).click()
+  }
+  expect(new Set(Object.values(heights)).size, JSON.stringify(heights)).toBe(1)
 })
 
 // Tracks, a handling fee and a price per share plus a percentage, in details

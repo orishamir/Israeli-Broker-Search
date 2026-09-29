@@ -56,7 +56,7 @@ const QUICK_SUCCESSION = 250
 
 /** What every chart shares, on top of ECharts' dark theme: the page's font
  * and colors, quick drawing (none if the user asked for less motion), and a
- * tooltip that keeps up with the pointer. */
+ * tooltip that keeps up with the pointer and stays inside the chart. */
 const BASE: ChartOption = {
   backgroundColor: 'transparent',
   textStyle: { fontFamily: getComputedStyle(document.documentElement).fontFamily },
@@ -64,6 +64,11 @@ const BASE: ChartOption = {
   animationDuration: 500,
   animationEasingUpdate: 'cubicOut',
   tooltip: {
+    // On a phone the chart is narrower than twice the tooltip, so ECharts
+    // put it past the chart's left edge: cut off by the screen, and on a
+    // right-to-left page, where the page scrolls to anything on its left,
+    // the whole page could then be scrolled sideways.
+    confine: true,
     // In seconds; the default 0.4 trails behind the pointer.
     transitionDuration: 0.1,
     backgroundColor: 'rgba(29, 33, 44, 0.92)',

@@ -104,7 +104,7 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
 - In CI (`.github/workflows/deploy.yml`) only the desktop project runs, with
   `--ignore-snapshots`: the runner's fonts differ from the ones the pictures
   were recorded with. Phones and the performance suite are run here.
-- A full run takes about 60 s (224 tests on 9 devices), the desktop alone
+- A full run takes about 60 s (243 tests on 9 devices), the desktop alone
   10 s. Run it twice after timing-related changes.
 
 ## Performance: `npm run test:perf`

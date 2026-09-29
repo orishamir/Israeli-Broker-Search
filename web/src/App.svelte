@@ -174,21 +174,28 @@
         <section class="card" id="chart">
           <div class="chart-bar">
             <Choices label={t.chart} options={views} bind:value={app.chartView} wraps />
-            {#if app.pinned.size === 0}
-              <span class="hint mouse">{t.pinHintMouse(!lines)}</span>
-              <span class="hint touch">{t.pinHintTouch(!lines)}</span>
-            {:else}
-              <button onclick={() => app.pinned.clear()}>{t.unpinAll}</button>
-            {/if}
-            {#if overYears}
-              <span class="hint right mouse">{t.zoomHintMouse}</span>
-              <span class="hint right touch">{t.zoomHintTouch}</span>
-            {/if}
+            <!-- The hint for lines, the one for bars and the button take turns
+                 in one place that fits any of them, so pinning the first plan
+                 or switching views doesn't move the chart. -->
+            <span class="pinning">
+              {#each [false, true] as bars (bars)}
+                {@const shown = app.pinned.size === 0 && bars === !lines}
+                <span class="hint mouse" class:gone={!shown}>{t.pinHintMouse(bars)}</span>
+                <span class="hint touch" class:gone={!shown}>{t.pinHintTouch(bars)}</span>
+              {/each}
+              <button class:gone={app.pinned.size === 0} onclick={() => app.pinned.clear()}
+                >{t.unpinAll}</button
+              >
+            </span>
           </div>
           <!-- Every view stays, so switching back is instant: a hidden one
                isn't drawn (see echarts.svelte.ts), and the shown one fades in. -->
           <div class="view" hidden={!overYears} inert={!overYears}>
             <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
+            <!-- Under the chart it zooms, not in the bar: the bar is then the
+                 same in every view, and switching views doesn't move the chart. -->
+            <p class="hint zoom mouse">{t.zoomHintMouse}</p>
+            <p class="hint zoom touch">{t.zoomHintTouch}</p>
           </div>
           <div class="view" hidden={app.chartView !== 'crossover'} inert={app.chartView !== 'crossover'}>
             <CrossoverChart {app} />
@@ -399,6 +406,13 @@
       radial-gradient(farthest-side at 0% 50%, rgb(0 0 0 / 0.6), transparent) left / 16px 100% no-repeat
         scroll;
   }
+  /* ECharts shows a tooltip where the last one was before moving it beside
+     the pointer, and the first one in the middle of the chart: on a phone,
+     that reached past the screen's edge for a moment, and the browser zoomed
+     the page out to fit it, which jumped the page. Cut off here instead. */
+  #chart {
+    overflow: clip;
+  }
   .chart-bar {
     display: flex;
     flex-wrap: wrap;
@@ -419,8 +433,21 @@
     font-size: 0.85rem;
     color: var(--weak);
   }
-  .right {
-    margin-inline-start: auto;
+  .pinning {
+    display: grid;
+    align-items: center;
+    justify-items: start;
+  }
+  .pinning > * {
+    grid-area: 1 / 1;
+  }
+  /* Hidden, but still holding its place. */
+  .gone {
+    visibility: hidden;
+  }
+  .zoom {
+    margin: 0;
+    text-align: end;
   }
   /* The language switch and Share, at the end of the title's row. */
   .actions {
