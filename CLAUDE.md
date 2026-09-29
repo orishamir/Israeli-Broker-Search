@@ -9,7 +9,8 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 - `crates/core` (lib `broker_fees`): `tariffs.rs` holds the real price lists,
   `simulation.rs` runs them over the years (and states an outcome as a
   yearly cost like a fund's fee, in today's money, and over a range of
-  deposits: `sweep`), `describe.rs` holds all text shown to users (fee
+  deposits: `sweep`, with `Sweep::around` for where the cheapest plan stops
+  being cheapest), `describe.rs` holds all text shown to users (fee
   names, explanations, caveat kinds, the "About the numbers" page, Hebrew
   names), in both languages (see "Two languages" below), `yours.rs` holds
   the user's own plans (changed copies of listed plans, and plans of their
@@ -26,8 +27,13 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
   state, so the options are unit-tested without a browser. `link.ts` puts a
   comparison into the page's address (the Share button): the inputs, the
   ticked plans by label, and your own ticked plans as data. The expert
-  inputs (growing deposits, inflation, sell or keep) sit behind the "More
-  options" switch; off, the state sends the core the defaults.
+  inputs (growing deposits, inflation, sell or keep) and the chart by
+  deposit sit behind the "More options" switch; off, the state sends the
+  core the defaults. The sweep (every plan over a range of deposits, for
+  that chart and the best plan's line about other deposits) is 10–15
+  comparisons' work, so a Web Worker with its own copy of the core does it
+  (`sweeper.ts`, `sweep.worker.ts`); the state matches each answer to the
+  request it answers.
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from;
   `sources.md` says where each number comes from and how unclear rows were
   read, and `not-modeled.md` lists the fees the app leaves out.

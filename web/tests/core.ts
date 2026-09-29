@@ -5,10 +5,11 @@
 
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
+import { aroundWords } from '../src/lib/around'
 import { percent, shekels } from '../src/lib/format'
 import { parseNumber } from '../src/lib/numbers'
-import { brokers, compare, initSync } from '../src/lib/core/core'
-import type { Exchange, Inputs, PlanKey, Security } from '../src/lib/core/core'
+import { around, brokers, compare, initSync, sweep } from '../src/lib/core/core'
+import type { Exchange, Inputs, PlanKey, Security, Swept } from '../src/lib/core/core'
 
 /** The key of a listed plan: where its broker is, and where it is in the broker's plans. */
 export type ListedKey = Extract<PlanKey, { kind: 'listed' }>
@@ -149,4 +150,23 @@ export function trackOnPage(inputs: Inputs, key: PlanKey): number | undefined {
   } catch {
     return undefined
   }
+}
+
+/** The best plan's line about other deposits for `inputs`: the core's
+ * answer, in the page's words. The sweep varies the monthly deposit if
+ * there is one, else the one-time deposit, and is asked without it. */
+export function expectedAroundLine(inputs: Inputs): string | undefined {
+  const swept: Swept = (inputs.monthlyDeposit ?? 0) > 0 ? 'Monthly' : 'OneTime'
+  const without = swept === 'Monthly' ? { ...inputs, monthlyDeposit: 0 } : { ...inputs, firstDeposit: 0 }
+  const found = around({
+    sweep: sweep(without, swept),
+    deposit: (swept === 'Monthly' ? inputs.monthlyDeposit : inputs.firstDeposit) ?? 0,
+    costs: compare(inputs).plans.map(({ key, outcome }) => ({
+      key,
+      cost: outcome?.yearlyCostPercent ?? null,
+    })),
+  })
+  const labelOf = (key: PlanKey) =>
+    listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.label
+  return found && aroundWords(found, swept, labelOf)
 }

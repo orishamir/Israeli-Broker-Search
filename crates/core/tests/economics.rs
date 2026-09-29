@@ -10,8 +10,8 @@
 //! smallest failing ones and prints them.
 
 use broker_fees::simulation::{
-    Comparison, Fees, InvalidScenario, Outcome, Scenario, Swept, compare, free_plan, simulate,
-    sweep,
+    Around, Comparison, Crossing, Fees, InvalidScenario, Outcome, Scenario, Sweep, Swept, compare,
+    free_plan, simulate, sweep,
 };
 use broker_fees::*;
 use proptest::prelude::*;
@@ -957,6 +957,186 @@ fn the_sweep_matches_the_table_at_each_deposit() {
     };
     let none = sweep(&[altshuler], &europe, &rates(), Swept::Monthly);
     assert_eq!(none.costs, [None]);
+}
+
+/// Around the user's deposit, the cheapest plan's lead ends where another
+/// plan's cost meets its own, the costs taken to change steadily between
+/// the amounts tried, on a logarithmic scale of amounts. Worked out:
+/// - below ₪2,000, the first plan is no dearer at ₪1,000 (1% against 2%)
+///   but dearer at ₪100 (3% against 1%): the gaps are −1 and +2, so they
+///   meet a third of the way down, at 1,000 × (100 / 1,000)^⅓ = ₪464, which
+///   is ₪460 to two digits;
+/// - above, the third plan: its gaps are 0.9 − 1.2 = −0.3 at ₪2,000 and
+///   0.5 − 0.3 = +0.2 at ₪10,000, so they meet 0.6 of the way up, at
+///   2,000 × 5^0.6 = ₪5,253, which is ₪5,300.
+#[test]
+fn around_the_deposit_the_nearest_crossings_are_found() {
+    let costs = |costs: &[Decimal]| Some(costs.iter().copied().map(Percent).collect::<Vec<_>>());
+    let sweep = Sweep {
+        swept: Swept::Monthly,
+        amounts: vec![dec!(100), dec!(1000), dec!(10000)],
+        costs: vec![
+            costs(&[dec!(3), dec!(1), dec!(0.5)]),
+            costs(&[dec!(1), dec!(2), dec!(2)]),
+            costs(&[dec!(5), dec!(1.5), dec!(0.3)]),
+            // Not offered: never cheaper.
+            None,
+        ],
+    };
+    let at_deposit = [
+        Some(Percent(dec!(0.9))),
+        Some(Percent(dec!(2))),
+        Some(Percent(dec!(1.2))),
+        None,
+    ];
+    assert_eq!(
+        sweep.around(0, dec!(2000), &at_deposit),
+        Some(Around {
+            from: dec!(100),
+            to: dec!(10000),
+            below: Some(Crossing {
+                amount: dec!(460),
+                plan: 1
+            }),
+            above: Some(Crossing {
+                amount: dec!(5300),
+                plan: 2
+            }),
+        })
+    );
+    // Only the cheapest plan at the user's deposit has a lead to lose.
+    assert_eq!(sweep.around(1, dec!(2000), &at_deposit), None);
+    // A plan as cheap isn't cheaper: a tie at the user's deposit keeps the
+    // lead, and one at an amount tried isn't a crossing.
+    let tied = [
+        Some(Percent(dec!(0.9))),
+        Some(Percent(dec!(0.9))),
+        Some(Percent(dec!(1.2))),
+        None,
+    ];
+    assert!(sweep.around(0, dec!(2000), &tied).is_some());
+    let level = Sweep {
+        costs: vec![
+            costs(&[dec!(1), dec!(1), dec!(1)]),
+            costs(&[dec!(1), dec!(1), dec!(1)]),
+        ],
+        ..sweep.clone()
+    };
+    let level_at = [Some(Percent(dec!(1))), Some(Percent(dec!(1)))];
+    assert_eq!(
+        level
+            .around(0, dec!(2000), &level_at)
+            .map(|around| (around.below, around.above)),
+        Some((None, None))
+    );
+    // Nothing to say without a deposit, or with costs for other plans.
+    assert_eq!(sweep.around(0, Decimal::ZERO, &at_deposit), None);
+    assert_eq!(sweep.around(0, dec!(2000), &at_deposit[..3]), None);
+    // At an amount tried, the user's own costs are the ones used: with the
+    // second plan at 0.5% there, it's the cheapest, and stays so below.
+    let at_1000 = [
+        Some(Percent(dec!(1))),
+        Some(Percent(dec!(0.5))),
+        Some(Percent(dec!(1.5))),
+        None,
+    ];
+    let around = sweep.around(1, dec!(1000), &at_1000).unwrap();
+    assert_eq!(around.below, None);
+    assert_eq!(around.above.map(|crossing| crossing.plan), Some(0));
+    // Past the amounts tried, the range reaches the user's deposit. The
+    // third plan is dearer there (0.45% against 0.4%) and cheaper at
+    // ₪10,000: the gaps −0.05 and +0.2 meet a fifth of the way down, at
+    // 50,000 × (10,000 / 50,000)^0.2 = ₪36,239, which is ₪36,000.
+    let at_50000 = [
+        Some(Percent(dec!(0.4))),
+        Some(Percent(dec!(2))),
+        Some(Percent(dec!(0.45))),
+        None,
+    ];
+    assert_eq!(
+        sweep.around(0, dec!(50000), &at_50000),
+        Some(Around {
+            from: dec!(100),
+            to: dec!(50000),
+            below: Some(Crossing {
+                amount: dec!(36000),
+                plan: 2
+            }),
+            above: None,
+        })
+    );
+}
+
+proptest! {
+    // A sweep is a comparison's work at each amount tried, so fewer cases.
+    #![proptest_config(ProptestConfig { cases: 16, failure_persistence: None, ..ProptestConfig::default() })]
+
+    /// With the real plans: the cheapest plan at the user's deposit is the
+    /// cheapest at every amount tried between it and the nearest crossing
+    /// each way, and the plan named past a crossing is cheaper at an amount
+    /// tried beyond it. Two significant digits move a crossing by 5% at most,
+    /// hence the margin.
+    #[test]
+    fn the_cheapest_plan_stays_cheapest_up_to_its_crossings(scenario in scenarios()) {
+        let plans = usual_plans();
+        let refs: Vec<&Plan> = plans.iter().map(|(_, plan)| plan).collect();
+        let swept = Swept::for_scenario(&scenario);
+        let deposit = match swept {
+            Swept::Monthly => scenario.monthly_deposit,
+            Swept::OneTime => scenario.first_deposit,
+        };
+        let comparison = compare(&refs, &scenario, &rates());
+        let Some(best) = comparison.plans.iter().find(|plan| plan.outcome.is_some()).map(|plan| plan.index) else {
+            return Ok(());
+        };
+        let mut at_deposit = vec![None; refs.len()];
+        for compared in &comparison.plans {
+            at_deposit[compared.index] = compared.outcome.as_ref().map(|outcome| outcome.yearly_cost);
+        }
+        let sweep = sweep(&refs, &scenario, &rates(), swept);
+        let around = sweep.around(best, deposit, &at_deposit);
+        prop_assert!(around.is_some(), "the comparison's best isn't the cheapest at ₪{}", deposit);
+        let around = around.unwrap();
+
+        let points: Vec<(Decimal, Vec<Option<Percent>>)> = sweep
+            .amounts
+            .iter()
+            .enumerate()
+            .map(|(index, &amount)| {
+                (amount, sweep.costs.iter().map(|costs| costs.as_ref().map(|costs| costs[index])).collect())
+            })
+            .collect();
+        let cheapest = |costs: &[Option<Percent>]| costs.iter().flatten().all(|&cost| costs[best].unwrap() <= cost);
+        let cheaper = |costs: &[Option<Percent>], plan: usize| costs[plan].is_some_and(|cost| cost < costs[best].unwrap());
+        let margin = dec!(1.05);
+
+        let lowest = around.below.map_or(Decimal::ZERO, |crossing| crossing.amount * margin);
+        for (amount, costs) in points.iter().filter(|(amount, _)| *amount < deposit && *amount >= lowest) {
+            prop_assert!(cheapest(costs), "not the cheapest at ₪{} a {:?} deposit of ₪{}: {:?}", amount, swept, deposit, around);
+        }
+        if let Some(crossing) = around.below {
+            prop_assert!(crossing.amount <= deposit, "{:?}", around);
+            prop_assert!(
+                points.iter().any(|(amount, costs)| *amount <= crossing.amount * margin && cheaper(costs, crossing.plan)),
+                "plan {} isn't cheaper below the crossing: {:?}", crossing.plan, around
+            );
+        }
+
+        let highest = around.above.map(|crossing| crossing.amount / margin);
+        for (amount, costs) in points.iter().filter(|(amount, _)| *amount > deposit && highest.is_none_or(|highest| *amount <= highest)) {
+            prop_assert!(cheapest(costs), "not the cheapest at ₪{} a {:?} deposit of ₪{}: {:?}", amount, swept, deposit, around);
+        }
+        if let Some(crossing) = around.above {
+            prop_assert!(crossing.amount >= deposit, "{:?}", around);
+            prop_assert!(
+                points.iter().any(|(amount, costs)| *amount >= crossing.amount / margin && cheaper(costs, crossing.plan)),
+                "plan {} isn't cheaper above the crossing: {:?}", crossing.plan, around
+            );
+        }
+
+        prop_assert_eq!(around.from, sweep.amounts[0].min(deposit));
+        prop_assert_eq!(around.to, sweep.amounts[sweep.amounts.len() - 1].max(deposit));
+    }
 }
 
 /// `rate` compounded over `years`: 1.02 for 20 years. Decimal has no power

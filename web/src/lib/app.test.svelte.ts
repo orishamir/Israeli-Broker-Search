@@ -28,6 +28,18 @@ const results = (app: AppState) => {
   return comparison.results
 }
 
+/** Answers the app's sweep request, as the worker does (see sweeper.ts). */
+function answerSweep(app: AppState) {
+  const request = app.sweepRequest
+  let sweep: core.SweepData | undefined
+  try {
+    sweep = core.sweep(request.inputs, request.swept)
+  } catch {
+    sweep = undefined
+  }
+  app.sweepAnswer = { request, sweep }
+}
+
 const draftOf = (details: Details | null) => {
   if (details?.kind !== 'draft') throw new Error('no draft open')
   return details.draft
@@ -215,6 +227,7 @@ test('an example fills every basic input, and leaves the expert ones', () => {
 test('the sweep varies the monthly deposit while there is one, else the one-time deposit, and follows the table', () => {
   const app = start()
   expect(app.swept).toBe('Monthly')
+  answerSweep(app)
   const sweep = app.sweep!
   expect(sweep.swept).toBe('Monthly')
   expect(sweep.plans.map(({ key }) => planId(key))).toEqual([...app.selected])
@@ -224,16 +237,19 @@ test('the sweep varies the monthly deposit while there is one, else the one-time
   app.monthlyDeposit = amount
   const row = results(app).find(({ plan }) => plan.id === planId(first.key))!
   expect(first.costs![3]).toBe(row.outcome!.yearlyCostPercent)
-  // Typing the swept deposit doesn't change the sweep.
-  expect(app.sweep).toBe(sweep)
+  // Typing the swept deposit asks for no new sweep.
+  expect(app.sweepAnswer!.request).toBe(app.sweepRequest)
 
   app.monthlyDeposit = 0
   expect(app.swept).toBe('OneTime')
+  answerSweep(app)
   expect(app.sweep!.swept).toBe('OneTime')
   // The swept deposit's own field may be empty: it isn't used. Another empty field stops the sweep.
   app.firstDeposit = null
+  answerSweep(app)
   expect(app.sweep).toBeDefined()
   app.yearlyReturnPercent = null
+  answerSweep(app)
   expect(app.sweep).toBeUndefined()
 })
 
@@ -301,3 +317,46 @@ function start_from(link: string): AppState {
   })
   return app
 }
+
+test('the chart by deposit is shown only with More options, and comes back with them', () => {
+  const app = start()
+  app.moreOptions = true
+  app.chartView = 'crossover'
+  expect(app.chartView).toBe('crossover')
+  app.moreOptions = false
+  expect(app.chartView).toBe('value')
+  app.moreOptions = true
+  expect(app.chartView).toBe('crossover')
+})
+
+test("the best plan's line keeps its words until the sweep answers, shown while they're about the best", () => {
+  const app = start()
+  const answer = () => answerSweep(app)
+  // Before the first answer: words that hold the line's place, hidden.
+  expect(app.aroundLine.shown).toBe(false)
+  answer()
+  const first = app.aroundLine
+  expect(first).toEqual({ text: expect.stringMatching(/^The cheapest at any monthly deposit/), shown: true })
+  // Typing the deposit the sweep varies asks nothing new.
+  const asked = app.sweepRequest
+  app.monthlyDeposit = 2500
+  expect(app.sweepRequest).toBe(asked)
+  expect(app.aroundLine.shown).toBe(true)
+  // Other inputs do. Until the answer, the words stay while the best plan
+  // is the same, and hide when another plan is best.
+  const best = app.best!.plan.id
+  app.years = 25
+  expect(app.sweepRequest).not.toBe(asked)
+  expect(app.best!.plan.id).toBe(best)
+  expect(app.aroundLine).toEqual({ ...first, shown: true })
+  app.exchange = 'Tlv'
+  expect(app.best!.plan.id).not.toBe(best)
+  expect(app.aroundLine).toEqual({ text: first.text, shown: false })
+  answer()
+  expect(app.aroundLine.shown).toBe(true)
+  // An answer to an older request isn't used, and one the core can't use hides the line.
+  app.sweepAnswer = { request: asked, sweep: app.sweep }
+  expect(app.around).toBeUndefined()
+  app.sweepAnswer = { request: app.sweepRequest, sweep: undefined }
+  expect(app.aroundLine.shown).toBe(false)
+})

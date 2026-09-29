@@ -877,8 +877,9 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
 }
 
 /// Each plan's yearly cost at each of a range of deposits: the lines of the
-/// chart by deposit, where the ranking flips at the crossings.
-#[derive(Debug, Serialize, Tsify)]
+/// chart by deposit, where the ranking flips at the crossings. It comes
+/// back for [`around`].
+#[derive(Debug, Serialize, Deserialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct SweepData {
     /// Which deposit varies.
@@ -889,7 +890,7 @@ pub struct SweepData {
     pub plans: Vec<PlanSweepData>,
 }
 
-#[derive(Debug, Serialize, Tsify)]
+#[derive(Debug, Serialize, Deserialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct PlanSweepData {
     pub key: PlanKey,
@@ -926,6 +927,113 @@ pub fn sweep_plans(inputs: &Inputs, swept: Swept) -> Result<SweepData, InvalidIn
                 costs: costs.map(|costs| costs.into_iter().map(|cost| number(cost.0)).collect()),
             })
             .collect(),
+    })
+}
+
+/// What [`around`] works from: the sweep, and the comparison at the user's
+/// own value of the deposit the sweep varies.
+#[derive(Debug, Deserialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct AroundInputs {
+    pub sweep: SweepData,
+    /// ₪: the user's own value of the swept deposit.
+    pub deposit: f64,
+    /// Each plan's yearly cost there, best first, as the comparison ranks
+    /// them.
+    pub costs: Vec<PlanCost>,
+}
+
+#[derive(Debug, Deserialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanCost {
+    pub key: PlanKey,
+    /// In percent; missing if the plan doesn't offer the security there.
+    #[tsify(type = "number | null")]
+    pub cost: Option<f64>,
+}
+
+/// Where the cheapest plan at the user's deposit stops being the cheapest,
+/// as the swept deposit moves away from it. All amounts in ₪.
+#[derive(Debug, PartialEq, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct AroundData {
+    /// The least deposit looked at, the sweep's or the user's own.
+    pub from: f64,
+    /// The most.
+    pub to: f64,
+    /// The nearest crossing below the user's deposit, past which another
+    /// plan is cheaper; none if the plan stays the cheapest down to `from`.
+    pub below: Option<CrossingData>,
+    /// The nearest above it, up to `to`.
+    pub above: Option<CrossingData>,
+}
+
+#[derive(Debug, PartialEq, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct CrossingData {
+    /// To two significant digits.
+    pub amount: f64,
+    /// The plan that's cheaper past it.
+    pub key: PlanKey,
+}
+
+/// Where the cheapest plan at the user's own deposit stops being the
+/// cheapest ([`simulation::Sweep::around`]). Nothing if the sweep and the
+/// comparison disagree about which plan that is, as a sweep for other
+/// inputs might.
+#[wasm_bindgen]
+pub fn around(inputs: Ts<AroundInputs>) -> Result<Option<Ts<AroundData>>, JsError> {
+    Ok(around_of(&inputs.to_rust()?)
+        .as_ref()
+        .map(AroundData::into_ts)
+        .transpose()?)
+}
+
+#[must_use]
+pub fn around_of(inputs: &AroundInputs) -> Option<AroundData> {
+    let AroundInputs {
+        sweep,
+        deposit,
+        costs,
+    } = inputs;
+    // The comparison's best is the first plan it has a cost for.
+    let best_key = &costs.iter().find(|plan| plan.cost.is_some())?.key;
+    let best = sweep.plans.iter().position(|plan| &plan.key == best_key)?;
+    let cost_at_deposit = |key: &PlanKey| costs.iter().find(|plan| &plan.key == key)?.cost;
+    let swept = simulation::Sweep {
+        swept: sweep.swept,
+        amounts: sweep
+            .amounts
+            .iter()
+            .map(|&amount| decimal(amount))
+            .collect::<Option<_>>()?,
+        costs: sweep
+            .plans
+            .iter()
+            .map(|plan| {
+                plan.costs
+                    .as_ref()?
+                    .iter()
+                    .map(|&cost| decimal(cost).map(Percent))
+                    .collect()
+            })
+            .collect(),
+    };
+    let at_deposit: Vec<Option<Percent>> = sweep
+        .plans
+        .iter()
+        .map(|plan| cost_at_deposit(&plan.key).and_then(decimal).map(Percent))
+        .collect();
+    let around = swept.around(best, decimal(*deposit)?, &at_deposit)?;
+    let crossing = |crossing: simulation::Crossing| CrossingData {
+        amount: number(crossing.amount),
+        key: sweep.plans[crossing.plan].key.clone(),
+    };
+    Some(AroundData {
+        from: number(around.from),
+        to: number(around.to),
+        below: around.below.map(crossing),
+        above: around.above.map(crossing),
     })
 }
 
@@ -1384,6 +1492,60 @@ mod tests {
             ],
             your_plans: vec![],
         }
+    }
+
+    /// The sweep and the comparison are matched by plan, whatever their
+    /// order: the comparison's first plan with a cost is the best, and a
+    /// best that isn't the cheapest in the sweep has nothing to say.
+    #[test]
+    fn around_matches_the_sweep_and_the_comparison_by_plan() {
+        let comparison = compare_plans(&inputs()).unwrap();
+        let sweep = || {
+            let inputs = Inputs {
+                monthly_deposit: Some(0.0),
+                ..inputs()
+            };
+            sweep_plans(&inputs, Swept::Monthly).unwrap()
+        };
+        let costs = |plans: &mut dyn Iterator<Item = &PlanOutcomeData>| {
+            plans
+                .map(|plan| PlanCost {
+                    key: plan.key.clone(),
+                    cost: plan
+                        .outcome
+                        .as_ref()
+                        .map(|outcome| outcome.yearly_cost_percent),
+                })
+                .collect()
+        };
+        let around = around_of(&AroundInputs {
+            sweep: sweep(),
+            deposit: 2_000.0,
+            costs: costs(&mut comparison.plans.iter()),
+        })
+        .unwrap();
+        assert_eq!((around.from, around.to), (100.0, 32_000.0));
+        let keys = crossing_keys(&around);
+        assert!(
+            keys.iter().all(|key| inputs().plans.contains(key)),
+            "{around:?}"
+        );
+
+        let upside_down = around_of(&AroundInputs {
+            sweep: sweep(),
+            deposit: 2_000.0,
+            costs: costs(&mut comparison.plans.iter().rev()),
+        });
+        assert_eq!(upside_down, None);
+    }
+
+    /// The plans named past the crossings.
+    fn crossing_keys(around: &AroundData) -> Vec<&PlanKey> {
+        [&around.below, &around.above]
+            .into_iter()
+            .flatten()
+            .map(|crossing| &crossing.key)
+            .collect()
     }
 
     #[test]

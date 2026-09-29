@@ -4,6 +4,8 @@
 // from the core in the language it was set to; these are the page's frame.
 // Texts with a number or a name in them are functions.
 
+import type { Swept } from '../core/core'
+
 export const en = {
   // The page
   title: 'Broker fees, compounded',
@@ -27,6 +29,23 @@ export const en = {
   best: (label: string) => `Best: ${label}`,
   lostAndYearly: (lost: string, yearly: string) => `${lost} lost to fees · ${yearly} a year`,
   yearlyAndLost: (yearly: string, lost: string) => `${yearly} a year · ${lost} lost to fees`,
+  // The best plan at other values of the deposit the chart by deposit varies.
+  cheapestThroughout: (from: string, to: string, swept: Swept) =>
+    swept === 'Monthly'
+      ? `The cheapest at any monthly deposit from ${from} to ${to}`
+      : `The cheapest for any one-time deposit from ${from} to ${to}`,
+  cheaperBelow: (amount: string, plan: string, swept: Swept) =>
+    swept === 'Monthly'
+      ? `Below ${amount} a month, ${plan} is cheaper`
+      : `For a one-time deposit below ${amount}, ${plan} is cheaper`,
+  cheaperAbove: (amount: string, plan: string, swept: Swept) =>
+    swept === 'Monthly'
+      ? `Above ${amount} a month, ${plan} is cheaper`
+      : `For a one-time deposit above ${amount}, ${plan} is cheaper`,
+  cheaperBothWays: (below: string, belowPlan: string, above: string, abovePlan: string, swept: Swept) =>
+    swept === 'Monthly'
+      ? `Below ${below} a month, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`
+      : `For a one-time deposit below ${below}, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`,
   checkInputs: (error: string) => `Check your inputs: ${error}.`,
   tickABroker: 'Tick a broker on the left to compare.',
 

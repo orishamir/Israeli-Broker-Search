@@ -23,7 +23,8 @@
 //! as a yearly charge on the holdings, like a fund's management fee
 //! ([`Outcome::yearly_cost`]), and can be restated in today's money
 //! ([`Outcome::in_todays_money`]). [`sweep`] runs the plans over a range of
-//! deposits, to show where their ranking flips.
+//! deposits, to show where their ranking flips, and [`Sweep::around`] says
+//! where the cheapest plan at the user's own deposit stops being cheapest.
 //!
 //! Simplifications, all small next to the fees themselves:
 //! - The expected return is in the security's own currency. Exchange rates
@@ -640,11 +641,7 @@ impl Swept {
             Swept::OneTime => (3, 22),
         };
         (0..=steps)
-            .map(|step| {
-                let amount = 10_f64.powf(f64::from(from) + f64::from(step) / 6.0);
-                let unit = 10_f64.powf(amount.log10().floor() - 1.0);
-                Decimal::try_from((amount / unit).round() * unit).unwrap_or_default()
-            })
+            .map(|step| two_digits(10_f64.powf(f64::from(from) + f64::from(step) / 6.0)))
             .collect()
     }
 
@@ -701,6 +698,141 @@ pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept:
         swept,
         amounts,
         costs,
+    }
+}
+
+/// `amount` to two significant digits: 1,234 becomes 1,200, 548 becomes 550.
+fn two_digits(amount: f64) -> Decimal {
+    let unit = 10_f64.powf(amount.log10().floor() - 1.0);
+    Decimal::try_from((amount / unit).round() * unit).unwrap_or_default()
+}
+
+/// Where the cheapest plan at the user's own deposit stops being the
+/// cheapest, as the swept deposit moves away from it ([`Sweep::around`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Around {
+    /// ₪: the least deposit looked at, the sweep's or the user's own.
+    pub from: Decimal,
+    /// ₪: the most.
+    pub to: Decimal,
+    /// The nearest crossing below the user's deposit, past which another
+    /// plan is cheaper; none if the plan stays the cheapest down to `from`.
+    pub below: Option<Crossing>,
+    /// The nearest above it, up to `to`.
+    pub above: Option<Crossing>,
+}
+
+/// Where another plan becomes the cheaper one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Crossing {
+    /// ₪, to two significant digits.
+    pub amount: Decimal,
+    /// The plan that's cheaper past it, by its place among the plans given
+    /// to [`sweep`].
+    pub plan: usize,
+}
+
+/// A deposit, with each plan's yearly cost there (by plan).
+type Point = (Decimal, Vec<Option<Percent>>);
+
+impl Sweep {
+    /// Where `best`, the cheapest plan at the user's own `deposit`, stops
+    /// being the cheapest as the swept deposit moves away from it, each way.
+    /// `at_deposit` is each plan's yearly cost at the user's deposit, by plan
+    /// as in [`Sweep::costs`]: the comparison's, which takes its place among
+    /// the amounts tried. Between two amounts, the costs are taken to change
+    /// steadily along a logarithmic scale of amounts, as the chart by deposit
+    /// draws them; near a crossing the two plans cost about the same anyway.
+    /// `None` if `best` isn't the cheapest at the user's deposit.
+    #[must_use]
+    pub fn around(
+        &self,
+        best: usize,
+        deposit: Decimal,
+        at_deposit: &[Option<Percent>],
+    ) -> Option<Around> {
+        if deposit <= Decimal::ZERO || at_deposit.len() != self.costs.len() {
+            return None;
+        }
+        let mut points: Vec<Point> = self
+            .amounts
+            .iter()
+            .enumerate()
+            .filter(|&(_, &amount)| amount != deposit)
+            .map(|(index, &amount)| {
+                let costs = self
+                    .costs
+                    .iter()
+                    .map(|costs| costs.as_ref().map(|costs| costs[index]))
+                    .collect();
+                (amount, costs)
+            })
+            .collect();
+        let here = points.partition_point(|(amount, _)| *amount < deposit);
+        points.insert(here, (deposit, at_deposit.to_vec()));
+        if !cheaper_than(&points[here].1, best)?.is_empty() {
+            return None;
+        }
+        Some(Around {
+            from: points[0].0,
+            to: points[points.len() - 1].0,
+            below: first_crossing(points[..=here].iter().rev(), best),
+            above: first_crossing(points[here..].iter(), best),
+        })
+    }
+}
+
+/// The plans cheaper than `best` at a point, each with its cost there; none
+/// if `best` has no cost there.
+fn cheaper_than(costs: &[Option<Percent>], best: usize) -> Option<Vec<usize>> {
+    let best_cost = (*costs.get(best)?)?;
+    Some(
+        costs
+            .iter()
+            .enumerate()
+            .filter(|&(plan, &cost)| plan != best && cost.is_some_and(|cost| cost < best_cost))
+            .map(|(plan, _)| plan)
+            .collect(),
+    )
+}
+
+/// Walking away from the user's deposit through `points`, which start
+/// there: the first crossing, between the last point where `best` is the
+/// cheapest and the first where another plan is. Of several plans cheaper
+/// there, the one that crosses nearest.
+fn first_crossing<'a>(
+    mut points: impl Iterator<Item = &'a Point>,
+    best: usize,
+) -> Option<Crossing> {
+    let mut near = points.next()?;
+    for far in points {
+        let nearest = cheaper_than(&far.1, best)?
+            .into_iter()
+            .map(|plan| (plan, meeting(near, far, best, plan)))
+            .min_by(|(_, a), (_, b)| a.total_cmp(b));
+        if let Some((plan, fraction)) = nearest {
+            let (from, to) = (near.0.to_f64()?, far.0.to_f64()?);
+            let amount = two_digits(from * (to / from).powf(fraction));
+            return Some(Crossing {
+                // Rounding mustn't take it past either point.
+                amount: amount.clamp(near.0.min(far.0), near.0.max(far.0)),
+                plan,
+            });
+        }
+        near = far;
+    }
+    None
+}
+
+/// How far from `near` towards `far` the costs of `best` and `plan` meet,
+/// as a fraction of the way, taking them to change steadily between: `best`
+/// is no dearer at `near` (a gap of 0 or less), and dearer at `far`.
+fn meeting(near: &Point, far: &Point, best: usize, plan: usize) -> f64 {
+    let cost = |point: &Point, which: usize| point.1.get(which).copied().flatten()?.0.to_f64();
+    let gap = |point: &Point| Some(cost(point, best)? - cost(point, plan)?);
+    match (gap(near), gap(far)) {
+        (Some(near), Some(far)) => -near / (far - near),
+        _ => 0.0,
     }
 }
 

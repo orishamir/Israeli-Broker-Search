@@ -180,6 +180,7 @@ test('at the start', { tag: '@phone' }, async ({ page }) => {
       page.locator('td.amount'),
       page.locator('.stat .value'),
       page.locator('.stat.best .label'),
+      page.locator('.stat.best .around'),
       page.locator('.best-bar'),
       page.locator('.chart'),
       page.locator('.date'),
@@ -279,6 +280,8 @@ test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page 
 // the bar must keep its height: pinning the first plan swaps the hint for a
 // button, and the hint's words change with the view.
 test('pinning and switching views leave the chart where it is', { tag: '@phone' }, async ({ page }) => {
+  // Every view, the chart by deposit too.
+  await page.getByLabel('More options', { exact: true }).check()
   const bar = page.locator('.chart-bar')
   const heights: Record<string, number> = {}
   for (const view of ['Value', 'Lost to fees', 'By deposit', 'Breakdown']) {

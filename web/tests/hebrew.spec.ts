@@ -51,6 +51,7 @@ test('the start page in Hebrew', { tag: ['@phone', '@pictures'] }, async ({ page
       page.locator('td.amount'),
       page.locator('.stat .value'),
       page.locator('.stat.best .label'),
+      page.locator('.stat.best .around'),
       page.locator('.best-bar'),
       page.locator('.chart'),
       page.locator('.date'),

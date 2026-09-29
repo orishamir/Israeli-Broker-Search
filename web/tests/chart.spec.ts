@@ -144,6 +144,9 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
 test('the chart by deposit draws the plans, follows the pins, and its marker follows the deposit', async ({
   page,
 }) => {
+  // An expert's chart: offered with More options only.
+  await expect(choice(page, 'Chart', 'By deposit')).toHaveCount(0)
+  await page.getByLabel('More options', { exact: true }).check()
   await choice(page, 'Chart', 'By deposit').click()
   const chart = page.locator('.by-deposit')
   await expect(chart.locator('canvas')).toBeVisible()

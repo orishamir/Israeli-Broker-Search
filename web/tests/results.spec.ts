@@ -1,6 +1,7 @@
 import {
   brokers,
   compare,
+  expectedAroundLine,
   expectedRows,
   inputsOnPage,
   listed,
@@ -56,6 +57,28 @@ test("the best plan is the table's first, with its warning when it needs a bigge
   expect(warning).toBeTruthy()
   await expect(card).toContainText(`Best: ${label}`)
   await expect(card).toContainText(`⚠ ${warning}`)
+})
+
+// Worked out off the page's thread (sweeper.ts), so it follows the inputs a
+// moment later; `expect` retries cover that.
+test('under the best plan, where another plan becomes cheaper at other deposits, as the core says', async ({
+  page,
+}) => {
+  const line = page.locator('.stat.best .around')
+  await expect(line).toHaveText(expectedAroundLine(await inputsOnPage(page))!)
+  await expect(line).toBeVisible()
+  // Bonds on Tel Aviv: another plan is cheaper past a crossing.
+  await choice(page, 'Exchange', 'Tel Aviv').click()
+  await choice(page, 'Security', 'Bond').click()
+  const crossing = expectedAroundLine(await inputsOnPage(page))!
+  expect(crossing).toMatch(/cheaper/)
+  await expect(line).toHaveText(crossing)
+  await expect(line).toBeVisible()
+  // With nothing monthly, the one-time deposit is the one varied.
+  await page.getByLabel('Every month').fill('0')
+  const once = expectedAroundLine(await inputsOnPage(page))!
+  expect(once).toMatch(/one-time/)
+  await expect(line).toHaveText(once)
 })
 
 test("a plan's notes and flags are the core's: a track, a standing order, fees beyond the deposits, a number that may be too low", async ({
@@ -172,6 +195,6 @@ test(
     const expected = expectedRows(await inputsOnPage(page))
     await expect.poll(() => rowsOnPage(page)).toEqual(expected)
     // The best plan's yearly cost is in the summary too.
-    await expect(page.locator('.stat.best .note')).toContainText(`· ${expected[0].amounts[0]} a year`)
+    await expect(page.locator('.stat.best .note').first()).toContainText(`· ${expected[0].amounts[0]} a year`)
   },
 )

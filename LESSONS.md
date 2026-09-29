@@ -268,6 +268,29 @@ all. Read those three first.
   `visibility: hidden`, so the cell is as big as the biggest; the zoom hint
   sits under the chart it zooms.
 
+- The chart by deposit (each plan's yearly cost against the deposit, both
+  axes logarithmic) wasn't clear even to the user, who built it. Its
+  point is now a line under the best plan, for everyone ("The cheapest at
+  any monthly deposit from ₪100 to ₪32,000", or "Above ₪5,200 a month,
+  Excellence · Typical offer is cheaper"), and the chart shows only with
+  More options. `Sweep::around` finds the crossings from the sweep's
+  numbers, the costs taken to change steadily between the amounts tried
+  on a logarithmic scale (as the chart draws them): near a crossing the
+  two plans cost about the same, so its exact place matters little.
+- The sweep costs a comparison's work at each of 16 amounts (23 for a
+  one-time deposit): 26 ms on a desktop for the six usual plans abroad,
+  97 ms for all 13, and four times that on the phone profile. Shown for
+  everyone, it can't run on the page's thread at every change, so a module
+  worker (`new Worker(new URL(...), { type: 'module' })`, which Vite
+  bundles with the wasm-bindgen glue as is) runs its own copy of the core.
+  Only the latest request waiting is sent, and only the answer to the
+  latest request is used; the state matches it by the request object's
+  identity (`$state.raw`). Until it comes, the line keeps its words while
+  they're about the plan that's still best, and hides, keeping its place,
+  when another plan is: it never describes the wrong plan, and the table
+  under it never jumps when the words arrive. The worker adds 4–7 MB of
+  private memory (the renderer with it, and with its script blocked).
+
 ## Playwright
 
 - Screenshots were the suite's biggest coupling: 208 baselines on 9
@@ -402,23 +425,28 @@ machine, a production build, animations on. The phone project throttles
 the CPU 4× (about a Galaxy S24). Time to the next paint per interaction,
 by the Event Timing API; anything under about 50 ms isn't felt.
 
-| Measure                                       | phone (4×) | desktop |
-| --------------------------------------------- | ---------: | ------: |
-| load, to the first chart (ms)                 |        783 |     195 |
-| typing a deposit (ms)                         |         40 |      48 |
-| switching the security (ms)                   |         56 |      24 |
-| switching the exchange (ms)                   |         64 |      24 |
-| ticking a broker's four plans (ms)            |         40 |      16 |
-| switching the chart view (ms)                 |         24 |      16 |
-| switching to the chart by deposit (ms)        |         24 |      16 |
-| frame gap while the chart by deposit draws (ms) |      150 |      17 |
-| opening a plan's details (ms)                 |         40 |      40 |
-| opening a tip (ms)                            |         24 |      16 |
-| longest frame gap while the rows reorder (ms) |         67 |      17 |
-| zooming: slider drag, or six wheel notches (ms) |       40 |      16 |
-| longest frame gap while zooming (ms)          |          – |      17 |
-| hovering across the rows (ms)                 |          – |      16 |
-| heap growth over 30 rounds of changes (MB)    |          1 |       1 |
+| Measure                                         | phone (4×) | desktop |
+| ----------------------------------------------- | ---------: | ------: |
+| load, to the first chart (ms)                   |        751 |     210 |
+| typing a deposit (ms)                           |         48 |      32 |
+| typing the one-time deposit (ms)                |         48 |      32 |
+| switching the security (ms)                     |         56 |      24 |
+| switching the exchange (ms)                     |         64 |      24 |
+| ticking a broker's four plans (ms)              |         40 |      16 |
+| switching the chart view (ms)                   |         24 |      16 |
+| switching to the chart by deposit (ms)          |         16 |      16 |
+| frame gap while the chart by deposit draws (ms) |         33 |      17 |
+| opening a plan's details (ms)                   |         48 |      40 |
+| opening a tip (ms)                              |         24 |      16 |
+| longest frame gap while the rows reorder (ms)   |         50 |      17 |
+| zooming: slider drag, or six wheel notches (ms) |         40 |      16 |
+| longest frame gap while zooming (ms)            |          – |      17 |
+| hovering across the rows (ms)                   |          – |      16 |
+| heap growth over 30 rounds of changes (MB)      |          1 |       1 |
+
+The sweep moved to a worker the same day: the chart by deposit's frame gap
+went from 150 ms to 33 on the phone, and typing the one-time deposit (a
+new sweep per keystroke) costs what typing the monthly one does.
 
 The budgets in the spec are about twice these. Two traps in measuring: a
 toggle measured three times ends on the other view, so measure there and

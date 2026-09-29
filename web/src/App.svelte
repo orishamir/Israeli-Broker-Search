@@ -10,6 +10,7 @@
   import { decode } from './lib/link'
   import ResultsTable from './lib/ResultsTable.svelte'
   import Share from './lib/Share.svelte'
+  import { askSweep } from './lib/sweeper'
   import { percent, shekels } from './lib/format'
   import { duration, reducedMotion } from './lib/motion'
   import { lang, switchLang, t } from './lib/text'
@@ -17,7 +18,7 @@
   import { cubicOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
 
-  const views: Choice<ChartView>[] = [
+  const allViews: Choice<ChartView>[] = [
     {
       value: 'value',
       name: t.valueView,
@@ -50,16 +51,19 @@
 
   // Opened from a link, perhaps: its state comes first.
   const app = new AppState(decode(location.hash))
+  /** The chart by deposit is for experts: offered with More options only. */
+  const views = $derived(allViews.filter((view) => view.value !== 'crossover' || app.moreOptions))
   /** The growth chart's views: over the years, with a zoom. */
   const overYears = $derived(app.chartView === 'value' || app.chartView === 'lost')
   /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
-  /** The table's first plan. One that can't be opened with these deposits
-   * (a minimum first deposit) is still the best: its warning is shown with
-   * it, rather than a dearer plan named as best. */
-  const best = $derived(
-    'results' in app.comparison ? app.comparison.results.find((result) => result.outcome) : undefined,
-  )
+  const best = $derived(app.best)
+
+  // The sweep runs off the page's thread; its answer comes a moment later.
+  $effect(() => {
+    const request = app.sweepRequest
+    askSweep(request, (sweep) => (app.sweepAnswer = { request, sweep }))
+  })
 
   /** On phones the results are screens below the inputs, so the best plan
    * follows along the bottom of the screen until they're reached: while the
@@ -158,6 +162,7 @@
               >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
             >
             {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
+            <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
           </div>
         {/if}
       </div>

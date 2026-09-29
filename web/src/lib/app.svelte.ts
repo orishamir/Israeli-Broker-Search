@@ -1,6 +1,7 @@
 import { SvelteSet } from 'svelte/reactivity'
 import * as core from './core/core'
 import type {
+  AroundData,
   BrokerInfo,
   CaveatGroup,
   Choice,
@@ -18,9 +19,12 @@ import type {
   SweepData,
   Swept,
 } from './core/core'
+import { aroundWords } from './around'
+import { shekels } from './format'
 import { encode, type Shared } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
 import { load, save } from './saved'
+import type { SweepRequest } from './sweeper'
 import { t } from './text'
 
 /** Chosen to differ as much as they can on the dark background, with color
@@ -275,7 +279,15 @@ export class AppState {
   /** The editor's view, as last chosen. */
   editorView = $state<EditorView>(load<EditorView>('editor-view', 'simple'))
 
-  chartView = $state<ChartView>('value')
+  private chosenView = $state<ChartView>('value')
+  /** The chart shown. The chart by deposit is for experts: without More
+   * options it's the value instead, and the choice comes back with them. */
+  get chartView(): ChartView {
+    return this.chosenView === 'crossover' && !this.moreOptions ? 'value' : this.chosenView
+  }
+  set chartView(view: ChartView) {
+    this.chosenView = view
+  }
   /** Plans clicked in the table or the chart; they stay highlighted. */
   pinned = new SvelteSet<string>()
   /** The plan under the mouse, in the table or the chart. */
@@ -444,24 +456,69 @@ export class AppState {
    * one, else the one-time deposit. */
   swept: Swept = $derived((this.monthlyDeposit ?? 0) > 0 ? 'Monthly' : 'OneTime')
 
-  /** The chart by deposit's lines: every ticked plan's yearly cost over a
-   * range of the swept deposit. Not recomputed as that deposit is typed,
-   * since it isn't read here: only its marker moves. Missing while the
-   * inputs are invalid. Computed only while the chart is shown, as every
-   * derived value is only when read. */
-  sweep: SweepData | undefined = $derived.by(() => {
+  /** What the sweep is asked for: the inputs without the deposit it varies,
+   * so typing that deposit asks for nothing new (only the chart's marker
+   * moves). A new object whenever the inputs change, to match answers to. */
+  sweepRequest: SweepRequest = $derived.by(() => {
     const swept = this.swept
-    const inputs = this.inputsWith(
-      swept === 'OneTime' ? 0 : this.firstDeposit,
-      swept === 'Monthly' ? 0 : this.monthlyDeposit,
-    )
+    return {
+      swept,
+      inputs: this.inputsWith(
+        swept === 'OneTime' ? 0 : this.firstDeposit,
+        swept === 'Monthly' ? 0 : this.monthlyDeposit,
+      ),
+    }
+  })
+
+  /** The latest sweep worked out, and the request it answers: worked out
+   * off the page's thread (see sweeper.ts), so it trails the inputs by a
+   * moment. Set by App.svelte. Raw, so the request is matched by identity. */
+  sweepAnswer = $state.raw<{ request: SweepRequest; sweep: SweepData | undefined }>()
+
+  /** The chart by deposit's lines: every ticked plan's yearly cost over a
+   * range of the swept deposit, as last worked out. Missing while the
+   * inputs are invalid. */
+  sweep: SweepData | undefined = $derived(this.sweepAnswer?.sweep)
+
+  /** Where the best plan stops being the cheapest at other values of the
+   * swept deposit, if the sweep answers the inputs as they are now. */
+  around: AroundData | undefined = $derived.by(() => {
+    const answer = this.sweepAnswer
+    if (!answer?.sweep || answer.request !== this.sweepRequest || 'error' in this.comparison) return undefined
     try {
-      return core.sweep(inputs, swept)
+      return core.around({
+        sweep: answer.sweep,
+        deposit: (this.swept === 'Monthly' ? this.monthlyDeposit : this.firstDeposit) ?? 0,
+        costs: this.comparison.results.map(({ plan, outcome }) => ({
+          key: plan.key,
+          cost: outcome?.yearlyCostPercent ?? null,
+        })),
+      })
     } catch {
-      // The comparison says what's wrong.
       return undefined
     }
   })
+
+  /** The line under the best plan about other deposits. Between a change
+   * and the sweep's answer it keeps its last words, shown only while they're
+   * about the plan that's still the best; hidden, it keeps its place, so the
+   * table below doesn't move when the words come. Before the first answer
+   * it holds words of about the right length, hidden. */
+  aroundLine: { text: string; shown: boolean } = $derived.by(() => {
+    const best = this.best
+    if (this.around && best) {
+      const labelOf = (key: PlanKey) => this.plansById.get(planId(key))?.label ?? ''
+      this.lastAround = { planId: best.plan.id, text: aroundWords(this.around, this.swept, labelOf) }
+      return { text: this.lastAround.text, shown: true }
+    }
+    const last = this.lastAround
+    if (!last) return { text: t.cheapestThroughout(shekels(100), shekels(32_000), this.swept), shown: false }
+    const answered = this.sweepAnswer?.request === this.sweepRequest
+    return { text: last.text, shown: !answered && last.planId === best?.plan.id }
+  })
+  /** The line's last words, and the plan they're about. Plain: only
+   * `aroundLine` reads and writes it. */
+  private lastAround: { planId: string; text: string } | undefined
 
   /** Fills every basic input from an example. The expert inputs stay. */
   applyExample(example: ExampleData) {
@@ -575,6 +632,13 @@ export class AppState {
       })),
     }
   })
+
+  /** The table's first plan. One that can't be opened with these deposits
+   * (a minimum first deposit) is still the best: its warning is shown with
+   * it, rather than a dearer plan named as best. */
+  best: Result | undefined = $derived(
+    'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
+  )
 
   /** What the user buys, for the fees and caveats that matter to them, with
    * the comparison's biggest order: a caveat about large orders shows only

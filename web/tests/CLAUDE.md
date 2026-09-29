@@ -97,14 +97,17 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
   `checkVisibility`. Mobile WebKit has no mouse wheel.
 - The chart draws just after the paint that follows a change, and only while
   its view is shown; `expect` retries cover that (`expect.poll` for a
-  canvas picture).
+  canvas picture). They cover the sweep too, which a worker answers a
+  moment after the inputs change; a unit test answers it itself
+  (`answerSweep`).
+- The chart by deposit is offered only with More options: check it first.
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.
 - In CI (`.github/workflows/deploy.yml`) only the desktop project runs, with
   `--ignore-snapshots`: the runner's fonts differ from the ones the pictures
   were recorded with. Phones and the performance suite are run here.
-- A full run takes about 60 s (243 tests on 9 devices), the desktop alone
+- A full run takes about 60 s (244 tests on 9 devices), the desktop alone
   10 s. Run it twice after timing-related changes.
 
 ## Performance: `npm run test:perf`

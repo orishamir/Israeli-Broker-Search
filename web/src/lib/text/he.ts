@@ -25,6 +25,22 @@ export const he: Text = {
   best: (label) => `הזול ביותר: ${label}`,
   lostAndYearly: (lost, yearly) => `${lost} אבדו לעמלות · ${yearly} בשנה`,
   yearlyAndLost: (yearly, lost) => `${yearly} בשנה · ${lost} אבדו לעמלות`,
+  cheapestThroughout: (from, to, swept) =>
+    swept === 'Monthly'
+      ? `הזול ביותר בכל הפקדה חודשית מ-${from} עד ${to}`
+      : `הזול ביותר בכל הפקדה חד-פעמית מ-${from} עד ${to}`,
+  cheaperBelow: (amount, plan, swept) =>
+    swept === 'Monthly'
+      ? `בהפקדה של פחות מ-${amount} בחודש, ${plan} זול יותר`
+      : `בהפקדה חד-פעמית של פחות מ-${amount}, ${plan} זול יותר`,
+  cheaperAbove: (amount, plan, swept) =>
+    swept === 'Monthly'
+      ? `בהפקדה של יותר מ-${amount} בחודש, ${plan} זול יותר`
+      : `בהפקדה חד-פעמית של יותר מ-${amount}, ${plan} זול יותר`,
+  cheaperBothWays: (below, belowPlan, above, abovePlan, swept) =>
+    swept === 'Monthly'
+      ? `בהפקדה של פחות מ-${below} בחודש ${belowPlan} זול יותר; של יותר מ-${above}, ${abovePlan}`
+      : `בהפקדה חד-פעמית של פחות מ-${below} ${belowPlan} זול יותר; של יותר מ-${above}, ${abovePlan}`,
   checkInputs: (error) => `בדקו את הנתונים: ${error}.`,
   tickABroker: 'סמנו בנק או בית השקעות כדי להשוות.',
 
@@ -52,7 +68,7 @@ export const he: Text = {
 
   // The charts
   chart: 'גרף',
-  valueView: 'שווי',
+  valueView: 'שווי תיק',
   valueViewTip: 'כמה כל מסלול שווה, שנה אחר שנה, לפני מכירה.',
   lostView: 'אבד לעמלות',
   lostViewTip:

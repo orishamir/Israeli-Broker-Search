@@ -22,7 +22,6 @@ const BUDGETS = {
     tip: 50,
     zoom: 60,
     frameGap: 60,
-    sweep: 60,
     heapGrowth: 10,
   },
   phone: {
@@ -33,7 +32,6 @@ const BUDGETS = {
     tip: 80,
     zoom: 100,
     frameGap: 120,
-    sweep: 300,
     heapGrowth: 10,
   },
 }
@@ -136,6 +134,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
     page.getByRole('radiogroup', { name: group }).getByText(name, { exact: true })
   const monthly = page.getByLabel('Every month')
   const first = page.getByLabel('One-time deposit')
+  // The chart by deposit is an expert's: offered with More options only.
+  const moreOptions = page.getByLabel('More options', { exact: true })
   const leumi = page.getByRole('checkbox', { name: 'Bank Leumi', exact: true })
   // Unticking the broker unticks its usual plan too; ticking that back
   // leaves the table as it was.
@@ -195,6 +195,18 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         }),
     },
     {
+      // Every keystroke asks for a new sweep (the monthly deposit's don't:
+      // the sweep varies that one), worked out in a worker off the page's
+      // thread, which only sends the request.
+      label: 'typing the one-time deposit (ms)',
+      budget: budgets.interaction,
+      measure: () =>
+        typical(page, async () => {
+          await first.fill('')
+          await first.pressSequentially('10000', { delay: 120 })
+        }),
+    },
+    {
       label: 'switching the security (ms)',
       budget: budgets.interaction,
       measure: () =>
@@ -246,18 +258,22 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         ),
     },
     {
-      // The chart by deposit runs every plan over a range of deposits, the
-      // heaviest computation the page makes; the core does it in tens of ms.
+      // Its sweep, every plan over a range of deposits, is worked out in a
+      // worker as the inputs change, so the switch only shows and draws it.
       label: 'switching to the chart by deposit (ms)',
       budget: budgets.view,
-      measure: () =>
-        typical(
+      measure: async () => {
+        await moreOptions.check()
+        const time = await typical(
           page,
           thereAndBack(
             () => choice('Chart', 'By deposit').click(),
             () => choice('Chart', 'Value').click(),
           ),
-        ),
+        )
+        await moreOptions.uncheck()
+        return time
+      },
     },
     {
       label: "opening a plan's details (ms)",
@@ -285,14 +301,15 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       },
     },
     {
-      // The chart by deposit runs every plan over a range of deposits, the
-      // heaviest computation the page makes, and draws a frame after the
-      // switch shows; the gap is that work.
+      // The chart by deposit draws a frame after the switch shows; its sweep
+      // was worked out in a worker, so the gap is the drawing.
       label: 'longest frame gap while the chart by deposit draws (ms)',
-      budget: budgets.sweep,
+      budget: budgets.frameGap,
       measure: async () => {
+        await moreOptions.check()
         const gap = await longestFrameGap(page, () => choice('Chart', 'By deposit').click())
         await choice('Chart', 'Value').click()
+        await moreOptions.uncheck()
         return gap
       },
     },
