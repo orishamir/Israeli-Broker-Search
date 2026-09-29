@@ -30,8 +30,7 @@
 
   const tradeKind = feeKind('Trade')
   const standingOrderKind = feeKind('StandingOrder')
-  const custodyKind = feeKind('Custody')
-  const handlingKind = feeKind('Handling')
+  const accountKind = feeKind('Account')
   const conversionKind = feeKind('Conversion')
   const secondConversionKind = feeKind('SecondConversion')
   const fees = $derived(core.simpleFees(yours.plan, app.security, app.exchange, original?.data))
@@ -122,8 +121,10 @@
       {/if}
     </dd>
 
-    <dt><FeeName kind={custodyKind} /></dt>
+    <!-- One cost of keeping the account, in its two forms. -->
+    <dt><FeeName kind={accountKind} /></dt>
     <dd>
+      <p class="form">{t.shareOfHoldings}</p>
       <CustodyInputs
         fields={fees.custody.fields}
         currency={fees.custody.currency}
@@ -138,10 +139,7 @@
         />
       {/if}
       {#if errors.custody}<p class="error">{errors.custody}</p>{/if}
-    </dd>
-
-    <dt><FeeName kind={handlingKind} /></dt>
-    <dd>
+      <p class="form">{t.fixedAmount}</p>
       <HandlingInputs
         fields={fees.handling.fields}
         onchange={(fields) => change('handling', (plan) => core.setHandling(plan, fields))}
@@ -261,6 +259,17 @@
   }
   dd {
     margin: 0;
+  }
+  .form {
+    margin: 0 0 4px;
+    color: var(--weak);
+    font-size: 0.85rem;
+  }
+  .form + .form,
+  :global(.fields) + .form,
+  :global(.was) + .form,
+  .error + .form {
+    margin-top: 8px;
   }
   dt:not(:first-of-type),
   dt:not(:first-of-type) + dd {

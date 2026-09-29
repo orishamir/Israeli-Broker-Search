@@ -80,15 +80,73 @@ Meitav's 0.15% is a quarter (0.6% a year).
   bonds 0.08%, min ₪4.65; managed funds free; US 1¢ a share, min $5 (IB
   system) or $7.50 (ViewTrade); ₪15 a month, free for the first 2 years,
   taken off by the month's trade fees (broker.co.il).
-- **Excellence Trade:** `תעריפון מלא אקסלנס טרייד.pdf` (July 2026). The site: 2
-  years without the handling fee, fractional foreign shares, conversion at 2
-  agorot a dollar, "at most ₪200 on $10,000"
+- **Excellence Trade:** `תעריפון מלא אקסלנס טרייד.pdf` (July 2026). The site:
+  fractional foreign shares, conversion at 2 agorot a dollar, "at most ₪200
+  on $10,000"
   ([article](https://www.xnes.co.il/academy/trading/account-fees/), 7 July
-  2025). Typical offer (gemeltop, tradingil): 0.07%, min ₪3, for stocks,
+  2025). Its joining package
+  ([page](https://lp.xnes.co.il/bursa_xnes_trade/join-package2/), 29
+  September 2026) states outright: no non-execution fee, no currency fee and
+  no custody, and, apart from those, two years without the handling fee,
+  "₪180 a year". The two years' rules,
+  `תקנון פטור מדמי טיפול לשנתיים אקסלנס טרייד.pdf` (12 October 2025 to 31
+  December 2026, linked from
+  [its disclosure page](https://www.xnes.co.il/trading/full-disclosure/),
+  drawn by JavaScript): "no monthly handling fee" for 24 months, for a first
+  deposit of ₪15,000, every other fee in the customer's fee appendix
+  unchanged; a deposit above ₪15,000 within 30 days adds a third year (not
+  counted). Typical offer (gemeltop, tradingil): 0.07%, min ₪3, for stocks,
   ETFs and index funds; bonds 0.06%, min ₪3; traditional funds ₪16; US 1¢ a
   share, min $6 (or $5 on a partner broker's system); ₪15 a month, which
-  "can be offset" by trade fees; minimum deposit ₪10,000 (₪4,500 until 10
-  October 2026 through tradingil, not counted).
+  "can be offset" by trade fees; minimum deposit ₪10,000 (the two years'
+  rules say ₪15,000, tradingil ₪4,500 until 10 October 2026; neither
+  counted). broker.co.il and Hasolidit call the ₪15 "דמי ניהול", which reads
+  like custody: it's the handling fee.
+
+- **Mizrahi-Tefahot Bank:** `תעריפון מזרחי טפחות - ניירות ערך, ערוצים ישירים, קבוצות אוכלוסייה, מטבע חוץ.pdf`:
+  the bank publishes its tariff in parts, merged here in that order: part 4
+  (securities, updated 2 April 2024), appendix E (direct channels, 12 August
+  2025), appendix A (customer groups, 13 January 2026) and part 5 (foreign
+  currency), all linked from
+  [its tariff page](https://www.mizrahi-tefahot.co.il/interest-list-small-buisness/)
+  as `smallbusiness4.pdf`, `arutzyashir.pdf`, `specials.pdf` and
+  `smallbusiness5.pdf`. Online is appendix E's website column (its "PC
+  service" column differs a little: conversion 0.1425%); the branch prices
+  are part 4's. Custody has no online discount. Appendix A gives the same
+  securities discounts to four groups (the young, soldiers, discharged
+  soldiers, students): Tel Aviv at 0.4% "not less than the minimum fee",
+  half the conversion fee, and a rate benefit of 3 pro mille; pensioners get
+  only the conversion discount. Its
+  [disclosure of actual fees](https://www.mizrahi-tefahot.co.il/brokerage/amalot/)
+  for the first half of 2026 shows Israeli stocks and bonds at 0.13%–0.32%,
+  foreign securities at 0.12%–0.34% and custody at 0.08%–0.44% a year by
+  portfolio size: well under the tariff, as at every bank.
+- **Bank Otsar Hahayal:** `תעריפון הבינלאומי ליחידים (אוצר החייל) 16.09.2026.pdf`,
+  the First International Bank's tariff for individuals and small businesses
+  of 16 September 2026, linked from
+  [Otsar's tariff page](https://www.bankotsar.co.il/private/general/commissionsrate/individuals/)
+  (Otsar Hahayal was merged into the First International, which keeps it as
+  a brand; the same file is on fibi.co.il). Online is appendix E, which part
+  4's note 9 repeats for Tel Aviv: the website, app and trading-systems
+  columns agree. Standing orders: part 4, note 13 (index funds on Tel Aviv,
+  minimum ₪7) and note 10 (ETFs abroad, minimum $4.50), which give only the
+  minimum. That page also links a securities part headed "tariff for large
+  businesses" (`ניירות-ערך-31.pdf`, 0.7% and other rates); the full
+  document is followed. The
+  [Otzar Habitachon club page](https://www.bankotsar.co.il/private/account/armedforces/defense/securitiesbenefits/)
+  (the security forces' family, until 30 November 2030): Tel Aviv 0.2% by
+  a banker or 0.175% in direct channels, both at least ₪10; abroad 0.3%, at
+  least $18; custody waived; no double benefits. The
+  [Top Trade page](https://www.bankotsar.co.il/private/capitalmarket/toptrade/)
+  (its fine print: ages 18–30, a portfolio of up to ₪200,000, independent
+  and not advised; the bank may change or end it): ₪5 an order on Tel Aviv,
+  $5 abroad, no custody, no fee for an unexecuted order. Its
+  [conscripts' version](https://www.bankotsar.co.il/private/account/types/soldiers/)
+  waives everything until 31 December 2026 (not counted). The bank's
+  [comparison table for the first half of 2026](https://www.bankotsar.co.il/media/ds1hsij5/%D7%9E%D7%97%D7%A6%D7%99%D7%AA-%D7%A8%D7%90%D7%A9%D7%95%D7%A0%D7%94-2026-%D7%98%D7%91%D7%9C%D7%AA-%D7%9E%D7%99%D7%93%D7%A2-%D7%94%D7%A9%D7%95%D7%95%D7%90%D7%AA%D7%99-%D7%9C%D7%90%D7%AA%D7%A8-%D7%94%D7%90%D7%99%D7%A0%D7%98%D7%A8%D7%A0%D7%98-%D7%94%D7%91%D7%99%D7%A0%D7%9C%D7%90%D7%95%D7%9E%D7%99.pdf)
+  shows actual averages of 0.02%–0.19% on Israeli stocks and bonds,
+  0.08%–0.23% on foreign securities and custody of 0.25%–0.43% (Israeli)
+  and 0.28%–0.37% (foreign) a year.
 
 ## Conversion markups
 
@@ -117,6 +175,22 @@ and the banks' unpublished markups, come from these:
   published, counted as 0". Its digital channels can quote an agreed rate
   during trading hours, which may be a little better.
 
+- **Mizrahi-Tefahot's published exchange rates**
+  ([page](https://www.mizrahi-tefahot.co.il/brokerage/foreignexchange/), 29
+  September 2026): transfers-and-checks buy ₪3.0462 and sell ₪3.0953 against
+  a representative ₪3.0720 for the dollar (0.84% under, 0.76% over), and
+  ₪3.4539, ₪3.5098 and ₪3.4857 for the euro (0.91% under, 0.69% over). Read
+  as a markup of 0.8% each way; the young customer groups' rate benefit of
+  3 pro mille takes theirs to 0.5%. The tariff's part 5 converts at the
+  dealing room's quote rate or the day's uniform rate, which is this one.
+- **The First International's published exchange rates**
+  ([page](https://apps.fibi.co.il/Matach/matach.aspx), 29 September 2026,
+  the parent bank's, for Otsar Hahayal): transfers-and-checks buy ₪3.0493
+  and sell ₪3.1047 around a mid-rate of ₪3.0770 for the dollar (0.9% each
+  way; 0.74% under and 1.06% over the representative ₪3.0720), and
+  ₪3.4636, ₪3.5266 and ₪3.4951 for the euro. Read as a markup of 0.9% each
+  way. The page is served in Windows-1255.
+
 ## Readings of unclear rows
 
 - A typical offer prices only what the comparison sites list. gemeltop lists
@@ -128,8 +202,10 @@ and the banks' unpublished markups, come from these:
   say so.
 - The typical offers' only holding cost is the monthly handling fee, as the
   comparison sites list it (banks: "plus custody"); they charge no custody.
-  Their ₪15 is taken off by the month's trade fees: tradingil says so for
-  IBI and Excellence, broker.co.il for Meitav and IBI.
+  Excellence's joining package says so itself (above), so its plan's caveat
+  is published, not a reading. Their ₪15 is taken off by the month's trade
+  fees: tradingil says so for IBI and Excellence, broker.co.il for Meitav
+  and IBI.
 - Leumi 18+ pays 0.35% on Tel Aviv bonds (appendix A) with the branch's
   bounds (₪27, ₪7,000), or Online's 0.4% (₪26, ₪6,300), whichever is less.
   Modelled as 0.35% within Online's bounds, which is within ₪1 of that on
@@ -158,3 +234,24 @@ and the banks' unpublished markups, come from these:
 - Leumi 18+: benefits don't stack, and each fee is the better of the group's
   and the online price (the tariff's first page).
 - Leumi's standing-order price is only for buying (note 10 on page 30).
+- Mizrahi-Tefahot's young customer groups pay 0.4% on Tel Aviv "not less
+  than the minimum fee": modelled with the tariff's ₪50 minimum and ₪10,750
+  maximum. Whether Online's ₪45 minimum applies too isn't said (up to ₪5 on
+  orders under ₪9,600), nor whether the halved conversion fee is half of
+  Online's rather than the branch's; the plan takes the better of the halved
+  branch fee and Online's, and says both are "at most".
+- Otsar Hahayal's standing-order notes give only a lower minimum (₪7, $4.50),
+  not the rate; Online's rate is assumed and the plan is flagged "may cost
+  more" (0.64% and 0.85% by a banker). ETFs on Tel Aviv aren't in the note,
+  so by standing order they're priced as Online.
+- The Otzar Habitachon club's 0.3% abroad is above Online's 0.25% on orders
+  over $15,600, and its terms allow no double benefits: the club's price is
+  used throughout ("at most"). Conversion isn't in the club's terms or on
+  Top Trade's page: Online's is used, since the direct-channel prices are
+  the tariff's own for every customer on the website or app, not a club
+  benefit.
+- Top Trade's rows name stocks and bonds (Tel Aviv) and stocks, funds and
+  bonds (abroad); ETFs and index funds are read as included, as in the
+  tariff's own row (part 4, notes 3 and 14). Its prices are stated for a
+  portfolio of up to ₪200,000; a larger one is assumed to pay the same, and
+  the plan is flagged.

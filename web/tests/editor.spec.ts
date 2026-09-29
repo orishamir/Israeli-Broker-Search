@@ -95,7 +95,7 @@ test(
     await page.getByRole('button', { name: `Change ${name}` }).click()
     await editor(page).getByRole('button', { name: 'Delete plan' }).click()
     await expect(editor(page)).toContainText(`Delete “${name}”?`)
-    await editor(page).getByRole('button', { name: 'Keep' }).click()
+    await editor(page).getByRole('button', { name: 'Keep', exact: true }).click()
     await editor(page).getByRole('button', { name: 'Delete plan' }).click()
     await editor(page).getByRole('button', { name: 'Delete', exact: true }).click()
     await expect(editor(page)).toBeHidden()
@@ -186,7 +186,7 @@ test('the simple view shows the fees for every security and exchange', async ({ 
       const dialog = editor(page)
       await expect(dialog, `${security} on ${exchange}`).toContainText('bought in')
       await expect(dialog.getByLabel('Buy or sell: price')).toBeVisible()
-      await expect(dialog.getByLabel('Custody: rate')).toBeVisible()
+      await expect(dialog.getByLabel('Share of holdings: rate')).toBeVisible()
       // Nothing is converted on Tel Aviv.
       await expect(dialog.getByLabel('Conversion: fee')).toHaveCount(simple().conversion ? 1 : 0)
       await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -270,11 +270,11 @@ test("a copy's handling fee, markup and fractions can be changed", async ({ page
   const { handling, markup, sellsFractions } = simple()
   await copy(page, 'Excellence · Typical offer')
   const dialog = editor(page)
-  await expect(dialog.getByLabel('Handling fee: a month')).toHaveValue(
+  await expect(dialog.getByLabel('Fixed amount: a month')).toHaveValue(
     price({ amount: handling.fields.perMonth }),
   )
-  await expect(dialog.getByLabel('Handling fee: free months')).toHaveValue(String(handling.fields.freeMonths))
-  await dialog.getByLabel('Handling fee: free months').fill('36')
+  await expect(dialog.getByLabel('Fixed amount: free months')).toHaveValue(String(handling.fields.freeMonths))
+  await dialog.getByLabel('Fixed amount: free months').fill('36')
   await expect(dialog).toContainText(`${plan.name}: ${handling.price.text}`)
   await expect(dialog.getByLabel('Conversion: markup unit')).toHaveValue(
     markup!.fields.perDollar !== undefined ? 'perDollar' : 'percent',
@@ -293,7 +293,7 @@ test("a copy's handling fee, markup and fractions can be changed", async ({ page
   const inFull = dialog.getByRole('group', { name: 'Fractions of a share' })
   await expect(inFull.getByLabel('USA')).not.toBeChecked()
   await inFull.getByLabel('USA').check()
-  await expect(dialog.getByLabel('Handling fee: free months')).toHaveValue('36')
+  await expect(dialog.getByLabel('Fixed amount: free months')).toHaveValue('36')
 })
 
 test("a copy's conversion by standing order can be changed", async ({ page }) => {

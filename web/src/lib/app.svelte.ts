@@ -30,7 +30,7 @@ import { t } from './text'
 /** Chosen to differ as much as they can on the dark background, with color
  * blindness too: the first 8 clearly, the rest less so, as 14 colors can't
  * all be far apart. Checked with the dataviz skill's validator. */
-const PLAN_COLORS = [
+export const PLAN_COLORS = [
   '#56b4e9',
   '#e69f00',
   '#8d73f0',

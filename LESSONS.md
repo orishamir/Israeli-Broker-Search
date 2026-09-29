@@ -13,8 +13,11 @@ all. Read those three first.
   on the left), and a row's price, period and notes can spill onto the lines
   around it: read a wide window around each match.
 - Search under every name a fee goes by. Custody: דמי משמרת, דמי ניהול
-  פיקדון/פקדון, דמי ניהול/טיפול פיקדון. The monthly fee: דמי טיפול, דמי שימוש.
-  Leumi's tariff never says משמרת at all.
+  פיקדון/פקדון, דמי ניהול/טיפול פיקדון. The monthly fee: דמי טיפול, דמי שימוש,
+  and on comparison sites and forums "דמי ניהול (חשבון)", which reads like
+  custody: Excellence's "two free years" are of the ₪15 monthly fee, and its
+  package page says "no custody" apart from them. Leumi's tariff never says
+  משמרת at all.
 - Read each row's fine print, not just its price. What changed the model this
   time:
   - a rate's period ("0.15%" was a year at Altshuler and a quarter at Meitav);
@@ -25,6 +28,20 @@ all. Read those three first.
   - minimums "in the trade's currency", which become one row per exchange;
   - a US row covering every US security, bonds and funds included
     (Excellence).
+- The banks' tariffs come in pieces, and their sites mislead a little:
+  - Mizrahi-Tefahot publishes each part as its own PDF
+    (`/media/smallbusiness4.pdf` for securities, `arutzyashir.pdf` for the
+    direct channels, `specials.pdf` for customer groups), each with its own
+    date; `pdfunite` merges the ones used into one file for `policies`.
+  - Otsar Hahayal's tariff page links the First International's full
+    document (it's the same bank), and beside it a securities part headed
+    "for large businesses" with other rates: take the numbers from the full
+    document.
+  - A bank's conversion markup is measured from its own rates page, as
+    Leumi's was: Mizrahi's is plain HTML
+    (`/brokerage/foreignexchange/`); the First International's
+    (`apps.fibi.co.il/Matach/matach.aspx`) is Windows-1255, so decode it
+    before reading, and gives a mid-rate to measure from.
 - The Tel Aviv Stock Exchange publishes each member's tariffs and its actual
   average fees
   ([calculator](https://market.tase.co.il/he/market_data/trading_fees)). They
@@ -46,7 +63,13 @@ all. Read those three first.
     Excellence 2361, Leumi 1107, Meitav 5018).
 - Investment houses publish only maximums. Their real joining offers are on
   comparison sites (gemeltop.co.il, tradingil.co.il), and the exchange's
-  averages confirm them.
+  averages confirm them. What the house itself promises is on its landing
+  page (Excellence: lp.xnes.co.il, the "joining package") and in the offer's
+  rules (תקנון), a PDF linked from its disclosure page (גילוי נאות); those
+  outrank the comparison sites, and turn a reading into a published caveat.
+- xnes.co.il's FAQ and disclosure pages are drawn by JavaScript, but their
+  text is in the page's inline `__NUXT__` script: grep the raw HTML for
+  `question:"` and `answer:"`, with `\u002F` for `/` in links.
 - Some broker pages are drawn by JavaScript (IBI's fund page): script the
   web project's Chromium (see Recipes) instead of fetching the HTML; the
   Playwright MCP plugin has no Chrome on this machine. inter-il.com answers

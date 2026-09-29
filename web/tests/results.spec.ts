@@ -144,7 +144,11 @@ test(
     await expect(rows(page)).toHaveCount(usualPlans.length + leumi.plans.length - 1)
     await checkbox(page, leumi.name).uncheck()
     await expect(rows(page)).toHaveCount(usualPlans.length - 1)
-    await checkbox(page, usual.plan.name).check()
+    // Three banks have an "Online" plan: the checkbox in Leumi's list.
+    await page
+      .getByRole('list', { name: leumi.name })
+      .getByRole('checkbox', { name: usual.plan.name, exact: true })
+      .check()
     await expect(rows(page)).toHaveCount(usualPlans.length)
     await expect(rowOf(page, usual.label)).not.toHaveClass(/pinned/)
   },

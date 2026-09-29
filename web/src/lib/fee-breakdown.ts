@@ -19,8 +19,7 @@ export type Focus = 'all' | FeeType
 export const FEE_TYPES: { key: FeeType; name: string; color: string; explanation: string }[] = [
   { key: 'purchases', name: t.purchases, color: '#3987e5', explanation: t.purchasesTip },
   { key: 'conversions', name: t.conversions, color: '#d95926', explanation: t.conversionsTip },
-  { key: 'custody', name: t.custody, color: '#199e70', explanation: t.custodyTip },
-  { key: 'handling', name: t.handling, color: '#be55a9', explanation: t.handlingTip },
+  { key: 'account', name: t.account, color: '#199e70', explanation: t.accountTip },
   { key: 'selling', name: t.selling, color: '#c98500', explanation: t.sellingTip },
 ]
 

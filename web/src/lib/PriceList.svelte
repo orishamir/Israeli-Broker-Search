@@ -33,8 +33,7 @@
 
   const tradeKind = feeKind('Trade')
   const standingOrderKind = feeKind('StandingOrder')
-  const custodyKind = feeKind('Custody')
-  const handlingKind = feeKind('Handling')
+  const accountKind = feeKind('Account')
   const conversionKind = feeKind('Conversion')
   const secondConversionKind = feeKind('SecondConversion')
   const list = $derived(core.priceList(yours.plan, original?.data))
@@ -149,9 +148,12 @@
   </section>
 {/if}
 
+<!-- One cost of keeping the account, in its two forms: rows of a share of
+     the holdings, then the fixed amount. -->
 <section>
+  <h4><FeeName kind={accountKind} /></h4>
   <div class="section-heading">
-    <h4><FeeName kind={custodyKind} /></h4>
+    <p class="form">{t.shareOfHoldings}</p>
     <button type="button" onclick={() => change('custody', (plan) => core.addCustodyRow(plan, app.exchange))}
       >{t.addRow}</button
     >
@@ -170,7 +172,7 @@
         <button
           type="button"
           class="icon-button"
-          aria-label={t.removeCustodyRow(row.covers)}
+          aria-label={t.removeShareRow(row.covers)}
           onclick={() => change('custody', (plan) => core.removeCustodyRow(plan, index))}>✕</button
         >
       </div>
@@ -198,13 +200,10 @@
       {#if errors[`custody-${index}`]}<p class="error">{errors[`custody-${index}`]}</p>{/if}
     </div>
   {:else}
-    <p class="note">{t.noCustodyFee}</p>
+    <p class="note">{t.noShareOfHoldings}</p>
   {/each}
   {#if errors.custody}<p class="error">{errors.custody}</p>{/if}
-</section>
-
-<section>
-  <h4><FeeName kind={handlingKind} /></h4>
+  <p class="form">{t.fixedAmount}</p>
   <HandlingInputs
     fields={list.handling.fields}
     full
@@ -360,6 +359,15 @@
   }
   .section-heading h4 {
     margin: 0;
+  }
+  .form {
+    margin: 0 0 6px;
+    color: var(--weak);
+    font-size: 0.85rem;
+  }
+  .row + .form,
+  .note + .form {
+    margin-top: 10px;
   }
   .row {
     padding: 10px 12px;

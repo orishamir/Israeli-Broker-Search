@@ -31,7 +31,7 @@ test(
     const all = await canvasPicture(bars)
     const custody = page
       .getByRole('group', { name: 'Compare the plans by' })
-      .getByRole('button', { name: 'Custody' })
+      .getByRole('button', { name: 'Keeping the account' })
     await custody.click()
     await away(page)
     await expect(custody).toHaveAttribute('aria-pressed', 'true')

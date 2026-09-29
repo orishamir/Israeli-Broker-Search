@@ -4,7 +4,7 @@
   import NumberField from './NumberField.svelte'
   import { t } from './text'
 
-  /** Custody's fields, one per line. `full` lets the billing period change;
+  /** The share-of-holdings (custody) fields, one per line. `full` lets the billing period change;
    * otherwise it's only named, after the minimum it applies to. */
   let {
     fields,
@@ -29,7 +29,7 @@
     <div class="number">
       <NumberField
         id="{id}-percent"
-        label="Custody: rate"
+        label="Share of holdings: rate"
         suffix="%"
         step={0.01}
         bind:value={
@@ -38,7 +38,7 @@
       />
     </div>
     <select
-      aria-label="Custody: period"
+      aria-label="Share of holdings: period"
       value={fields.per}
       onchange={(event) => onchange({ ...fields, per: event.currentTarget.value as Period })}
     >
@@ -52,7 +52,7 @@
     <div class="number">
       <NumberField
         id="{id}-min"
-        label="Custody: min"
+        label="Share of holdings: min"
         prefix={currency}
         bind:value={() => fields.min ?? null, (min) => onchange({ ...fields, min: min ?? undefined })}
       />

@@ -28,6 +28,55 @@ Amounts are the tariff's maximums unless marked as an offer.
 - **Orders not executed or cancelled:** Leumi ₪25; the investment houses
   charge nothing.
 
+## Mizrahi-Tefahot Bank
+
+- Custody cap: ₪10,750 a quarter on each of Tel Aviv and foreign holdings.
+  Matters from about ₪5.5 million.
+- A minimum fee is never more than 25% of the trade (part 4, note 6).
+- T-bills (מק"מ): 0.11% at a branch (min ₪19), 0.10% online (min ₪17.10).
+- Trading through the "PC service" channel: slightly different prices
+  (conversion 0.1425% instead of 0.133%).
+- Custodian fee 0.1% (min ₪25, max ₪2,000), a special service; broker and
+  custodian expenses abroad, passed through (a caveat says so).
+- Mutual funds' distribution fee where the bank has no agreement with the
+  manager: 0.1%–0.35% a year; index funds exempt.
+- Pensioners: half the conversion fee only. The young groups' other
+  benefits (free account operations, credit) aren't securities fees.
+- Actual averages (its disclosure, first half of 2026) are well below the
+  tariff: 0.13%–0.32% on Israeli stocks and bonds, custody 0.08%–0.44% a
+  year. Banks negotiate.
+
+## Bank Otsar Hahayal
+
+- Custody caps: ₪4,000 a security and ₪10,000 a deposit, each a quarter.
+  Matter from about ₪2 million a security and ₪5 million a deposit.
+- A fee is never more than 30% of the trade (part 4, notes 2 and 5).
+- Third-party costs (part 11), "as actually charged" and a caveat says so:
+  the exchange's trading and clearing fees in Tel Aviv; abroad the broker's
+  (up to 6¢ a share in the US, 0.18% elsewhere), the custodian's (up to $5 an
+  order in the US, €200 in Europe; safekeeping up to 0.72% a year of the
+  holding), SEC fees, ADR/GDR fees, fund expenses up to 9%.
+- T-bills: 0.11% at a branch (min ₪16), 0.1% online (min ₪15).
+- Orders not executed: ₪25 through a banker, free online.
+- Students and yeshiva students (appendix A): Tel Aviv 0.40% and abroad
+  0.45% with the tariff's bounds, custody 0.1365% (Israeli) and 0.1393%
+  (foreign) a quarter, 33% off the conversion fee and a rate benefit of
+  0.45%. Worse than Online on trades and better on custody and conversion;
+  whether the two combine isn't said, so it isn't a plan yet.
+- Otzar Habitachon club: a custodian fee of 0.01% (min ₪15, max ₪450), T-bills
+  0.05%, bond redemption free, ₪9 for an unexecuted order through a banker.
+- Top Trade: nothing is stated for a portfolio above ₪200,000 (flagged in
+  the table). Its conscripts' version (every fee waived until 31 December
+  2026, up to ₪300,000 and 150 orders) is a caveat only.
+- HighTech 10, the First International's club for hi-tech employees, on
+  Otsar's site too: independent traders get 0.1% (min ₪5) on Tel Aviv, 0.1%
+  (min $8) abroad and no custody for two years, then the club's 0.18%, 0.22%
+  and 0.1% a quarter. Its leaflet (December 2022) ends every securities
+  benefit on 31 December 2026, so it's left out.
+- Actual averages (the bank's table, first half of 2026): 0.02%–0.19% on
+  Israeli stocks and bonds, custody 0.25%–0.43% a year, against the
+  tariff's 0.78%.
+
 ## Altshuler Shaham Trade
 
 - T-bills (מק"מ): 0.1%, min ₪3.5. Options, futures, hedge funds (0.3%,
@@ -117,7 +166,9 @@ Amounts are the tariff's maximums unless marked as an offer.
 - US: at most 2% of the trade; the 0.3% track adds the broker's fee.
 - Traditional (active) mutual funds: ₪16 a trade. Hedge funds 0.15%–0.35%,
   min 50.
-- Some sign-up links offer 3 years without the handling fee instead of 2
-  (tradingil: for a first deposit within 30 days), a ₪100 gift, and a
-  minimum deposit of ₪4,500 until 10 October 2026; none is published by
-  Excellence. The offset of the fee by trade fees is modelled.
+- A third year without the handling fee: the rules of Excellence's two free
+  years give it for a deposit above ₪15,000 within 30 days of opening, and
+  some sign-up links offer 3 years outright. tradingil's ₪100 gift and
+  minimum deposit of ₪4,500 until 10 October 2026, and gemeltop's refund of
+  commissions, aren't published by Excellence. The offset of the fee by
+  trade fees is modelled.

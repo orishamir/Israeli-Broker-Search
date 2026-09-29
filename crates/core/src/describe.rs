@@ -263,8 +263,9 @@ pub enum FeeKind {
     Trade,
     Track,
     StandingOrder,
-    Custody,
-    Handling,
+    /// Custody and the monthly handling fee, as one cost of keeping the
+    /// account: a share of the holdings, a fixed amount a month, or both.
+    Account,
     Conversion,
     SecondConversion,
     Markup,
@@ -276,8 +277,7 @@ impl Named for FeeKind {
             FeeKind::Trade => lang.pick("Buy or sell", "קנייה או מכירה"),
             FeeKind::Track => lang.pick("Track", "שיטת חיוב"),
             FeeKind::StandingOrder => lang.pick("Standing order", "הוראת קבע"),
-            FeeKind::Custody => lang.pick("Custody", "דמי משמרת"),
-            FeeKind::Handling => lang.pick("Handling fee", "דמי טיפול"),
+            FeeKind::Account => lang.pick("Keeping the account", "דמי ניהול חשבון"),
             FeeKind::Conversion => lang.pick("Conversion", "המרת מט\u{5f4}ח"),
             FeeKind::SecondConversion => lang.pick("Second conversion fee", "עמלת המרה שנייה"),
             FeeKind::Markup => lang.pick("Conversion markup", "מרווח המרה"),
@@ -293,8 +293,7 @@ impl FeeKind {
             FeeKind::Trade => lang.pick("buy or sell", "קנייה או מכירה"),
             FeeKind::Track => lang.pick("track picked for you", "שיטת החיוב שנבחרה עבורכם"),
             FeeKind::StandingOrder => lang.pick("by standing order", "בהוראת קבע"),
-            FeeKind::Custody => lang.pick("custody", "דמי משמרת"),
-            FeeKind::Handling => lang.pick("handling fee", "דמי טיפול"),
+            FeeKind::Account => lang.pick("keeping the account", "ניהול החשבון"),
             FeeKind::Conversion => lang.pick("conversion", "המרה"),
             FeeKind::SecondConversion => lang.pick("or, if less", "או, אם נמוך יותר"),
             FeeKind::Markup => lang.pick("markup", "מרווח"),
@@ -325,17 +324,13 @@ impl Explained for FeeKind {
                  the usual fee.",
                 "הוראה לקנות את אותו סכום כל חודש, אוטומטית. חלק מהבנקים ובתי ההשקעות גובים פחות על קניות כאלה: לאומי גובה 0.225% במקום 0.4% על קרן מחקה שנקנית כך. הפקדה חד-פעמית ומכירה עולות את העמלה הרגילה.",
             ),
-            FeeKind::Custody => lang.pick(
-                "Charged for holding your securities, as a share of what they're worth, \
-                 whether or not you trade: 0.6% a year on ₪100,000 is ₪600, every year.",
-                "נגבים על החזקת ניירות הערך שלכם, כאחוז משוויים, בין אם סוחרים ובין אם לא: 0.6% לשנה על ₪100,000 הם ₪600, כל שנה.",
-            ),
-            FeeKind::Handling => lang.pick(
-                "A fee for keeping the account, charged every month whether or not you trade: \
-                 ₪15 a month is ₪180 a year. New customers often get it free for a while, and \
-                 some brokers take that month's trade fees off it, so a month with ₪15 of \
-                 purchases pays nothing more.",
-                "דמי ניהול חשבון, נגבים כל חודש בין אם סוחרים ובין אם לא: ₪15 לחודש הם ₪180 לשנה. לקוחות חדשים מקבלים אותם לרוב חינם לתקופה, וחלק מבתי ההשקעות מקזזים מהם את עמלות המסחר של אותו חודש, כך שחודש עם ₪15 של קניות לא משלם יותר.",
+            FeeKind::Account => lang.pick(
+                "What you pay for keeping the account, whether or not you trade. Some charge \
+                 a share of what you hold, which grows with your savings: 0.6% a year on \
+                 ₪100,000 is ₪600, every year. Others charge a fixed amount: ₪15 a month is \
+                 ₪180 a year, often free for the first years, and some take that month's \
+                 trade fees off it. The full price lists charge both.",
+                "מה שאתם משלמים על ניהול החשבון, בין אם סוחרים ובין אם לא. חלק גובים אחוז משווי ההחזקות, שגדל עם החיסכון: 0.6% לשנה על ₪100,000 הם ₪600, כל שנה. אחרים גובים סכום קבוע: ₪15 לחודש הם ₪180 לשנה, לרוב חינם בשנים הראשונות, וחלק מקזזים ממנו את עמלות המסחר של אותו חודש. התעריפונים המלאים גובים את שניהם.",
             ),
             FeeKind::Conversion => lang.pick(
                 "Charged for converting your shekels to the security's currency, and back \
@@ -363,9 +358,9 @@ impl Explained for FeeKind {
             FeeKind::Trade => &["עמלת קנייה/מכירה"],
             FeeKind::Track => &["מסלול עמלות"],
             FeeKind::StandingOrder => &["הוראת קבע"],
-            FeeKind::Custody => &["דמי משמרת"],
-            // As the tariffs name it: IBI and Meitav, Altshuler.
-            FeeKind::Handling => &["דמי טיפול", "דמי שימוש", "דמי ניהול תקופתיים"],
+            // The share of the holdings, then the monthly fee as the tariffs
+            // name it: IBI and Meitav, Altshuler.
+            FeeKind::Account => &["דמי משמרת", "דמי טיפול", "דמי שימוש", "דמי ניהול תקופתיים"],
             FeeKind::Conversion => &["עמלת המרת מט\"ח"],
             FeeKind::SecondConversion => &[],
             FeeKind::Markup => &["מרווח המרה"],
@@ -782,20 +777,16 @@ impl Plan {
                 lang,
             ));
         }
-        let custody = FeeLine::new(
-            FeeKind::Custody,
-            self.custody_row(security, exchange)
-                .map_or_else(|| PriceText::none(lang), |row| row.price_text(lang)),
+        let account = FeeLine::new(
+            FeeKind::Account,
+            account_price_text(
+                self.custody_row(security, exchange),
+                self.handling.as_ref(),
+                lang,
+            ),
             lang,
         );
-        let mut fees = vec![trade, custody];
-        if let Some(handling) = self.handling {
-            fees.push(FeeLine::new(
-                FeeKind::Handling,
-                handling.price_text(lang),
-                lang,
-            ));
-        }
+        let mut fees = vec![trade, account];
         if exchange != Exchange::Tlv {
             let conversion = &self.conversion;
             let mut line = FeeLine::new(FeeKind::Conversion, conversion.price_text(lang), lang);
@@ -1069,31 +1060,53 @@ impl CustodyFee {
     }
 }
 
-/// "₪15 a month, free for the first 2 years, less that month's trade fees".
+/// What keeping the account costs, in words: a share of the holdings, a
+/// fixed amount a month, both ("…, plus …"), or "none".
+fn account_price_text(
+    custody: Option<&CustodyFee>,
+    handling: Option<&HandlingFee>,
+    lang: Lang,
+) -> PriceText {
+    let custody = custody.filter(|row| !row.is_nothing());
+    match (custody, handling) {
+        (None, None) => PriceText::none(lang),
+        (Some(custody), None) => custody.price_text(lang),
+        (None, Some(handling)) => handling.price_text(lang),
+        (Some(custody), Some(handling)) => PriceText {
+            text: format!(
+                "{}, {} {}",
+                custody.text(lang),
+                lang.pick("plus", "ועוד"),
+                handling.text(lang)
+            ),
+            nothing: false,
+            reason: None,
+        },
+    }
+}
+
+/// "free for the first 2 years, then ₪15 a month, less that month's trade
+/// fees".
 impl Priced for HandlingFee {
     fn text(&self, lang: Lang) -> String {
-        let mut text = format!(
+        let monthly = format!(
             "{} {}",
             format_money(self.per_month),
             Period::Month.each(lang)
         );
-        match (self.free_months, lang) {
-            (0, _) => {}
-            (12, Lang::En) => text.push_str(", free for the first year"),
-            (12, Lang::He) => text.push_str(", חינם בשנה הראשונה"),
+        let mut text = match (self.free_months, lang) {
+            (0, _) => monthly,
+            (12, Lang::En) => format!("free for the first year, then {monthly}"),
+            (12, Lang::He) => format!("חינם בשנה הראשונה, ואז {monthly}"),
             (months, Lang::En) if months % 12 == 0 => {
-                write!(text, ", free for the first {} years", months / 12).expect("a String");
+                format!("free for the first {} years, then {monthly}", months / 12)
             }
             (months, Lang::He) if months % 12 == 0 => {
-                write!(text, ", חינם ב-{} השנים הראשונות", months / 12).expect("a String");
+                format!("חינם ב-{} השנים הראשונות, ואז {monthly}", months / 12)
             }
-            (months, Lang::En) => {
-                write!(text, ", free for the first {months} months").expect("a String");
-            }
-            (months, Lang::He) => {
-                write!(text, ", חינם ב-{months} החודשים הראשונים").expect("a String");
-            }
-        }
+            (months, Lang::En) => format!("free for the first {months} months, then {monthly}"),
+            (months, Lang::He) => format!("חינם ב-{months} החודשים הראשונים, ואז {monthly}"),
+        };
         if self.less_trade_fees {
             text.push_str(lang.pick(
                 ", less that month's trade fees",
@@ -1452,11 +1465,11 @@ pub fn about(lang: Lang) -> About {
                 "Each plan is run month by month on your deposits. Money arrives at the start \
                  of the month and waits as shekels until the next purchase, which converts it \
                  (abroad) and buys with it, whole shares only where the broker sells no \
-                 fractions. Custody and the handling fee are paid every month out of the \
-                 shekels. At the end everything is sold and converted back, and that's the \
+                 fractions. What keeping the account costs, a share of the holdings or a \
+                 fixed amount, is paid every month out of the shekels. At the end everything is sold and converted back, and that's the \
                  value the table ranks by; or, if you choose to keep holding, the table ranks \
                  by what's held, and nothing is paid for selling.",
-                "כל מסלול מורץ חודש אחר חודש על ההפקדות שלכם. הכסף מגיע בתחילת החודש ומחכה כשקלים עד הקנייה הבאה, שממירה אותו (בחו״ל) וקונה בו, מניות שלמות בלבד במקום שבו הבנק או בית ההשקעות לא מוכר שברים. דמי המשמרת ודמי הטיפול משולמים כל חודש מהשקלים. בסוף הכול נמכר ומומר בחזרה, וזה השווי שלפיו הטבלה מדרגת; או, אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי ההחזקות, ולא משולם דבר על מכירה.",
+                "כל מסלול מורץ חודש אחר חודש על ההפקדות שלכם. הכסף מגיע בתחילת החודש ומחכה כשקלים עד הקנייה הבאה, שממירה אותו (בחו״ל) וקונה בו, מניות שלמות בלבד במקום שבו הבנק או בית ההשקעות לא מוכר שברים. מה שניהול החשבון עולה, אחוז מההחזקות או סכום קבוע, משולם כל חודש מהשקלים. בסוף הכול נמכר ומומר בחזרה, וזה השווי שלפיו הטבלה מדרגת; או, אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי ההחזקות, ולא משולם דבר על מכירה.",
             ),
             paragraph(
                 "The return is the security's own, in its own currency; today's exchange rates \
@@ -1679,7 +1692,7 @@ mod tests {
             lines,
             [
                 ("Buy or sell", "0.3%, min $24, max $6,750"),
-                ("Custody", "0.2% a quarter (0.8% a year)"),
+                ("Keeping the account", "0.2% a quarter (0.8% a year)"),
                 ("Conversion", "0.16%, min $5.76, max $2,400"),
             ]
         );
@@ -1689,7 +1702,7 @@ mod tests {
             .map(|part| (part.label.as_str(), part.price.text.as_str()))
             .collect();
         assert_eq!(parts, [("markup", "up to 0.9%")]);
-        assert_eq!(fees.fees[1].hebrew_names, ["דמי משמרת"]);
+        assert_eq!(fees.fees[1].hebrew_names[0], "דמי משמרת");
 
         // The markup, measured from the bank's published rates, is marked
         // beside its price as a reading, and its caveat heads the list, under
@@ -1915,21 +1928,25 @@ mod tests {
                 Lang::En,
             )
             .fees;
-        assert_eq!(fees.len(), 3);
+        // Custody and the monthly fee are one line: what keeping the account
+        // costs.
+        assert_eq!(fees.len(), 2);
         assert_eq!(
             fees[1].price.text,
-            "0.15% a year, charged monthly, min ₪75 a month"
+            "0.15% a year, charged monthly, min ₪75 a month, plus ₪80 a month"
         );
-        assert_eq!(fees[2].price.text, "₪80 a month");
         assert_eq!(plan.conversion.text(Lang::En), "none");
         assert_eq!(plan.conversion.markup.text(Lang::En), "up to 0.7%");
-        // The custody period was read, with support; the handling fee is a
-        // maximum.
-        let custody = fees[1].mark.as_ref().unwrap();
-        assert_eq!(custody.kind, CaveatKind::Reading);
-        let support = custody.caveats[0].support.as_deref().unwrap();
-        assert!(support.contains("June 2026"));
-        assert_eq!(fees[2].mark.as_ref().unwrap().kind, CaveatKind::AtMost);
+        // The custody period was read, with support, and the monthly fee is a
+        // maximum: the line carries both, marked by the more serious.
+        let account = fees[1].mark.as_ref().unwrap();
+        assert_eq!(account.kind, CaveatKind::AtMost);
+        let reading = account
+            .caveats
+            .iter()
+            .find(|caveat| caveat.kind == CaveatKind::Reading)
+            .unwrap();
+        assert!(reading.support.as_deref().unwrap().contains("June 2026"));
     }
 
     #[test]
@@ -2291,19 +2308,19 @@ mod tests {
         assert_eq!(fee(0, false).text(Lang::En), "₪15 a month");
         assert_eq!(
             fee(12, false).text(Lang::En),
-            "₪15 a month, free for the first year"
+            "free for the first year, then ₪15 a month"
         );
         assert_eq!(
             fee(24, false).text(Lang::En),
-            "₪15 a month, free for the first 2 years"
+            "free for the first 2 years, then ₪15 a month"
         );
         assert_eq!(
             fee(18, false).text(Lang::En),
-            "₪15 a month, free for the first 18 months"
+            "free for the first 18 months, then ₪15 a month"
         );
         assert_eq!(
             fee(6, true).text(Lang::En),
-            "₪15 a month, free for the first 6 months, less that month's trade fees"
+            "free for the first 6 months, then ₪15 a month, less that month's trade fees"
         );
     }
 

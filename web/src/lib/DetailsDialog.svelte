@@ -209,24 +209,21 @@
                   </tbody>
                 </table>
               {/if}
-              <h4>{t.custody}</h4>
+              <!-- Keeping the account: a share of the holdings, row by row, then
+                   the fixed amount a month. -->
+              <h4>{t.account}</h4>
               <table>
                 <tbody>
                   {#each tariff.custody as { covers, price }, index (index)}
-                    <tr><td>{covers}</td><td><Price {price} /></td></tr>
-                  {:else}
-                    <tr><td>{t.everything}</td><td><Price price={{ text: t.none, nothing: true }} /></td></tr>
+                    <tr><td>{t.shareOfHoldings}, {covers}</td><td><Price {price} /></td></tr>
                   {/each}
+                  {#if tariff.handling}
+                    <tr><td>{t.fixedAmount}</td><td><Price price={tariff.handling} /></td></tr>
+                  {:else if tariff.custody.length === 0}
+                    <tr><td>{t.everything}</td><td><Price price={{ text: t.none, nothing: true }} /></td></tr>
+                  {/if}
                 </tbody>
               </table>
-              {#if tariff.handling}
-                <h4>{t.handlingFee}</h4>
-                <table>
-                  <tbody>
-                    <tr><td>{t.theAccount}</td><td><Price price={tariff.handling} /></td></tr>
-                  </tbody>
-                </table>
-              {/if}
               <h4>{t.conversion}</h4>
               <table>
                 <tbody>

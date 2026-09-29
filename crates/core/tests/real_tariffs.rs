@@ -1,5 +1,7 @@
 use broker_fees::simulation::{Scenario, simulate};
-use broker_fees::tariffs::{altshuler, excellence, ibi, interactive, leumi, meitav};
+use broker_fees::tariffs::{
+    altshuler, excellence, ibi, interactive, leumi, meitav, mizrahi, otsar_hahayal,
+};
 use broker_fees::*;
 
 use Exchange::{Europe, Tlv, Usa};
@@ -279,7 +281,7 @@ fn every_broker_names_its_new_customer_plan() {
         let plan = &b.plans[b.new_customer_plan];
         let expected = match &*b.short_name.en {
             "Altshuler" => "New customers",
-            "Leumi" => "Online",
+            "Leumi" | "Mizrahi" | "Otsar Hahayal" => "Online",
             "Interactive" => "Standard",
             _ => "Typical offer",
         };
@@ -694,9 +696,23 @@ fn excellence_typical_offer() {
     let conversion = |amount| cents(p.conversion_fee(amount, &rates()));
     assert_eq!(conversion(usd(dec!(1850))), usd(dec!(10)));
     assert_eq!(conversion(eur(dec!(1850))), eur(dec!(10)));
-    // No custody; ₪15 a month after two free years, less the month's trade
-    // fees: a month that paid ₪3 in them pays ₪12.
+    // No custody, as Excellence's own package page and the two free years'
+    // rules state (published, not a reading of the comparison sites); ₪15 a
+    // month after two free years, less the month's trade fees: a month that
+    // paid ₪3 in them pays ₪12.
     assert_eq!(custody_year(&p, Etf, Tlv, ils(dec!(100000))), ils(dec!(0)));
+    let published = p
+        .caveats
+        .iter()
+        .find(|c| c.fee == Some(FeeKind::Account) && matches!(c.basis, Basis::Published))
+        .expect("a published caveat on keeping the account");
+    assert_eq!(published.sources.len(), 2);
+    assert!(
+        published
+            .sources
+            .iter()
+            .all(|s| s.url.contains("xnes.co.il"))
+    );
     assert_eq!(handling(&p, 23), dec!(0));
     assert_eq!(handling(&p, 24), dec!(15));
     let fee = p.handling.unwrap();
@@ -951,4 +967,221 @@ fn meitav_typical_offer() {
     assert_eq!(handling(&p, 23), dec!(0));
     assert_eq!(handling(&p, 24), dec!(15));
     assert_eq!(p.handling.unwrap().for_month(24, dec!(4.65)), dec!(10.35));
+}
+
+// ─────────────────────────── Mizrahi-Tefahot ───────────────────────────
+
+#[test]
+fn mizrahi_online() {
+    let p = plan(mizrahi(), "Online");
+    let tel_aviv = |v| trade_fee(&p, Stock, Tlv, dec!(1), ils(v)).unwrap();
+    // Appendix E: 0.52%, at least ₪45, at most ₪9,675. ₪1,000 is ₪5.20 →
+    // minimum; ₪100,000 is ₪520; ₪2M is ₪10,400 → maximum.
+    assert_eq!(tel_aviv(dec!(1000)), ils(dec!(45)));
+    assert_eq!(tel_aviv(dec!(100000)), ils(dec!(520)));
+    assert_eq!(tel_aviv(dec!(2000000)), ils(dec!(9675)));
+    // ETFs and index funds are priced as stocks (part 4, note 4).
+    let hundred_thousand = |s| trade_fee(&p, s, Tlv, dec!(1), ils(dec!(100000)));
+    assert_eq!(hundred_thousand(Etf), Some(ils(dec!(520))));
+    assert_eq!(hundred_thousand(IndexFund), Some(ils(dec!(520))));
+    // Abroad: 0.3%, at least $25. $5,000 is $15 → minimum; $20,000 is $60.
+    assert_eq!(
+        trade_fee(&p, Etf, Usa, dec!(10), usd(dec!(5000))),
+        Some(usd(dec!(25)))
+    );
+    assert_eq!(
+        trade_fee(&p, Stock, Usa, dec!(10), usd(dec!(20000))),
+        Some(usd(dec!(60)))
+    );
+    // Custody: 0.175% a quarter on Tel Aviv holdings is 0.7% a year, ₪1,400
+    // on ₪200,000; 0.195% a quarter abroad is 0.78%, ₪288.60 on $10,000
+    // (₪37,000).
+    assert_eq!(
+        custody_year(&p, Etf, Tlv, ils(dec!(200000))),
+        ils(dec!(1400))
+    );
+    assert_eq!(
+        custody_year(&p, Etf, Usa, usd(dec!(10000))),
+        ils(dec!(288.6))
+    );
+    // Conversion: 0.133% of $1,000 is $1.33 → $5.40 minimum, plus the 0.8%
+    // measured markup ($8). $10,000: $13.30, plus $80.
+    assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(13.4)));
+    assert_eq!(
+        p.conversion_fee(usd(dec!(10000)), &rates()),
+        usd(dec!(93.3))
+    );
+}
+
+#[test]
+fn mizrahi_young_customers() {
+    let p = plan(mizrahi(), "Online, young customers");
+    let online = plan(mizrahi(), "Online");
+    let tel_aviv = |v| trade_fee(&p, Stock, Tlv, dec!(1), ils(v)).unwrap();
+    // Appendix A: 0.4% with the tariff's ₪50 minimum and ₪10,750 maximum.
+    // ₪1,000 is ₪4 → minimum; ₪100,000 is ₪400 (Online: ₪520); ₪3M is
+    // ₪12,000 → maximum.
+    assert_eq!(tel_aviv(dec!(1000)), ils(dec!(50)));
+    assert_eq!(tel_aviv(dec!(100000)), ils(dec!(400)));
+    assert_eq!(tel_aviv(dec!(3000000)), ils(dec!(10750)));
+    // Abroad and custody are Online's.
+    assert_eq!(
+        trade_fee(&p, Etf, Usa, dec!(10), usd(dec!(5000))),
+        Some(usd(dec!(25)))
+    );
+    assert_eq!(p.custody, online.custody);
+    // Conversion is the better of half the branch fee (0.095%, at least $6)
+    // and Online's (0.133%, at least $5.40), plus a markup of 0.5%: the 0.8%
+    // less the groups' 3 pro mille. $1,000: $0.95 → $6, against $5.40 →
+    // $5.40, plus $5. $10,000: $9.50 against $13.30 → $9.50, plus $50.
+    let conversion = |v| p.conversion_fee(usd(v), &rates());
+    assert_eq!(conversion(dec!(1000)), usd(dec!(10.4)));
+    assert_eq!(conversion(dec!(10000)), usd(dec!(59.5)));
+}
+
+// ─────────────────────────── Otsar Hahayal ───────────────────────────
+
+#[test]
+fn otsar_online() {
+    let p = plan(otsar_hahayal(), "Online");
+    let tel_aviv = |v| trade_fee(&p, Stock, Tlv, dec!(1), ils(v)).unwrap();
+    // Appendix E: 0.3%, at least ₪39, at most ₪6,900. ₪1,000 is ₪3 →
+    // minimum; ₪100,000 is ₪300; ₪3M is ₪9,000 → maximum.
+    assert_eq!(tel_aviv(dec!(1000)), ils(dec!(39)));
+    assert_eq!(tel_aviv(dec!(100000)), ils(dec!(300)));
+    assert_eq!(tel_aviv(dec!(3000000)), ils(dec!(6900)));
+    // ETFs and index funds are priced as stocks (part 4, notes 3 and 14).
+    let hundred_thousand = |s| trade_fee(&p, s, Tlv, dec!(1), ils(dec!(100000)));
+    assert_eq!(hundred_thousand(Etf), Some(ils(dec!(300))));
+    assert_eq!(hundred_thousand(IndexFund), Some(ils(dec!(300))));
+    // Abroad: 0.25%, at least $39. $5,000 is $12.50 → minimum; $20,000 is $50.
+    assert_eq!(
+        trade_fee(&p, Etf, Usa, dec!(10), usd(dec!(5000))),
+        Some(usd(dec!(39)))
+    );
+    assert_eq!(
+        trade_fee(&p, Stock, Usa, dec!(10), usd(dec!(20000))),
+        Some(usd(dec!(50)))
+    );
+    // Custody: 0.195% a quarter on Tel Aviv holdings is 0.78% a year, ₪1,560
+    // on ₪200,000; 0.199% a quarter abroad is 0.796%, ₪294.52 on $10,000
+    // (₪37,000).
+    assert_eq!(
+        custody_year(&p, Etf, Tlv, ils(dec!(200000))),
+        ils(dec!(1560))
+    );
+    assert_eq!(
+        custody_year(&p, Etf, Usa, usd(dec!(10000))),
+        ils(dec!(294.52))
+    );
+    // Conversion: 0.0875% of $1,000 is $0.875 → $5 minimum, plus the 0.9%
+    // measured markup ($9). $10,000: $8.75, plus $90.
+    assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(14)));
+    assert_eq!(
+        p.conversion_fee(usd(dec!(10000)), &rates()),
+        usd(dec!(98.75))
+    );
+}
+
+#[test]
+fn otsar_standing_order() {
+    let p = plan(otsar_hahayal(), "Online, standing order");
+    let by_standing_order = |t: Trade| {
+        p.standing_order_row(t.security, t.exchange)
+            .map(|row| row.price.apply(&t, &rates()))
+    };
+    // Part 4, note 13: an index fund on Tel Aviv by standing order pays
+    // Online's 0.3% with a ₪7 minimum. ₪2,000 is ₪6 → minimum; ₪5,000 is ₪15.
+    let fund = |v| trade(IndexFund, Tlv, dec!(1), ils(v));
+    assert_eq!(by_standing_order(fund(dec!(2000))), Some(ils(dec!(7))));
+    assert_eq!(by_standing_order(fund(dec!(5000))), Some(ils(dec!(15))));
+    // Note 10: an ETF abroad pays 0.25% with a $4.50 minimum. $500 is $1.25
+    // → minimum; $5,000 is $12.50.
+    let etf = |v| trade(Etf, Usa, dec!(1), usd(v));
+    assert_eq!(by_standing_order(etf(dec!(500))), Some(usd(dec!(4.5))));
+    assert_eq!(by_standing_order(etf(dec!(5000))), Some(usd(dec!(12.5))));
+    // Nothing lower for ETFs on Tel Aviv, or for anything bought otherwise:
+    // ₪2,000 of the fund by a one-off order is ₪6 → Online's ₪39 minimum.
+    assert_eq!(
+        by_standing_order(trade(Etf, Tlv, dec!(1), ils(dec!(2000)))),
+        None
+    );
+    assert_eq!(
+        p.trade_fee(&fund(dec!(2000)), &rates()),
+        Some(ils(dec!(39)))
+    );
+}
+
+#[test]
+fn otsar_club_for_the_security_forces() {
+    let p = plan(otsar_hahayal(), "Otzar Habitachon club");
+    let online = plan(otsar_hahayal(), "Online");
+    // Its site: 0.175% online, at least ₪10. ₪1,000 is ₪1.75 → minimum;
+    // ₪100,000 is ₪175 (Online: ₪300).
+    assert_eq!(
+        trade_fee(&p, Stock, Tlv, dec!(1), ils(dec!(1000))),
+        Some(ils(dec!(10)))
+    );
+    assert_eq!(
+        trade_fee(&p, Etf, Tlv, dec!(1), ils(dec!(100000))),
+        Some(ils(dec!(175)))
+    );
+    // Abroad 0.3%, at least $18: $5,000 is $15 → minimum (Online: $39);
+    // $20,000 is $60, above Online's $50, and the club's price is kept.
+    assert_eq!(
+        trade_fee(&p, Etf, Usa, dec!(10), usd(dec!(5000))),
+        Some(usd(dec!(18)))
+    );
+    assert_eq!(
+        trade_fee(&p, Stock, Usa, dec!(10), usd(dec!(20000))),
+        Some(usd(dec!(60)))
+    );
+    // No custody anywhere; conversion is Online's.
+    assert_eq!(custody_year(&p, Etf, Tlv, ils(dec!(200000))), ils(dec!(0)));
+    assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(0)));
+    assert_eq!(p.conversion, online.conversion);
+}
+
+#[test]
+fn otsar_top_trade() {
+    let p = plan(otsar_hahayal(), "Top Trade");
+    let online = plan(otsar_hahayal(), "Online");
+    // Its site: ₪5 an order on Tel Aviv and $5 abroad, whatever the size.
+    assert_eq!(
+        trade_fee(&p, Stock, Tlv, dec!(1), ils(dec!(1000))),
+        Some(ils(dec!(5)))
+    );
+    assert_eq!(
+        trade_fee(&p, IndexFund, Tlv, dec!(1), ils(dec!(1000000))),
+        Some(ils(dec!(5)))
+    );
+    assert_eq!(
+        trade_fee(&p, Etf, Usa, dec!(10), usd(dec!(5000))),
+        Some(usd(dec!(5)))
+    );
+    // No custody anywhere; conversion is Online's.
+    assert_eq!(custody_year(&p, Etf, Tlv, ils(dec!(200000))), ils(dec!(0)));
+    assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(0)));
+    assert_eq!(p.conversion, online.conversion);
+}
+
+/// Otsar Hahayal's other plans are built on Online's, and each says what it
+/// changes: its own words, and caveats of its own.
+#[test]
+fn otsar_plans_have_their_own_words_and_caveats() {
+    let b = otsar_hahayal();
+    let online = plan(b.clone(), "Online");
+    for name in [
+        "Online, standing order",
+        "Otzar Habitachon club",
+        "Top Trade",
+    ] {
+        let p = plan(b.clone(), name);
+        assert_ne!(p.description, online.description, "{name}");
+        assert!(!p.caveats.is_empty(), "{name}");
+        assert!(
+            p.caveats.iter().all(|c| !online.caveats.contains(c)),
+            "{name}"
+        );
+    }
 }

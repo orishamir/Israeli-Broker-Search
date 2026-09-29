@@ -3,7 +3,7 @@
   import NumberField from './NumberField.svelte'
   import { t } from './text'
 
-  /** The handling fee's fields, one per line. `full` adds whether a month's
+  /** The fixed monthly amount's (handling fee's) fields, one per line. `full` adds whether a month's
    * trade fees are taken off it. */
   let {
     fields,
@@ -24,7 +24,7 @@
     <div class="number wide">
       <NumberField
         id="{id}-amount"
-        label="Handling fee: a month"
+        label="Fixed amount: a month"
         prefix="₪"
         placeholder={t.none}
         bind:value={
@@ -41,7 +41,7 @@
       <div class="number">
         <NumberField
           id="{id}-free"
-          label="Handling fee: free months"
+          label="Fixed amount: free months"
           suffix={t.months}
           bind:value={
             () => fields.freeMonths,

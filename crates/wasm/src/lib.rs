@@ -777,8 +777,8 @@ impl OutcomeData {
 pub struct FeeAmounts {
     pub purchases: f64,
     pub conversions: f64,
-    pub custody: f64,
-    pub handling: f64,
+    /// Keeping the account: custody and the monthly handling fee together.
+    pub account: f64,
     pub selling: f64,
     pub total: f64,
 }
@@ -788,8 +788,7 @@ impl From<&Fees> for FeeAmounts {
         FeeAmounts {
             purchases: number(fees.purchases),
             conversions: number(fees.conversions),
-            custody: number(fees.custody),
-            handling: number(fees.handling),
+            account: number(fees.custody + fees.handling),
             selling: number(fees.selling),
             total: number(fees.total()),
         }
@@ -1694,10 +1693,10 @@ mod tests {
             altshuler.note,
             Some(format!("US track: {name}, the cheapest for you"))
         );
-        // Its fees count the handling fee.
+        // Its fees count keeping the account: custody and the handling fee.
         let fees = &altshuler.outcome.as_ref().unwrap().fees;
-        assert!(fees.handling > 0.0);
-        let parts = fees.purchases + fees.conversions + fees.custody + fees.handling + fees.selling;
+        assert!(fees.account > 0.0);
+        let parts = fees.purchases + fees.conversions + fees.account + fees.selling;
         assert!((parts - fees.total).abs() < 0.01);
         // A copy made from the comparison is on that track, and so is the
         // listed plan it's compared with.

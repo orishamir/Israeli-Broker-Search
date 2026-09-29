@@ -139,7 +139,10 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const leumi = page.getByRole('checkbox', { name: 'Bank Leumi', exact: true })
   // Unticking the broker unticks its usual plan too; ticking that back
   // leaves the table as it was.
-  const online = page.getByRole('checkbox', { name: 'Online', exact: true })
+  // Three banks have an "Online" plan: the checkbox in Leumi's list.
+  const online = page
+    .getByRole('list', { name: 'Bank Leumi' })
+    .getByRole('checkbox', { name: 'Online', exact: true })
   const chart = page.locator('.chart')
   const chartBox = async () => {
     await chart.scrollIntoViewIfNeeded()

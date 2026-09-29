@@ -1,6 +1,6 @@
 import { flushSync } from 'svelte'
 import { beforeEach, expect, test, vi } from 'vitest'
-import { AppState, planId, type Details } from './app.svelte'
+import { AppState, PLAN_COLORS, planId, type Details } from './app.svelte'
 import * as core from './core/core'
 import { decode, encode } from './link'
 
@@ -92,11 +92,18 @@ test('ticked plans all differ in color, and an unticked one frees its color', ()
   app.setSelected([other.id], true)
   expect(other.color).toBe(freed)
 
+  // Every plan ticked: more plans than colors, so every color is used, and
+  // no color much more than another.
   app.setSelected(
     app.plans.map(({ id }) => id),
     true,
   )
-  expect(new Set(tickedColors()).size).toBe(app.plans.length)
+  expect(app.plans.length).toBeGreaterThan(PLAN_COLORS.length)
+  const uses: Record<string, number> = {}
+  for (const color of tickedColors()) uses[color] = (uses[color] ?? 0) + 1
+  const counts = Object.values(uses)
+  expect(counts.length).toBe(PLAN_COLORS.length)
+  expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1)
   app.setSelected([other.id], false)
   expect(other.color).toBe('#8e95a5')
 })

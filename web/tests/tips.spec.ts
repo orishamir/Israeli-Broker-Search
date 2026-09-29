@@ -44,12 +44,12 @@ test('hovering a security explains it, with its Hebrew names', async ({ page }) 
   for (const name of bond.hebrewNames) await expect(tip).toContainText(name)
 })
 
-/** Opens Pepper's details, and finds its custody fee's "?" and what the tip should say. */
+/** Opens Pepper's details, and finds the account fee's "?" and what the tip should say. */
 async function custodyTip(page: Page) {
   const { key, label } = listed('Leumi · Pepper')
   const { inputs, purchase } = await purchaseOnPage(page)
   const custody = feesFor(key.broker, key.plan, purchase, trackOnPage(inputs, key)).fees.find(
-    ({ kind }) => kind === 'Custody',
+    ({ kind }) => kind === 'Account',
   )!
   await page.getByRole('button', { name: `About ${label}` }).click()
   return {
