@@ -2,30 +2,61 @@
   import { tick } from 'svelte'
   import { flip } from 'svelte/animate'
   import type { AppState, Result } from './app.svelte'
-  import { shekels } from './format'
+  import type { OutcomeData } from './core/core'
+  import { percent, shekels } from './format'
   import { duration, reducedMotion } from './motion'
   import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
 
-  const columns = [
-    { title: 'Value held', explanation: 'What the investment is worth at the end, without selling.' },
-    {
-      title: 'Value if sold',
-      explanation:
-        "What you'd get in shekels by selling everything at the end, after the sell fee and converting back. Before tax. Abroad, that's one more trade fee and one more conversion.",
-    },
-    {
-      title: 'Fees paid',
-      explanation:
-        'Every fee charged: purchases, conversions, custody, handling, and selling at the end. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.',
-    },
-    {
-      title: 'Lost to fees',
-      explanation:
-        'How much less you end up with, after selling, than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.',
-    },
-  ]
+  interface Column {
+    title: string
+    explanation: string
+    /** The cell's text for an outcome. */
+    text: (outcome: OutcomeData) => string
+  }
+
+  /** The amounts, as the inputs have them: no "if sold" when nothing is
+   * sold, and a note when they're in today's money. */
+  const columns: Column[] = $derived.by(() => {
+    const selling = app.sellAtEnd
+    const money = app.inTodaysMoney
+      ? ' In today’s money: divided by how much prices will have risen by then.'
+      : ''
+    const columns: Column[] = [
+      {
+        title: 'Value held',
+        explanation: `What the investment is worth at the end, without selling.${money}`,
+        text: (outcome) => shekels(outcome.held),
+      },
+    ]
+    if (selling) {
+      columns.push({
+        title: 'Value if sold',
+        explanation: `What you'd get in shekels by selling everything at the end, after the sell fee and converting back. Before tax. Abroad, that's one more trade fee and one more conversion.${money}`,
+        text: (outcome) => shekels(outcome.afterSelling),
+      })
+    }
+    columns.push(
+      {
+        title: 'Fees paid',
+        explanation: `Every fee charged: purchases, conversions, custody, handling${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.${money}`,
+        text: (outcome) => shekels(outcome.fees.total),
+      },
+      {
+        title: 'Lost to fees',
+        explanation: `How much less you end up with${selling ? ', after selling,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.${money}`,
+        text: (outcome) => shekels(outcome.lostToFees),
+      },
+      {
+        title: 'Yearly cost',
+        explanation:
+          'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
+        text: (outcome) => percent(outcome.yearlyCostPercent),
+      },
+    )
+    return columns
+  })
 </script>
 
 <table>
@@ -67,28 +98,31 @@
           </div>
         </td>
         {#if outcome}
-          <td class="amount">{shekels(outcome.held)}</td>
-          <td class="amount">{shekels(outcome.afterSelling)}</td>
-          <td class="amount">
-            <!-- Not also a click on the row, which would unpin it. -->
-            <button
-              class="link"
-              aria-label="{plan.label} fees: {shekels(outcome.fees.total)}, see what they went to"
-              onclick={(event) => {
-                event.stopPropagation()
-                app.showFees(plan.id)
-                // Where the breakdown is, below the table (far below, on phones).
-                tick().then(() =>
-                  document
-                    .getElementById('chart')
-                    ?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' }),
-                )
-              }}>{shekels(outcome.fees.total)} ›</button
-            >
-          </td>
-          <td class="amount">{shekels(outcome.lostToFees)}</td>
+          {#each columns as column (column.title)}
+            <td class="amount">
+              {#if column.title === 'Fees paid'}
+                <!-- Not also a click on the row, which would unpin it. -->
+                <button
+                  class="link"
+                  aria-label="{plan.label} fees: {column.text(outcome)}, see what they went to"
+                  onclick={(event) => {
+                    event.stopPropagation()
+                    app.showFees(plan.id)
+                    // Where the breakdown is, below the table (far below, on phones).
+                    tick().then(() =>
+                      document
+                        .getElementById('chart')
+                        ?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' }),
+                    )
+                  }}>{column.text(outcome)} ›</button
+                >
+              {:else}
+                {column.text(outcome)}
+              {/if}
+            </td>
+          {/each}
         {:else}
-          <td class="amount" colspan="4"
+          <td class="amount" colspan={columns.length}
             >Not offered for {app.purchase}<Tip about="Not offered">{notOffered}</Tip></td
           >
         {/if}
@@ -105,7 +139,7 @@
   }
   th,
   td {
-    padding: 9px 12px;
+    padding: 9px 10px;
     text-align: left;
     white-space: nowrap;
   }
@@ -116,6 +150,13 @@
     font-weight: 600;
     letter-spacing: 0.04em;
     text-transform: uppercase;
+    vertical-align: bottom;
+  }
+  /* A heading may take two lines, so a column is as wide as its numbers,
+     not its heading: seven columns then fit a desktop without scrolling. */
+  th.amount {
+    max-width: 6.5rem;
+    white-space: normal;
   }
   td {
     border-bottom: 1px solid var(--border);

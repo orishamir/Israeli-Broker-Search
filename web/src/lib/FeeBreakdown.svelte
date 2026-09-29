@@ -1,56 +1,28 @@
 <script lang="ts">
-  import type { BarSeriesOption } from 'echarts/charts'
   import type { ECharts } from 'echarts/core'
+  import { MediaQuery } from 'svelte/reactivity'
   import type { AppState, Result } from './app.svelte'
-  import type { FeeAmounts, OutcomeData } from './core/core'
-  import { chart, type ChartOption } from './echarts.svelte'
-  import { compactShekels, readableOn, shekels } from './format'
+  import type { OutcomeData } from './core/core'
+  import { chart } from './echarts.svelte'
+  import {
+    barsOption,
+    byFee,
+    colorOf,
+    FEE_TYPES,
+    NARROW_SCREEN,
+    overTimeOption,
+    rowHeight,
+    type Bar,
+    type FeeType,
+    type Focus,
+  } from './fee-breakdown'
+  import { readableOn } from './format'
   import { touchScreen } from './pointer'
   import { tip } from './tip'
   import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
 
-  type FeeType = Exclude<keyof FeeAmounts, 'total'>
-
-  /** The kinds of fee, in the order they're stacked. The colors are checked
-   * for color blindness in this order, where each differs from its
-   * neighbors; not every pair differs, so a focused fee fades the others. */
-  const FEE_TYPES: { key: FeeType; name: string; color: string; explanation: string }[] = [
-    {
-      key: 'purchases',
-      name: 'Purchases',
-      color: '#3987e5',
-      explanation: 'The trade fee on every purchase.',
-    },
-    {
-      key: 'conversions',
-      name: 'Conversions',
-      color: '#d95926',
-      explanation: "Converting shekels to the security's currency: the fee and the markup.",
-    },
-    { key: 'custody', name: 'Custody', color: '#199e70', explanation: 'Charged for holding the securities.' },
-    {
-      key: 'handling',
-      name: 'Handling',
-      color: '#be55a9',
-      explanation: "The account's monthly fee, whatever it holds.",
-    },
-    {
-      key: 'selling',
-      name: 'Selling',
-      color: '#c98500',
-      explanation: 'Selling everything at the end, and converting back to shekels.',
-    },
-  ]
-  // The page's colors (see app.css).
-  const WEAK = '#8e95a5'
-  const TEXT = '#e6e8ee'
-  const GRID = 'rgba(255, 255, 255, 0.07)'
-  const SURFACE = '#151820'
-  const FADED = 'rgba(142, 149, 165, 0.3)'
-
-  type Focus = 'all' | FeeType
   let focus = $state<Focus>('all')
   /** Picks a fee to compare by, or all of them again if it's picked. */
   const toggle = (key: FeeType) => (focus = focus === key ? 'all' : key)
@@ -61,22 +33,19 @@
   const offered = $derived(
     results.filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined),
   )
-  /** Least fees first: in total, or in the focused fee. */
+  /** The bars, least fees first: in total, or in the focused fee. */
   const rows = $derived(
-    offered.toSorted(
-      (a, b) =>
-        (focus === 'all' ? a.outcome.fees.total : a.outcome.fees[focus]) -
-        (focus === 'all' ? b.outcome.fees.total : b.outcome.fees[focus]),
+    byFee(
+      offered.map(({ plan, outcome }): Bar => ({
+        id: plan.id,
+        label: plan.label,
+        color: plan.color,
+        hollow: plan.yours !== undefined,
+        fees: outcome.fees,
+      })),
+      focus,
     ),
   )
-  /** The focused fee first, so it starts where the bar does. */
-  const stacking = $derived(
-    focus === 'all'
-      ? FEE_TYPES
-      : [FEE_TYPES.find(({ key }) => key === focus)!, ...FEE_TYPES.filter(({ key }) => key !== focus)],
-  )
-  const colorOf = (type: (typeof FEE_TYPES)[number]) =>
-    focus === 'all' || focus === type.key ? type.color : FADED
 
   /** The plan shown over time: the one under the mouse, else the last pinned,
    * else the best. */
@@ -87,192 +56,18 @@
 
   /** The bars' box, for fitting amounts into the parts of a bar. */
   let barsWidth = $state(0)
-  // Names wrap onto three lines on phones ("Leumi · Online, monthly standing
-  // order"), and each word must fit, bold, when pinned.
-  const narrow = $derived(barsWidth < 500)
-  const nameWidth = $derived(narrow ? 104 : 120)
-  const rowHeight = $derived(narrow ? 40 : 34)
+  const narrow = new MediaQuery(NARROW_SCREEN)
 
-  function barsOption(): ChartOption {
-    const largest = Math.max(...rows.map(({ outcome }) => outcome.fees.total))
-    // Roughly: the box without the names and the totals.
-    const pixelsPerShekel = Math.max(barsWidth - nameWidth - 60, 0) / largest
-    const fits = (amount: number) => amount * pixelsPerShekel > 44
-    return {
-      grid: { left: 4, right: 4, top: 4, bottom: 24 },
-      xAxis: {
-        type: 'value',
-        max: largest,
-        axisLabel: { formatter: compactShekels, color: WEAK, showMaxLabel: false, hideOverlap: true },
-        splitLine: { lineStyle: { color: GRID } },
-      },
-      yAxis: [
-        {
-          type: 'category',
-          inverse: true,
-          // Ids, not names, which can repeat: the formatter shows the names.
-          data: rows.map(({ plan }) => plan.id),
-          axisTick: { show: false },
-          axisLine: { show: false },
-          triggerEvent: true,
-          axisLabel: {
-            color: TEXT,
-            width: nameWidth,
-            overflow: 'break',
-            // A dot in the plan's color (hollow for your own plans), and the
-            // name, on a tint of that color when pinned.
-            formatter: (_id: string, index: number) => {
-              const { plan } = rows[index]
-              const style = app.pinned.has(plan.id) ? `pinned${index}` : 'name'
-              return `{dot${index}|${plan.yours ? '◯' : '●'}} {${style}|${plan.label}}`
-            },
-            rich: {
-              ...Object.fromEntries(
-                rows.flatMap(({ plan }, index) => [
-                  [`dot${index}`, { color: plan.color }],
-                  [
-                    `pinned${index}`,
-                    {
-                      // Not bold: ECharts wraps a name that's bolder than
-                      // the others unpredictably, sometimes onto three lines.
-                      color: TEXT,
-                      backgroundColor: `${plan.color}40`,
-                      borderRadius: 4,
-                      padding: [2, 5],
-                    },
-                  ],
-                ]),
-              ),
-              name: { color: TEXT },
-            },
-          },
-        },
-        {
-          // Each plan's total, at the end of its bar.
-          type: 'category',
-          inverse: true,
-          position: 'right',
-          data: rows.map(({ outcome }) => compactShekels(outcome.fees.total)),
-          axisTick: { show: false },
-          axisLine: { show: false },
-          axisLabel: { color: TEXT, fontWeight: 'bold' },
-        },
-      ],
-      tooltip: {
-        trigger: 'axis',
-        axisPointer: { type: 'shadow' },
-        valueFormatter: (value) => shekels(value as number),
-      },
-      // No ids: ECharts would then keep each series' old position, and a
-      // focused fee wouldn't move to the start of the bars.
-      series: [
-        {
-          // Around each pinned or hovered plan, from its name to its total, an
-          // outline in its color. Only an outline: filled colors in the bars
-          // are always fees, and the plans' colors look much like the fees'.
-          // Pinned ones are drawn here; a hovered one is highlighted (see
-          // `setup`), since redrawing would lose a tap that's also a hover.
-          type: 'custom',
-          silent: true,
-          tooltip: { show: false },
-          data: rows.map((_, index) => [0, index]),
-          renderItem: (_params, api) => {
-            const index = api.value(1) as number
-            const { color, id } = rows[index].plan
-            const [, middle] = api.coord([0, index])
-            const [, height] = api.size!([0, 1]) as number[]
-            return {
-              type: 'rect',
-              shape: {
-                x: 1,
-                y: middle - height / 2 + 2,
-                width: api.getWidth() - 2,
-                height: height - 4,
-                r: 6,
-              },
-              style: {
-                fill: 'transparent',
-                stroke: app.pinned.has(id) ? color : 'transparent',
-                lineWidth: 1.5,
-              },
-              emphasis: { style: { stroke: color } },
-            }
-          },
-        },
-        ...stacking.map((type): BarSeriesOption => ({
-          name: type.name,
-          type: 'bar',
-          stack: 'fees',
-          barWidth: 18,
-          // Once plans are pinned, the others fade a little.
-          data: rows.map(({ plan, outcome }) => ({
-            value: outcome.fees[type.key],
-            itemStyle: { opacity: app.pinned.size === 0 || app.pinned.has(plan.id) ? 1 : 0.6 },
-          })),
-          color: colorOf(type),
-          // A thin gap between the parts of a bar.
-          itemStyle: { borderColor: SURFACE, borderWidth: 1 },
-          // Amounts only where they fit.
-          label: {
-            show: true,
-            position: 'inside',
-            color: readableOn(type.color),
-            fontSize: 11,
-            formatter: ({ value }) =>
-              fits(value as number) && colorOf(type) !== FADED ? compactShekels(value as number) : '',
-          },
-        })),
-      ],
-    }
-  }
-
-  function overTimeOption(): ChartOption {
-    const byYear = shown.outcome.feesUpToYear
-    return {
-      grid: { left: 4, right: 12, top: 12, bottom: 28 },
-      xAxis: {
-        type: 'value',
-        name: 'Years',
-        nameLocation: 'middle',
-        nameGap: 24,
-        nameTextStyle: { color: WEAK },
-        min: 0,
-        max: byYear.length,
-        minInterval: 1,
-        axisLabel: { color: WEAK },
-        axisLine: { lineStyle: { color: GRID } },
-        splitLine: { show: false },
-      },
-      yAxis: {
-        type: 'value',
-        axisLabel: { formatter: compactShekels, color: WEAK },
-        splitLine: { lineStyle: { color: GRID } },
-      },
-      tooltip: {
-        trigger: 'axis',
-        valueFormatter: (value) => shekels(value as number),
-        axisPointer: { label: { formatter: ({ value }) => `After ${value} years` } },
-      },
-      series: stacking.map((type) => ({
-        name: type.name,
-        type: 'line',
-        stack: 'over time',
-        symbol: 'none',
-        color: colorOf(type),
-        lineStyle: { width: 1.5 },
-        areaStyle: { opacity: 0.85 },
-        // Nothing paid at the start, then the total by the end of each year.
-        data: [[0, 0], ...byYear.map((fees, year) => [year + 1, fees[type.key]])],
-      })),
-    }
-  }
+  const bars = () =>
+    barsOption({ bars: rows, focus, pinned: app.pinned, width: barsWidth, narrow: narrow.current })
+  const overTime = () => overTimeOption(shown.outcome.feesUpToYear, focus)
 
   /** Hovering a bar or a plan's name shows it over time; clicking pins it. */
   function setup(instance: ECharts) {
     const planAt = (event: { componentType?: string; dataIndex?: number; value?: unknown }) =>
       event.componentType === 'yAxis'
-        ? rows.find(({ plan }) => plan.id === event.value)?.plan
-        : rows[event.dataIndex ?? -1]?.plan
+        ? rows.find(({ id }) => id === event.value)
+        : rows[event.dataIndex ?? -1]
     instance.on('mouseover', (event) => {
       if (!touchScreen) app.hovered = planAt(event)?.id ?? null
     })
@@ -286,7 +81,7 @@
 
     // The hovered plan's band, wherever it's hovered (here or in the table).
     $effect(() => {
-      const index = rows.findIndex(({ plan }) => plan.id === app.hovered)
+      const index = rows.findIndex(({ id }) => id === app.hovered)
       instance.dispatchAction({ type: 'downplay', seriesIndex: 0 })
       if (index >= 0) instance.dispatchAction({ type: 'highlight', seriesIndex: 0, dataIndex: index })
     })
@@ -310,7 +105,7 @@
       onclick={() => toggle(type.key)}
       {@attach popover && tip(popover, { onClick: false })}
     >
-      <span class="swatch" style:background={colorOf(type)}></span>{type.name}
+      <span class="swatch" style:background={colorOf(type, focus)}></span>{type.name}
     </button>
     <div class="popover" popover="manual" role="tooltip" bind:this={popovers[index]}>
       <p>{type.explanation}</p>
@@ -321,8 +116,8 @@
 <div
   class="bars"
   bind:clientWidth={barsWidth}
-  style:height="{rows.length * rowHeight + 32}px"
-  {@attach chart(barsOption, setup)}
+  style:height="{rows.length * rowHeight(narrow.current) + 32}px"
+  {@attach chart(bars, setup)}
   role="img"
   aria-label="Fees paid by each plan over the whole period, by kind"
 ></div>
@@ -343,7 +138,7 @@
 </h4>
 <div
   class="over-time"
-  {@attach chart(overTimeOption)}
+  {@attach chart(overTime)}
   role="img"
   aria-label="{shown.plan.label}'s fees piling up year by year, by kind"
 ></div>

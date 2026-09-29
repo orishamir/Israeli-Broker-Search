@@ -1,8 +1,9 @@
 import { expect, fitScreenToPage, test, type Page } from './fixtures'
 
 // Runs on every device in playwright.config.ts, including the layout-only
-// ones: rules that hold at any screen size, then a picture to compare with the
-// last approved one (`npx playwright test --update-snapshots` approves).
+// ones: rules that hold at any screen size, in every state of the page. The
+// start state also gets a picture per device, with the numbers and charts
+// masked out, so a tariff change doesn't change the picture.
 
 /** What breaks the layout on this screen, in words; empty if nothing. */
 const layoutProblems = (page: Page) =>
@@ -28,12 +29,64 @@ const layoutProblems = (page: Page) =>
       if (!shown(box)) continue
       const { left, right } = box.getBoundingClientRect()
       for (const element of box.querySelectorAll('*')) {
-        if (!shown(element) || scrollsSideways(element, box)) continue
+        // A tip floats over the page; its own rule is below.
+        if (!shown(element) || scrollsSideways(element, box) || element.closest('.popover')) continue
         const bounds = element.getBoundingClientRect()
         if (bounds.left < left - 1 || bounds.right > right + 1) {
           problems.push(`${name(element)} sticks out of ${name(box).slice(0, 40)}`)
         }
       }
+    }
+
+    // A box that clips (overflow hidden or clip) holding more than it shows:
+    // text cut off inside it. Not form controls, which scroll their own
+    // text, and not the charts, whose boxes hold ECharts' hidden tooltips.
+    for (const element of document.querySelectorAll('*')) {
+      if (!shown(element) || element.closest('.visually-hidden, .popover, .chart, .bars, .over-time'))
+        continue
+      if (element.matches('input, select, textarea')) continue
+      const { overflowX, overflowY } = getComputedStyle(element)
+      const clipsX = overflowX === 'hidden' || overflowX === 'clip'
+      const clipsY = overflowY === 'hidden' || overflowY === 'clip'
+      if (
+        (clipsX && element.scrollWidth > element.clientWidth + 1) ||
+        (clipsY && element.scrollHeight > element.clientHeight + 1)
+      )
+        problems.push(`${name(element)} cuts its content off`)
+    }
+
+    // Text drawn over other text: the line boxes of two pieces of text never
+    // cross, unless one is part of the other. Not inside a sideways scroller,
+    // where the sticky plan column is meant to cover what scrolls under it.
+    const hasText = (element: Element) =>
+      [...element.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
+      )
+    const texts = [...document.querySelectorAll('body *')].filter(
+      (element) =>
+        hasText(element) &&
+        shown(element) &&
+        !element.closest('.visually-hidden, .popover, option, script, style') &&
+        !scrollsSideways(element, document.body),
+    )
+    const crosses = (a: DOMRect, b: DOMRect) =>
+      Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+      Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1
+    for (const [index, a] of texts.entries()) {
+      for (const b of texts.slice(index + 1)) {
+        if (a.contains(b) || b.contains(a)) continue
+        const overlap = [...a.getClientRects()].some((box) =>
+          [...b.getClientRects()].some((other) => crosses(box, other)),
+        )
+        if (overlap) problems.push(`${name(a)} overlaps ${name(b)}`)
+      }
+    }
+
+    // An open tip stays on the screen.
+    for (const popover of document.querySelectorAll('.popover.open')) {
+      const bounds = popover.getBoundingClientRect()
+      if (bounds.left < 0 || bounds.top < 0 || bounds.right > innerWidth || bounds.bottom > innerHeight)
+        problems.push(`${name(popover)} runs off the screen`)
     }
 
     // iPhones zoom the page into any field whose text is smaller.
@@ -67,7 +120,8 @@ const layoutProblems = (page: Page) =>
         )
     }
 
-    for (const group of document.querySelectorAll('.choices')) {
+    // Except a group that wraps by design, into two rows of two (`wraps`).
+    for (const group of document.querySelectorAll('.choices:not(.wraps)')) {
       const rows = new Set(
         [...group.querySelectorAll('label')].map((label) => label.getBoundingClientRect().top),
       )
@@ -77,155 +131,215 @@ const layoutProblems = (page: Page) =>
     return problems
   })
 
-/** The rules, then the picture. */
-async function check(page: Page, state: string) {
+/** The rules, in `state`. */
+async function checkLayout(page: Page, state: string) {
+  // Away, or the hover tip of what was last clicked opens in time for the check.
+  await page.mouse.move(0, 0)
   expect(await layoutProblems(page), state).toEqual([])
-  await fitScreenToPage(page)
-  await expect(page).toHaveScreenshot(`${state}.png`, { fullPage: true })
 }
 
-test('at the start', async ({ page }) => {
-  await check(page, 'start')
+const dialog = (page: Page) => page.getByRole('dialog')
+
+// The rules themselves: each must notice the bug it's for, so a rule that
+// never fires can't pass for a clean page.
+test('the rules notice text drawn over text, text cut off, and a tip off the screen', async ({ page }) => {
+  await page.evaluate(() => {
+    const card = document.querySelector('.card')!
+    const over = document.createElement('p')
+    over.className = 'planted'
+    over.textContent = 'planted over the heading'
+    Object.assign(over.style, { position: 'absolute', top: '0', left: '0', margin: '0' })
+    card.querySelector('h3')!.after(over)
+    const clipped = document.createElement('div')
+    clipped.className = 'planted'
+    clipped.textContent = 'planted '.repeat(40)
+    Object.assign(clipped.style, { width: '40px', height: '20px', overflow: 'hidden', whiteSpace: 'nowrap' })
+    card.append(clipped)
+    const tip = document.createElement('div')
+    tip.className = 'popover open planted'
+    tip.textContent = 'planted tip'
+    Object.assign(tip.style, { position: 'fixed', top: '-40px', left: '0', display: 'block' })
+    document.body.append(tip)
+  })
+  const problems = await layoutProblems(page)
+  expect(
+    problems.find((problem) => problem.includes('planted over') && problem.includes('overlaps')),
+  ).toBeDefined()
+  expect(problems.find((problem) => problem.includes('cuts its content off'))).toBeDefined()
+  expect(problems.find((problem) => problem.includes('runs off the screen'))).toBeDefined()
+})
+
+test('at the start', { tag: '@phone' }, async ({ page }) => {
+  await checkLayout(page, 'start')
+  await fitScreenToPage(page)
+  // The numbers and the charts change with the tariffs; the rest is layout.
+  await expect(page).toHaveScreenshot('start.png', {
+    fullPage: true,
+    mask: [
+      page.locator('td.amount'),
+      page.locator('.stat .value'),
+      page.locator('.stat.best .label'),
+      page.locator('.chart'),
+      page.locator('.date'),
+    ],
+  })
 })
 
 // A chosen choice is bold, and so wider: every one must still fit.
-test('with every security and exchange chosen', async ({ page }) => {
+test('with every security and exchange chosen', { tag: '@phone' }, async ({ page }) => {
   for (const group of ['Security', 'Exchange']) {
     const choices = page.getByRole('radiogroup', { name: group }).locator('label')
     for (const choice of await choices.all()) {
       await choice.click()
-      // Away, or the choice's hover tip opens, sometimes in time for the check.
-      await page.mouse.move(0, 0)
-      expect(await layoutProblems(page), `${group}: ${await choice.textContent()}`).toEqual([])
+      await checkLayout(page, `${group}: ${await choice.textContent()}`)
     }
   }
 })
 
-test('on Tel Aviv', async ({ page }) => {
-  await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
-  // Away, or the choice's hover tip opens, sometimes in time for the picture.
-  await page.mouse.move(0, 0)
-  await check(page, 'tel-aviv')
-})
-
-test('with the exchange rates open', async ({ page }) => {
+test('with the exchange rates open, and a tip open', { tag: '@phone' }, async ({ page }) => {
   await page.getByText('$1 = ₪3.0338').click()
-  await check(page, 'rates')
+  await checkLayout(page, 'rates')
+  await page.getByRole('button', { name: 'What “Buy every” means' }).click()
+  expect(await layoutProblems(page), 'tip').toEqual([])
 })
 
-test('on the fee breakdown', async ({ page }) => {
+test('on the fee breakdown', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
-  await page.mouse.move(0, 0)
-  await check(page, 'breakdown')
+  await checkLayout(page, 'breakdown')
 })
 
-test("with a plan's details open", async ({ page }) => {
+test('with more options, and on the chart by deposit', { tag: '@phone' }, async ({ page }) => {
+  await page.getByLabel('More options', { exact: true }).check()
+  await checkLayout(page, 'more options')
+  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('By deposit').click()
+  await checkLayout(page, 'by deposit')
+  await page.getByRole('button', { name: 'Share', exact: true }).hover()
+  expect(await layoutProblems(page), 'share tip').toEqual([])
+})
+
+test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'dialog').toEqual([])
-  await expect(page.getByRole('dialog')).toHaveScreenshot('plan-dialog.png')
+  await expect(dialog(page)).toBeVisible()
+  await checkLayout(page, 'plan')
+  await dialog(page).getByText('All prices').click()
+  await checkLayout(page, 'plan, all prices')
+  await dialog(page).getByRole('button', { name: 'Bank Leumi' }).click()
+  await checkLayout(page, 'broker')
 })
 
-test('with a plan of your own', async ({ page }) => {
+test('with a plan of your own', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: "Change a copy of Leumi · Pepper's fees" }).click()
-  await page.getByRole('dialog').getByRole('button', { name: 'Add plan' }).click()
-  await page.mouse.move(0, 0)
-  await check(page, 'your-plans')
+  await dialog(page).getByRole('button', { name: 'Add plan' }).click()
+  await checkLayout(page, 'your plans')
 })
 
-test('in the plan editor', async ({ page }) => {
+test('in the plan editor, in both views, with a checklist open', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: "Change a copy of Leumi · Pepper's fees" }).click()
-  const dialog = page.getByRole('dialog')
-  await expect(dialog).toBeVisible()
-  expect(await layoutProblems(page), 'simple').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor.png')
-
-  await dialog.getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'full price list').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor-full.png')
-
-  await dialog.getByRole('button', { name: 'Anything on USA, Europe ▾' }).click()
-  expect(await layoutProblems(page), 'checklist').toEqual([])
+  await expect(dialog(page)).toBeVisible()
+  await checkLayout(page, 'simple')
+  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await checkLayout(page, 'full price list')
+  await dialog(page).getByRole('button', { name: 'Anything on USA, Europe ▾' }).click()
+  await checkLayout(page, 'checklist')
 })
 
 // Second prices sit under the fee they're part of, in details and in the editor.
-test('with second prices', async ({ page }) => {
-  const dialog = page.getByRole('dialog')
+test('with second prices', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: "About Leumi · Online, 'Leumi 18+'" }).click()
-  await expect(dialog).toBeVisible()
-  // Away, or a ? now under the pointer opens its tip, which Esc would close
-  // instead of the dialog.
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'details').toEqual([])
-  await expect(dialog).toHaveScreenshot('second-conversion-details.png')
+  await expect(dialog(page)).toBeVisible()
+  await checkLayout(page, 'details')
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: "Change a copy of Leumi · Online, 'Leumi 18+''s fees" }).click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'second conversion fee').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor-second-conversion.png')
-  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await checkLayout(page, 'second conversion fee')
+  await dialog(page).getByRole('button', { name: 'Cancel' }).click()
 
   await page.getByRole('radiogroup', { name: 'Security' }).getByText('Index fund', { exact: true }).click()
   await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
   await page
     .getByRole('button', { name: "Change a copy of Leumi · Online, monthly standing order's fees" })
     .click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'standing order').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor-standing-order.png')
-
-  await dialog.getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'standing order, full price list').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor-standing-order-full.png')
+  await checkLayout(page, 'standing order')
+  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await checkLayout(page, 'standing order, full price list')
 })
 
-test('with every plan ticked', async ({ page }) => {
+test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page }) => {
   for (const broker of ['Altshuler Shaham Trade', 'Bank Leumi', 'Excellence Trade', 'IBI', 'Meitav Trade']) {
     await page.getByRole('checkbox', { name: broker, exact: true }).check()
   }
-  await page.mouse.move(0, 0)
-  await check(page, 'every-plan')
+  await checkLayout(page, 'every plan')
   await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
-  await page.mouse.move(0, 0)
-  await check(page, 'every-plan-breakdown')
+  await checkLayout(page, 'every plan, breakdown')
 })
 
 // Tracks, a handling fee and a price per share plus a percentage, in details
 // and in the editor; then fractions and a conversion by standing order.
-test('with tracks and a handling fee', async ({ page }) => {
-  const dialog = page.getByRole('dialog')
+test('with tracks and a handling fee', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('checkbox', { name: 'IBI', exact: true }).check()
   await page.getByRole('button', { name: 'About IBI · Full tariff' }).click()
-  await dialog.getByText('All prices').click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'details').toEqual([])
-  await expect(dialog).toHaveScreenshot('tracks-details.png')
+  await dialog(page).getByText('All prices').click()
+  await checkLayout(page, 'details')
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: "Change a copy of IBI · Full tariff's fees" }).click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'editor').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor-tracks.png')
-  await dialog.getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'editor, full price list').toEqual([])
-  await dialog.getByRole('button', { name: 'Cancel' }).click()
+  await checkLayout(page, 'editor')
+  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await checkLayout(page, 'editor, full price list')
+  await dialog(page).getByRole('button', { name: 'Cancel' }).click()
 
   await page.getByRole('button', { name: "Change a copy of Interactive · Standard's fees" }).click()
-  await dialog.getByRole('radiogroup', { name: 'View' }).getByText('Simple').click()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'fractions and conversion by standing order').toEqual([])
-  await expect(dialog).toHaveScreenshot('editor-standing-order-conversion.png')
+  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Simple').click()
+  await checkLayout(page, 'fractions and conversion by standing order')
 })
 
-test('with the about page open', async ({ page }) => {
+test('with the about page open', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: 'How the numbers are made' }).click()
-  await expect(page.getByRole('dialog')).toBeVisible()
-  await page.mouse.move(0, 0)
-  expect(await layoutProblems(page), 'about').toEqual([])
-  await expect(page.getByRole('dialog')).toHaveScreenshot('about-dialog.png')
+  await expect(dialog(page)).toBeVisible()
+  await checkLayout(page, 'about')
+})
+
+// Pictures, on the two extreme screens only (playwright.config.ts): what
+// the rules can't see, such as a color or an alignment, in the states with
+// the most in them. What comes from the tariffs is masked, so they change
+// only when the page itself does; the bars can't be, since the amounts are
+// the picture.
+test.describe('pictures', { tag: '@pictures' }, () => {
+  test("of a plan's details", async ({ page }) => {
+    await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
+    await expect(dialog(page)).toBeVisible()
+    await dialog(page).getByText('All prices').click()
+    await page.mouse.move(0, 0)
+    await expect(dialog(page)).toHaveScreenshot('plan-dialog.png', {
+      mask: [
+        dialog(page).locator('.fees-for dd'),
+        dialog(page).locator('.group li'),
+        dialog(page).locator('.tariff td:nth-child(2)'),
+        dialog(page).locator('.tariff li'),
+        dialog(page).locator('.source'),
+      ],
+    })
+  })
+
+  test('of the editor, in both views', async ({ page }) => {
+    await page.getByRole('button', { name: "Change a copy of Leumi · Pepper's fees" }).click()
+    await expect(dialog(page)).toBeVisible()
+    await page.mouse.move(0, 0)
+    const masks = () => [
+      dialog(page).locator('input:not([type=radio], [type=checkbox])'),
+      dialog(page).locator('.was'),
+    ]
+    await expect(dialog(page)).toHaveScreenshot('editor.png', { mask: masks() })
+    await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+    await page.mouse.move(0, 0)
+    await expect(dialog(page)).toHaveScreenshot('editor-full.png', { mask: masks() })
+  })
+
+  test('of the fee breakdown', async ({ page }) => {
+    await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click()
+    await page.mouse.move(0, 0)
+    const card = page.locator('section.card', { has: page.locator('.bars') })
+    await fitScreenToPage(page)
+    await expect(card).toHaveScreenshot('breakdown.png')
+  })
 })

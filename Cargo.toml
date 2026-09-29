@@ -19,7 +19,7 @@ tsify = { version = "0.5.8", default-features = false, features = ["js"] }
 wasm-bindgen = "0.2"
 thiserror = "2.0.21"
 strum = { version = "0.28.0", features = ["derive"] }
-derive_more = { version = "2.1.1", features = ["add", "add_assign", "sum"] }
+derive_more = { version = "2.1.1", features = ["add", "add_assign", "mul", "sum"] }
 
 # Clippy's stricter, more opinionated lints too, for idiomatic Rust.
 [workspace.lints.clippy]

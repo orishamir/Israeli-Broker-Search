@@ -78,6 +78,38 @@ all. Read those three first.
 - `pkill -f <pattern>` kills the shell running the command itself when the
   pattern appears anywhere in that command (exit code 144, nothing after it
   runs). Stop a server by its port instead: `fuser -k 4173/tcp`.
+- `npx playwright test --project desktop tests/x.spec.ts` fails: the
+  project flag takes the path as a second project. Write `--project=desktop`.
+- A `npm run dev` server left running across a package upgrade served
+  stale CSS for components edited later: the markup updated, but the
+  compiled style module lacked rules the compiler emits for the source
+  (checked with `svelte/compiler`'s `compile` in Node). Playwright reuses
+  a server on 5173, so it would have tested the stale styles too. Restart
+  it: `fuser -k 5173/tcp`, then `npx vite --host 0.0.0.0 --port 5173`.
+- Vitest runs the `.svelte.ts` modules against Svelte's *server* build
+  unless `resolve.conditions: ['browser']` is set (`vitest.config.ts`):
+  effects then never run and deriveds don't track, and only tests that
+  read state after changing it notice. A probe that adds to a `SvelteSet`
+  and reads a `$derived` of it tells the two apart in a second.
+- `cargo mutants -p broker-fees -j 8 --timeout 180` takes about 8 minutes
+  for the core's 600-odd mutants (2026-09-29), in copies of the tree, so
+  editing meanwhile is fine. It runs only that package's tests: a "missed"
+  mutant may be caught by the wasm crate's tests (`--workspace` runs them
+  all, and mutates the bindings too). Most of the 95 first misses were
+  text (`Explained` strings, `is_nothing`), the editor's row operations and
+  the sale's conversion; the tests added for them are in the `tests`
+  modules of `describe.rs`, `yours.rs` and `simulation.rs`; the core's
+  misses then fell to 20, all equality moves (`>` to `>=`), "any other
+  text" replacements, or changes no listed tariff can reach. Even with
+  `--workspace` each mutant is tested by its own package's tests only, so
+  the bindings' `#[wasm_bindgen]` entry points always show as missed: they
+  only run in a browser, where vitest and Playwright cover them.
+- `cargo llvm-cov -p broker-fees --summary-only` (needs the
+  `llvm-tools-preview` component) put the core at 95% of lines before the
+  economics tests; `describe.rs` and `yours.rs` had the gaps.
+- Dev-dependencies that only tests use go in `[dev-dependencies]`:
+  `proptest` for properties over random inputs, `divan` for benchmarks
+  (`[[bench]] harness = false`, since it has its own `main`).
 
 ## The core
 
@@ -121,6 +153,19 @@ all. Read those three first.
 - `Broker::may_cost_more` joins the summaries of the "may cost more" caveats
   that matter: one line under the plan in the table. A plan of the user's
   own has no caveats (its fees are their own claim), so it's never flagged.
+- Decimal arithmetic through an exchange rate isn't exact: ₪ to $ divides
+  by 3.7, which has no finite decimal, so identities such as "deposits =
+  value + fees" hold to about 1e-20 and a test must allow a millionth of a
+  shekel (`close` in `economics.rs`). Tel Aviv amounts stay exact.
+- On the app's defaults every usual plan loses between 0.1% and a third of
+  the no-fee value to fees over 20 years (`usual_plans_lose_a_plausible_share`);
+  a tariff or model change outside that band deserves a look before the
+  band is widened.
+- The core's hot paths in release, 2026-09-29 (`cargo bench -p broker-fees`):
+  comparing every listed plan 2.7 ms on Tel Aviv and 4.8 ms abroad (the
+  tracks), one plan 0.56 ms, a plan's fees in words 3 µs, the editor's
+  full view 6.5 µs, a plan through JSON 6 µs. The comparison is the only
+  call that costs anything on a keystroke.
 
 ## The web app
 
@@ -158,6 +203,18 @@ all. Read those three first.
   under 250 ms apart don't glide.
 - The `.choices` highlight is placed by `Choices.svelte` in CSS variables;
   `--glide` is 0 until it has been placed once, and while the buttons resize.
+- A box whose height is set from its own observed width (the breakdown's
+  bars: rows × a row height that depended on `bind:clientWidth`) makes the
+  browser report "ResizeObserver loop completed with undelivered
+  notifications" as a page error, on the iPad Mini where the width crossed
+  the threshold. The row height now follows a media query on the screen
+  (`NARROW_SCREEN` in `fee-breakdown.ts`), which the width can't change.
+  The test fixture fails a test on any page error, which is how it showed.
+- The charts' options are built by pure functions (`growth-chart.ts`,
+  `fee-breakdown.ts`) from plain inputs (lines, bars, what's pinned), not
+  from `AppState`: the components map the state to those inputs and wire
+  the events. That's what lets the options be unit-tested in Node, and
+  keeps a change to pinning from touching the chart's drawing code.
 
 ## Charts
 
@@ -175,6 +232,24 @@ all. Read those three first.
 
 ## Playwright
 
+- Screenshots were the suite's biggest coupling: 208 baselines on 9
+  devices, re-recorded (and looked at) whenever a number, a label or a
+  padding changed, since full-page pictures contain everything. Now there
+  are 10, with the data masked; layout is checked by rules, charts by
+  comparing the canvas before and after an action, and the words by the
+  core's own description of them (`tests/core.ts`). The run went from 68 s
+  and 264 tests to 49 s and 207, the desktop alone 10 s. Asked whether the
+  rules were enough, the user chose rules plus a few masked pictures over
+  more pictures: two rules were added (text over text, text cut off inside
+  its box) with a test that plants each bug to prove the rules fire, and
+  eight pictures of the dialog, the editor and the breakdown on the two
+  extreme screens. Inside a canvas only a picture sees anything; the bars'
+  word-fit is checked by measuring the names in the page's font instead.
+- With the core loaded in Node, a browser test can read the page's inputs
+  back and ask the core what the page should show (`inputsOnPage`,
+  `expectedRows`, `feesFor`): the test then checks the wiring, and the
+  numbers stay the Rust tests' business. Ask the core, not the test file,
+  for a count of brokers or plans, a price text, the checked date.
 - On the iPhone project a tap is a mouse click, so a hover stays behind
   (`app.hovered`): move the mouse away before asserting anything a hover
   changes.
@@ -184,7 +259,39 @@ all. Read those three first.
 - An aria snapshot matches partially: adding a name (an `aria-label`) doesn't
   fail it.
 
+- `getByRole('status')` also matches an `<output>` (a slider's readout):
+  its implicit role is status. Find a live region by its text instead.
+
 ## Recipes
+
+Many baselines at once, on one labelled sheet (the script is in the
+history of this file; `web/tests/CLAUDE.md` points here): resize each to
+420 px wide, five to a row, and read that image instead of each file.
+
+```python
+# uv run --with pillow python sheet.py sheet.png a.png b.png …
+import sys
+from PIL import Image, ImageDraw
+
+out, *paths = sys.argv[1:]
+width, tiles = 420, []
+for path in paths:
+    image = Image.open(path).convert('RGB')
+    image = image.resize((width, int(image.height * width / image.width)))
+    tile = Image.new('RGB', (width, image.height + 20), (60, 60, 60))
+    ImageDraw.Draw(tile).text((4, 4), path.split('/')[-1], fill=(255, 255, 0))
+    tile.paste(image, (0, 20))
+    tiles.append(tile)
+rows = [tiles[i:i + 5] for i in range(0, len(tiles), 5)]
+sheet = Image.new('RGB', (width * 5, sum(max(t.height for t in row) for row in rows)))
+y = 0
+for row in rows:
+    for column, tile in enumerate(row):
+        sheet.paste(tile, (column * width, y))
+    y += max(t.height for t in row)
+sheet.thumbnail((2100, 3000))
+sheet.save(out)
+```
 
 Screenshots of the app outside the tests. Start
 `npx vite --port 5173 --strictPort` in `web/` first, and stop it afterwards:
@@ -221,66 +328,39 @@ process.stdout.write(await page.evaluate(() => document.body.innerText))
 await browser.close()
 ```
 
-How long the page takes to respond, by interaction, on a throttled phone.
-The Event Timing API gives each event's time to the next paint (at least
-16 ms, rounded to 8); anything over about 50 ms is felt.
+How long the page takes to respond, by interaction: `npm run test:perf`
+in `web/` (see "Speed" below), which prints a table and keeps a budget.
 
-```js
-// node latency.mjs  (the app served on 4173)
-import { chromium, devices } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+## Speed
 
-const browser = await chromium.launch()
-const context = await browser.newContext(devices['Galaxy S24'])
-const page = await context.newPage()
-await page.addInitScript(() => {
-  window.events = []
-  new PerformanceObserver((list) => {
-    for (const e of list.getEntries()) window.events.push([e.name, e.duration])
-  }).observe({ type: 'event', durationThreshold: 16 })
-})
-const cdp = await context.newCDPSession(page)
-await cdp.send('Emulation.setCPUThrottlingRate', { rate: 4 })
-await page.goto('http://localhost:4173/')
-await page.locator('.chart canvas').first().waitFor()
-const worst = async (label, act) => {
-  await page.evaluate(() => (window.events = []))
-  await act()
-  await page.waitForTimeout(300)
-  const events = await page.evaluate(() => window.events)
-  console.log(label, Math.max(0, ...events.map(([, d]) => d)), 'ms')
-}
-await worst('typing', () => page.getByLabel('Every month').pressSequentially('2500', { delay: 120 }))
-await worst('security', () => page.getByRole('radiogroup', { name: 'Security' }).getByText('Bond').click())
-await worst('breakdown', () => page.getByRole('radiogroup', { name: 'Chart' }).getByText('Breakdown').click())
-await browser.close()
-```
+`npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-09-29, on this
+machine, a production build, animations on. The phone project throttles
+the CPU 4× (about a Galaxy S24). Time to the next paint per interaction,
+by the Event Timing API; anything under about 50 ms isn't felt.
 
-Many baselines at once: paste them into one labelled sheet, and read that
-image instead of each file.
+| Measure                                       | phone (4×) | desktop |
+| --------------------------------------------- | ---------: | ------: |
+| load, to the first chart (ms)                 |        783 |     195 |
+| typing a deposit (ms)                         |         40 |      48 |
+| switching the security (ms)                   |         56 |      24 |
+| switching the exchange (ms)                   |         64 |      24 |
+| ticking a broker's four plans (ms)            |         40 |      16 |
+| switching the chart view (ms)                 |         24 |      16 |
+| switching to the chart by deposit (ms)        |         24 |      16 |
+| frame gap while the chart by deposit draws (ms) |      150 |      17 |
+| opening a plan's details (ms)                 |         40 |      40 |
+| opening a tip (ms)                            |         24 |      16 |
+| longest frame gap while the rows reorder (ms) |         67 |      17 |
+| zooming: slider drag, or six wheel notches (ms) |       40 |      16 |
+| longest frame gap while zooming (ms)          |          – |      17 |
+| hovering across the rows (ms)                 |          – |      16 |
+| heap growth over 30 rounds of changes (MB)    |          1 |       1 |
 
-```python
-# uv run --with pillow python sheet.py sheet.png a.png b.png …
-import sys
-from PIL import Image, ImageDraw
-
-out, *paths = sys.argv[1:]
-width, tiles = 420, []
-for path in paths:
-    image = Image.open(path).convert('RGB')
-    image = image.resize((width, int(image.height * width / image.width)))
-    tile = Image.new('RGB', (width, image.height + 20), (60, 60, 60))
-    ImageDraw.Draw(tile).text((4, 4), path, fill=(255, 255, 0))
-    tile.paste(image, (0, 20))
-    tiles.append(tile)
-rows = [tiles[i:i + 3] for i in range(0, len(tiles), 3)]
-sheet = Image.new('RGB', (width * 3, sum(max(t.height for t in row) for row in rows)))
-y = 0
-for row in rows:
-    for column, tile in enumerate(row):
-        sheet.paste(tile, (column * width, y))
-    y += max(t.height for t in row)
-sheet.save(out)
-```
+The budgets in the spec are about twice these. Two traps in measuring: a
+toggle measured three times ends on the other view, so measure there and
+back as one action; and a key pressed to reset the zoom goes into a field
+that still has focus (the R made the deposit "10000r", which hid the
+chart), so click away first.
 
 ## Working with the user
 

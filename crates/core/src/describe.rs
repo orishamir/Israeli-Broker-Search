@@ -1193,12 +1193,27 @@ pub fn about() -> About {
              (abroad) and buys with it, whole shares only where the broker sells no \
              fractions. Custody and the handling fee are paid every month out of the \
              shekels. At the end everything is sold and converted back, and that's the \
-             value the table ranks by."
+             value the table ranks by; or, if you choose to keep holding, the table ranks \
+             by what's held, and nothing is paid for selling."
                 .to_owned(),
             "The return is the security's own, in its own currency; today's exchange rates \
              stay as they are, and money waiting for a purchase earns nothing. A plan with \
              several price tracks costs what its cheapest does for your inputs, and the \
              track is named."
+                .to_owned(),
+            "What's lost to fees is measured against the same deposits with no fees at all, \
+             bought every month. A plan's yearly cost states that loss the way a fund's \
+             management fee is stated: the yearly charge on your holdings that would cost \
+             you the same. Buying every three months rather than monthly leaves money \
+             waiting, and that counts too. The chart by deposit runs every plan on other \
+             deposits than yours, from ₪100 to ₪32,000 a month, to show where the ranking \
+             flips: a plan with minimum fees is dear for small deposits and cheap for large \
+             ones."
+                .to_owned(),
+            "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
+             does, and inflation can be taken off, so that every amount reads in today's \
+             shekels: each is divided by how much prices will have risen by then. That \
+             changes no ranking, only how the numbers read."
                 .to_owned(),
             "Banks publish what they charge. Investment houses publish only a full tariff, \
              the most they may charge, and offer new customers far less by phone. Their \
@@ -1309,7 +1324,7 @@ fn list_or<T: Display>(items: &[T], any: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{ils, iso, tariffs, usd};
+    use crate::{Percent, ils, iso, tariffs, usd};
     use rust_decimal_macros::dec;
 
     #[test]
@@ -1697,5 +1712,228 @@ mod tests {
             assert!(group.sources.len() > 1, "{}: only the tariff", broker.name);
         }
         assert_eq!(sources.items, Vec::new());
+    }
+
+    /// Hebrew letters, with the spaces, quotes and slashes the names use.
+    fn is_hebrew(name: &str) -> bool {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| ('\u{5d0}'..='\u{5ea}').contains(&c) || " \"'/-".contains(c))
+    }
+
+    #[test]
+    fn every_choice_is_explained_and_its_hebrew_names_are_hebrew() {
+        fn check<T: Explained>(choices: impl Iterator<Item = T>, needs_hebrew: bool) {
+            for choice in choices {
+                assert!(!choice.explanation().is_empty(), "{choice}");
+                assert!(
+                    choice.hebrew_names().iter().all(|name| is_hebrew(name)),
+                    "{choice}"
+                );
+                assert!(
+                    !needs_hebrew || !choice.hebrew_names().is_empty(),
+                    "{choice}"
+                );
+            }
+        }
+        check(Security::iter(), true);
+        check(Exchange::iter(), false);
+        check(FeeKind::iter(), false);
+        check(CaveatKind::iter(), false);
+        for kind in FeeKind::iter() {
+            assert!(!kind.label().is_empty(), "{kind}");
+        }
+        assert_eq!(Exchange::Tlv.hebrew_names().len(), 1);
+    }
+
+    #[test]
+    fn a_price_is_nothing_only_when_nothing_is_charged() {
+        let min_only = PercentFee {
+            percent: Percent(Decimal::ZERO),
+            min: Some(usd(dec!(5))),
+            max: None,
+        };
+        assert!(!min_only.is_nothing());
+        assert!(PercentFee::FREE.is_nothing());
+        assert!(ConversionFee::FREE.is_nothing());
+        assert!(
+            !ConversionFee {
+                fee: min_only,
+                ..ConversionFee::FREE
+            }
+            .is_nothing()
+        );
+        let free_custody = &tariffs::ibi().plans[0].custody[0];
+        assert!(free_custody.is_nothing());
+        assert!(
+            !CustodyFee {
+                min: Some(ils(dec!(75))),
+                ..free_custody.clone()
+            }
+            .is_nothing()
+        );
+        assert!(Markup::NONE.is_nothing());
+        assert!(Markup::MarketRate.is_nothing());
+        assert!(Markup::NotPublished.is_nothing());
+        assert!(!Markup::UpTo(Percent(dec!(0.7))).is_nothing());
+        assert!(!Markup::PerDollar(ils(dec!(0.02))).is_nothing());
+        // A trade price and a handling fee are always something.
+        assert!(!Price::Flat(ils(dec!(4))).price_text().nothing);
+        assert!(
+            !tariffs::altshuler().plans[0]
+                .handling
+                .unwrap()
+                .price_text()
+                .nothing
+        );
+    }
+
+    #[test]
+    fn sources_are_the_tariff_then_each_page_once() {
+        let (leumi, pepper) = pepper();
+        let sources = leumi.sources_for(&pepper);
+        assert_eq!(sources[0].name, "Tariff (PDF)");
+        let urls: std::collections::HashSet<&str> =
+            sources.iter().map(|source| source.url.as_str()).collect();
+        assert_eq!(urls.len(), sources.len(), "a page listed twice");
+        // Every page the broker's and the plan's caveats rest on is there.
+        let caveat_sources = leumi
+            .caveats
+            .iter()
+            .chain(&pepper.caveats)
+            .flat_map(|caveat| &caveat.sources);
+        let mut counted = 0;
+        for source in caveat_sources {
+            assert!(urls.contains(source.url.as_str()), "{}", source.name);
+            counted += 1;
+        }
+        assert!(counted > 0, "the test needs caveats with sources");
+        // The plan's own: each page its caveats rest on, once.
+        let own = pepper.sources();
+        let distinct: std::collections::HashSet<&str> = pepper
+            .caveats
+            .iter()
+            .flat_map(|caveat| &caveat.sources)
+            .map(|source| source.url.as_str())
+            .collect();
+        assert_ne!(distinct.len(), 0, "Pepper's caveats rest on pages");
+        assert_eq!(own.len(), distinct.len());
+        assert!(own.iter().all(|source| urls.contains(source.url.as_str())));
+        assert!(leumi.sources().len() >= sources.len());
+        // The broker-wide caveats that matter abroad: the markup's reading.
+        let groups = leumi.caveats_for(buying(Security::Etf, Exchange::Usa), &rates());
+        assert!(
+            groups
+                .iter()
+                .flat_map(|group| &group.caveats)
+                .any(|caveat| caveat.kind == CaveatKind::Reading && caveat.text.contains("markup")),
+            "{groups:?}"
+        );
+    }
+
+    #[test]
+    fn the_track_part_names_the_pick_and_lists_the_others() {
+        let ibi = tariffs::ibi();
+        let full = &ibi.plans[0];
+        let describe = |plan: &Plan, exchange, track| {
+            plan.describe_fees_for(buying(Security::Etf, exchange), track, &[], &rates())
+        };
+        let part = |fees: &FeesFor| {
+            fees.fees[0]
+                .parts
+                .iter()
+                .find(|part| part.kind == FeeKind::Track)
+                .cloned()
+        };
+        // Picked: the trade costs what the track charges, and the part names
+        // the track, then what the others charge.
+        let picked = describe(full, Exchange::Usa, Some(3));
+        assert_eq!(picked.fees[0].price.text, "0.15% + $0.01 per share, min $6");
+        let part_picked = part(&picked).unwrap();
+        assert_eq!(part_picked.label, "track picked for you");
+        assert_eq!(
+            part_picked.price.text,
+            "0.15% + 1¢ a share (others: $0.01 per share, min $10; $14 per order; 0.15%, min $10)"
+        );
+        // None picked: one of the tracks, all listed.
+        let none = describe(full, Exchange::Usa, None);
+        assert_eq!(none.fees[0].price.text, "one of the tracks below");
+        let part_none = part(&none).unwrap();
+        assert_eq!(part_none.label, "tracks");
+        assert_eq!(
+            part_none.price.text,
+            "$0.01 per share, min $10; $14 per order; 0.15%, min $10; 0.15% + $0.01 per share, min $6"
+        );
+        // On Tel Aviv the tracks price nothing, so there's no part.
+        assert_eq!(part(&describe(full, Exchange::Tlv, Some(3))), None);
+        // With one track there are no others to list: just its name.
+        let mut single = full.clone();
+        single.tracks.truncate(1);
+        let part_single = part(&describe(&single, Exchange::Usa, Some(0))).unwrap();
+        assert_eq!(part_single.price.text, single.tracks[0].name);
+    }
+
+    #[test]
+    fn the_fees_warning_needs_fees_beyond_the_deposits() {
+        use crate::simulation::{Fees, Outcome};
+        let outcome = Outcome {
+            value_by_month: vec![],
+            held: Decimal::ZERO,
+            after_selling: Decimal::ZERO,
+            fees: Fees {
+                purchases: dec!(300),
+                ..Fees::default()
+            },
+            fees_by_year: vec![],
+            track: None,
+            largest_trade: Decimal::ZERO,
+            yearly_cost: Percent::default(),
+        };
+        assert_eq!(
+            outcome.warning(dec!(200)),
+            Some("Its fees are more than you deposit")
+        );
+        assert_eq!(outcome.warning(dec!(300)), None, "as much isn't more");
+        assert_eq!(outcome.warning(dec!(400)), None);
+    }
+
+    #[test]
+    fn a_handling_fee_counts_its_free_months_in_years_where_it_can() {
+        let fee = |free_months, less_trade_fees| HandlingFee {
+            per_month: ils(dec!(15)),
+            free_months,
+            less_trade_fees,
+        };
+        assert_eq!(fee(0, false).to_string(), "₪15 a month");
+        assert_eq!(
+            fee(12, false).to_string(),
+            "₪15 a month, free for the first year"
+        );
+        assert_eq!(
+            fee(24, false).to_string(),
+            "₪15 a month, free for the first 2 years"
+        );
+        assert_eq!(
+            fee(18, false).to_string(),
+            "₪15 a month, free for the first 18 months"
+        );
+        assert_eq!(
+            fee(6, true).to_string(),
+            "₪15 a month, free for the first 6 months, less that month's trade fees"
+        );
+    }
+
+    #[test]
+    fn the_track_note_names_the_track_where_it_prices_the_trade() {
+        let full = &tariffs::altshuler().plans[0];
+        assert_eq!(
+            full.track_note(Security::Etf, Exchange::Usa, Some(1))
+                .as_deref(),
+            Some("US track: $11 per order, the cheapest for you")
+        );
+        // Not on Tel Aviv, where the tracks price nothing; not without a track.
+        assert_eq!(full.track_note(Security::Etf, Exchange::Tlv, Some(1)), None);
+        assert_eq!(full.track_note(Security::Etf, Exchange::Usa, None), None);
     }
 }

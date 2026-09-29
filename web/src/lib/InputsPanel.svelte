@@ -1,20 +1,32 @@
 <script lang="ts">
-  import type { AppState } from './app.svelte'
+  import type { AppState, AtEnd } from './app.svelte'
   import BrokerPicker from './BrokerPicker.svelte'
   import Choices from './Choices.svelte'
+  import type { Choice } from './core/core'
+  import Examples from './Examples.svelte'
   import HebrewNames from './HebrewNames.svelte'
+  import { BUYING_INTERVALS } from './link'
   import NumberField from './NumberField.svelte'
   import Tip from './Tip.svelte'
   import YourPlans from './YourPlans.svelte'
 
   let { app }: { app: AppState } = $props()
 
-  const buyingIntervals = [
-    { months: 1, name: 'month' },
-    { months: 2, name: '2 months' },
-    { months: 3, name: '3 months' },
-    { months: 6, name: '6 months' },
-    { months: 12, name: 'year' },
+  const atEndChoices: Choice<AtEnd>[] = [
+    {
+      value: 'sell',
+      name: 'Sell',
+      explanation:
+        'Everything is sold at the end and, abroad, converted back to shekels: one more trade fee and one more conversion. The table ranks by what that leaves.',
+      hebrewNames: [],
+    },
+    {
+      value: 'hold',
+      name: 'Keep',
+      explanation:
+        "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling. For money you'll draw on slowly, or pass on.",
+      hebrewNames: [],
+    },
   ]
 
   const security = $derived(app.securities.find(({ value }) => value === app.security)!)
@@ -22,6 +34,22 @@
   /** "ETF", "index fund", as in "your ETF". */
   const securityNoun = $derived(security.name === 'ETF' ? security.name : security.name.toLowerCase())
 </script>
+
+<section class="card">
+  <div class="heading row">
+    <h3>Try an example</h3>
+    <label class="switch">
+      <input type="checkbox" bind:checked={app.moreOptions} />
+      More options
+    </label>
+    <Tip about="More options">
+      Three more inputs, for a closer picture: deposits that grow every year as a salary does, inflation, to
+      see every amount in today's money, and whether everything is sold at the end or kept. Off, the app takes
+      deposits that stay the same, no inflation, and selling at the end.
+    </Tip>
+  </div>
+  <Examples {app} />
+</section>
 
 <section class="card">
   <div class="heading">
@@ -120,10 +148,20 @@
       </Tip>
     </span>
     <select id="buy-every" bind:value={app.buyEveryMonths}>
-      {#each buyingIntervals as { months, name } (months)}
+      {#each BUYING_INTERVALS as { months, name } (months)}
         <option value={months}>{name}</option>
       {/each}
     </select>
+
+    {#if app.moreOptions}
+      <span>
+        <label for="deposit-growth">Growing by</label><Tip about="Growing by">
+          How much more you deposit each month than a year earlier, as a salary grows: at 3%, ₪2,000 a month
+          becomes ₪2,060 in the second year and about ₪3,500 in the twentieth. 0 keeps the deposits the same.
+        </Tip>
+      </span>
+      <NumberField id="deposit-growth" suffix="% a year" step={0.5} bind:value={app.depositGrowthPercent} />
+    {/if}
   </div>
 </section>
 
@@ -153,6 +191,26 @@
         </Tip>
       </span>
       <NumberField id="share-price" prefix={app.sharePriceSymbol} bind:value={app.sharePrice} />
+    {/if}
+
+    {#if app.moreOptions}
+      <span>
+        <label for="inflation">Inflation</label><Tip about="Inflation">
+          Prices rise, so a shekel in 20 years buys less than one today. Enter the yearly inflation you expect
+          (Israel's target is 1–3%) and every amount is shown in today's shekels: divided by how much prices
+          will have risen by then. The ranking doesn't change, only how the numbers read. 0 shows the amounts
+          as they will be.
+        </Tip>
+      </span>
+      <NumberField id="inflation" suffix="% a year" step={0.5} bind:value={app.inflationPercent} />
+
+      <span>
+        <span class="label-text">At the end</span><Tip about="At the end">
+          Whether everything is sold when the years are up, paying a last trade fee and, abroad, a last
+          conversion, or kept. Selling is the usual assumption, and what most of the fees lead up to.
+        </Tip>
+      </span>
+      <Choices label="At the end" options={atEndChoices} bind:value={app.atEnd} />
     {/if}
   </div>
 </section>
@@ -207,6 +265,21 @@
   }
   .heading h3 {
     margin: 0;
+  }
+  /* A heading with a switch at its right. */
+  .row {
+    gap: 6px;
+  }
+  .row h3 {
+    flex: 1;
+  }
+  .switch {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    user-select: none;
   }
   .caption {
     margin: 10px 0 6px;

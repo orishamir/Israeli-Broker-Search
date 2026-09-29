@@ -24,3 +24,29 @@ export function readableOn(color: string): string {
   const [r, g, b] = [1, 3, 5].map((start) => parseInt(color.slice(start, start + 2), 16))
   return 0.299 * r + 0.587 * g + 0.114 * b > 140 ? '#000' : '#fff'
 }
+
+/** "After 15 years, 5 months": a chart's time, from a count of years. */
+export function elapsed(years: number): string {
+  const months = Math.round(years * 12)
+  const plural = (count: number, unit: string) => `${count} ${unit}${count === 1 ? '' : 's'}`
+  const whole = plural(Math.floor(months / 12), 'year')
+  return months % 12 === 0 ? `After ${whole}` : `After ${whole}, ${plural(months % 12, 'month')}`
+}
+
+const twoDecimals = new Intl.NumberFormat('en-IL', {
+  style: 'percent',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
+
+const roundPercent = new Intl.NumberFormat('en-IL', {
+  style: 'percent',
+  maximumSignificantDigits: 2,
+})
+
+/** "0.42%", "12.50%": a yearly cost, from a number of percent (0.42). */
+export const percent = (value: number): string => twoDecimals.format(value / 100)
+
+/** "0.1%", "1%", "10%", "0.42%": short enough for an axis, from a number of
+ * percent. */
+export const compactPercent = (value: number): string => roundPercent.format(value / 100)

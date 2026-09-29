@@ -6,6 +6,7 @@ import type {
   Choice,
   ComparisonData,
   Exchange,
+  ExampleData,
   FeesFor,
   Inputs,
   OutcomeData,
@@ -14,7 +15,10 @@ import type {
   PlanKey,
   Purchase,
   Security,
+  SweepData,
+  Swept,
 } from './core/core'
+import { encode, type Shared } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
 import { load, save } from './saved'
 
@@ -90,7 +94,10 @@ export interface Result {
   notOffered: string | undefined
 }
 
-export type ChartView = 'value' | 'lost' | 'breakdown'
+export type ChartView = 'value' | 'lost' | 'crossover' | 'breakdown'
+
+/** What happens at the end of the years: everything is sold, or kept. */
+export type AtEnd = 'sell' | 'hold'
 
 /** The chosen plans, best first, or why they couldn't be compared.
  * `largestTrade`: the biggest single order, in the exchange's currency. */
@@ -118,13 +125,18 @@ export const planId = (key: PlanKey): string =>
  * (saved by another version of the app). */
 function loadYourPlans(): YourPlan[] {
   const saved = load<YourPlan[]>('your-plans-v1', [])
-  if (!Array.isArray(saved)) return []
-  return saved.filter((yours) => {
+  return Array.isArray(saved) ? readable(saved, 'a saved plan') : []
+}
+
+/** `plans` without any the core can't read: saved, or in a link, by
+ * another version of the app. */
+function readable(plans: YourPlan[], what: string): YourPlan[] {
+  return plans.filter((yours) => {
     try {
       core.planInfo(yours.plan)
       return true
     } catch (error) {
-      console.warn('Dropped a saved plan the app can no longer read', yours, error)
+      console.warn(`Dropped ${what} the app can't read`, yours, error)
       return false
     }
   })
@@ -144,6 +156,8 @@ export class AppState {
   readonly about = core.about()
   readonly securities: Choice<Security>[] = core.securities()
   readonly exchanges: Choice<Exchange>[] = core.exchanges()
+  /** Ready-made investing patterns, each setting every basic input. */
+  readonly examples: ExampleData[] = core.examples()
   readonly listedPlans: Plan[] = (() => {
     const plans = this.brokers.flatMap((broker, brokerIndex) =>
       broker.plans.map((info, planIndex) => ({
@@ -205,6 +219,13 @@ export class AppState {
   years = $state(20)
   buyEveryMonths = $state(1)
   sharePrice = $state<number | null>(500)
+  /** The expert inputs below are shown, and used. Off, the deposits stay the
+   * same, nothing is taken off for inflation and everything is sold at the
+   * end, whatever their fields say. Remembered. */
+  moreOptions = $state(load<boolean>('more-options', false))
+  depositGrowthPercent = $state<number | null>(0)
+  inflationPercent = $state<number | null>(0)
+  atEnd = $state<AtEnd>('sell')
   ilsPerUsd = $state<number | null>(DEFAULT_RATES.ilsPerUsd)
   ilsPerEur = $state<number | null>(DEFAULT_RATES.ilsPerEur)
   ratesStatus = $state<RatesStatus>({ kind: 'downloading' })
@@ -374,21 +395,134 @@ export class AppState {
     this.pinned.add(id)
   }
 
+  /** Whether everything is sold at the end, as the core is told. */
+  sellAtEnd: boolean = $derived(!this.moreOptions || this.atEnd === 'sell')
+  /** Whether the amounts shown are in today's money. */
+  inTodaysMoney: boolean = $derived(this.moreOptions && (this.inflationPercent ?? 0) !== 0)
+
   /** Everything the core compares the plans by. */
-  inputs: Inputs = $derived({
-    security: this.security,
-    exchange: this.exchange,
-    firstDeposit: this.firstDeposit,
-    monthlyDeposit: this.monthlyDeposit,
-    yearlyReturnPercent: this.yearlyReturnPercent,
-    years: this.years,
-    buyEveryMonths: this.buyEveryMonths,
-    sharePrice: this.sharePrice,
-    ilsPerUsd: this.ilsPerUsd,
-    ilsPerEur: this.ilsPerEur,
-    plans: this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.key),
-    yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
+  inputs: Inputs = $derived(this.inputsWith(this.firstDeposit, this.monthlyDeposit))
+
+  /** The inputs with the deposits given: the comparison's own, or the
+   * sweep's, which leaves out the deposit it varies. */
+  private inputsWith(firstDeposit: number | null, monthlyDeposit: number | null): Inputs {
+    return {
+      security: this.security,
+      exchange: this.exchange,
+      firstDeposit,
+      monthlyDeposit,
+      yearlyReturnPercent: this.yearlyReturnPercent,
+      years: this.years,
+      buyEveryMonths: this.buyEveryMonths,
+      sharePrice: this.sharePrice,
+      depositGrowthPercent: this.moreOptions ? this.depositGrowthPercent : 0,
+      inflationPercent: this.moreOptions ? this.inflationPercent : 0,
+      sellAtEnd: this.sellAtEnd,
+      ilsPerUsd: this.ilsPerUsd,
+      ilsPerEur: this.ilsPerEur,
+      plans: this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.key),
+      yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
+    }
+  }
+
+  /** Which deposit the chart by deposit varies: the monthly one if there is
+   * one, else the one-time deposit. */
+  swept: Swept = $derived((this.monthlyDeposit ?? 0) > 0 ? 'Monthly' : 'OneTime')
+
+  /** The chart by deposit's lines: every ticked plan's yearly cost over a
+   * range of the swept deposit. Not recomputed as that deposit is typed,
+   * since it isn't read here: only its marker moves. Missing while the
+   * inputs are invalid. Computed only while the chart is shown, as every
+   * derived value is only when read. */
+  sweep: SweepData | undefined = $derived.by(() => {
+    const swept = this.swept
+    const inputs = this.inputsWith(
+      swept === 'OneTime' ? 0 : this.firstDeposit,
+      swept === 'Monthly' ? 0 : this.monthlyDeposit,
+    )
+    try {
+      return core.sweep(inputs, swept)
+    } catch {
+      // The comparison says what's wrong.
+      return undefined
+    }
   })
+
+  /** Fills every basic input from an example. The expert inputs stay. */
+  applyExample(example: ExampleData) {
+    this.security = example.security
+    this.exchange = example.exchange
+    this.firstDeposit = example.firstDeposit
+    this.monthlyDeposit = example.monthlyDeposit
+    this.yearlyReturnPercent = example.yearlyReturnPercent
+    this.years = example.years
+    this.buyEveryMonths = example.buyEveryMonths
+  }
+
+  /** A link to this comparison: the inputs and the ticked plans, your own
+   * ticked plans included, in the page's address. */
+  shareLink(): string {
+    const ticked = this.plans.filter((plan) => this.selected.has(plan.id))
+    const shared: Shared = {
+      security: this.security,
+      exchange: this.exchange,
+      firstDeposit: this.firstDeposit ?? undefined,
+      monthlyDeposit: this.monthlyDeposit ?? undefined,
+      yearlyReturnPercent: this.yearlyReturnPercent ?? undefined,
+      years: this.years,
+      buyEveryMonths: this.buyEveryMonths,
+      sharePrice: this.sharePrice ?? undefined,
+      plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.label),
+      yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
+    }
+    // The expert inputs only when they'd change something.
+    if (this.moreOptions) {
+      if (this.depositGrowthPercent) shared.depositGrowthPercent = this.depositGrowthPercent
+      if (this.inflationPercent) shared.inflationPercent = this.inflationPercent
+      if (!this.sellAtEnd) shared.sellAtEnd = false
+    }
+    return `${location.origin}${location.pathname}#${encode(shared)}`
+  }
+
+  /** Takes what a link says, over the defaults. Its plans, listed and your
+   * own, replace what's ticked; your plans from it join yours, a plan with
+   * the same id (from your own other device) taking the newer version. */
+  private applyShared(shared: Shared) {
+    if (shared.security !== undefined) this.security = shared.security
+    if (shared.exchange !== undefined) this.exchange = shared.exchange
+    if (shared.firstDeposit !== undefined) this.firstDeposit = shared.firstDeposit
+    if (shared.monthlyDeposit !== undefined) this.monthlyDeposit = shared.monthlyDeposit
+    if (shared.yearlyReturnPercent !== undefined) this.yearlyReturnPercent = shared.yearlyReturnPercent
+    if (shared.years !== undefined) this.years = shared.years
+    if (shared.buyEveryMonths !== undefined) this.buyEveryMonths = shared.buyEveryMonths
+    if (shared.sharePrice !== undefined) this.sharePrice = shared.sharePrice
+    if (shared.depositGrowthPercent !== undefined) this.depositGrowthPercent = shared.depositGrowthPercent
+    if (shared.inflationPercent !== undefined) this.inflationPercent = shared.inflationPercent
+    if (shared.sellAtEnd === false) this.atEnd = 'hold'
+    if (shared.depositGrowthPercent || shared.inflationPercent || shared.sellAtEnd === false) {
+      this.moreOptions = true
+    }
+    const yours = readable(shared.yours ?? [], 'a plan from the link')
+    if (yours.length > 0) {
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
+      const fromLink = new Map(yours.map((plan) => [plan.id, plan]))
+      this.yourPlans = [
+        ...this.yourPlans.map((mine) => fromLink.get(mine.id) ?? mine),
+        ...yours.filter((plan) => !this.yourPlans.some((mine) => mine.id === plan.id)),
+      ]
+    }
+    if (shared.plans !== undefined || yours.length > 0) {
+      this.selected.clear()
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
+      const labels = new Set(shared.plans ?? [])
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
+      const ids = new Set(yours.map(({ id }) => planId({ kind: 'yours', id })))
+      for (const plan of this.plans) {
+        if ((plan.key.kind === 'listed' && labels.has(plan.label)) || ids.has(plan.id))
+          this.selected.add(plan.id)
+      }
+    }
+  }
 
   /** The share price's currency, "$", if the share price matters to what's
    * compared; its field is hidden otherwise. */
@@ -438,10 +572,13 @@ export class AppState {
     ilsPerEur: this.ilsPerEur,
   })
 
-  constructor() {
+  /** `shared`: what the page's address says, if it was opened from a link. */
+  constructor(shared: Shared = {}) {
+    this.applyShared(shared)
     this.loadRates()
     $effect(() => save('your-plans-v1', this.yourPlans))
     $effect(() => save('editor-view', this.editorView))
+    $effect(() => save('more-options', this.moreOptions))
   }
 
   private async loadRates() {

@@ -1,5 +1,6 @@
 import js from '@eslint/js'
 import svelte from 'eslint-plugin-svelte'
+import playwright from 'eslint-plugin-playwright'
 import globals from 'globals'
 import ts from 'typescript-eslint'
 import svelteConfig from './svelte.config.js'
@@ -11,6 +12,19 @@ export default ts.config(
   ...ts.configs.recommended,
   ...svelte.configs.recommended,
   { languageOptions: { globals: { ...globals.browser, ...globals.node } } },
+  // Common Playwright mistakes: a missing await, an expect in a condition.
+  {
+    ...playwright.configs['flat/recommended'],
+    files: ['tests/**/*.ts'],
+    rules: {
+      ...playwright.configs['flat/recommended'].rules,
+      // The layout tests assert through `checkLayout`.
+      'playwright/expect-expect': ['warn', { assertFunctionNames: ['checkLayout'] }],
+    },
+  },
+  // The measurements wait on purpose: for the browser to report an event's
+  // paint, and to sample frames for a while.
+  { files: ['tests/perf/**/*.ts'], rules: { 'playwright/no-wait-for-timeout': 'off' } },
   {
     // TypeScript in .svelte files and in Svelte's .svelte.ts modules.
     files: ['**/*.svelte', '**/*.svelte.ts'],

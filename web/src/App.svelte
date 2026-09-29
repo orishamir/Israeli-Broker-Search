@@ -2,12 +2,15 @@
   import { AppState, type ChartView } from './lib/app.svelte'
   import Choices from './lib/Choices.svelte'
   import type { Choice } from './lib/core/core'
+  import CrossoverChart from './lib/CrossoverChart.svelte'
   import DetailsDialog from './lib/DetailsDialog.svelte'
   import FeeBreakdown from './lib/FeeBreakdown.svelte'
   import GrowthChart from './lib/GrowthChart.svelte'
   import InputsPanel from './lib/InputsPanel.svelte'
+  import { decode } from './lib/link'
   import ResultsTable from './lib/ResultsTable.svelte'
-  import { shekels } from './lib/format'
+  import Share from './lib/Share.svelte'
+  import { percent, shekels } from './lib/format'
   import { duration } from './lib/motion'
   import { cubicOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
@@ -27,6 +30,13 @@
       hebrewNames: [],
     },
     {
+      value: 'crossover',
+      name: 'By deposit',
+      explanation:
+        "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking flips. Plans with minimum fees cost a lot for small deposits and little for large ones. The dashed line is your deposit.",
+      hebrewNames: [],
+    },
+    {
       value: 'breakdown',
       name: 'Breakdown',
       explanation: 'What each plan pays in fees, by kind, and how they pile up over the years.',
@@ -34,7 +44,10 @@
     },
   ]
 
-  const app = new AppState()
+  // Opened from a link, perhaps: its state comes first.
+  const app = new AppState(decode(location.hash))
+  /** The growth chart's views: over the years, with a zoom. */
+  const overYears = $derived(app.chartView === 'value' || app.chartView === 'lost')
   /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
   const best = $derived(
@@ -60,7 +73,10 @@
 
 <!-- index.html's skeleton repeats the title and the line under it. -->
 <header class="top">
-  <h1>Broker fees, compounded</h1>
+  <div class="title">
+    <h1>Broker fees, compounded</h1>
+    <Share {app} />
+  </div>
   <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds and bonds.</p>
   <!-- The page on how the numbers are made, opened at each of its sections. -->
   <p class="about">
@@ -86,7 +102,7 @@
         <div class="card stat">
           <span class="label">You deposit</span>
           <span class="value">{shekels(deposited.current)}</span>
-          <span class="note">over {app.years} years</span>
+          <span class="note">over {app.years} years{app.inTodaysMoney ? ', in today’s money' : ''}</span>
         </div>
         <div class="card stat">
           <span class="label">With no fees</span>
@@ -97,7 +113,9 @@
           <div class="card stat best" style:--plan-color={best.plan.color}>
             <span class="label">Best: {best.plan.label}</span>
             <span class="value">{shekels(bestValue.current)}</span>
-            <span class="note">{shekels(bestLost.current)} lost to fees</span>
+            <span class="note"
+              >{shekels(bestLost.current)} lost to fees · {percent(best.outcome.yearlyCostPercent)} a year</span
+            >
           </div>
         {/if}
       </div>
@@ -113,22 +131,25 @@
 
         <section class="card" id="chart">
           <div class="chart-bar">
-            <Choices label="Chart" options={views} bind:value={app.chartView} />
+            <Choices label="Chart" options={views} bind:value={app.chartView} wraps />
             {#if app.pinned.size === 0}
               <span class="hint mouse">Click a row or a {lines ? 'line' : 'bar'} to pin it</span>
               <span class="hint touch">Tap a row or a {lines ? 'line' : 'bar'} to pin it</span>
             {:else}
               <button onclick={() => app.pinned.clear()}>Unpin all</button>
             {/if}
-            {#if lines}
+            {#if overYears}
               <span class="hint right mouse">Wheel: zoom years · Drag: move · R: reset</span>
               <span class="hint right touch">Drag the slider's ends to zoom</span>
             {/if}
           </div>
-          <!-- Both views stay, so switching back is instant: a hidden one
+          <!-- Every view stays, so switching back is instant: a hidden one
                isn't drawn (see echarts.svelte.ts), and the shown one fades in. -->
-          <div class="view" hidden={!lines} inert={!lines}>
+          <div class="view" hidden={!overYears} inert={!overYears}>
             <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
+          </div>
+          <div class="view" hidden={app.chartView !== 'crossover'} inert={app.chartView !== 'crossover'}>
+            <CrossoverChart {app} />
           </div>
           <div class="view" hidden={lines} inert={lines}>
             <FeeBreakdown {app} results={app.comparison.results} />
@@ -144,6 +165,13 @@
 <style>
   .top {
     padding: 20px 24px 0;
+  }
+  .title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px 16px;
   }
   .top h1 {
     margin: 0;

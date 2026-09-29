@@ -7,12 +7,18 @@ import {
   DataZoomInsideComponent,
   DataZoomSliderComponent,
   GridComponent,
+  MarkLineComponent,
   TooltipComponent,
 } from 'echarts/components'
 import * as echarts from 'echarts/core'
 import type { ComposeOption, ECharts } from 'echarts/core'
 import type { BarSeriesOption, CustomSeriesOption, LineSeriesOption } from 'echarts/charts'
-import type { DataZoomComponentOption, GridComponentOption, TooltipComponentOption } from 'echarts/components'
+import type {
+  DataZoomComponentOption,
+  GridComponentOption,
+  MarkLineComponentOption,
+  TooltipComponentOption,
+} from 'echarts/components'
 import { LabelLayout } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 import { reducedMotion } from './motion'
@@ -25,6 +31,7 @@ echarts.use([
   TooltipComponent,
   DataZoomInsideComponent,
   DataZoomSliderComponent,
+  MarkLineComponent,
   LabelLayout,
   CanvasRenderer,
 ])
@@ -37,6 +44,7 @@ export type ChartOption = ComposeOption<
   | GridComponentOption
   | TooltipComponentOption
   | DataZoomComponentOption
+  | MarkLineComponentOption
 >
 
 /** How long a change glides, in ms. */

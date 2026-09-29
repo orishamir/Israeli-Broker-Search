@@ -3,7 +3,8 @@
 //!
 //! Money moves as it does at a broker:
 //! - Deposits arrive at the start of each month, the first deposit together
-//!   with the first monthly one, and wait as shekels until a purchase.
+//!   with the first monthly one, and wait as shekels until a purchase. The
+//!   monthly deposit can grow each year, as a salary does.
 //! - A purchase converts the waiting shekels for a foreign security, then
 //!   buys with them and with converted money left over from before. ETFs and
 //!   stocks abroad are bought in whole shares ([`whole_shares`]), unless the
@@ -15,7 +16,14 @@
 //!   What they don't cover is owed, and the next deposits repay it first.
 //! - A plan with tracks is run on each, and costs what the cheapest does.
 //! - At the end everything is sold and converted back to shekels, except
-//!   what would cost more to sell than it's worth.
+//!   what would cost more to sell than it's worth; or, if the user would
+//!   rather keep holding, nothing is.
+//!
+//! Besides the shekels themselves, an outcome says what the fees amount to
+//! as a yearly charge on the holdings, like a fund's management fee
+//! ([`Outcome::yearly_cost`]), and can be restated in today's money
+//! ([`Outcome::in_todays_money`]). [`sweep`] runs the plans over a range of
+//! deposits, to show where their ranking flips.
 //!
 //! Simplifications, all small next to the fees themselves:
 //! - The expected return is in the security's own currency. Exchange rates
@@ -26,6 +34,7 @@
 use crate::money::{Currency, ExchangeRates, Money, iso};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::{
     ConversionFee, Exchange, Holding, IntoEnumIterator, Percent, Plan, Price, Security, Trade,
@@ -39,8 +48,12 @@ pub struct Scenario {
     pub exchange: Exchange,
     /// ₪
     pub first_deposit: Decimal,
-    /// ₪
+    /// ₪, in the first year.
     pub monthly_deposit: Decimal,
+    /// How much more is deposited each month than a year earlier, as a
+    /// salary grows: 3% turns ₪2,000 a month into ₪2,060 in the second
+    /// year. Negative shrinks the deposits.
+    pub deposit_growth: Percent,
     /// A year's growth, in the security's own currency.
     pub yearly_return: Percent,
     pub years: u32,
@@ -51,6 +64,10 @@ pub struct Scenario {
     /// many whole shares a purchase buys ([`whole_shares`]) and what plans
     /// charging per share cost; it grows with the expected return.
     pub share_price: Decimal,
+    /// Whether everything is sold at the end and, abroad, converted back to
+    /// shekels: one more trade fee and conversion. Otherwise the securities
+    /// are kept, and the outcome is what they're worth.
+    pub sell_at_end: bool,
 }
 
 /// The most, in ₪, that the deposits may grow to: far more than any real
@@ -63,6 +80,8 @@ const LARGEST_VALUE: f64 = 1e15;
 pub enum InvalidScenario {
     #[error("the yearly return can't be below −100%")]
     ReturnBelowMinus100,
+    #[error("the deposits can't shrink by more than 100% a year")]
+    DepositGrowthBelowMinus100,
     /// Beyond [`LARGEST_VALUE`], where the decimal arithmetic could overflow.
     #[error("the deposits would grow too large to calculate")]
     TooLarge,
@@ -72,7 +91,37 @@ impl Scenario {
     /// Every shekel put in over the years, in ₪.
     #[must_use]
     pub fn deposited(&self) -> Decimal {
-        self.first_deposit + self.monthly_deposit * Decimal::from(12 * self.years)
+        self.first_deposit + self.monthly_deposits().sum::<Decimal>()
+    }
+
+    /// [`Scenario::deposited`], with each deposit in today's shekels:
+    /// divided by how much prices have risen by its month, at `inflation` a
+    /// year.
+    #[must_use]
+    pub fn deposited_in_todays_money(&self, inflation: Percent) -> Decimal {
+        let monthly = monthly_growth(inflation);
+        let mut prices = Decimal::ONE;
+        let mut total = self.first_deposit;
+        for deposit in self.monthly_deposits() {
+            total += deposit / prices;
+            prices *= monthly;
+        }
+        total
+    }
+
+    /// Each month's deposit, first month first: the monthly deposit, grown
+    /// by [`Scenario::deposit_growth`] at each new year. The one-time
+    /// deposit isn't among them. Check the scenario first: a growth that
+    /// overflows the arithmetic isn't caught here.
+    pub fn monthly_deposits(&self) -> impl Iterator<Item = Decimal> + '_ {
+        let yearly = Decimal::ONE + self.deposit_growth.of(Decimal::ONE);
+        (0..self.years)
+            .scan(self.monthly_deposit, move |deposit, _| {
+                let this_year = *deposit;
+                *deposit *= yearly;
+                Some(this_year)
+            })
+            .flat_map(|deposit| std::iter::repeat_n(deposit, 12))
     }
 
     /// Checks for what [`simulate`] can't handle: losing more than
@@ -81,11 +130,19 @@ impl Scenario {
         if self.yearly_return.0 < -Decimal::ONE_HUNDRED {
             return Err(InvalidScenario::ReturnBelowMinus100);
         }
+        if self.deposit_growth.0 < -Decimal::ONE_HUNDRED {
+            return Err(InvalidScenario::DepositGrowthBelowMinus100);
+        }
         // Estimated in floating point, which can't overflow: every deposit,
         // grown for the whole period.
         let number = |value: Decimal| value.to_f64().unwrap_or(f64::INFINITY);
         let years = f64::from(self.years);
-        let deposited = number(self.first_deposit) + number(self.monthly_deposit) * 12.0 * years;
+        let mut deposited = number(self.first_deposit);
+        let mut monthly = number(self.monthly_deposit);
+        for _ in 0..self.years {
+            deposited += monthly * 12.0;
+            monthly *= 1.0 + number(self.deposit_growth.0) / 100.0;
+        }
         let growth = (1.0 + number(self.yearly_return.0) / 100.0)
             .max(1.0)
             .powf(years);
@@ -159,6 +216,12 @@ pub struct Outcome {
     /// selling everything at the end. Some caveats matter only above an
     /// amount.
     pub largest_trade: Decimal,
+    /// What the fees amount to as a yearly charge on the holdings, the way a
+    /// fund's management fee is charged: investing the same deposits with no
+    /// fees, buying every month, at a return of (1 + return) × (1 − this)
+    /// − 1, ends with the same `after_selling`. Comparable to a fund's
+    /// fee, and between scenarios of any size. 100% when nothing is left.
+    pub yearly_cost: Percent,
 }
 
 /// Fees in ₪, by what they were charged for. Adding two adds each kind, so
@@ -172,6 +235,7 @@ pub struct Outcome {
     derive_more::Add,
     derive_more::AddAssign,
     derive_more::Sum,
+    derive_more::Div,
 )]
 pub struct Fees {
     /// Buying securities.
@@ -220,6 +284,48 @@ impl Outcome {
             .chain(std::iter::once(self.after_selling))
     }
 
+    /// The same outcome in today's shekels: each amount divided by how much
+    /// prices have risen by its month, at `inflation` a year, so that a
+    /// value in 20 years reads as what it would buy today. A year's fees
+    /// count at the year's end. Every amount at one time shrinks alike, so
+    /// the ranking, and what's lost to fees in proportion, don't change.
+    #[must_use]
+    pub fn in_todays_money(&self, inflation: Percent) -> Outcome {
+        let monthly = monthly_growth(inflation);
+        // Prices at the start, and at the end of each month.
+        let prices: Vec<Decimal> =
+            std::iter::successors(Some(Decimal::ONE), |level| Some(level * monthly))
+                .take(self.value_by_month.len())
+                .collect();
+        let at_end = prices.last().copied().unwrap_or(Decimal::ONE);
+        // At the end of years 1, 2, …
+        let year_ends = prices.iter().skip(12).step_by(12);
+        let fees_by_year: Vec<Fees> = self
+            .fees_by_year
+            .iter()
+            .zip(year_ends)
+            .map(|(fees, level)| *fees / *level)
+            .collect();
+        Outcome {
+            value_by_month: self
+                .value_by_month
+                .iter()
+                .zip(&prices)
+                .map(|(value, level)| value / level)
+                .collect(),
+            held: self.held / at_end,
+            after_selling: self.after_selling / at_end,
+            fees: Fees {
+                selling: self.fees.selling / at_end,
+                ..fees_by_year.iter().copied().sum()
+            },
+            fees_by_year,
+            track: self.track,
+            largest_trade: self.largest_trade,
+            yearly_cost: self.yearly_cost,
+        }
+    }
+
     /// The fees paid by the end of each year (index 0 is the first year).
     /// The last year includes selling at the end.
     #[must_use]
@@ -245,23 +351,67 @@ impl Outcome {
 /// can overflow.
 #[must_use]
 pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Option<Outcome> {
-    if plan.tracks.is_empty() {
-        return simulate_prices(plan, scenario, rates);
-    }
-    // The first of the cheapest: tracks that don't price this trade cost
-    // the same, and give the first track, reported as none.
-    let (index, mut outcome) = (0..plan.tracks.len())
-        .filter_map(|index| {
-            Some((
-                index,
-                simulate_prices(&plan.on_track(index), scenario, rates)?,
-            ))
-        })
-        .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))?;
-    outcome.track = plan
-        .track_for(index, scenario.security, scenario.exchange)
-        .map(|_| index);
+    let mut outcome = if plan.tracks.is_empty() {
+        simulate_prices(plan, scenario, rates)?
+    } else {
+        // The first of the cheapest: tracks that don't price this trade cost
+        // the same, and give the first track, reported as none.
+        let (index, mut outcome) = (0..plan.tracks.len())
+            .filter_map(|index| {
+                Some((
+                    index,
+                    simulate_prices(&plan.on_track(index), scenario, rates)?,
+                ))
+            })
+            .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))?;
+        outcome.track = plan
+            .track_for(index, scenario.security, scenario.exchange)
+            .map(|_| index);
+        outcome
+    };
+    outcome.yearly_cost = yearly_cost(scenario, outcome.after_selling);
     Some(outcome)
+}
+
+/// The yearly charge on the holdings that would cost as much as ending with
+/// `after_selling` does (see [`Outcome::yearly_cost`]): found by halving,
+/// since ending value falls as the charge rises. The no-fee investing is
+/// worked out in floating point, in closed form: every deposit grown from
+/// its month to the end.
+fn yearly_cost(scenario: &Scenario, after_selling: Decimal) -> Percent {
+    let number = |value: Decimal| value.to_f64().unwrap_or(f64::INFINITY);
+    // What arrives at the start of each month, the one-time deposit first.
+    let mut deposits: Vec<f64> = scenario.monthly_deposits().map(number).collect();
+    if let Some(first) = deposits.first_mut() {
+        *first += number(scenario.first_deposit);
+    }
+    let yearly_growth = 1.0 + number(scenario.yearly_return.0) / 100.0;
+    let ends_with = |cost: f64| {
+        let monthly = (yearly_growth * (1.0 - cost)).powf(1.0 / 12.0);
+        // Horner's scheme: each deposit is grown for the months after it.
+        deposits
+            .iter()
+            .fold(0.0, |value, deposit| (value + deposit) * monthly)
+    };
+    let target = number(after_selling);
+    if target <= 0.0 {
+        return Percent(Decimal::ONE_HUNDRED);
+    }
+    if target >= ends_with(0.0) {
+        return Percent(Decimal::ZERO);
+    }
+    // `low` ends with more than the target, `high` with no more.
+    let (mut low, mut high) = (0.0_f64, 1.0_f64);
+    for _ in 0..50 {
+        let middle = f64::midpoint(low, high);
+        if ends_with(middle) > target {
+            low = middle;
+        } else {
+            high = middle;
+        }
+    }
+    let percent = f64::midpoint(low, high) * 100.0;
+    Percent(Decimal::try_from(percent).map_or(Decimal::ONE_HUNDRED, |percent| percent.round_dp(4)))
 }
 
 /// Runs `scenario` on `plan`'s own prices, without choosing a track.
@@ -284,13 +434,13 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
     let mut fees_this_year = Fees::default();
     let mut largest_trade = Decimal::ZERO;
 
-    for month in 0..scenario.years * 12 {
+    for (month, monthly_deposit) in (0..scenario.years * 12).zip(scenario.monthly_deposits()) {
         let one_time = if month == 0 {
             scenario.first_deposit
         } else {
             Decimal::ZERO
         };
-        cash_ils += scenario.monthly_deposit + one_time;
+        cash_ils += monthly_deposit + one_time;
         let mut trade_fees_this_month = Decimal::ZERO;
 
         if month % scenario.buy_every_months.max(1) == 0 && cash_ils > Decimal::ZERO {
@@ -370,7 +520,9 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         fees,
         fees_by_year,
         track: None,
-        largest_trade: largest_trade.max(invested),
+        largest_trade: largest_trade.max(sale.sold),
+        // Worked out by `simulate`, once the track is chosen.
+        yearly_cost: Percent::default(),
     })
 }
 
@@ -415,6 +567,122 @@ pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> C
     Comparison { no_fees, plans }
 }
 
+impl Comparison {
+    /// Every outcome in today's shekels ([`Outcome::in_todays_money`]).
+    #[must_use]
+    pub fn in_todays_money(self, inflation: Percent) -> Comparison {
+        Comparison {
+            no_fees: self.no_fees.in_todays_money(inflation),
+            plans: self
+                .plans
+                .into_iter()
+                .map(|plan| PlanOutcome {
+                    outcome: plan
+                        .outcome
+                        .map(|outcome| outcome.in_todays_money(inflation)),
+                    ..plan
+                })
+                .collect(),
+        }
+    }
+}
+
+/// Which deposit [`sweep`] varies.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub enum Swept {
+    /// The monthly deposit, when there is one.
+    Monthly,
+    /// The one-time deposit, when nothing is deposited monthly.
+    OneTime,
+}
+
+impl Swept {
+    /// Which deposit to vary for `scenario`: the monthly one, if there is one.
+    #[must_use]
+    pub fn for_scenario(scenario: &Scenario) -> Self {
+        if scenario.monthly_deposit > Decimal::ZERO {
+            Swept::Monthly
+        } else {
+            Swept::OneTime
+        }
+    }
+
+    /// The deposits to try, in ₪: from ₪100 to ₪32,000 a month, or from
+    /// ₪1,000 to ₪4,600,000 at once, six to each tenfold so that they're
+    /// evenly spaced on a logarithmic axis, rounded to two digits.
+    #[must_use]
+    pub fn amounts(self) -> Vec<Decimal> {
+        // As powers of ten.
+        let (from, steps) = match self {
+            Swept::Monthly => (2, 15),
+            Swept::OneTime => (3, 22),
+        };
+        (0..=steps)
+            .map(|step| {
+                let amount = 10_f64.powf(f64::from(from) + f64::from(step) / 6.0);
+                let unit = 10_f64.powf(amount.log10().floor() - 1.0);
+                Decimal::try_from((amount / unit).round() * unit).unwrap_or_default()
+            })
+            .collect()
+    }
+
+    /// `scenario` with the swept deposit set to `amount`.
+    fn scenario_with(self, scenario: &Scenario, amount: Decimal) -> Scenario {
+        match self {
+            Swept::Monthly => Scenario {
+                monthly_deposit: amount,
+                ..scenario.clone()
+            },
+            Swept::OneTime => Scenario {
+                first_deposit: amount,
+                ..scenario.clone()
+            },
+        }
+    }
+}
+
+/// Each plan's yearly cost over a range of deposits: where two plans' lines
+/// cross, their ranking flips.
+#[derive(Debug, Clone)]
+pub struct Sweep {
+    pub swept: Swept,
+    /// ₪, smallest first.
+    pub amounts: Vec<Decimal>,
+    /// By plan, in the order given to [`sweep`], then by amount. `None` for a
+    /// plan that doesn't offer the security on that exchange.
+    pub costs: Vec<Option<Vec<Percent>>>,
+}
+
+/// Runs each of `plans` on `scenario` with the `swept` deposit at each of
+/// [`Swept::amounts`], leaving out amounts the scenario's growth would take
+/// beyond what can be calculated.
+#[must_use]
+pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept: Swept) -> Sweep {
+    let amounts: Vec<Decimal> = swept
+        .amounts()
+        .into_iter()
+        .filter(|&amount| swept.scenario_with(scenario, amount).check().is_ok())
+        .collect();
+    let costs = plans
+        .iter()
+        .map(|plan| {
+            amounts
+                .iter()
+                .map(|&amount| {
+                    simulate(plan, &swept.scenario_with(scenario, amount), rates)
+                        .map(|outcome| outcome.yearly_cost)
+                })
+                .collect()
+        })
+        .collect();
+    Sweep {
+        swept,
+        amounts,
+        costs,
+    }
+}
+
 /// A plan that charges nothing, to measure what fees cost in lost growth.
 /// It buys fractions of a share, so every shekel is invested at once: the
 /// growth lost while money waits for a whole share counts as lost too.
@@ -453,6 +721,8 @@ struct Sale {
     proceeds_ils: Decimal,
     /// The sell fee plus converting back to shekels.
     fees_ils: Decimal,
+    /// The value sold, in the exchange's currency: nothing when kept.
+    sold: Decimal,
 }
 
 /// A purchase to make: the money for it, and what it costs.
@@ -551,7 +821,9 @@ fn affordable_shares(
 
 /// Sells `invested` and converts it, with the money `left` over, back to
 /// shekels, each in the exchange's currency. What would cost more to sell or
-/// convert than it's worth is kept instead, and counts as nothing.
+/// convert than it's worth is kept instead, and counts as nothing. If the
+/// scenario keeps its holdings instead, they're worth what they are, with
+/// nothing to pay.
 fn sell(
     plan: &Plan,
     price: &Price,
@@ -562,6 +834,13 @@ fn sell(
     rates: &ExchangeRates,
 ) -> Sale {
     let currency = scenario.exchange.currency();
+    if !scenario.sell_at_end {
+        return Sale {
+            proceeds_ils: in_ils(invested + left, currency, rates),
+            fees_ils: Decimal::ZERO,
+            sold: Decimal::ZERO,
+        };
+    }
     let mut proceeds = left;
     let mut fees = Decimal::ZERO;
     let shares = charged_shares(plan, scenario, shares_worth(invested, share_price));
@@ -584,6 +863,7 @@ fn sell(
     Sale {
         proceeds_ils: in_ils(proceeds, currency, rates),
         fees_ils: in_ils(fees, currency, rates),
+        sold: invested,
     }
 }
 
@@ -648,10 +928,12 @@ mod tests {
             exchange: Exchange::Tlv,
             first_deposit: dec!(10000),
             monthly_deposit: dec!(1000),
+            deposit_growth: Percent(dec!(0)),
             yearly_return: Percent(dec!(0)),
             years: 2,
             buy_every_months: 1,
             share_price: dec!(100),
+            sell_at_end: true,
         }
     }
 
@@ -1105,5 +1387,146 @@ mod tests {
             Exchange::Tlv,
             &[&per_share]
         ));
+    }
+
+    #[test]
+    fn whole_shares_cost_no_more_than_the_money() {
+        // $5 shares at $1 a trade: $540 buys 107, since 108 would cost $541.
+        let flat = Price::Flat(crate::usd(dec!(1)));
+        let s = Scenario {
+            exchange: Exchange::Usa,
+            ..scenario()
+        };
+        let shares = |price: &Price, money, share_price| {
+            affordable_shares(price, &s, money, share_price, &rates())
+        };
+        assert_eq!(shares(&flat, dec!(540), dec!(5)), dec!(107));
+        assert_eq!(shares(&flat, dec!(540), dec!(500)), dec!(1));
+        assert_eq!(shares(&flat, dec!(500.5), dec!(500)), dec!(0));
+        // At 1% of the trade, 106 shares cost $535.30 and 107 would cost $540.35.
+        let one_percent = Price::Percent {
+            percent: Percent(dec!(1)),
+            min: None,
+            max: None,
+        };
+        assert_eq!(shares(&one_percent, dec!(540), dec!(5)), dec!(106));
+    }
+
+    #[test]
+    fn the_size_check_grows_every_deposit_for_the_whole_period() {
+        let with = |first, monthly, percent, years| Scenario {
+            first_deposit: first,
+            monthly_deposit: monthly,
+            yearly_return: Percent(percent),
+            years,
+            ..scenario()
+        };
+        let largest = Decimal::from(10u64.pow(15));
+        // ₪1,000 a month for two years adds ₪24,000 to the first deposit.
+        assert_eq!(
+            with(largest - dec!(24000), dec!(1000), dec!(0), 2).check(),
+            Ok(())
+        );
+        assert_eq!(
+            with(largest - dec!(23999), dec!(1000), dec!(0), 2).check(),
+            Err(InvalidScenario::TooLarge)
+        );
+        // Doubling every year for 10 years: 1,024 times the deposit.
+        let part = largest / dec!(1024);
+        assert_eq!(with(part, dec!(0), dec!(100), 10).check(), Ok(()));
+        assert_eq!(
+            with(part + dec!(1000), dec!(0), dec!(100), 10).check(),
+            Err(InvalidScenario::TooLarge)
+        );
+        // A loss doesn't shrink the estimate: the deposits must still fit.
+        assert_eq!(
+            with(largest + dec!(1), dec!(0), dec!(-50), 10).check(),
+            Err(InvalidScenario::TooLarge)
+        );
+    }
+
+    #[test]
+    fn the_last_monthly_value_is_what_is_held() {
+        let s = Scenario {
+            exchange: Exchange::Usa,
+            monthly_deposit: dec!(2000),
+            yearly_return: Percent(dec!(10)),
+            share_price: dec!(500),
+            ..scenario()
+        };
+        for broker in crate::tariffs::all() {
+            for plan in broker.plans {
+                let Some(outcome) = simulate(&plan, &s, &rates()) else {
+                    continue;
+                };
+                assert_eq!(
+                    outcome.value_by_month.last(),
+                    Some(&outcome.held),
+                    "{}",
+                    plan.name
+                );
+                // One loss per value, the last after selling.
+                assert_eq!(outcome.lost_by_month(&outcome).count(), 2 * 12 + 1);
+            }
+        }
+    }
+
+    #[test]
+    fn selling_abroad_pays_the_sell_fee_and_converts_back() {
+        // $1 a trade and 1% to convert; ₪3,700 ($1,000) held a year without growth.
+        let plan = Plan {
+            conversion: ConversionFee {
+                fee: PercentFee {
+                    percent: Percent(dec!(1)),
+                    min: None,
+                    max: None,
+                },
+                ..ConversionFee::FREE
+            },
+            ..priced(Price::Flat(crate::usd(dec!(1))))
+        };
+        let s = Scenario {
+            security: Security::IndexFund,
+            exchange: Exchange::Usa,
+            first_deposit: dec!(3700),
+            monthly_deposit: dec!(0),
+            years: 1,
+            ..scenario()
+        };
+        let outcome = simulate(&plan, &s, &rates()).unwrap();
+        // Buying: 1% of ₪3,700 to convert, then $1 (₪3.70) on the $990 bought.
+        assert_eq!(outcome.fees.conversions, dec!(37));
+        assert_eq!(outcome.fees.purchases, dec!(3.7));
+        // Selling the $989 pays $1, and converting the $988 back pays 1%: $9.88.
+        // To the agora: the shekels became dollars at 1/3.7, which has no end.
+        assert_eq!(outcome.fees.selling.round_dp(4), dec!(10.88) * dec!(3.7));
+        assert_eq!(outcome.after_selling.round_dp(4), dec!(978.12) * dec!(3.7));
+    }
+
+    #[test]
+    fn the_share_price_grows_with_the_return() {
+        // One $500 share and its $1 fee, bought with ₪1,853.70 ($501); after
+        // a year at 10% it's worth $550, and selling it is charged for one
+        // share, not for the 1.1 shares its value would buy at the old price.
+        let plan = priced(Price::PerShare {
+            per_share: crate::usd(dec!(1)),
+            min: None,
+            max: None,
+        });
+        let s = Scenario {
+            exchange: Exchange::Usa,
+            first_deposit: dec!(1853.7),
+            monthly_deposit: dec!(0),
+            yearly_return: Percent(dec!(10)),
+            years: 1,
+            share_price: dec!(500),
+            ..scenario()
+        };
+        let outcome = simulate(&plan, &s, &rates()).unwrap();
+        assert_eq!(outcome.fees.purchases, dec!(3.7));
+        assert_eq!(outcome.fees.selling.round_dp(2), dec!(3.7));
+        // Nothing is left over: what's held is the share at $550.
+        assert_eq!(outcome.held.round_dp(2), dec!(550) * dec!(3.7));
+        assert_eq!(outcome.after_selling.round_dp(2), dec!(549) * dec!(3.7));
     }
 }

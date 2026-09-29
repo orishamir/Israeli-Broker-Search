@@ -7,15 +7,25 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 ## Layout
 
 - `crates/core` (lib `broker_fees`): `tariffs.rs` holds the real price lists,
-  `simulation.rs` runs them over the years, `describe.rs` holds all text shown
-  to users (fee names, explanations, caveat kinds, the "About the numbers"
-  page, Hebrew names), `yours.rs` holds the user's own plans (changed copies
-  of listed plans, and plans of their own) and the editor's fields.
+  `simulation.rs` runs them over the years (and states an outcome as a
+  yearly cost like a fund's fee, in today's money, and over a range of
+  deposits: `sweep`), `describe.rs` holds all text shown to users (fee
+  names, explanations, caveat kinds, the "About the numbers" page, Hebrew
+  names), `yours.rs` holds the user's own plans (changed copies of listed
+  plans, and plans of their own) and the editor's fields, `examples.rs` the
+  ready-made patterns behind the example chips.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`.
 - `web`: the app; state lives in `src/lib/app.svelte.ts`. Your plans are
   kept in localStorage (`saved.ts`) as core `Plan`s the web side never looks
-  inside (`PlanData`).
+  inside (`PlanData`). The charts' options are pure functions in
+  `growth-chart.ts`, `crossover-chart.ts` (the chart by deposit) and
+  `fee-breakdown.ts`; the components only wire them to ECharts and the
+  state, so the options are unit-tested without a browser. `link.ts` puts a
+  comparison into the page's address (the Share button): the inputs, the
+  ticked plans by label, and your own ticked plans as data. The expert
+  inputs (growing deposits, inflation, sell or keep) sit behind the "More
+  options" switch; off, the state sends the core the defaults.
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from;
   `sources.md` says where each number comes from and how unclear rows were
   read, and `not-modeled.md` lists the fees the app leaves out.
@@ -25,8 +35,10 @@ Keep as much logic as possible in Rust; the web side displays what it returns.
 ## Done means
 
 `cargo test`, `cargo clippy --all-targets` (pedantic, 0 warnings),
-`cargo fmt --check`, then in `web/`: `npm run wasm && npm test` and
-`npm run lint` (prettier, eslint, stylelint, svelte-check).
+`cargo fmt --check`, then in `web/`: `npm run wasm && npm test` (the unit
+tests, then the browser tests) and `npm run lint` (prettier, eslint,
+stylelint, svelte-check). After a change to how the page behaves when used
+(charts, animations, inputs, loading), also `npm run test:perf`.
 
 **After any Rust change, run `npm run wasm`**, or the dev server and tests
 quietly keep running the old core.
@@ -64,10 +76,27 @@ quietly keep running the old core.
 
 ## Tests
 
+Each check goes in the cheapest layer that can catch the bug: Rust, then
+the unit tests in Node, then the browser.
+
 - `crates/core/tests/real_tariffs.rs` checks the tariffs against amounts
   worked out by hand from `policies`. A tariff change needs a case there,
   with the arithmetic in a comment.
-- Playwright conventions are in `web/tests/CLAUDE.md`.
+- `crates/core/tests/economics.rs` checks what must hold for any plan and
+  any investing pattern: where every shekel goes, that no plan beats no
+  fees, that raising a fee never helps, the compounding formula, the
+  cheapest track; partly as `proptest` properties over random scenarios
+  (`PROPTEST_CASES=1000 cargo test` for a deeper run). A change to the
+  simulation needs its rule here, and a new test must fail without its fix.
+- `cargo bench -p broker-fees` times the calls the page makes on every
+  keystroke (divan, `benches/hot_paths.rs`); the numbers to expect are in
+  LESSONS.md.
+- `cargo mutants -p broker-fees -j 8` asks whether the tests would notice a
+  change to each line of the core; run it after adding a rule, and turn
+  the surviving mutants that matter into tests (LESSONS.md, "Tools").
+- The web side's layers, and what goes where, are in `web/tests/CLAUDE.md`:
+  vitest unit tests beside the code (`src/**/*.test.ts`), Playwright specs
+  by part of the app, and the performance suite.
 
 ## Conventions
 
@@ -166,7 +195,10 @@ Never read a whole large file or output (test logs, build output,
 `Cargo.lock`, snapshots, `web/src/lib/core`). Narrow it with `grep` (ugrep
 here: if a pattern fails, use Python), `head`/`tail`, `sed -n 'X,Yp'` or
 `wc -l`. For tests, use
-`npx playwright test --reporter=line 2>&1 | tail -30`.
+`npx playwright test --reporter=line 2>&1 | tail -30` and
+`npx vitest run 2>&1 | tail -8`; run the one spec a change concerns first
+(`web/tests/CLAUDE.md` says which). Look at pictures only through one
+contact sheet (LESSONS.md, "Recipes"), and only at the ones that changed.
 
 ## Not yet
 

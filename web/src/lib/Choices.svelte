@@ -6,8 +6,15 @@
 
   /** Radio buttons shown as a segmented control. Hovering a choice explains
    * it. Not tapping, which picks it: the page shows the picked one's
-   * explanation where it matters. */
-  let { label, options, value = $bindable() }: { label: string; options: Choice<T>[]; value: T } = $props()
+   * explanation where it matters. Choices stay on one row; `wraps` lets a
+   * group too wide for a phone become two rows of two instead (see
+   * `.choices.wraps` in app.css). */
+  let {
+    label,
+    options,
+    value = $bindable(),
+    wraps = false,
+  }: { label: string; options: Choice<T>[]; value: T; wraps?: boolean } = $props()
 
   const popovers = $state<HTMLElement[]>([])
 
@@ -38,7 +45,7 @@
   }
 </script>
 
-<div class="choices" role="radiogroup" aria-label={label} {@attach highlight}>
+<div class="choices" class:wraps role="radiogroup" aria-label={label} {@attach highlight}>
   <div class="highlight" aria-hidden="true"></div>
   {#each options as option, index (option.value)}
     {@const popover = popovers[index]}

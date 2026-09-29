@@ -214,6 +214,17 @@ button:active:not(.link) {
     padding: 4px 8px;
   }
 }
+/* A group allowed to wrap (the chart's four views) becomes two rows of two
+   where its row wouldn't fit, rather than three and one. */
+@container (width < 440px) {
+  .choices.wraps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .choices.wraps label {
+    text-align: center;
+  }
+}
 .choices label:hover {
   border-color: var(--weak);
   color: var(--text);

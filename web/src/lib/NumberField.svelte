@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { formatNumber, parseNumber, stepped } from './numbers'
+
   /** A number with its unit inside the box: "₪ 10,000", "10 %". A text
    * field rather than a number one, to show thousands separators. Commas
    * typed or left in are ignored, and the text is tidied on leaving; not
@@ -23,30 +25,20 @@
     placeholder?: string
   } = $props()
 
-  const format = (number: number | null) =>
-    number === null ? '' : number.toLocaleString('en-US', { maximumFractionDigits: 4 })
-
-  function parse(text: string): number | null {
-    const cleaned = text.replaceAll(',', '').trim()
-    if (cleaned === '') return null
-    const number = Number(cleaned)
-    return Number.isFinite(number) ? number : null
-  }
-
   let focused = $state(false)
   let text = $state('')
   // Follows the value when it changes from outside, e.g. downloaded rates.
   $effect(() => {
-    if (!focused) text = format(value)
+    if (!focused) text = formatNumber(value)
   })
 
   function onKeyDown(event: KeyboardEvent) {
-    const direction = { ArrowUp: 1, ArrowDown: -1 }[event.key]
+    const directions: Record<string, 1 | -1> = { ArrowUp: 1, ArrowDown: -1 }
+    const direction = directions[event.key]
     if (!direction) return
     event.preventDefault()
-    // Rounded, so 0.1 steps don't drift to 0.30000000000000004.
-    value = Math.round(((value ?? 0) + direction * step) * 1e6) / 1e6
-    text = format(value)
+    value = stepped(value, step, direction)
+    text = formatNumber(value)
   }
 </script>
 
@@ -60,11 +52,11 @@
     aria-label={label}
     {placeholder}
     bind:value={text}
-    oninput={() => (value = parse(text))}
+    oninput={() => (value = parseNumber(text))}
     onfocus={() => (focused = true)}
     onblur={() => {
       focused = false
-      text = format(value) || text
+      text = formatNumber(value) || text
     }}
     onkeydown={onKeyDown}
   />

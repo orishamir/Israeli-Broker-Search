@@ -14,7 +14,8 @@
 use broker_fees::describe::{
     self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced,
 };
-use broker_fees::simulation::{self, Fees, InvalidScenario, Outcome, Scenario};
+use broker_fees::examples;
+use broker_fees::simulation::{self, Fees, InvalidScenario, Outcome, Scenario, Swept};
 use broker_fees::yours::{
     Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, MarkupFields, PriceKind,
     PriceList, SimpleFees, TradeFields,
@@ -390,6 +391,15 @@ pub struct Inputs {
     /// Today's price of one share, in the exchange's currency.
     #[tsify(type = "number | null")]
     pub share_price: Option<f64>,
+    /// How much more is deposited each year than the year before: 3 means 3%.
+    #[tsify(type = "number | null")]
+    pub deposit_growth_percent: Option<f64>,
+    /// Inflation, to show every amount in today's shekels: 2 means 2% a year.
+    /// Zero shows the amounts as they will be.
+    #[tsify(type = "number | null")]
+    pub inflation_percent: Option<f64>,
+    /// Whether everything is sold at the end, or kept.
+    pub sell_at_end: bool,
     #[tsify(type = "number | null")]
     pub ils_per_usd: Option<f64>,
     #[tsify(type = "number | null")]
@@ -477,6 +487,10 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
         exchange: inputs.exchange,
         first_deposit: amount(inputs.first_deposit, "the one-time deposit")?,
         monthly_deposit: amount(inputs.monthly_deposit, "the monthly deposit")?,
+        deposit_growth: Percent(filled_in(
+            inputs.deposit_growth_percent,
+            "the deposits' yearly growth",
+        )?),
         yearly_return: Percent(filled_in(
             inputs.yearly_return_percent,
             "the yearly return",
@@ -484,9 +498,27 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
         years: inputs.years,
         buy_every_months: inputs.buy_every_months,
         share_price,
+        sell_at_end: inputs.sell_at_end,
     };
     scenario.check()?;
     Ok(scenario)
+}
+
+/// The inflation to take off, checked: prices can't fall to nothing.
+fn inflation(inputs: &Inputs) -> Result<Percent, InvalidInputs> {
+    let inflation = filled_in(inputs.inflation_percent, "the inflation")?;
+    if inflation <= -Decimal::ONE_HUNDRED {
+        return Err(InvalidInputs::Other("inflation can't be −100% or below"));
+    }
+    Ok(Percent(inflation))
+}
+
+fn exchange_rates(inputs: &Inputs) -> Result<ExchangeRates, InvalidInputs> {
+    ExchangeRates::new(
+        filled_in(inputs.ils_per_usd, "the dollar's rate")?,
+        filled_in(inputs.ils_per_eur, "the euro's rate")?,
+    )
+    .map_err(|_| InvalidInputs::Other("exchange rates must be more than 0"))
 }
 
 /// A plan: a listed one, by the positions of its broker in [`brokers`] and
@@ -559,6 +591,10 @@ pub struct OutcomeData {
     /// The fees paid by the end of each year (index 0 is the first year); the
     /// last includes selling at the end.
     pub fees_up_to_year: Vec<FeeAmounts>,
+    /// What the fees amount to as a yearly charge on the holdings, like a
+    /// fund's management fee: 0.42 means 0.42% a year. 100 when nothing is
+    /// left.
+    pub yearly_cost_percent: f64,
 }
 
 impl OutcomeData {
@@ -575,6 +611,7 @@ impl OutcomeData {
                 .iter()
                 .map(FeeAmounts::from)
                 .collect(),
+            yearly_cost_percent: number(outcome.yearly_cost.0),
         }
     }
 }
@@ -613,14 +650,15 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
     let brokers = all_brokers();
     let plans = chosen_plans(inputs, &brokers)?;
     let scenario = scenario(inputs, &plans)?;
-    let rates = ExchangeRates::new(
-        filled_in(inputs.ils_per_usd, "the dollar's rate")?,
-        filled_in(inputs.ils_per_eur, "the euro's rate")?,
-    )
-    .map_err(|_| InvalidInputs::Other("exchange rates must be more than 0"))?;
-    let comparison = simulation::compare(&plans, &scenario, &rates);
+    let rates = exchange_rates(inputs)?;
+    let inflation = inflation(inputs)?;
+    let mut comparison = simulation::compare(&plans, &scenario, &rates);
+    let mut deposited = scenario.deposited();
+    if !inflation.is_zero() {
+        comparison = comparison.in_todays_money(inflation);
+        deposited = scenario.deposited_in_todays_money(inflation);
+    }
     let no_fees = &comparison.no_fees;
-    let deposited = scenario.deposited();
     let (security, exchange) = (scenario.security, scenario.exchange);
     let buying = Buying {
         security,
@@ -670,6 +708,97 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
             })
             .collect(),
     })
+}
+
+/// Each plan's yearly cost at each of a range of deposits: the lines of the
+/// chart by deposit, where the ranking flips at the crossings.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct SweepData {
+    /// Which deposit varies.
+    pub swept: Swept,
+    /// ₪, smallest first.
+    pub amounts: Vec<f64>,
+    /// In the order of the inputs' plans.
+    pub plans: Vec<PlanSweepData>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanSweepData {
+    pub key: PlanKey,
+    /// The yearly cost at each amount, in percent; missing if the plan
+    /// doesn't offer the security on that exchange.
+    pub costs: Option<Vec<f64>>,
+}
+
+/// Runs the chosen plans over a range of the `swept` deposit, with the other
+/// inputs as they are. The swept deposit's own value is ignored, so it can
+/// be left at zero.
+#[wasm_bindgen]
+pub fn sweep(inputs: Ts<Inputs>, swept: Ts<Swept>) -> Result<Ts<SweepData>, JsError> {
+    Ok(sweep_plans(&inputs.to_rust()?, swept.to_rust()?)?.into_ts()?)
+}
+
+pub fn sweep_plans(inputs: &Inputs, swept: Swept) -> Result<SweepData, InvalidInputs> {
+    let brokers = all_brokers();
+    let plans = chosen_plans(inputs, &brokers)?;
+    let scenario = scenario(inputs, &plans)?;
+    let rates = exchange_rates(inputs)?;
+    let sweep = simulation::sweep(&plans, &scenario, &rates, swept);
+    Ok(SweepData {
+        swept: sweep.swept,
+        amounts: sweep.amounts.into_iter().map(number).collect(),
+        plans: inputs
+            .plans
+            .iter()
+            .zip(sweep.costs)
+            .map(|(key, costs)| PlanSweepData {
+                key: key.clone(),
+                costs: costs.map(|costs| costs.into_iter().map(|cost| number(cost.0)).collect()),
+            })
+            .collect(),
+    })
+}
+
+/// A ready-made investing pattern, and the inputs it sets.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ExampleData {
+    /// "Monthly, Tel Aviv"
+    pub name: String,
+    /// The pattern in words, for its tip.
+    pub explanation: String,
+    pub security: Security,
+    pub exchange: Exchange,
+    pub first_deposit: f64,
+    pub monthly_deposit: f64,
+    pub yearly_return_percent: f64,
+    pub years: u32,
+    pub buy_every_months: u32,
+}
+
+/// The examples, in the order to offer them.
+#[wasm_bindgen]
+pub fn examples() -> Result<Vec<Ts<ExampleData>>, JsError> {
+    examples::all()
+        .into_iter()
+        .map(|example| {
+            let scenario = example.scenario;
+            Ok(ExampleData {
+                name: example.name.to_owned(),
+                explanation: example.explanation.to_owned(),
+                security: scenario.security,
+                exchange: scenario.exchange,
+                first_deposit: number(scenario.first_deposit),
+                monthly_deposit: number(scenario.monthly_deposit),
+                yearly_return_percent: number(scenario.yearly_return.0),
+                years: scenario.years,
+                buy_every_months: scenario.buy_every_months,
+            }
+            .into_ts()?)
+        })
+        .collect()
 }
 
 /// The share price's currency ("$"), if the share price matters to what
@@ -1056,6 +1185,9 @@ mod tests {
             years: 20,
             buy_every_months: 1,
             share_price: Some(500.0),
+            deposit_growth_percent: Some(0.0),
+            inflation_percent: Some(0.0),
+            sell_at_end: true,
             ils_per_usd: Some(3.7),
             ils_per_eur: Some(4.3),
             plans: vec![

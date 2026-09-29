@@ -37,6 +37,7 @@
 //! long-term ETF investor.
 
 pub mod describe;
+pub mod examples;
 pub mod money;
 mod percent;
 pub mod simulation;
@@ -1115,5 +1116,19 @@ mod tests {
         assert!(!fee.is_free());
         assert_eq!(fee.of(usd(dec!(100)), &rates()), usd(dec!(5)));
         assert!(PercentFee::default().is_free());
+    }
+
+    #[test]
+    fn a_plan_on_a_track_has_that_tracks_rows_first_and_no_choice_left() {
+        let altshuler = tariffs::altshuler().plans.remove(0);
+        let on_track = altshuler.on_track(1);
+        assert_eq!(on_track.tracks, []);
+        assert_eq!(
+            on_track.trading.len(),
+            altshuler.tracks[1].trading.len() + altshuler.trading.len()
+        );
+        assert_eq!(on_track.trading[0], altshuler.tracks[1].trading[0]);
+        // Past its tracks, the plan is left as it is.
+        assert_eq!(altshuler.on_track(9), altshuler);
     }
 }

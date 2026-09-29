@@ -1,0 +1,146 @@
+// A comparison as a link: the inputs and the ticked plans in the URL's hash,
+// so that a comparison can be sent to someone, who then sees the same
+// table. Your own ticked plans travel with it, as data, and become the
+// recipient's. Nothing is sent anywhere: the link is the state.
+
+import type { YourPlan } from './app.svelte'
+import * as core from './core/core'
+import type { Exchange, Security } from './core/core'
+
+/** What a link carries. Every field is optional: a link from another
+ * version of the app, or one edited by hand, may lack some, and the rest
+ * still apply. */
+export interface Shared {
+  security?: Security
+  exchange?: Exchange
+  firstDeposit?: number
+  monthlyDeposit?: number
+  yearlyReturnPercent?: number
+  years?: number
+  buyEveryMonths?: number
+  sharePrice?: number
+  depositGrowthPercent?: number
+  inflationPercent?: number
+  sellAtEnd?: boolean
+  /** The ticked listed plans, by label: "Leumi · Pepper". Names, not
+   * positions, which shift when brokers are added. */
+  plans?: string[]
+  /** Your own ticked plans, whole. */
+  yours?: YourPlan[]
+}
+
+/** How often one can buy, in months: the "Buy every" dropdown. */
+export const BUYING_INTERVALS = [
+  { months: 1, name: 'month' },
+  { months: 2, name: '2 months' },
+  { months: 3, name: '3 months' },
+  { months: 6, name: '6 months' },
+  { months: 12, name: 'year' },
+]
+
+// Short keys: a link is read by people too, in a chat.
+const KEYS = {
+  security: 's',
+  exchange: 'x',
+  firstDeposit: 'd',
+  monthlyDeposit: 'm',
+  yearlyReturnPercent: 'r',
+  years: 'y',
+  buyEveryMonths: 'b',
+  sharePrice: 'p',
+  depositGrowthPercent: 'g',
+  inflationPercent: 'i',
+} as const
+const HOLD = 'h'
+const PLAN = 'plan'
+const YOURS = 'yours'
+
+/** The hash (without its #) that `decode` reads back as `shared`. */
+export function encode(shared: Shared): string {
+  const params = new URLSearchParams()
+  for (const [field, key] of Object.entries(KEYS)) {
+    const value = shared[field as keyof typeof KEYS]
+    if (value !== undefined) params.set(key, String(value))
+  }
+  if (shared.sellAtEnd === false) params.set(HOLD, '1')
+  for (const plan of shared.plans ?? []) params.append(PLAN, plan)
+  if (shared.yours?.length) params.set(YOURS, toBase64Url(JSON.stringify(shared.yours)))
+  return params.toString()
+}
+
+/** What a link's hash says, keeping only what makes sense: a number that
+ * isn't one, or a security the core doesn't know, is left out. The core
+ * checks the plans' data when they're loaded. */
+export function decode(hash: string): Shared {
+  const params = new URLSearchParams(hash.replace(/^#/, ''))
+  const shared: Shared = {}
+  const number = (key: string, check: (value: number) => boolean = () => true) => {
+    const text = params.get(key)
+    if (text === null) return undefined
+    const value = Number(text)
+    return Number.isFinite(value) && check(value) ? value : undefined
+  }
+  const among = <T extends string>(key: string, values: T[]) => {
+    const text = params.get(key)
+    return values.find((value) => value === text)
+  }
+  shared.security = among(
+    KEYS.security,
+    core.securities().map(({ value }) => value),
+  )
+  shared.exchange = among(
+    KEYS.exchange,
+    core.exchanges().map(({ value }) => value),
+  )
+  shared.firstDeposit = number(KEYS.firstDeposit, (value) => value >= 0)
+  shared.monthlyDeposit = number(KEYS.monthlyDeposit, (value) => value >= 0)
+  shared.yearlyReturnPercent = number(KEYS.yearlyReturnPercent)
+  shared.years = number(KEYS.years, (value) => Number.isInteger(value) && value >= 1 && value <= 50)
+  shared.buyEveryMonths = number(KEYS.buyEveryMonths, (value) =>
+    BUYING_INTERVALS.some(({ months }) => months === value),
+  )
+  shared.sharePrice = number(KEYS.sharePrice, (value) => value > 0)
+  shared.depositGrowthPercent = number(KEYS.depositGrowthPercent)
+  shared.inflationPercent = number(KEYS.inflationPercent)
+  if (params.get(HOLD) === '1') shared.sellAtEnd = false
+  const plans = params.getAll(PLAN)
+  if (plans.length > 0) shared.plans = plans
+  const yours = params.get(YOURS)
+  if (yours !== null) {
+    try {
+      const parsed: unknown = JSON.parse(fromBase64Url(yours))
+      if (Array.isArray(parsed)) shared.yours = parsed.filter(looksLikeYourPlan)
+    } catch {
+      // Not a list of plans: left out.
+    }
+  }
+  // Only what was there.
+  return Object.fromEntries(Object.entries(shared).filter(([, value]) => value !== undefined))
+}
+
+/** The shape of one of your plans, as far as the web side knows it; the
+ * core checks the plan's data itself. */
+function looksLikeYourPlan(value: unknown): value is YourPlan {
+  if (typeof value !== 'object' || value === null) return false
+  const { id, plan, brokerName, basedOn } = value as Record<string, unknown>
+  return (
+    typeof id === 'string' &&
+    typeof plan === 'object' &&
+    plan !== null &&
+    (brokerName === null || typeof brokerName === 'string') &&
+    (basedOn === null || typeof basedOn === 'object')
+  )
+}
+
+// Base64 for URLs (no + / or =), of the text's UTF-8 bytes: btoa takes
+// only single-byte characters.
+function toBase64Url(text: string): string {
+  const bytes = new TextEncoder().encode(text)
+  const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('')
+  return btoa(binary).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+}
+
+function fromBase64Url(text: string): string {
+  const binary = atob(text.replaceAll('-', '+').replaceAll('_', '/'))
+  return new TextDecoder().decode(Uint8Array.from(binary, (char) => char.charCodeAt(0)))
+}

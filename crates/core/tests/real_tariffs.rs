@@ -112,10 +112,12 @@ fn the_cheapest_track_is_picked() {
             exchange: Usa,
             first_deposit: dec!(0),
             monthly_deposit,
+            deposit_growth: Percent(dec!(0)),
             yearly_return: Percent(dec!(0)),
             years: 1,
             buy_every_months: 1,
             share_price,
+            sell_at_end: true,
         };
         let outcome = simulate(&p, &scenario, &rates()).unwrap();
         p.tracks[outcome.track.unwrap()].name.clone()
@@ -137,10 +139,12 @@ fn the_cheapest_track_is_picked() {
         exchange: Tlv,
         first_deposit: dec!(0),
         monthly_deposit: dec!(1000),
+        deposit_growth: Percent(dec!(0)),
         yearly_return: Percent(dec!(0)),
         years: 1,
         buy_every_months: 1,
         share_price: dec!(100),
+        sell_at_end: true,
     };
     assert_eq!(simulate(&p, &tel_aviv, &rates()).unwrap().track, None);
 }
@@ -536,6 +540,69 @@ fn leumi_online_us_etf() {
         value: usd(dec!(10000)),
     }];
     assert_eq!(p.custody_per_year(&holdings, &rates()), ils(dec!(296)));
+}
+
+#[test]
+fn leumi_18_plus_custody_is_half_of_online() {
+    // Tariff: 0.075% a quarter on Tel Aviv holdings (Online: 0.15%), 0.1% on
+    // foreign ones (Online: 0.2%). ₪200,000 in Tel Aviv: 0.3% a year = ₪600;
+    // $100,000 abroad is ₪370,000: 0.4% a year = ₪1,480.
+    let plus18 = plan(leumi(), "Online, 'Leumi 18+'");
+    let online = plan(leumi(), "Online");
+    let tel_aviv = |p: &Plan| custody_year(p, Etf, Tlv, ils(dec!(200000)));
+    let abroad = |p: &Plan| custody_year(p, Etf, Usa, usd(dec!(100000)));
+    assert_eq!(tel_aviv(&plus18), ils(dec!(600)));
+    assert_eq!(abroad(&plus18), ils(dec!(1480)));
+    assert_eq!(tel_aviv(&online), ils(dec!(1200)));
+    assert_eq!(abroad(&online), ils(dec!(2960)));
+}
+
+/// Leumi's other plans are built on Online's, and each says what it changes:
+/// its own words, and caveats about its own fees.
+#[test]
+fn leumi_plans_have_their_own_words_and_caveats() {
+    let leumi = leumi();
+    let descriptions: std::collections::HashSet<&str> =
+        leumi.plans.iter().map(|p| p.description.as_str()).collect();
+    assert_eq!(descriptions.len(), leumi.plans.len());
+    let plus18 = plan(leumi.clone(), "Online, 'Leumi 18+'");
+    assert!(
+        plus18
+            .caveats
+            .iter()
+            .any(|c| c.fee == Some(FeeKind::Trade) && c.securities == [Bond])
+    );
+    let standing_order = plan(leumi.clone(), "Online, monthly standing order");
+    assert!(
+        standing_order
+            .caveats
+            .iter()
+            .any(|c| c.fee == Some(FeeKind::StandingOrder))
+    );
+    let online = plan(leumi, "Online");
+    assert!(
+        online
+            .caveats
+            .iter()
+            .all(|c| c.fee != Some(FeeKind::StandingOrder))
+    );
+}
+
+/// No broker or plan is left unexplained.
+#[test]
+fn every_broker_and_plan_is_described() {
+    for broker in broker_fees::tariffs::all() {
+        assert!(!broker.description.is_empty(), "{}", broker.name);
+        assert!(!broker.short_name.is_empty(), "{}", broker.name);
+        for plan in &broker.plans {
+            assert!(
+                !plan.description.is_empty(),
+                "{} · {}",
+                broker.name,
+                plan.name
+            );
+        }
+    }
 }
 
 // ─────────────────────────── Excellence Trade ───────────────────────────

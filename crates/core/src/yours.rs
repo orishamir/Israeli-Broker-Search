@@ -1517,4 +1517,290 @@ mod tests {
         let listed_online = named("Online");
         assert_eq!(listed_online.price_list(None).second_conversion, None);
     }
+
+    #[test]
+    fn custody_rows_are_rewritten_like_trade_rows() {
+        use Exchange::*;
+        use Security::*;
+        let row = |securities, exchanges| CustodyFee {
+            securities,
+            exchanges,
+            percent: Percent(dec!(0.1)),
+            per: Period::Quarter,
+            billed: Period::Quarter,
+            min: None,
+        };
+        let rows = [
+            row(vec![Stock, Etf], vec![Tlv, Europe]),
+            row(vec![Stock, Bond], vec![Tlv, Usa]),
+        ];
+        let rewritten = most_specific_first(&rows);
+        let covers: Vec<String> = rewritten.iter().map(|r| r.coverage().to_string()).collect();
+        assert_eq!(
+            covers,
+            [
+                "Bond on Tel Aviv",
+                "Bond, Stock on USA",
+                "Stock, ETF on Tel Aviv, Europe"
+            ]
+        );
+        assert!(rewritten.iter().all(|r| r.percent == Percent(dec!(0.1))));
+    }
+
+    #[test]
+    fn the_rewrite_sorts_standing_orders_too() {
+        let row = |securities, exchanges| TradeFee {
+            securities,
+            exchanges,
+            price: Price::Flat(crate::ils(dec!(1))),
+        };
+        let plan = Plan {
+            standing_orders: vec![
+                row(vec![Security::Etf], vec![Exchange::Tlv, Exchange::Usa]),
+                row(vec![Security::IndexFund], vec![Exchange::Tlv]),
+            ],
+            ..named("Online, monthly standing order")
+        };
+        let rewritten = plan.most_specific_first();
+        assert_eq!(rewritten.standing_orders[0].covered().len(), 1);
+        assert_eq!(rewritten.standing_orders.len(), 2);
+    }
+
+    #[test]
+    fn a_minimum_may_equal_the_maximum() {
+        let mut plan = Plan::new_own("Mine");
+        let fields = TradeFields {
+            kind: PriceKind::Percent,
+            amount: Some(Amount(dec!(0.1))),
+            per_share: None,
+            min: Some(Amount(dec!(5))),
+            max: Some(Amount(dec!(5))),
+        };
+        assert_eq!(
+            plan.set_trade(Security::Etf, Exchange::Tlv, &fields),
+            Ok(())
+        );
+    }
+
+    #[test]
+    fn amounts_are_in_shekels_on_tel_aviv_and_dollars_abroad_unless_the_row_says() {
+        let per_order = |amount| TradeFields {
+            kind: PriceKind::PerOrder,
+            amount: Some(Amount(amount)),
+            per_share: None,
+            min: None,
+            max: None,
+        };
+        let price = |plan: &Plan, exchange| {
+            plan.trade_row(Security::Etf, exchange)
+                .unwrap()
+                .price
+                .to_string()
+        };
+        let mut plan = Plan::new_own("Mine");
+        plan.set_trade(Security::Etf, Exchange::Usa, &per_order(dec!(4)))
+            .unwrap();
+        plan.set_trade(Security::Etf, Exchange::Tlv, &per_order(dec!(3)))
+            .unwrap();
+        assert_eq!(price(&plan, Exchange::Usa), "$4 per order");
+        assert_eq!(price(&plan, Exchange::Tlv), "₪3 per order");
+        // A row with amounts of its own keeps their currency when it moves.
+        let tel_aviv = plan
+            .trading
+            .iter()
+            .position(|row| row.exchanges == [Exchange::Tlv])
+            .unwrap();
+        plan.set_trade_row(tel_aviv, &[], &[Exchange::Europe], &per_order(dec!(3)))
+            .unwrap();
+        assert_eq!(price(&plan, Exchange::Europe), "₪3 per order");
+        // One without takes the currency of where it is: shekels for a row
+        // covering every exchange, as tariffs write them.
+        let mut fresh = Plan::new_own("Mine");
+        fresh
+            .set_trade_row(1, &[], &[], &per_order(dec!(2)))
+            .unwrap();
+        assert_eq!(price(&fresh, Exchange::Usa), "₪2 per order");
+        let mut fresh = Plan::new_own("Mine");
+        fresh
+            .set_trade_row(1, &[], &[Exchange::Usa], &per_order(dec!(2)))
+            .unwrap();
+        assert_eq!(price(&fresh, Exchange::Usa), "$2 per order");
+    }
+
+    #[test]
+    fn a_copy_says_which_track_it_is_on() {
+        let full = altshuler().plans.remove(0);
+        assert_eq!(
+            full.copy_of(Some(1)).description,
+            "On the \u{201c}$11 per order\u{201d} track."
+        );
+        assert_eq!(named("Pepper").copy_of(None).description, "");
+    }
+
+    #[test]
+    fn a_standing_order_conversion_takes_its_fields() {
+        let fields = ConversionFields {
+            percent: Some(Amount(dec!(0.5))),
+            min: Some(Amount(dec!(2))),
+            max: None,
+        };
+        // Interactive's automatic plan converts for free; the fee is set on it.
+        let mut standard = named("Standard");
+        standard.set_standing_order_conversion(&fields).unwrap();
+        let fee = standard.standing_order_conversion.as_ref().unwrap().fee;
+        assert_eq!(fee.percent, Percent(dec!(0.5)));
+        assert_eq!(*fee.min.unwrap().amount(), dec!(2));
+        // A plan without one gets one, converting at the market rate otherwise.
+        let mut own = Plan::new_own("Mine");
+        own.set_standing_order_conversion(&fields).unwrap();
+        let conversion = own.standing_order_conversion.unwrap();
+        assert_eq!(conversion.fee.percent, Percent(dec!(0.5)));
+        assert_eq!(conversion.markup, Markup::NONE);
+    }
+
+    #[test]
+    fn fractions_are_set_per_exchange() {
+        let mut plan = Plan::new_own("Mine");
+        plan.set_sells_fractions(Exchange::Usa, true);
+        assert_eq!(plan.fractions_on, [Exchange::Usa]);
+        plan.set_sells_fractions(Exchange::Usa, true);
+        assert_eq!(plan.fractions_on, [Exchange::Usa]);
+        plan.set_sells_fractions(Exchange::Europe, true);
+        plan.set_sells_fractions(Exchange::Usa, false);
+        assert_eq!(plan.fractions_on, [Exchange::Europe]);
+    }
+
+    #[test]
+    fn custody_rows_are_added_changed_and_removed() {
+        let mut plan = Plan::new_own("Mine");
+        plan.add_custody_row(Exchange::Usa);
+        assert_eq!(plan.custody.len(), 2);
+        // The new row, for the USA only, sorts before the one for everything.
+        assert_eq!(plan.custody[0].exchanges, [Exchange::Usa]);
+        assert!(plan.custody[0].is_free());
+        let fields = CustodyFields {
+            percent: Some(Amount(dec!(0.2))),
+            per: Period::Year,
+            billed: Period::Month,
+            min: Some(Amount(dec!(5))),
+        };
+        plan.set_custody_row(0, &[Security::Etf], &[Exchange::Usa], &fields)
+            .unwrap();
+        assert_eq!(plan.custody[0].securities, [Security::Etf]);
+        assert_eq!(plan.custody[0].percent, Percent(dec!(0.2)));
+        assert_eq!(plan.custody[0].billed, Period::Month);
+        assert_eq!(plan.custody[0].min, Some(crate::ils(dec!(5))));
+        assert_eq!(
+            plan.set_custody_row(5, &[], &[], &fields),
+            Err(InvalidFee::NoSuchRow)
+        );
+        plan.remove_custody_row(0).unwrap();
+        assert_eq!(plan.custody.len(), 1);
+        assert_eq!(plan.remove_custody_row(1), Err(InvalidFee::NoSuchRow));
+    }
+
+    #[test]
+    fn the_minimum_first_deposit_is_set_in_shekels_or_cleared() {
+        let mut plan = Plan::new_own("Mine");
+        plan.set_min_first_deposit(Some(Amount(dec!(5000))))
+            .unwrap();
+        assert_eq!(plan.min_first_deposit, Some(crate::ils(dec!(5000))));
+        assert_eq!(
+            plan.price_list(None).min_first_deposit,
+            Some(Amount(dec!(5000)))
+        );
+        assert_eq!(
+            plan.set_min_first_deposit(Some(Amount(dec!(-1)))),
+            Err(InvalidFee::Negative)
+        );
+        plan.set_min_first_deposit(None).unwrap();
+        assert_eq!(plan.min_first_deposit, None);
+    }
+
+    #[test]
+    fn the_price_list_shows_what_the_original_charged_where_it_differs() {
+        fn was<F>(rows: &[PriceRow<F>]) -> Vec<Option<String>> {
+            rows.iter()
+                .map(|row| row.fee.was.as_ref().map(|was| was.price.text.clone()))
+                .collect()
+        }
+        let online = named("Online");
+        let mut copy = online.copy_of(None);
+        // Custody on Tel Aviv doubled, and a flat price there; abroad unchanged.
+        copy.set_custody(
+            Security::Etf,
+            Exchange::Tlv,
+            &CustodyFields {
+                percent: Some(Amount(dec!(0.3))),
+                per: Period::Quarter,
+                billed: Period::Quarter,
+                min: None,
+            },
+        )
+        .unwrap();
+        copy.set_trade(
+            Security::Etf,
+            Exchange::Tlv,
+            &TradeFields {
+                kind: PriceKind::PerOrder,
+                amount: Some(Amount(dec!(9))),
+                per_share: None,
+                min: None,
+                max: None,
+            },
+        )
+        .unwrap();
+        let list = copy.price_list(Some(&online));
+        assert_eq!(
+            was(&list.custody),
+            [Some("0.15% a quarter (0.6% a year)".into()), None]
+        );
+        assert_eq!(
+            was(&list.trading),
+            [Some("0.4%, min ₪26, max ₪6,300".into()), None]
+        );
+    }
+
+    #[test]
+    fn the_handling_fee_and_the_conversion_fee_are_set_from_their_fields() {
+        let mut plan = Plan::new_own("Mine");
+        plan.set_handling(&HandlingFields {
+            per_month: Some(Amount(dec!(20))),
+            free_months: 6,
+            less_trade_fees: true,
+        })
+        .unwrap();
+        assert_eq!(
+            plan.handling,
+            Some(HandlingFee {
+                per_month: crate::ils(dec!(20)),
+                free_months: 6,
+                less_trade_fees: true,
+            })
+        );
+        plan.set_handling(&HandlingFields {
+            per_month: None,
+            free_months: 0,
+            less_trade_fees: false,
+        })
+        .unwrap();
+        assert_eq!(plan.handling, None);
+
+        plan.set_conversion(&ConversionFields {
+            percent: Some(Amount(dec!(0.3))),
+            min: Some(Amount(dec!(5))),
+            max: None,
+        })
+        .unwrap();
+        assert_eq!(plan.conversion.fee.percent, Percent(dec!(0.3)));
+        assert_eq!(*plan.conversion.fee.min.unwrap().amount(), dec!(5));
+        assert_eq!(
+            plan.set_conversion(&ConversionFields {
+                percent: Some(Amount(dec!(-1))),
+                min: None,
+                max: None,
+            }),
+            Err(InvalidFee::Negative)
+        );
+    }
 }
