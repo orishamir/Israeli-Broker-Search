@@ -33,7 +33,7 @@
     - radio "Europe"
     - text: Europe
   - paragraph: /NYSE or Nasdaq\. Prices are in dollars, so your shekels are converted, which some brokers charge for\. The same S&P \d+ ETF bought here, such as VOO, needs shekels turned into dollars, and back when you sell\./
-  - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+-\d+-\d+/
+  - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+/\d+/\d+/
   - heading "Deposits" [level=3]
   - text: One-time deposit
   - textbox "One-time deposit": /\d+,\d+/

@@ -69,6 +69,13 @@ test('touch screens zoom with a slider, the rest with the wheel', () => {
   expect(growthOption(view({ touch: true })).grid).toMatchObject({ bottom: 88 })
 })
 
+test('on a phone, labels that would overlap are hidden rather than moved apart', () => {
+  const layout = (touch: boolean) =>
+    series(growthOption(view({ touch, pinned: new Set(['a']) })))[1].labelLayout
+  expect(layout(false)).toEqual({ moveOverlap: 'shiftY', hideOverlap: true })
+  expect(layout(true)).toEqual({ hideOverlap: true })
+})
+
 test('the value axis fits the lines with a little room above', () => {
   const yAxis = growthOption(view()).yAxis as { max: (range: { min: number; max: number }) => number }
   expect(yAxis.max({ min: 100, max: 200 })).toBe(204)

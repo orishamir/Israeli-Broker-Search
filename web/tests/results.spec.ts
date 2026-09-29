@@ -31,19 +31,31 @@ test(
   },
 )
 
-test('the best plan is the first that can be opened with these deposits', async ({ page }) => {
+test("the best plan is the table's first, with its warning when it needs a bigger first deposit", async ({
+  page,
+}) => {
   const best = async () => {
     const { plans } = compare(await inputsOnPage(page))
-    const best = plans.find(({ outcome, warning }) => outcome && !warning)!
-    return listedPlans.find(({ key }) => JSON.stringify(key) === JSON.stringify(best.key))!.label
+    const best = plans.find(({ outcome }) => outcome)!
+    const label = listedPlans.find(({ key }) => JSON.stringify(key) === JSON.stringify(best.key))!.label
+    return { label, warning: best.warning }
   }
-  await expect(page.getByText(`Best: ${await best()}`)).toBeVisible()
-  // A plan that needs a bigger first deposit is warned, and passed over.
+  const card = page.locator('.stat.best')
+  await expect(card).toContainText(`Best: ${(await best()).label}`)
+  // A plan that needs a bigger first deposit is warned, in the table and,
+  // if it's the best, in the summary too: it's still the cheapest.
   await page.getByLabel('One-time deposit').fill('1000')
   const warned = compare(await inputsOnPage(page)).plans.filter(({ warning }) => warning)
   expect(warned.length).toBeGreaterThan(0)
   for (const { key, warning } of warned) await expect(rowOfKey(page, key)).toContainText(`⚠ ${warning}`)
-  await expect(page.getByText(`Best: ${await best()}`)).toBeVisible()
+  await expect(card).toContainText(`Best: ${(await best()).label}`)
+  await expect(card).not.toContainText('⚠')
+  // On Tel Aviv, with nothing to start, the cheapest plans all need a deposit.
+  await page.getByRole('button', { name: 'Monthly, Tel Aviv' }).click()
+  const { label, warning } = await best()
+  expect(warning).toBeTruthy()
+  await expect(card).toContainText(`Best: ${label}`)
+  await expect(card).toContainText(`⚠ ${warning}`)
 })
 
 test("a plan's notes and flags are the core's: a track, a standing order, fees beyond the deposits, a number that may be too low", async ({
@@ -160,6 +172,6 @@ test(
     const expected = expectedRows(await inputsOnPage(page))
     await expect.poll(() => rowsOnPage(page)).toEqual(expected)
     // The best plan's yearly cost is in the summary too.
-    await expect(page.locator('.stat.best .note')).toContainText(`· ${expected[0].amounts.at(-1)} a year`)
+    await expect(page.locator('.stat.best .note')).toContainText(`· ${expected[0].amounts[0]} a year`)
   },
 )

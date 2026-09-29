@@ -188,6 +188,13 @@ all. Read those three first.
   `layoutProblems` flags cut-off dropdowns.
 - Table cells are `nowrap`: a long warning widened the table past its card
   until warnings and notes were allowed to wrap.
+- An `IntersectionObserver` fires only when a threshold is crossed: a jump
+  straight past the element (`scrollIntoView`, a tap on the phone's bar with
+  the best plan) crosses none, and the bar stayed. The bar also listens to
+  `scroll`. Its parts sit in named grid areas: with `grid-row` on one item
+  and `grid-column` on another, auto-placement put the arrow first.
+- Svelte sets a `bind:this` to `null`, not `undefined`, when the element
+  unmounts (the summary, on bad inputs): test with `!element`.
 - Loading: `index.html` draws the page's shape before any script, with
   pulsing blocks where the words go, and `main.ts` fades it out once the app
   has mounted. Its styles repeat app.css and App.svelte on purpose: it must

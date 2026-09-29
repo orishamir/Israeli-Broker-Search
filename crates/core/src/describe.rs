@@ -15,9 +15,9 @@ use time::macros::format_description;
 
 use crate::simulation::Outcome;
 use crate::{
-    Basis, Broker, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange, ExchangeRates,
-    HandlingFee, IntoEnumIterator, Markup, Money, PercentFee, Period, Plan, Price, Security,
-    Source, TariffDate, TradeFee, tariffs,
+    Basis, Broker, BrokerKind, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange,
+    ExchangeRates, HandlingFee, IntoEnumIterator, Markup, Money, PercentFee, Period, Plan, Price,
+    Security, Source, TariffDate, TradeFee, tariffs,
 };
 
 /// A price in words, and whether it's nothing, so that every view dims the
@@ -161,7 +161,8 @@ impl Explained for Exchange {
         match self {
             Exchange::Tlv => {
                 "The Tel Aviv Stock Exchange. Prices are in shekels, so nothing is converted. \
-                 An S&P 500 ETF is sold here too, as an Israeli קרן\u{a0}סל."
+                 An S&P 500 ETF is sold here too, as a קרן\u{a0}סל: an Israeli one, or a \
+                 foreign one listed here (קרן\u{a0}זרה)."
             }
             Exchange::Usa => {
                 "NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which \
@@ -171,7 +172,8 @@ impl Explained for Exchange {
             Exchange::Europe => {
                 "A European exchange, such as Xetra or Euronext. Prices are in euros, so your \
                  shekels are converted, which some brokers charge for. An Irish-based S&P 500 \
-                 ETF listed in Amsterdam, for example."
+                 ETF listed in Amsterdam, for example. London, where Irish ETFs such as CSPX \
+                 trade in dollars, isn't priced here yet."
             }
         }
     }
@@ -830,6 +832,27 @@ impl Outcome {
 }
 
 impl Broker {
+    /// What "usual" means beside the plan a new customer gets: a bank's
+    /// online prices, an investment house's joining offer, or the one plan
+    /// a broker has.
+    #[must_use]
+    pub fn usual_plan_text(&self) -> String {
+        let name = &self.name;
+        let rest = "The usual plans are compared at first; tick others to add them.";
+        match (self.kind, self.plans.len()) {
+            (_, 1) => format!("The one plan {name} offers: its published price list. {rest}"),
+            (BrokerKind::Bank, _) => format!(
+                "The plan a new customer of {name} usually gets: its prices for trading online \
+                 by yourself, rather than a customer group's or the branch's. {rest}"
+            ),
+            (BrokerKind::InvestmentHouse, _) => format!(
+                "The plan a new customer of {name} usually gets: its joining offer \
+                 (מבצע\u{a0}הצטרפות), rather than the full tariff it publishes, which is the \
+                 most it may charge. {rest}"
+            ),
+        }
+    }
+
     /// "Tariff of 29/06/2026", "Tariff of 01/2025", or that the tariff isn't
     /// dated.
     #[must_use]
@@ -1687,6 +1710,27 @@ mod tests {
             "Tariff date not stated"
         );
         assert_eq!(Broker::checked_text(), "Checked 29/09/2026");
+    }
+
+    #[test]
+    fn what_usual_means_follows_the_kind_of_broker() {
+        let text = |broker: Broker| broker.usual_plan_text();
+        let leumi = text(tariffs::leumi());
+        assert!(leumi.starts_with("The plan a new customer of Bank Leumi"));
+        assert!(leumi.contains("online"), "{leumi}");
+        let ibi = text(tariffs::ibi());
+        assert!(ibi.contains("joining offer"), "{ibi}");
+        assert!(ibi.contains("full tariff"), "{ibi}");
+        // One plan: nothing to choose between.
+        let interactive = text(tariffs::interactive());
+        assert!(interactive.starts_with("The one plan Interactive Israel offers"));
+        for broker in tariffs::all() {
+            assert!(
+                broker
+                    .usual_plan_text()
+                    .ends_with("tick others to add them.")
+            );
+        }
     }
 
     #[test]

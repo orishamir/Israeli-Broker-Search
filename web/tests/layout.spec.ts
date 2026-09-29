@@ -57,7 +57,8 @@ const layoutProblems = (page: Page) =>
 
     // Text drawn over other text: the line boxes of two pieces of text never
     // cross, unless one is part of the other. Not inside a sideways scroller,
-    // where the sticky plan column is meant to cover what scrolls under it.
+    // where the sticky plan column is meant to cover what scrolls under it,
+    // and not the phone's bar with the best plan, which floats over the page.
     const hasText = (element: Element) =>
       [...element.childNodes].some(
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
@@ -66,7 +67,7 @@ const layoutProblems = (page: Page) =>
       (element) =>
         hasText(element) &&
         shown(element) &&
-        !element.closest('.visually-hidden, .popover, option, script, style') &&
+        !element.closest('.visually-hidden, .popover, option, script, style, .best-bar') &&
         !scrollsSideways(element, document.body),
     )
     const crosses = (a: DOMRect, b: DOMRect) =>
@@ -179,6 +180,7 @@ test('at the start', { tag: '@phone' }, async ({ page }) => {
       page.locator('td.amount'),
       page.locator('.stat .value'),
       page.locator('.stat.best .label'),
+      page.locator('.best-bar'),
       page.locator('.chart'),
       page.locator('.date'),
     ],

@@ -11,7 +11,7 @@
   import ResultsTable from './lib/ResultsTable.svelte'
   import Share from './lib/Share.svelte'
   import { percent, shekels } from './lib/format'
-  import { duration } from './lib/motion'
+  import { duration, reducedMotion } from './lib/motion'
   import { cubicOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
 
@@ -50,12 +50,39 @@
   const overYears = $derived(app.chartView === 'value' || app.chartView === 'lost')
   /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
+  /** The table's first plan. One that can't be opened with these deposits
+   * (a minimum first deposit) is still the best: its warning is shown with
+   * it, rather than a dearer plan named as best. */
   const best = $derived(
-    // One that can be opened with these deposits.
-    'results' in app.comparison
-      ? app.comparison.results.find((result) => result.outcome && !result.warning)
-      : undefined,
+    'results' in app.comparison ? app.comparison.results.find((result) => result.outcome) : undefined,
   )
+
+  /** On phones the results are screens below the inputs, so the best plan
+   * follows along the bottom of the screen until they're reached: while the
+   * summary is below the screen, and no field is being typed in (the
+   * keyboard would push the bar up over the field). */
+  let stats = $state<HTMLElement>()
+  let resultsBelow = $state(false)
+  let typing = $state(false)
+  const placeBar = () => {
+    // Null, not undefined, while the summary is unmounted (bad inputs).
+    resultsBelow = !!stats && stats.getBoundingClientRect().top > innerHeight
+  }
+  $effect(() => {
+    const element = stats
+    if (!element) return
+    // Watched two ways: the observer sees the summary move as the inputs
+    // above it change size, and scrolling is watched itself, since a jump
+    // straight past the summary (tapping the bar, a test) crosses none of
+    // the observer's thresholds.
+    const observer = new IntersectionObserver(placeBar)
+    observer.observe(element)
+    placeBar()
+    return () => observer.disconnect()
+  })
+  const typingIn = (target: EventTarget | null) =>
+    target instanceof HTMLElement &&
+    target.matches('input:not([type=checkbox], [type=radio], [type=range]), select')
 
   /** The summary's numbers roll to their new values rather than jump. Each
    * keeps its last value while the inputs are invalid, when the cards are
@@ -77,7 +104,7 @@
     <h1>Broker fees, compounded</h1>
     <Share {app} />
   </div>
-  <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds and bonds.</p>
+  <p>What Israeli brokers' fees cost you over the years, for ETFs, index funds, bonds and stocks.</p>
   <!-- The page on how the numbers are made, opened at each of its sections. -->
   <p class="about">
     {#each app.about.sections as section, index (section.title)}
@@ -98,7 +125,7 @@
     {#if 'error' in app.comparison}
       <p class="card error">Check your inputs: {app.comparison.error}.</p>
     {:else}
-      <div class="stats">
+      <div class="stats" bind:this={stats}>
         <div class="card stat">
           <span class="label">You deposit</span>
           <span class="value">{shekels(deposited.current)}</span>
@@ -107,7 +134,7 @@
         <div class="card stat">
           <span class="label">With no fees</span>
           <span class="value">{shekels(noFees.current)}</span>
-          <span class="note">buying every month</span>
+          <span class="note">{app.sellAtEnd ? 'if sold at the end, before tax' : 'held at the end'}</span>
         </div>
         {#if best?.outcome}
           <div class="card stat best" style:--plan-color={best.plan.color}>
@@ -116,6 +143,7 @@
             <span class="note"
               >{shekels(bestLost.current)} lost to fees · {percent(best.outcome.yearlyCostPercent)} a year</span
             >
+            {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
           </div>
         {/if}
       </div>
@@ -159,6 +187,28 @@
     {/if}
   </main>
 </div>
+
+<svelte:window
+  onscroll={placeBar}
+  onfocusin={(event) => (typing = typingIn(event.target))}
+  onfocusout={() => (typing = false)}
+/>
+
+<!-- The best plan, along the bottom of a phone's screen while the results
+     are below it; tapping it goes to them. -->
+{#if best?.outcome && resultsBelow && !typing}
+  <button
+    class="best-bar"
+    style:--plan-color={best.plan.color}
+    onclick={() => stats?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' })}
+  >
+    <span class="bar-label">Best: {best.plan.label}</span>
+    <span class="bar-note"
+      >{percent(best.outcome.yearlyCostPercent)} a year · {shekels(best.outcome.lostToFees)} lost to fees</span
+    >
+    <span class="bar-arrow" aria-hidden="true">↓</span>
+  </button>
+{/if}
 
 <DetailsDialog {app} />
 
@@ -263,6 +313,58 @@
   .stat .note {
     color: var(--weak);
     font-size: 0.8rem;
+  }
+  .stat .warning {
+    color: var(--warning);
+  }
+
+  /* The bar exists on phones only (the desktop shows the results beside the
+     inputs). It slides up when it appears and is just gone when it hides. */
+  .best-bar {
+    display: none;
+  }
+  @media (width < 800px) {
+    .best-bar {
+      position: fixed;
+      inset: auto 12px calc(10px + env(safe-area-inset-bottom));
+      z-index: 2;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-areas:
+        'label arrow'
+        'note arrow';
+      gap: 0 12px;
+      align-items: center;
+      padding: 8px 14px;
+      border: 1px solid var(--strong-border);
+      border-top: 2px solid var(--plan-color);
+      background: var(--raised);
+      box-shadow: var(--shadow);
+      text-align: left;
+      transition:
+        translate 200ms var(--ease-out),
+        opacity 200ms var(--ease-out);
+    }
+    @starting-style {
+      .best-bar {
+        opacity: 0;
+        translate: 0 12px;
+      }
+    }
+  }
+  .bar-label {
+    grid-area: label;
+    font-weight: 600;
+  }
+  .bar-note {
+    grid-area: note;
+    color: var(--weak);
+    font-size: 0.8rem;
+  }
+  .bar-arrow {
+    grid-area: arrow;
+    color: var(--accent);
+    font-size: 1.2rem;
   }
 
   .table {

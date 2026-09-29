@@ -24,11 +24,8 @@ const series = (option: ReturnType<typeof crossoverOption>) => option.series as 
 test('every plan is a series by its id, at each amount, with costs below the floor raised to it', () => {
   const [a, b, yours] = series(crossoverOption(view()))
   expect([a.id, b.id, yours.id]).toEqual(['a', 'b', YOURS])
-  expect(a.data).toEqual([
-    [100, 5],
-    [1000, 0.5],
-    [10000, 0.2],
-  ])
+  // The first point sits on the axis: its label goes to the right.
+  expect(a.data).toEqual([{ value: [100, 5], label: { position: 'right' } }, [1000, 0.5], [10000, 0.2]])
   // A logarithmic axis has no zero.
   expect((b.data as number[][])[2]).toEqual([10000, FLOOR])
   expect(a.lineStyle?.type).toBe('solid')

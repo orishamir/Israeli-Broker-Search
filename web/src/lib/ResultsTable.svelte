@@ -16,8 +16,10 @@
     text: (outcome: OutcomeData) => string
   }
 
-  /** The amounts, as the inputs have them: no "if sold" when nothing is
-   * sold, and a note when they're in today's money. */
+  /** The amounts, the ones that decide first: on a phone only the first two
+   * fit beside the plan's name, and the rest scroll into view. As the inputs
+   * have them: no "if sold" when nothing is sold, and a note when they're in
+   * today's money. */
   const columns: Column[] = $derived.by(() => {
     const selling = app.sellAtEnd
     const money = app.inTodaysMoney
@@ -25,9 +27,15 @@
       : ''
     const columns: Column[] = [
       {
-        title: 'Value held',
-        explanation: `What the investment is worth at the end, without selling.${money}`,
-        text: (outcome) => shekels(outcome.held),
+        title: 'Yearly cost',
+        explanation:
+          'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
+        text: (outcome) => percent(outcome.yearlyCostPercent),
+      },
+      {
+        title: 'Lost to fees',
+        explanation: `How much less you end up with${selling ? ', after selling,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.${money}`,
+        text: (outcome) => shekels(outcome.lostToFees),
       },
     ]
     if (selling) {
@@ -44,15 +52,9 @@
         text: (outcome) => shekels(outcome.fees.total),
       },
       {
-        title: 'Lost to fees',
-        explanation: `How much less you end up with${selling ? ', after selling,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.${money}`,
-        text: (outcome) => shekels(outcome.lostToFees),
-      },
-      {
-        title: 'Yearly cost',
-        explanation:
-          'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
-        text: (outcome) => percent(outcome.yearlyCostPercent),
+        title: 'Value held',
+        explanation: `What the investment is worth at the end, without selling.${money}`,
+        text: (outcome) => shekels(outcome.held),
       },
     )
     return columns
@@ -233,6 +235,13 @@
     .names {
       min-width: 8rem;
       white-space: normal;
+    }
+  }
+  /* A phone: tighter cells, so the plan and its first two amounts fit. */
+  @container (width < 440px) {
+    th,
+    td {
+      padding: 8px 6px;
     }
   }
   tbody tr.not-offered {

@@ -241,10 +241,11 @@ test("a copy's second conversion fee can be changed, and the copy then ends with
   await dialog.getByLabel('Second conversion fee: fee').fill('0.12')
   await expect(dialog).toContainText(`${plan.name}: ${secondConversion!.price.text}`)
   await dialog.getByRole('button', { name: 'Add plan' }).click()
-  // The copy converts for less than the original, so it's left with more.
+  // The copy converts for less than the original, so it's left with more
+  // (the third amount: yearly cost, lost to fees, value if sold).
   const valueIfSold = async (name: string) => {
     const row = rows(page).filter({ has: page.getByText(name, { exact: true }) })
-    return Number((await row.locator('td.amount').nth(1).textContent())!.replace(/\D/g, ''))
+    return Number((await row.locator('td.amount').nth(2).textContent())!.replace(/\D/g, ''))
   }
   expect(await valueIfSold(planInfo(data).name)).toBeGreaterThan(await valueIfSold(plan.name))
 })

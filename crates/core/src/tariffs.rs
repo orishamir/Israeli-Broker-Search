@@ -23,8 +23,8 @@ use time::macros::date;
 use crate::Exchange::{self, Europe, Tlv, Usa};
 use crate::Security::{self, Bond, Etf, IndexFund, Stock};
 use crate::{
-    Broker, Caveat, ConversionFee, CustodyFee, FeeKind, HandlingFee, Markup, Money, Percent,
-    PercentFee, Period, Plan, Price, Source, TariffDate, Track, TradeFee, ils, iso, usd,
+    Broker, BrokerKind, Caveat, ConversionFee, CustodyFee, FeeKind, HandlingFee, Markup, Money,
+    Percent, PercentFee, Period, Plan, Price, Source, TariffDate, Track, TradeFee, ils, iso, usd,
 };
 
 /// Every broker the app knows, in the order to offer them.
@@ -415,6 +415,7 @@ pub fn altshuler() -> Broker {
     Broker {
         name: "Altshuler Shaham Trade".into(),
         short_name: "Altshuler".into(),
+        kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // New customers
         description: "An investment house's trading platform, not a bank. Its full tariff \
                       has three tracks for US stocks and ETFs; new customers get a cheaper \
@@ -747,6 +748,7 @@ pub fn leumi() -> Broker {
     Broker {
         name: "Bank Leumi".into(),
         short_name: "Leumi".into(),
+        kind: BrokerKind::Bank,
         new_customer_plan: 0, // Online
         description: "One of Israel's largest banks. Its securities prices depend on how \
                       you trade (online in Leumi Trade, or at a branch), on customer groups, \
@@ -952,6 +954,7 @@ pub fn excellence() -> Broker {
     Broker {
         name: "Excellence Trade".into(),
         short_name: "Excellence".into(),
+        kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
         description: "The trading arm of the Phoenix investment house. It publishes only a \
                       full tariff of maximum prices; new customers are usually offered far \
@@ -1181,6 +1184,7 @@ pub fn ibi() -> Broker {
     Broker {
         name: "IBI".into(),
         short_name: "IBI".into(),
+        kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
         description: "An investment house's trading platform (IBI TRADE, with the IBI SMART \
                       app). It publishes only a full tariff of maximum prices; new customers \
@@ -1336,6 +1340,7 @@ pub fn interactive() -> Broker {
     Broker {
         name: "Interactive Israel".into(),
         short_name: "Interactive".into(),
+        kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 0, // Standard
         description: "The Israeli introducing broker for Interactive Brokers, run by MEXEM \
                       (regulated in Cyprus, not by the Israel Securities Authority). US and \
@@ -1558,6 +1563,7 @@ pub fn meitav() -> Broker {
     Broker {
         name: "Meitav Trade".into(),
         short_name: "Meitav".into(),
+        kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
         description: "The largest exchange member that isn't a bank, part of the Meitav \
                       investment house. It publishes only a full tariff of maximum prices; \

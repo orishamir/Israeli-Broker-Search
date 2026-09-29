@@ -1,4 +1,5 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
+import { dateText } from '../src/lib/format'
 import { RATES } from './core'
 
 export { expect, type Locator, type Page }
@@ -18,7 +19,7 @@ export const test = base.extend({
     )
     await page.goto('/')
     await expect(page.locator('.chart canvas')).toBeVisible()
-    await expect(page.getByText(`· ${RATES.date}`)).toBeVisible()
+    await expect(page.getByText(`· ${dateText(RATES.date)}`)).toBeVisible()
     await use(page)
     expect(errors, 'errors thrown in the page').toEqual([])
   },

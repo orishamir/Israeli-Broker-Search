@@ -83,7 +83,10 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
       color: faded ? undefined : line.color,
       opacity: faded ? 0.6 : 1,
     },
-    labelLayout: { moveOverlap: 'shiftY', hideOverlap: true },
+    // Labels that would overlap are moved apart; on a phone, where twenty
+    // of them can't fit along a line, they're hidden instead, and more show
+    // as the years are zoomed into.
+    labelLayout: view.touch ? { hideOverlap: true } : { moveOverlap: 'shiftY', hideOverlap: true },
     emphasis: { focus: 'series' },
     // Hovering or clicking the line itself, not only its points.
     triggerEvent: 'line',

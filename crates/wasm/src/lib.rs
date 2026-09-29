@@ -126,6 +126,9 @@ pub struct BrokerInfo {
     /// Which of `plans` a new customer usually gets, compared at first.
     pub new_customer_plan: usize,
     pub description: String,
+    /// What "usual" means beside the plan a new customer gets: a bank's
+    /// online prices, an investment house's joining offer.
+    pub usual_plan: String,
     /// "Tariff of 29/06/2026"
     pub tariff_date: String,
     /// "Checked 28/09/2026": when the numbers were last checked against the
@@ -145,6 +148,7 @@ impl From<&Broker> for BrokerInfo {
             short_name: broker.short_name.clone(),
             new_customer_plan: broker.new_customer_plan,
             description: broker.description.clone(),
+            usual_plan: broker.usual_plan_text(),
             tariff_date: broker.tariff_date_text().to_string(),
             checked: Broker::checked_text(),
             source_url: broker.source_url.clone(),

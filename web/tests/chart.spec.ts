@@ -10,6 +10,9 @@ import { away, canvasPicture, choice, expect, test, type Page } from './fixtures
  * don't scroll the page under the mouse). */
 const chartBox = async (page: Page) => {
   await page.locator('.chart').scrollIntoViewIfNeeded()
+  // The phone's bar with the best plan leaves the bottom of the screen,
+  // where the zoom slider is, a frame or two after the scroll.
+  await expect(page.locator('.best-bar')).toHaveCount(0)
   return (await page.locator('.chart').boundingBox())!
 }
 

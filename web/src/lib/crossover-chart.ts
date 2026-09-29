@@ -55,7 +55,12 @@ function lineSeries(line: CostLine, view: CrossoverView): LineSeriesOption {
     id: line.id,
     name: line.label,
     type: 'line',
-    data: view.amounts.map((amount, index) => [amount, Math.max(line.costs[index], FLOOR)]),
+    data: view.amounts.map((amount, index) => {
+      const point = [amount, Math.max(line.costs[index], FLOOR)]
+      // The first point sits on the axis, where a label above it would cover
+      // the axis's own labels: its label goes to the right instead.
+      return index === 0 ? { value: point, label: { position: 'right' } } : point
+    }),
     color: line.color,
     lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1, type: line.dotted ? 'dotted' : 'solid' },
     itemStyle: { opacity: faded ? 0.4 : 1 },

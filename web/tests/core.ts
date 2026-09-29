@@ -81,18 +81,18 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
 }
 
 /** The results table the core would give for `inputs`: each row's plan
- * name and its amounts as the page formats them, best first. Nothing "if
- * sold" when nothing is sold. */
+ * name and its amounts as the page formats them, best first, in the table's
+ * column order. Nothing "if sold" when nothing is sold. */
 export function expectedRows(inputs: Inputs) {
   return compare(inputs).plans.map(({ key, outcome }) => {
     const plan = listedPlans.find((listed) => JSON.stringify(listed.key) === JSON.stringify(key))!
     const amounts = outcome
       ? [
-          shekels(outcome.held),
+          percent(outcome.yearlyCostPercent),
+          shekels(outcome.lostToFees),
           ...(inputs.sellAtEnd ? [shekels(outcome.afterSelling)] : []),
           shekels(outcome.fees.total),
-          shekels(outcome.lostToFees),
-          percent(outcome.yearlyCostPercent),
+          shekels(outcome.held),
         ]
       : []
     return { name: plan.plan.name, broker: plan.broker.name, amounts }

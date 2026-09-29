@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest'
-import { compactPercent, compactShekels, elapsed, percent, readableOn, shekels } from './format'
+import { compactPercent, compactShekels, dateText, elapsed, percent, readableOn, shekels } from './format'
 
 test('shekels are whole, with separators; compact ones fit chart labels', () => {
   expect(shekels(1_415_944.4)).toBe('₪1,415,944')
@@ -19,6 +19,11 @@ test("a chart's time is in years and months", () => {
   expect(elapsed(1)).toBe('After 1 year')
   expect(elapsed(15 + 5 / 12)).toBe('After 15 years, 5 months')
   expect(elapsed(2 + 1 / 12)).toBe('After 2 years, 1 month')
+})
+
+test('a date reads day first, as Israelis write it', () => {
+  expect(dateText('2026-09-28')).toBe('28/09/2026')
+  expect(dateText('2026-01-05')).toBe('05/01/2026')
 })
 
 test('a yearly cost has two decimals; on an axis, two digits', () => {

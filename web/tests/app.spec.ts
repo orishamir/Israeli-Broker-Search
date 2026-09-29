@@ -1,4 +1,5 @@
 import { expectedRows, inputsOnPage, RATES, rowsOnPage, usualPlans } from './core'
+import { dateText } from '../src/lib/format'
 import { checkbox, choice, expect, rows, test } from './fixtures'
 
 // Starting up: what the page shows once the core has loaded.
@@ -19,7 +20,7 @@ test(
   { tag: '@phone' },
   async ({ page }) => {
     await expect(
-      page.getByText(`$1 = ₪${RATES.ilsPerUsd} · €1 = ₪${RATES.ilsPerEur} · ${RATES.date}`),
+      page.getByText(`$1 = ₪${RATES.ilsPerUsd} · €1 = ₪${RATES.ilsPerEur} · ${dateText(RATES.date)}`),
     ).toBeVisible()
     // The page's shape from index.html, shown while loading, has been removed.
     await expect(page.locator('#skeleton')).toHaveCount(0)

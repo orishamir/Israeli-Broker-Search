@@ -5,6 +5,7 @@
   import type { Choice } from './core/core'
   import Examples from './Examples.svelte'
   import HebrewNames from './HebrewNames.svelte'
+  import { dateText } from './format'
   import { BUYING_INTERVALS } from './link'
   import NumberField from './NumberField.svelte'
   import Tip from './Tip.svelte'
@@ -85,11 +86,19 @@
     <Tip about="Traded on">
       <p>
         Your {securityNoun} can be bought on different stock exchanges (<bdi lang="he">בורסות</bdi>): in Tel
-        Aviv, or abroad in dollars or euros. The same S&P 500, for example, is sold in Tel Aviv as an Israeli
-        <bdi lang="he">קרן סל</bdi> in shekels, and in New York as an ETF such as VOO, in dollars. Brokers (<bdi
-          lang="he">בנקים ובתי השקעות</bdi
-        >) charge different fees (<bdi lang="he">עמלות</bdi>) for each exchange, and abroad some also charge
-        for converting your shekels (<bdi lang="he">המרת מט"ח</bdi>).
+        Aviv, or abroad in dollars or euros.
+        {#if app.security === 'Bond'}
+          Israel's government bonds trade in Tel Aviv in shekels, and US Treasuries in New York in dollars.
+        {:else if app.security === 'Stock'}
+          Teva, for example, trades in Tel Aviv in shekels and in New York in dollars.
+        {:else}
+          The same S&P 500, for example, is sold in Tel Aviv as a <bdi lang="he">קרן סל</bdi> in shekels, and in
+          New York as an ETF such as VOO, in dollars.
+        {/if}
+        Brokers (<bdi lang="he">בנקים ובתי השקעות</bdi>) charge different fees (<bdi lang="he">עמלות</bdi>)
+        for each exchange, and abroad some also charge for converting your shekels (<bdi lang="he"
+          >המרת מט"ח</bdi
+        >).
       </p>
     </Tip>
   </div>
@@ -107,7 +116,7 @@
           {#if app.ratesStatus.kind === 'downloading'}
             · downloading today's…
           {:else if app.ratesStatus.kind === 'downloaded'}
-            · {app.ratesStatus.date}
+            · {dateText(app.ratesStatus.date)}
           {:else}
             · couldn't download today's
           {/if}
@@ -123,7 +132,8 @@
         {#if app.ratesStatus.kind === 'failed'}
           Couldn't download today's rates ({app.ratesStatus.error}). Check these defaults.
         {:else}
-          European Central Bank rates, for converting your shekels. Change them to try other rates.
+          The European Central Bank's rates, within a fraction of a percent of the Bank of Israel's
+          representative rate (<bdi lang="he">שער יציג</bdi>). Change them to try other rates.
         {/if}
       </p>
     </details>

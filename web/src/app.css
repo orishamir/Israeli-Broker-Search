@@ -345,6 +345,13 @@ button:active:not(.link) {
   color: var(--weak);
   font-size: 0.85rem;
   line-height: 1;
+  /* A bigger target for fingers, without taking more room. */
+  position: relative;
+}
+.icon-button::after {
+  content: '';
+  position: absolute;
+  inset: -8px;
 }
 .icon-button:hover {
   background: var(--raised);

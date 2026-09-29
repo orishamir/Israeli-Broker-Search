@@ -16,6 +16,11 @@ const compact = new Intl.NumberFormat('en-IL', {
 /** "₪1,415,944" */
 export const shekels = (amount: number): string => whole.format(amount)
 
+const dayMonthYear = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+/** "28/09/2026", as Israelis write dates, from an ISO date ("2026-09-28"). */
+export const dateText = (iso: string): string => dayMonthYear.format(new Date(`${iso}T00:00:00`))
+
 /** "₪1.42M", "₪889K", "₪42K": short enough for chart labels. */
 export const compactShekels = (amount: number): string => compact.format(amount)
 

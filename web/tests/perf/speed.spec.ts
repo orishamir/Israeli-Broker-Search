@@ -1,4 +1,5 @@
 import { expect, test as base, type Page } from '@playwright/test'
+import { dateText } from '../../src/lib/format'
 import { RATES } from '../core'
 
 // What the page costs to use, measured as a person feels it:
@@ -356,7 +357,7 @@ test('speed and smoothness', async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof BUDGETS
   await page.goto('/')
   await expect(page.locator('.chart canvas')).toBeVisible()
-  await expect(page.getByText(`· ${RATES.date}`)).toBeVisible()
+  await expect(page.getByText(`· ${dateText(RATES.date)}`)).toBeVisible()
 
   const rows: string[] = []
   for (const { label, budget, measure } of measures(page, project)) {

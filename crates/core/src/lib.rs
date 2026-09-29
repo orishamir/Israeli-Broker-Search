@@ -872,6 +872,19 @@ pub enum TariffDate {
     Month(Date),
 }
 
+/// A bank or an investment house. It decides what a new customer usually
+/// gets: a bank's online prices, an investment house's joining offer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+pub enum BrokerKind {
+    /// Publishes what it charges, and charges less for trading online than
+    /// at a branch.
+    Bank,
+    /// Publishes only a full tariff, the most it may charge, and offers new
+    /// customers less.
+    InvestmentHouse,
+}
+
 /// A broker or bank, and every plan it offers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Broker {
@@ -880,6 +893,8 @@ pub struct Broker {
     /// Its name beside a plan's, where plan names repeat: "Leumi" in "Leumi ·
     /// Online".
     pub short_name: String,
+    /// A bank or an investment house, which decides what "usual" means.
+    pub kind: BrokerKind,
     /// Which of `plans` a new customer usually gets: the one compared at
     /// first.
     #[serde(default)]
