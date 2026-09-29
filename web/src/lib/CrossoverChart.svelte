@@ -12,8 +12,11 @@
     const lines: CostLine[] = (sweep?.plans ?? []).flatMap(({ key, costs }) => {
       const plan = app.plansById.get(planId(key))
       // Plans that don't offer the security have no line.
-      if (!plan || !costs) return []
-      return [{ id: plan.id, label: plan.label, color: plan.color, dotted: plan.yours !== undefined, costs }]
+      const rank = app.rankOf(planId(key))
+      if (!plan || !costs || rank === undefined) return []
+      return [
+        { id: plan.id, label: plan.label, color: plan.color, rank, dotted: plan.yours !== undefined, costs },
+      ]
     })
     return crossoverOption({
       amounts: sweep?.amounts ?? [],

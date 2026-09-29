@@ -79,7 +79,7 @@
   <tbody>
     <!-- Rows glide to their new place when the ranking changes. Plans that
          don't offer the security have no line to highlight. -->
-    {#each results as { plan, outcome, warning, mayCostMore, note, notOffered }, index (plan.id)}
+    {#each results as { plan, outcome, rank, warning, mayCostMore, note, notOffered } (plan.id)}
       <tr
         animate:flip={{ duration: duration(300) }}
         class:not-offered={!outcome}
@@ -90,12 +90,12 @@
         onmouseleave={() => (app.hovered = null)}
         onclick={() => outcome && app.togglePin(plan.id)}
       >
-        <td class="rank">{outcome ? index + 1 : '–'}</td>
+        <td class="rank">{rank ?? '–'}</td>
         <td class="plan">
           <div>
             <span class="mark" class:yours={plan.yours} style:--plan-color={plan.color}></span>
             <span class="names">
-              <span class:best={index === 0 && outcome}>{plan.info.name}</span>
+              <span class:best={rank === 1}>{plan.info.name}</span>
               <span class="broker">{plan.subtitle}</span>
               {#if warning}<span class="warning">⚠ {warning}</span>{/if}
               <!-- A number that may be too low: the plan stays ranked, flagged. -->

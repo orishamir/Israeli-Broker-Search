@@ -6,6 +6,7 @@ const line = (id: string, dotted = false): Line => ({
   id,
   label: `Plan ${id}`,
   color: '#56b4e9',
+  rank: 1,
   dotted,
   values: [100, 110, 120, 130],
 })
@@ -56,6 +57,14 @@ test('pinned lines are wider, labelled at whole years, and the rest fade', () =>
   expect(b.showSymbol).toBe(false)
 })
 
+test("a line's end label is its rank on a badge in its color, then its value", () => {
+  const [, a] = series(growthOption(view({ lines: [{ ...line('a'), rank: 7, color: '#fd2e1c' }] })))
+  const label = a.endLabel!
+  const formatter = label.formatter as (params: { value: unknown }) => string
+  expect(formatter({ value: [1, 1500] })).toBe('{rank|7} ₪1.5K')
+  expect(label.rich?.rank).toMatchObject({ backgroundColor: '#fd2e1c', color: '#fff' })
+})
+
 test('pinned labels alternate above and below, in the order of the lines', () => {
   const [, a, b] = series(growthOption(view({ pinned: new Set(['b', 'a']) })))
   expect(a.label?.position).toBe('top')
@@ -69,11 +78,16 @@ test('touch screens zoom with a slider, the rest with the wheel', () => {
   expect(growthOption(view({ touch: true })).grid).toMatchObject({ bottom: 88 })
 })
 
-test('on a phone, labels that would overlap are hidden rather than moved apart', () => {
-  const layout = (touch: boolean) =>
-    series(growthOption(view({ touch, pinned: new Set(['a']) })))[1].labelLayout
-  expect(layout(false)).toEqual({ moveOverlap: 'shiftY', hideOverlap: true })
-  expect(layout(true)).toEqual({ hideOverlap: true })
+test('only end labels are moved apart, and on a phone they too are hidden instead', () => {
+  const layout = (touch: boolean, dataIndex: number | undefined) => {
+    const option = series(growthOption(view({ touch, pinned: new Set(['a']) })))[1].labelLayout
+    return (option as (params: { dataIndex: number | undefined }) => unknown)({ dataIndex })
+  }
+  // The end label sits on the line, not on a point, so it has no index.
+  expect(layout(false, undefined)).toEqual({ moveOverlap: 'shiftY', hideOverlap: true })
+  // Moved too, a yearly label would join the end labels' column.
+  expect(layout(false, 12)).toEqual({ hideOverlap: true })
+  expect(layout(true, undefined)).toEqual({ hideOverlap: true })
 })
 
 test('the value axis fits the lines with a little room above', () => {

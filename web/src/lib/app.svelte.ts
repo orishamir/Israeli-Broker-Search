@@ -90,6 +90,10 @@ export interface Result {
   plan: Plan
   /** Missing if the plan doesn't offer the security on that exchange. */
   outcome: OutcomeData | undefined
+  /** Its row's number in the table, 1 for the best; the charts show it at
+   * each line's end, so a color used twice can't mix two plans up. Missing
+   * with the outcome. */
+  rank: number | undefined
   /** The plan's track that was used, the cheapest, if its tracks price the security. */
   track: number | undefined
   /** Why the plan can't be used as the inputs are: "Needs a one-time deposit of at least ₪5,000". */
@@ -623,9 +627,11 @@ export class AppState {
       deposited: data.deposited,
       noFees: data.noFees,
       largestTrade: data.largestTrade,
-      results: data.plans.map(({ key, outcome, track, warning, mayCostMore, note, notOffered }) => ({
+      // Best first, and the plans without an outcome last.
+      results: data.plans.map(({ key, outcome, track, warning, mayCostMore, note, notOffered }, index) => ({
         plan: this.plansById.get(planId(key))!,
         outcome,
+        rank: outcome ? index + 1 : undefined,
         track,
         warning,
         mayCostMore,
@@ -641,6 +647,23 @@ export class AppState {
   best: Result | undefined = $derived(
     'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
   )
+
+  /** Each plan's row number in the table, by id, for the chart by deposit:
+   * its sweep answers a moment after the table, which it may not match. */
+  private ranks: ReadonlyMap<string, number> = $derived(
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
+    new Map(
+      'error' in this.comparison
+        ? []
+        : this.comparison.results.flatMap(({ plan, rank }) =>
+            rank === undefined ? [] : [[plan.id, rank] as const],
+          ),
+    ),
+  )
+
+  rankOf(id: string): number | undefined {
+    return this.ranks.get(id)
+  }
 
   /** What the user buys, for the fees and caveats that matter to them, with
    * the comparison's biggest order: a caveat about large orders shows only

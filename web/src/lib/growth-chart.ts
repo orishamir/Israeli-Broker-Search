@@ -5,6 +5,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { ChartOption } from './echarts.svelte'
 import { compactShekels, elapsed, readableOn, shekels } from './format'
+import { endLabel, labelLayout } from './end-label'
 import { t } from './text'
 
 // The page's colors (see app.css).
@@ -19,6 +20,8 @@ export interface Line {
   id: string
   label: string
   color: string
+  /** Its row's number in the table. */
+  rank: number
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean
   values: number[]
@@ -58,9 +61,12 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
     // would overlap are hidden, so fewer show when zoomed out. Other plans
     // get plain points, which ECharts copies and compares much faster.
     data: pinned
-      ? points(line.values).map((point) => {
+      ? points(line.values).map((point, index, all) => {
           const yearly = Number.isInteger(point[0])
-          return { value: point, symbol: yearly ? 'emptyCircle' : 'none', label: { show: yearly } }
+          // Not at the last point, where the end label shows the same value:
+          // the two would collide, and the end label could be hidden.
+          const last = index === all.length - 1
+          return { value: point, symbol: yearly ? 'emptyCircle' : 'none', label: { show: yearly && !last } }
         })
       : points(line.values),
     color: line.color,
@@ -77,17 +83,11 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
       padding: [1, 4],
       borderRadius: 3,
     },
-    // The value where the line leaves the view, in the plan's color.
-    endLabel: {
-      show: true,
-      formatter: compactLabel,
-      color: faded ? undefined : line.color,
-      opacity: faded ? 0.6 : 1,
-    },
-    // Labels that would overlap are moved apart; on a phone, where twenty
-    // of them can't fit along a line, they're hidden instead, and more show
-    // as the years are zoomed into.
-    labelLayout: view.touch ? { hideOverlap: true } : { moveOverlap: 'shiftY', hideOverlap: true },
+    // Its number and the value where the line leaves the view.
+    endLabel: endLabel(line, faded, compactLabel),
+    // On a phone, where twenty labels can't fit along a line, ones that
+    // would overlap are hidden, and more show as the years are zoomed into.
+    labelLayout: labelLayout(!view.touch),
     emphasis: { focus: 'series' },
     // Hovering or clicking the line itself, not only its points.
     triggerEvent: 'line',

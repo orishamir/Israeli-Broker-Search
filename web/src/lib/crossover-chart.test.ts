@@ -6,6 +6,7 @@ const line = (id: string, costs: number[], dotted = false): CostLine => ({
   id,
   label: `Plan ${id}`,
   color: '#56b4e9',
+  rank: 1,
   dotted,
   costs,
 })

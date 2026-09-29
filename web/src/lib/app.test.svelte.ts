@@ -71,6 +71,21 @@ test('bad inputs are reported in words, not thrown', () => {
   expect(app.buying.largestTrade).toBeGreaterThan(0)
 })
 
+test("a plan's rank is its row's number, counting only the plans with an outcome", () => {
+  const app = start()
+  app.setSelected(
+    app.plans.map(({ id }) => id),
+    true,
+  )
+  app.exchange = 'Europe'
+  const all = results(app)
+  const offered = all.filter(({ outcome }) => outcome)
+  expect(offered.length).toBeLessThan(all.length)
+  expect(offered.map(({ rank }) => rank)).toEqual(offered.map((_, index) => index + 1))
+  expect(all.filter(({ outcome }) => !outcome).every(({ rank }) => rank === undefined)).toBe(true)
+  for (const { plan, rank } of all) expect(app.rankOf(plan.id)).toBe(rank)
+})
+
 test('the share price is asked for only where it matters', () => {
   const app = start()
   expect(app.sharePriceSymbol).toBe('$')

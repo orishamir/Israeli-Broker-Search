@@ -7,6 +7,7 @@ import type { LineSeriesOption } from 'echarts/charts'
 import type { Swept } from './core/core'
 import type { ChartOption } from './echarts.svelte'
 import { compactPercent, compactShekels, percent, readableOn, shekels } from './format'
+import { endLabel, labelLayout } from './end-label'
 import { t } from './text'
 
 // The page's colors (see app.css).
@@ -26,6 +27,8 @@ export interface CostLine {
   id: string
   label: string
   color: string
+  /** Its row's number in the table. */
+  rank: number
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean
   costs: number[]
@@ -77,14 +80,9 @@ function lineSeries(line: CostLine, view: CrossoverView): LineSeriesOption {
       padding: [1, 4],
       borderRadius: 3,
     },
-    // The cost at the largest deposit, in the plan's color.
-    endLabel: {
-      show: true,
-      formatter: compactLabel,
-      color: faded ? undefined : line.color,
-      opacity: faded ? 0.6 : 1,
-    },
-    labelLayout: { moveOverlap: 'shiftY', hideOverlap: true },
+    // Its number and the cost at the largest deposit.
+    endLabel: endLabel(line, faded, compactLabel),
+    labelLayout: labelLayout(true),
     emphasis: { focus: 'series' },
     // Hovering or clicking the line itself, not only its points.
     triggerEvent: 'line',
