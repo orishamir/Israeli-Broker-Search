@@ -32,6 +32,16 @@ test("a plan's details are in Hebrew, tariff and caveats included", async ({ pag
   await expect(dialog.getByRole('link', { name: /תעריפון \(PDF\)/ }).first()).toBeVisible()
 })
 
+// Beside the plan, on the side of the results, which is the left here.
+test("a plan's preview opens left of it, on the screen", async ({ page }) => {
+  const plan = page.getByRole('list', { name: 'בנק לאומי' }).getByRole('listitem').first()
+  await plan.hover()
+  const preview = page.locator('.preview')
+  await expect(preview).toBeInViewport({ ratio: 1 })
+  const [planBox, previewBox] = [(await plan.boundingBox())!, (await preview.boundingBox())!]
+  expect(previewBox.x + previewBox.width).toBeLessThan(planBox.x)
+})
+
 test('the switch goes back to English and keeps the comparison', async ({ page }) => {
   await page.getByLabel('כל חודש').fill('3,500')
   await page.getByRole('button', { name: 'החלפה לאנגלית' }).click()

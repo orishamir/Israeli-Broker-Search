@@ -25,7 +25,7 @@ catch the bug:
   | Changed                                                             | Spec        |
   | ------------------------------------------------------------------- | ----------- |
   | InputsPanel, Examples, NumberField, Choices, BrokerPicker, rates.ts | `inputs`    |
-  | ResultsTable, the stats in App.svelte                               | `results`   |
+  | ResultsTable, the stats in App.svelte, PlanPreview                  | `results`   |
   | GrowthChart, CrossoverChart, echarts.svelte.ts                      | `chart`     |
   | FeeBreakdown                                                        | `breakdown` |
   | DetailsDialog, FeesForInputs, Caveat\*, Sources, the about page     | `details`   |

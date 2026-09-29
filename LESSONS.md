@@ -199,7 +199,11 @@ all. Read those three first.
   free, but `offsetLeft` stays physical, so the choices' highlight keeps
   `left: 0`. A line mixing numbers, `=` and `·` reads backwards in RTL
   unless it's wrapped in `<bdi dir="ltr">` (the exchange rates). ECharts
-  is left to right whatever the page is, which is right for axes.
+  is left to right whatever the page is, which is right for axes. Anything
+  placed from a measured box is physical too: the plan preview opened at
+  the row's `right`, so in Hebrew it went off the screen, with only a strip
+  showing, and no test hovered a plan on the Hebrew page. Floating UI's
+  sides are physical as well, so the preview picks `left-start` by `rtl`.
 - Two languages: the core's `Text` pairs and `lang.pick` make a missing
   Hebrew a compile error; the web's `he.ts` is typed as `en.ts` for the
   same reason. The switch reloads the page (state in the hash) rather than

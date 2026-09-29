@@ -182,6 +182,34 @@ test('hovering a plan in the sidebar highlights it in the table, and previews it
   await expect(preview).toContainText(plan.description.slice(0, 20))
 })
 
+test("a plan's preview opens beside it, moved up to fit a short window", async ({ page }) => {
+  // A 1366×768 laptop's, less the taskbar and the browser's bars: shorter
+  // than two previews.
+  await page.setViewportSize({ width: 1366, height: 600 })
+  const plan = page.getByRole('list', { name: 'Bank Leumi' }).getByRole('listitem').first()
+  // Just above the middle: a preview hanging down from it would run off the bottom.
+  await plan.evaluate((row) => row.scrollIntoView({ block: 'center' }))
+  await plan.hover()
+  const preview = page.locator('.preview')
+  await expect(preview).toBeInViewport({ ratio: 1 })
+  const [planBox, previewBox] = [(await plan.boundingBox())!, (await preview.boundingBox())!]
+  expect(previewBox.x).toBeGreaterThan(planBox.x + planBox.width)
+})
+
+// Over the list, it would hide the plans the mouse goes to next.
+test('in one column there is no room beside a plan, so hovering it previews nothing', async ({ page }) => {
+  // Half of a 1366×768 laptop screen.
+  await page.setViewportSize({ width: 683, height: 768 })
+  const ticked = usualPlans.find(({ broker }) => broker.name === 'Bank Leumi')!
+  await page
+    .getByRole('list', { name: ticked.broker.name })
+    .getByRole('listitem')
+    .filter({ has: page.getByText(ticked.plan.name, { exact: true }) })
+    .hover()
+  await expect(rowOf(page, ticked.label)).toHaveClass(/highlighted/)
+  await expect(page.locator('.preview')).toHaveCount(0)
+})
+
 test(
   'keeping the holdings drops the sold column; inflation restates the amounts; the yearly cost is the core’s',
   { tag: '@phone' },
