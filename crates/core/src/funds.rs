@@ -264,7 +264,7 @@ fn investing_costs_arent_counted() -> Caveat {
         "A fund's own investing costs (הוצאות\u{a0}ישירות) come out of its return, on top of \
          the management fee: trading commissions, and outside managers' fees of up to 0.25% \
          of its assets a year. An ETF's own yearly fee at a broker isn't counted either.",
-        "עלויות ההשקעה של הקופה עצמה (הוצאות ישירות) יורדות מהתשואה, בנוסף לדמי הניהול: עמלות מסחר, ודמי ניהול חיצוניים של עד 0.25% מנכסי הקופה בשנה. גם דמי הניהול השנתיים של קרן סל בחשבון מסחר לא נספרים.",
+        "גם לקופה עצמה יש עלויות השקעה (הוצאות ישירות), שיורדות מהתשואה בנוסף לדמי הניהול: עמלות מסחר, ודמי ניהול לגופים חיצוניים של עד 0.25% מנכסי הקופה בשנה. באותו אופן, גם דמי הניהול השנתיים של קרן סל בחשבון מסחר לא נספרים.",
     ))
     .source(&direct_expenses_regulations())
 }
@@ -279,7 +279,7 @@ fn earns_what_the_security_does(what: Text) -> Caveat {
              managed track earns more or less than that, and the app can't know which."
         ),
         format!(
-            "ההנחה היא ש{he} מרוויחה, לפני דמי ניהול, מה שנייר הערך שבחרתם מרוויח. מסלול השקעה שעוקב אחרי אותו מדד אכן מרוויח כך. מסלול מנוהל מרוויח יותר או פחות, והאפליקציה לא יכולה לדעת."
+            "המחשבון מניח ש{he} מרוויחה, לפני דמי ניהול, בדיוק מה שנייר הערך שבחרתם מרוויח. במסלול השקעה שעוקב אחרי אותו מדד זה בערך כך. מסלול מנוהל עשוי להרוויח יותר או פחות, ואין דרך לדעת מראש."
         ),
     ))
 }
@@ -301,7 +301,7 @@ pub fn investment_gemel() -> Broker {
             Caveat::published(t(
                 "Almost no fund takes a share of deposits: 0.001% of them on average, which \
                  is counted as none.",
-                "כמעט אף קופה לא גובה דמי ניהול מהפקדות: 0.001% מהן בממוצע, שנספרים כאפס.",
+                "כמעט אף קופה לא גובה דמי ניהול מההפקדות: בממוצע 0.001%, שנספרים כאפס.",
             ))
             .about_fee(FeeKind::DepositFee)
             .source(&gemel_net),
@@ -315,7 +315,7 @@ pub fn investment_gemel() -> Broker {
              companies anyone can join, each fund counted by the money it holds. Your own fee \
              is what you agree with the company, which may give a discount: to compare with \
              yours, change a copy of this one.",
-            "מה שחוסכים בקופת גמל להשקעה משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קופה נספרת לפי היקף הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, שרשאית לתת הנחה: כדי להשוות לשלכם, שנו עותק של השורה הזאת.",
+            "מה שחוסכים בקופת גמל להשקעה משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קופה משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::InvestmentGemel,
         fee(dec!(0.62), dec!(0)),
@@ -389,7 +389,7 @@ pub fn investment_gemel() -> Broker {
              does the buying and selling. Anyone can open one, and the money can be taken out \
              at any time. The app compares the kind of fund, not each company: the fee is \
              agreed person by person, and the companies' averages are close to each other.",
-            "קופה שחברה מנהלת משקיעה עבורכם: אתם בוחרים מסלול השקעה ומפקידים, והיא קונה ומוכרת. כל אחד יכול לפתוח קופה, ואפשר למשוך את הכסף בכל עת. האפליקציה משווה את סוג הקופה ולא כל חברה בנפרד: דמי הניהול נקבעים לכל חוסך בנפרד, והממוצעים של החברות קרובים זה לזה.",
+            "קופה שחברה מנהלת משקיעה עבורכם: אתם בוחרים מסלול השקעה ומפקידים, והחברה קונה ומוכרת. כל אחד יכול לפתוח קופה, ואפשר למשוך את הכסף בכל עת. המחשבון משווה את סוג הקופה, ולא כל חברה בנפרד: דמי הניהול נקבעים לכל חוסך בנפרד, והממוצעים של החברות קרובים זה לזה.",
         ),
         tariff_date: Some(DATA_OF),
         source_url: Some(gemel_net.url.clone()),
@@ -399,14 +399,14 @@ pub fn investment_gemel() -> Broker {
                  at a broker. From the age of 60 the money can be taken as a monthly pension \
                  instead, and then the gain isn't taxed and neither is the pension: the money \
                  moves to a fund that pays pensions, which sets the monthly amount.",
-                "במשיכה בבת אחת, רבע מהרווח שמעבר לעליית המחירים הוא מס, כמו בחשבון מסחר. מגיל 60 אפשר לקבל את הכסף כקצבה חודשית, ואז הרווח פטור ממס וגם הקצבה: הכסף עובר לקופה שמשלמת קצבאות, והיא קובעת את הסכום החודשי.",
+                "במשיכה בבת אחת משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר. מגיל 60 אפשר לקבל את הכסף כקצבה חודשית, ואז גם הרווח וגם הקצבה פטורים ממס: הכסף עובר לקופה שמשלמת קצבאות, והיא קובעת את הסכום החודשי.",
             ))
             .source(&kol_zchut_pension()),
             Caveat::published(t(
                 "No more than ₪83,641 can be deposited in a calendar year (2026), in all of \
                  one person's funds together. The ceiling follows the price index every \
                  January.",
-                "אי אפשר להפקיד יותר מ-₪83,641 בשנה קלנדרית (2026), בכל הקופות של אותו אדם יחד. התקרה מתעדכנת לפי המדד בכל ינואר.",
+                "אי אפשר להפקיד יותר מ-₪83,641 בשנה קלנדרית (2026), בכל הקופות של אותו אדם יחד. התקרה מתעדכנת לפי האינפלציה בכל ינואר.",
             ))
             .source(&kol_zchut_fund()),
             earns_what_the_security_does(t("The fund", "הקופה")),
@@ -415,14 +415,14 @@ pub fn investment_gemel() -> Broker {
                 "Moving between investment tracks, or to another company's fund, isn't taxed. \
                  At a broker, selling one security to buy another is. The app never switches, \
                  so this isn't counted.",
-                "מעבר בין מסלולי השקעה, או לקופה של חברה אחרת, לא מחויב במס. בחשבון מסחר, מכירת נייר ערך כדי לקנות אחר כן מחויבת. האפליקציה אף פעם לא מחליפה, ולכן זה לא נספר.",
+                "מעבר בין מסלולי השקעה, או לקופה של חברה אחרת, פטור ממס. בחשבון מסחר, מכירת נייר ערך כדי לקנות אחר חייבת במס. המחשבון לא מניח מעברים כאלה, ולכן היתרון הזה לא נספר.",
             ))
             .source(&analyst_comparison()),
             Caveat::not_counted(t(
                 "In June 2026 a Finance Ministry committee recommended limiting the tax-free \
                  gain to ₪200,000 a saver. It isn't law, and the app counts the whole gain as \
                  tax-free.",
-                "ביוני 2026 המליצה ועדה במשרד האוצר להגביל את הרווח הפטור ממס ל-₪200,000 לחוסך. זה לא חוק, והאפליקציה מחשיבה את כל הרווח כפטור.",
+                "ביוני 2026 המליצה ועדה במשרד האוצר להגביל את הרווח הפטור ממס ל-₪200,000 לחוסך. ההמלצה עדיין לא חוק, והמחשבון מחשיב את כל הרווח כפטור.",
             ))
             .sources(&[&globes_on_the_cap(), &bizportal_on_the_cap()]),
         ],
@@ -462,7 +462,7 @@ pub fn study_fund() -> Broker {
              join, each fund counted by the money it holds. Your own fee is what you agree \
              with the company, which may give a discount: to compare with yours, change a \
              copy of this one.",
-            "מה שחוסכים בקרן השתלמות משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קרן נספרת לפי היקף הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, שרשאית לתת הנחה: כדי להשוות לשלכם, שנו עותק של השורה הזאת.",
+            "מה שחוסכים בקרן השתלמות משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קרן משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::StudyFund,
         fee(dec!(0.61), dec!(0)),
@@ -535,7 +535,7 @@ pub fn study_fund() -> Broker {
              one and deposit as they like. An employee's needs the employer, who pays most of \
              it, so it isn't a choice against a broker: the app counts a self-employed \
              saver's.",
-            "קרן שחברה מנהלת משקיעה עבורכם, ואפיק החיסכון היחיד לכמה שנים שהרווחים בו פטורים ממס. עצמאים יכולים לפתוח קרן ולהפקיד כרצונם. קרן של שכיר תלויה במעסיק, שמפקיד את רוב הכסף, ולכן היא לא חלופה לחשבון מסחר: האפליקציה מחשבת קרן של חוסך עצמאי.",
+            "קרן שחברה מנהלת משקיעה עבורכם, והחיסכון היחיד לטווח של כמה שנים שהרווחים בו פטורים ממס. עצמאים יכולים לפתוח קרן ולהפקיד בה כרצונם. קרן של שכיר תלויה במעסיק, שמפקיד את רוב הכסף, ולכן היא לא חלופה לחשבון מסחר: המחשבון מחשב קרן של עצמאי.",
         ),
         tariff_date: Some(DATA_OF),
         source_url: Some(gemel_net.url.clone()),
@@ -545,7 +545,7 @@ pub fn study_fund() -> Broker {
                  The gains on up to ₪20,566 deposited a year (2026) aren't taxed; the gains on \
                  what's deposited beyond that are, by a quarter of what they are beyond the \
                  rise in prices, as at a broker.",
-                "שש שנים אחרי ההפקדה הראשונה אפשר למשוך את הכסף לכל מטרה. הרווחים על עד ₪20,566 שהופקדו בשנה (2026) פטורים ממס; הרווחים על מה שהופקד מעבר לכך חייבים במס, רבע ממה שמעבר לעליית המחירים, כמו בחשבון מסחר.",
+                "שש שנים אחרי ההפקדה הראשונה אפשר למשוך את הכסף לכל מטרה. הרווחים על עד ₪20,566 שהופקדו בשנה (2026) פטורים ממס; על הרווחים ממה שהופקד מעבר לכך משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר.",
             ))
             .source(&kol_zchut_study_fund_self_employed()),
             Caveat::not_counted(t(
@@ -588,7 +588,7 @@ pub fn savings_policy() -> Broker {
             "What the insurers' investment policies take on average. Savings policies aren't \
              reported apart from the insurers' other policies, so this is the nearest \
              published figure: see the note beside the fee.",
-            "מה שפוליסות ההשקעה של חברות הביטוח גובות בממוצע. פוליסות חיסכון לא מדווחות בנפרד משאר הפוליסות של חברות הביטוח, ולכן זה הנתון המפורסם הקרוב ביותר: ראו את ההערה ליד דמי הניהול.",
+            "מה שפוליסות ההשקעה של חברות הביטוח גובות בממוצע. פוליסות חיסכון לא מדווחות בנפרד משאר הפוליסות של חברות הביטוח, ולכן זה הנתון הקרוב ביותר שמתפרסם: ראו את ההערה ליד דמי הניהול.",
         ),
         Vehicle::SavingsPolicy,
         fee(dec!(0.94), dec!(0)),
@@ -613,7 +613,7 @@ pub fn savings_policy() -> Broker {
                 t(
                     "Those policies also take 1.77% of deposits on average, where they report \
                      it. None is counted for a savings policy.",
-                    "הפוליסות האלה גובות גם 1.77% מההפקדות בממוצע, היכן שזה מדווח. בפוליסת חיסכון זה לא נספר.",
+                    "הפוליסות האלה גובות בממוצע גם 1.77% מההפקדות, במקומות שבהם זה מדווח. בפוליסת חיסכון זה לא נספר.",
                 ),
                 t(
                     "Menora Mivtachim describes the fee on the balance as a savings policy's \
@@ -672,14 +672,14 @@ pub fn savings_policy() -> Broker {
                 "A quarter of the gain beyond the rise in prices is tax when the money is \
                  taken out, as at a broker, at any age and in any way: there's no tax-free \
                  pension.",
-                "רבע מהרווח שמעבר לעליית המחירים הוא מס כשמושכים את הכסף, כמו בחשבון מסחר, בכל גיל ובכל צורת משיכה: אין קצבה פטורה ממס.",
+                "כשמושכים את הכסף משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר, בכל גיל ובכל צורת משיכה: אין קצבה פטורה ממס.",
             ))
             .source(&bizportal),
             earns_what_the_security_does(t("The policy", "הפוליסה")),
             Caveat::not_counted(t(
                 "Moving between investment tracks isn't taxed. At a broker, selling one \
                  security to buy another is. The app never switches, so this isn't counted.",
-                "מעבר בין מסלולי השקעה לא מחויב במס. בחשבון מסחר, מכירת נייר ערך כדי לקנות אחר כן מחויבת. האפליקציה אף פעם לא מחליפה, ולכן זה לא נספר.",
+                "מעבר בין מסלולי השקעה פטור ממס. בחשבון מסחר, מכירת נייר ערך כדי לקנות אחר חייבת במס. המחשבון לא מניח מעברים כאלה, ולכן היתרון הזה לא נספר.",
             ))
             .source(&analyst_comparison()),
         ],

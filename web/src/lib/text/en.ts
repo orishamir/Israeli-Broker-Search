@@ -31,8 +31,8 @@ export const en = {
   // The best plan at other values of the deposit the chart by deposit varies.
   cheapestThroughout: (from: string, to: string, swept: Swept) =>
     swept === 'Monthly'
-      ? `The cheapest at any monthly deposit from ${from} to ${to}`
-      : `The cheapest for any one-time deposit from ${from} to ${to}`,
+      ? `The cheapest in fees at any monthly deposit from ${from} to ${to}`
+      : `The cheapest in fees for any one-time deposit from ${from} to ${to}`,
   cheaperBelow: (amount: string, plan: string, swept: Swept) =>
     swept === 'Monthly'
       ? `Below ${amount} a month, ${plan} is cheaper`
@@ -46,7 +46,7 @@ export const en = {
       ? `Below ${below} a month, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`
       : `For a one-time deposit below ${below}, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`,
   checkInputs: (error: string) => `Check your inputs: ${error}.`,
-  tickABroker: 'Tick a broker on the left to compare.',
+  tickABroker: 'Tick at least one plan to compare.',
 
   // The table
   rank: 'Rank',
@@ -66,7 +66,7 @@ export const en = {
   noTax: 'none',
   feesPaid: 'Fees paid',
   feesPaidTip: (selling: boolean) =>
-    `Every fee charged: purchases, conversions, keeping the account${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.`,
+    `Every fee charged: purchases, conversions, keeping the account or a fund's management fee${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.`,
   valueHeld: 'Value held',
   valueHeldTip: 'What the investment is worth at the end, without selling.',
   inTodaysMoneyNote: ' In today’s money: divided by how much prices will have risen by then.',
@@ -120,7 +120,8 @@ export const en = {
   account: 'Keeping the account',
   accountTip: 'A share of what you hold, a fixed amount a month, or both.',
   management: 'Management fee',
-  managementTip: 'What a fund or a policy takes: a share of the balance every year, and of each deposit.',
+  managementTip:
+    'What a fund or a policy takes: a share of the balance every year, and at some, a share of each deposit.',
   selling: 'Selling',
   sellingTip: 'Selling everything at the end, and converting back to shekels.',
   clickAFee: 'Click',
@@ -145,7 +146,7 @@ export const en = {
   downloadingRates: "· downloading today's…",
   couldntDownloadRates: "· couldn't download today's",
   couldntDownloadCheck: (error: string) =>
-    `Couldn't download today's rates (${error}). Check these defaults.`,
+    `Couldn't download today's rates (${error}). Check the rates below.`,
   deposits: 'Deposits',
   everyMonth: 'Every month',
   buyEvery: 'Buy every',
@@ -165,7 +166,7 @@ export const en = {
     'How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%; a bond grows by its interest, say 4%.',
   sharePrice: 'Share price',
   sharePriceTip:
-    "Today's price of one share. Brokers here sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return.",
+    "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return.",
   inflation: 'Inflation',
   inflationTip:
     "How much prices rise a year. Tax is paid only on the gain beyond it, so a higher inflation means less tax. Israel's target is 1–3%, and the app starts from its middle.",
@@ -174,24 +175,24 @@ export const en = {
     "Prices rise, so a shekel in 20 years buys less than one today. Ticked, every amount is shown in today's shekels: divided by how much prices will have risen by then, at the inflation above. The ranking doesn't change, only how the numbers read.",
   atTheEnd: 'At the end',
   atTheEndTip:
-    'Whether everything is sold when the years are up, paying a last trade fee and, abroad, a last conversion, or kept. Selling is the usual assumption, and what most of the fees lead up to.',
+    'Whether everything is sold when the years are up, paying a last trade fee and, abroad, a last conversion, or kept. Selling is what comparisons usually assume.',
   sell: 'Sell',
   sellTip:
-    'Everything is sold at the end and, abroad, converted back to shekels: one more trade fee and one more conversion. The table ranks by what that leaves.',
+    'Everything is sold at the end and, abroad, converted back to shekels: one more trade fee and one more conversion. The table ranks by what that leaves after tax.',
   keep: 'Keep',
   keepTip:
-    "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling. For money you'll draw on slowly, or pass on.",
+    "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling or as tax. For money you'll draw on slowly, or pass on.",
   brokersAndPlans: 'Brokers and plans to compare',
   brokersAndPlansShort: 'Brokers and plans',
   tickedAtFirst: "Ticked at first: each broker's usual plan, the one a new customer gets.",
   fundsAndPolicies: 'Funds and policies to compare',
   fundsAndPoliciesShort: 'Funds and policies',
   fundsAndPoliciesTip:
-    "Instead of buying securities yourself at a broker, you can hand the money to a manager who invests it for a share of it: a fund or a policy. It's taxed by its own rules, and the table counts that. Each is listed as a kind, by what its savers pay, since a fund's fee is agreed person by person.",
+    "Instead of buying securities yourself at a broker, you can hand the money to a manager who invests it for a share of it: a fund or a policy. It's taxed by its own rules, and the table counts that. A fund's fee is agreed person by person, so each kind is listed by what its savers really pay, such as the average, beside the most it can charge.",
   fundsTickedAtFirst: 'Ticked at first: what savers in a provident fund for investment pay on average.',
   takingTheMoneyOut: 'Taking the money out',
   takingTheMoneyOutTip: (age: number) =>
-    `A provident fund for investment can be taken all at once, like selling at a broker, or from the age of ${age} as a monthly pension, which isn't taxed. A broker and a savings policy pay no pension: for them nothing changes.`,
+    `A provident fund for investment can be taken all at once, like selling at a broker, or from the age of ${age} as a monthly pension, which isn't taxed. A broker, a study fund and a savings policy pay no pension: for them nothing changes.`,
   allAtOnce: 'All at once',
   allAtOnceTip: 'Everything is taken out when the years are up, and the gain is taxed.',
   asAPension: 'As a pension',

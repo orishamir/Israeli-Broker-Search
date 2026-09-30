@@ -463,7 +463,7 @@ test("the best plan's line keeps its words until the sweep answers, shown while 
   expect(app.aroundLine.shown).toBe(false)
   answer()
   const first = app.aroundLine
-  expect(first).toEqual({ text: expect.stringMatching(/^הזול ביותר בכל הפקדה חודשית/), shown: true })
+  expect(first).toEqual({ text: expect.stringMatching(/^הזול ביותר בעמלות בכל הפקדה חודשית/), shown: true })
   // Typing the deposit the sweep varies asks nothing new.
   const asked = app.sweepRequest
   app.monthlyDeposit = 2500

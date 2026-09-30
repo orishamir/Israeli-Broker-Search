@@ -77,7 +77,7 @@ pub fn all() -> Vec<Example> {
                 "₪200,000 at once into an ETF in the USA, and nothing more, for 10 years at 10% \
                  a year: an inheritance or a bonus. One purchase, so what's charged for holding \
                  matters most.",
-                "₪200,000 בבת אחת לקרן סל בארה״ב, ולא יותר, ל-10 שנים ב-10% בשנה: ירושה או בונוס. קנייה אחת, ולכן מה שנגבה על ההחזקה חשוב ביותר.",
+                "₪200,000 בבת אחת לקרן סל בארה״ב, ולא יותר, ל-10 שנים ב-10% בשנה: למשל ירושה או בונוס. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק.",
             ),
             Scenario {
                 first_deposit: dec!(200_000),
@@ -91,7 +91,7 @@ pub fn all() -> Vec<Example> {
                 "₪100,000 to start, then ₪1,000 a month into bonds on Tel Aviv, for 5 years at \
                  4% a year: money that's needed before long, where a small fee is a large share \
                  of the interest.",
-                "₪100,000 להתחלה, ואז ₪1,000 בחודש לאג״ח בתל אביב, ל-5 שנים ב-4% בשנה: כסף שיידרש בקרוב, שבו עמלה קטנה היא חלק גדול מהריבית.",
+                "₪100,000 להתחלה, ואז ₪1,000 בחודש לאג״ח בתל אביב, ל-5 שנים ב-4% בשנה: כסף שתצטרכו בקרוב, שבו גם עמלה קטנה אוכלת חלק גדול מהריבית.",
             ),
             Scenario {
                 security: Security::Bond,

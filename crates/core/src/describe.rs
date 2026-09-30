@@ -114,7 +114,7 @@ impl Explained for Security {
                  US. You buy and sell it on the stock exchange like a share: at any moment of \
                  the trading day, at whatever price it's going for right then. Brokers charge \
                  it as they charge a share. Called תעודת\u{a0}סל until 2018.",
-                "סל של חברות רבות בנייר ערך אחד, למשל 500 הגדולות בארה״ב. קונים ומוכרים אותה בבורסה כמו מניה: בכל רגע ביום המסחר, במחיר שבו היא נסחרת באותו רגע. הבנקים ובתי ההשקעות מחייבים אותה כמו מניה. עד 2018 נקראה תעודת סל.",
+                "קרן שמחזיקה, בנייר ערך אחד, סל של חברות רבות, למשל 500 החברות הגדולות בארה״ב. קונים ומוכרים אותה בבורסה כמו מניה, בכל רגע של יום המסחר ובמחיר של אותו רגע, והעמלות עליה הן כמו על מניה. עד 2018 נקראה תעודת סל.",
             ),
             Security::IndexFund => lang.pick(
                 "The same kind of basket, but not traded on the exchange. You buy it from the \
@@ -124,13 +124,13 @@ impl Explained for Security {
                  share: on Altshuler's full tariff an ETF costs at least ₪3.5 a trade and an \
                  index fund at least ₪16, for the same S&P 500. Managed (active) and \
                  money-market funds aren't compared here.",
-                "אותו סוג של סל, אבל לא נסחרת בבורסה. קונים אותה מחברת הקרן דרך הבנק או בית ההשקעות, ומוכרים בחזרה באותה דרך, במחיר אחד ביום שנקבע אחרי סגירת המסחר; כל סכום מתאים, אפילו ₪100. הבנקים ובתי ההשקעות מחייבים אותה כקרן, וברובם זה מחיר שונה ממניה: בתעריפון המלא של אלטשולר קרן סל עולה לפחות ₪3.5 לעסקה וקרן מחקה לפחות ₪16, על אותו S&P 500. קרנות מנוהלות (אקטיביות) וקרנות כספיות לא מושוות כאן.",
+                "אותו סוג של סל, אבל היא לא נסחרת בבורסה: קונים אותה מחברת הקרן דרך הבנק או בית ההשקעות, ומוכרים לה אותה בחזרה באותה דרך, במחיר אחד ביום שנקבע אחרי סגירת המסחר. אפשר לקנות בכל סכום, אפילו ₪100. העמלות עליה הן של קרן ולא של מניה, וברוב המקומות הן שונות: בתעריפון המלא של אלטשולר, עסקה בקרן סל עולה לפחות ₪3.5 ועסקה בקרן מחקה לפחות ₪16, על אותו S&P 500. קרנות מנוהלות (אקטיביות) וקרנות כספיות לא מושוות כאן.",
             ),
             Security::Bond => lang.pick(
                 "A loan you give to a government or a company: it pays you interest, say 4% a \
                  year, and you can sell it on the exchange before it's repaid. Short-term \
                  government bills (מק״מ) are priced separately and aren't compared.",
-                "הלוואה שאתם נותנים לממשלה או לחברה: היא משלמת לכם ריבית, נניח 4% לשנה, ואפשר למכור אותה בבורסה לפני הפירעון. מק״מ מתומחר בנפרד ולא מושווה.",
+                "הלוואה שאתם נותנים לממשלה או לחברה: היא משלמת לכם ריבית, נניח 4% בשנה, ואפשר למכור את האג״ח בבורסה לפני שההלוואה נפרעת. מק״מ (מלווה קצר מועד של בנק ישראל) מתומחר בנפרד, ולא מושווה כאן.",
             ),
             Security::Stock => lang.pick(
                 "A share in one company, such as Teva or Apple.",
@@ -162,20 +162,20 @@ impl Explained for Exchange {
                 "The Tel Aviv Stock Exchange. Prices are in shekels, so nothing is converted. \
                  An S&P 500 ETF is sold here too, as a קרן\u{a0}סל: an Israeli one, or a \
                  foreign one listed here (קרן\u{a0}זרה).",
-                "הבורסה לניירות ערך בתל אביב. המחירים בשקלים, ולכן לא ממירים דבר. גם קרן סל על S&P 500 נמכרת כאן: ישראלית, או זרה שרשומה כאן למסחר.",
+                "הבורסה לניירות ערך בתל אביב. המחירים בשקלים, ולכן אין צורך בהמרה. גם קרנות סל על S&P 500 נסחרות כאן: ישראליות, וגם זרות שרשומות כאן למסחר.",
             ),
             Exchange::Usa => lang.pick(
                 "NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which \
                  some brokers charge for. The same S&P 500 ETF bought here, such as VOO, needs \
                  shekels turned into dollars, and back when you sell.",
-                "NYSE או נאסד״ק. המחירים בדולרים, ולכן השקלים שלכם מומרים, וחלק מהבנקים ובתי ההשקעות גובים על כך. אותה קרן סל על S&P 500 שנקנית כאן, כמו VOO, דורשת להפוך שקלים לדולרים, ובחזרה במכירה.",
+                "הבורסות NYSE ונאסד״ק. המחירים בדולרים, ולכן השקלים שלכם מומרים לדולרים בקנייה, ובחזרה לשקלים במכירה, ויש שגובים על כך עמלה. כאן נסחרות, למשל, קרנות סל על S&P 500 כמו VOO.",
             ),
             Exchange::Europe => lang.pick(
                 "A European exchange, such as Xetra or Euronext. Prices are in euros, so your \
                  shekels are converted, which some brokers charge for. An Irish-based S&P 500 \
                  ETF listed in Amsterdam, for example. London, where Irish ETFs such as CSPX \
                  trade in dollars, isn't priced here yet.",
-                "בורסה אירופית, כמו Xetra או Euronext. המחירים באירו, ולכן השקלים שלכם מומרים, וחלק מהבנקים ובתי ההשקעות גובים על כך. קרן סל אירית על S&P 500 שנסחרת באמסטרדם, למשל. לונדון, שבה קרנות איריות כמו CSPX נסחרות בדולרים, עדיין לא מתומחרת כאן.",
+                "בורסה אירופית, כמו Xetra או Euronext. המחירים באירו, ולכן השקלים שלכם מומרים לאירו, ויש שגובים על כך עמלה. כאן נסחרת, למשל, קרן סל אירית על S&P 500 באמסטרדם. בורסת לונדון, שבה קרנות איריות כמו CSPX נסחרות בדולרים, עדיין לא נכללת במחשבון.",
             ),
         }
     }
@@ -317,21 +317,21 @@ impl Explained for FeeKind {
                 "Charged on every purchase and sale, including selling everything at the end. \
                  Usually a share of the trade with a minimum: at 0.07% with a ₪3 minimum, a \
                  ₪2,000 purchase is charged the ₪3, since 0.07% of it is only ₪1.40.",
-                "נגבית על כל קנייה ומכירה, כולל מכירת הכול בסוף. בדרך כלל אחוז מהעסקה עם מינימום: ב-0.07% עם מינימום ₪3, קנייה של ₪2,000 מחויבת ב-₪3, כי 0.07% ממנה הם רק ₪1.40.",
+                "נגבית על כל קנייה ומכירה, כולל מכירת הכול בסוף. בדרך כלל זה אחוז מסכום העסקה, עם מינימום: בעמלה של 0.07% ומינימום ₪3, על קנייה של ₪2,000 משלמים ₪3, כי 0.07% ממנה הם רק ₪1.40.",
             ),
             FeeKind::Track => lang.pick(
                 "Some brokers let you choose, when you open the account, how trades abroad \
                  are priced: per share, per order or as a share of the trade. Altshuler, for \
                  example: 1¢ a share, $11 an order, or 0.15% of the trade. The app picks the \
                  cheapest for your inputs; ask for it when you open the account.",
-                "חלק מהבנקים ובתי ההשקעות נותנים לבחור, בפתיחת החשבון, איך מתומחרות עסקאות בחו״ל: למניה, לפקודה או כאחוז מהעסקה. אלטשולר, למשל: 1¢ למניה, $11 לפקודה, או 0.15% מהעסקה. האפליקציה בוחרת את הזולה ביותר לנתונים שלכם; בקשו אותה בפתיחת החשבון.",
+                "יש בנקים ובתי השקעות שנותנים לבחור, בפתיחת החשבון, איך לחייב עסקאות בחו״ל: לפי מספר המניות, סכום קבוע לכל פקודה, או אחוז מהעסקה. באלטשולר, למשל: 1¢ למניה, $11 לפקודה, או 0.15% מהעסקה. המחשבון בוחר את השיטה הזולה ביותר עבורכם; בקשו אותה כשאתם פותחים את החשבון.",
             ),
             FeeKind::StandingOrder => lang.pick(
                 "An instruction to buy the same amount every month, automatically. Some \
                  brokers charge less for these purchases: Leumi charges 0.225% instead of \
                  0.4% for an index fund bought this way. A one-time deposit and selling cost \
                  the usual fee.",
-                "הוראה לקנות את אותו סכום כל חודש, אוטומטית. חלק מהבנקים ובתי ההשקעות גובים פחות על קניות כאלה: לאומי גובה 0.225% במקום 0.4% על קרן מחקה שנקנית כך. הפקדה חד-פעמית ומכירה עולות את העמלה הרגילה.",
+                "הוראה לקנות אוטומטית את אותו סכום בכל חודש. יש שגובים על קניות כאלה פחות: לאומי, למשל, גובה 0.225% במקום 0.4% על קרן מחקה שנקנית כך. על הפקדה חד-פעמית ועל מכירה משלמים את העמלה הרגילה.",
             ),
             FeeKind::Account => lang.pick(
                 "What you pay for keeping the account, whether or not you trade. Some charge \
@@ -339,32 +339,32 @@ impl Explained for FeeKind {
                  ₪100,000 is ₪600, every year. Others charge a fixed amount: ₪15 a month is \
                  ₪180 a year, often free for the first years, and some take that month's \
                  trade fees off it. The full price lists charge both.",
-                "מה שאתם משלמים על ניהול החשבון, בין אם סוחרים ובין אם לא. חלק גובים אחוז משווי ההחזקות, שגדל עם החיסכון: 0.6% לשנה על ₪100,000 הם ₪600, כל שנה. אחרים גובים סכום קבוע: ₪15 לחודש הם ₪180 לשנה, לרוב חינם בשנים הראשונות, וחלק מקזזים ממנו את עמלות המסחר של אותו חודש. התעריפונים המלאים גובים את שניהם.",
+                "מה שמשלמים על עצם החזקת החשבון, גם בלי לקנות או למכור. יש שגובים דמי משמרת: אחוז משווי התיק, שגדל ככל שהחיסכון גדל (0.6% בשנה על תיק של ₪100,000 הם ₪600, בכל שנה). יש שגובים דמי טיפול: סכום קבוע, למשל ₪15 לחודש, שהם ₪180 בשנה. דמי הטיפול לרוב בחינם בשנים הראשונות, ויש שמקזזים מהם את עמלות המסחר של אותו חודש. בתעריפונים המלאים גובים את שניהם.",
             ),
             FeeKind::Conversion => lang.pick(
                 "Charged for converting your shekels to the security's currency, and back \
                  when you sell.",
-                "נגבית על המרת השקלים שלכם למטבע של נייר הערך, ובחזרה במכירה.",
+                "נגבית על המרת השקלים שלכם למטבע של נייר הערך, ועל ההמרה חזרה לשקלים במכירה.",
             ),
             FeeKind::SecondConversion => lang.pick(
                 "A second price for converting that you also get, such as a customer \
                  group's next to the online one. Discounts don't add up, so each conversion \
                  costs whichever is less.",
-                "מחיר שני להמרה שגם הוא מגיע לכם, כמו מחיר של קבוצת לקוחות לצד מחיר האונליין. הנחות לא מצטברות, ולכן כל המרה עולה לפי הנמוך מביניהם.",
+                "מחיר נוסף להמרה, שגם לו אתם זכאים, למשל מחיר של קבוצת לקוחות לצד מחיר האונליין. הנחות לא מצטברות, ולכן כל המרה עולה לפי הזול מבין השניים.",
             ),
             FeeKind::Markup => lang.pick(
                 "The Currency Conversion Markup: the broker converts at a rate worse than \
                  the market's by this much. It isn't listed as a fee, but it costs the same: \
                  at a market rate of ₪3.50 a dollar, a 0.7% markup means paying ₪3.52, which \
                  is ₪14 on ₪2,000.",
-                "מרווח ההמרה: הבנק או בית ההשקעות ממיר לפי שער גרוע משער השוק בשיעור הזה. הוא לא מופיע כעמלה, אבל עולה אותו הדבר: בשער שוק של ₪3.50 לדולר, מרווח של 0.7% פירושו לשלם ₪3.52, שהם ₪14 על ₪2,000.",
+                "הבנק או בית ההשקעות ממיר לפי שער גרוע משער השוק, בשיעור הזה. זה לא מופיע כעמלה, אבל עולה כסף בדיוק כמו עמלה: בשער שוק של ₪3.50 לדולר, מרווח של 0.7% פירושו שמשלמים ₪3.52 לדולר, כלומר ₪14 על כל ₪2,000.",
             ),
             FeeKind::Management => lang.pick(
                 "What the company running a fund or a policy takes for investing your money: \
                  a share of everything that has built up, every year. It comes out of the \
                  balance a little each month, so there's never a bill: 0.6% a year on \
                  ₪100,000 is ₪600 that year, and more as the savings grow.",
-                "מה שהחברה שמנהלת קופה או פוליסה גובה על השקעת הכסף שלכם: אחוז מכל מה שנצבר, כל שנה. הם יורדים מהיתרה מעט בכל חודש, כך שאף פעם אין חשבון לתשלום: 0.6% בשנה על ₪100,000 הם ₪600 באותה שנה, ויותר ככל שהחיסכון גדל.",
+                "מה שהחברה שמנהלת את הקופה או הפוליסה גובה על השקעת הכסף: אחוז מכל מה שנצבר, בכל שנה. הסכום יורד מהחיסכון מעט בכל חודש, כך שלא מקבלים חשבון: 0.6% בשנה על ₪100,000 הם ₪600 באותה שנה, ויותר ככל שהחיסכון גדל.",
             ),
             FeeKind::DepositFee => lang.pick(
                 "A share of every deposit, taken before it's invested: at 4%, ₪1,920 of a \
@@ -422,8 +422,10 @@ impl From<&Basis> for CaveatKind {
 impl Named for CaveatKind {
     fn name(self, lang: Lang) -> &'static str {
         match self {
-            CaveatKind::MayCostMore => lang.pick("Assumed, may cost more", "הנחה, עשוי לעלות יותר"),
-            CaveatKind::AtMost => lang.pick("Assumed, at most", "הנחה, לכל היותר"),
+            CaveatKind::MayCostMore => {
+                lang.pick("Assumed, may cost more", "הערכה, עשוי לעלות יותר")
+            }
+            CaveatKind::AtMost => lang.pick("Assumed, at most", "הערכה, לכל היותר"),
             CaveatKind::Reading => lang.pick("Our reading", "הפרשנות שלנו"),
             CaveatKind::NotCounted => lang.pick("Not counted", "לא נכלל"),
             CaveatKind::Published => lang.pick("As published", "כפי שפורסם"),
@@ -439,32 +441,32 @@ impl Explained for CaveatKind {
                  cheap side: the plan may cost more than shown. A bank that doesn't publish \
                  its conversion markup, for example, is counted as converting at the market \
                  rate. If you know the real number, change these fees with ✎.",
-                "אין פרסום להסתמך עליו, ולכן נעשה שימוש בערך חלופי שטועה לצד הזול: המסלול עשוי לעלות יותר מהמוצג. בנק שלא מפרסם את מרווח ההמרה שלו, למשל, נספר כממיר לפי שער השוק. אם אתם יודעים את המספר האמיתי, שנו את העמלות עם ✎.",
+                "המחיר לא פורסם, ולכן המחשבון משתמש בהערכה זולה: המסלול עשוי לעלות יותר ממה שמוצג. למשל, בנק שלא מפרסם את מרווח ההמרה שלו נספר כאילו הוא ממיר לפי שער השוק. אם אתם יודעים את המספר האמיתי, שנו את העמלות עם ✎.",
             ),
             CaveatKind::AtMost => lang.pick(
                 "Nothing is published to go on, so the tariff's full price or maximum is \
                  used: the plan can only be cheaper than shown. An offer that doesn't \
                  mention bonds, for example, gets the full tariff's bond price. Ask the \
                  broker what it really charges.",
-                "אין פרסום להסתמך עליו, ולכן נעשה שימוש במחיר המלא או במקסימום שבתעריפון: המסלול יכול רק להיות זול יותר מהמוצג. מבצע שלא מזכיר אג״ח, למשל, מקבל את מחיר האג״ח של התעריפון המלא. שאלו את הבנק או בית ההשקעות מה הוא גובה באמת.",
+                "המחיר לא פורסם, ולכן המחשבון משתמש במחיר המלא או במקסימום שבתעריפון: המסלול יכול רק לצאת זול יותר ממה שמוצג. למשל, מבצע הצטרפות שלא מזכיר אג״ח מקבל את מחיר האג״ח שבתעריפון המלא. שאלו את הבנק או בית ההשקעות כמה הוא גובה באמת.",
             ),
             CaveatKind::Reading => lang.pick(
                 "The tariff is unclear or silent here. This is how it was read, and what \
                  supports the reading: a custody rate with no period stated was read as \
                  yearly, for example, because the exchange's data on what customers pay \
                  says so.",
-                "התעריפון לא ברור או שותק כאן. כך הוא פורש, וזה מה שתומך בפרשנות: שיעור דמי משמרת ללא תקופה, למשל, פורש כשנתי, כי נתוני הבורסה על מה שהלקוחות משלמים אומרים כך.",
+                "התעריפון לא ברור כאן, או לא מתייחס למקרה. כך הבנו אותו, ועל סמך מה: למשל, שיעור דמי משמרת שלא נאמר לאיזו תקופה הוא הובן כשנתי, כי נתוני הבורסה על מה שהלקוחות משלמים בפועל מראים זאת.",
             ),
             CaveatKind::NotCounted => lang.pick(
                 "A real cost the app leaves out, and why: too small or too rare to change a \
                  long-term comparison, or a one-off, such as a ₪200 gift for opening the \
                  account.",
-                "עלות אמיתית שהאפליקציה משאירה בחוץ, ולמה: קטנה או נדירה מכדי לשנות השוואה לטווח ארוך, או חד-פעמית, כמו מתנת ₪200 על פתיחת חשבון.",
+                "עלות אמיתית שהמחשבון לא סופר, והסיבה: היא קטנה או נדירה מכדי לשנות השוואה לטווח ארוך, או חד-פעמית, כמו מתנה של ₪200 על פתיחת חשבון.",
             ),
             CaveatKind::Published => lang.pick(
                 "What the tariff or the broker's site says. Nothing is uncertain; it's worth \
                  knowing before you choose.",
-                "מה שהתעריפון או אתר הבנק או בית ההשקעות אומרים. שום דבר לא בספק; כדאי לדעת לפני שבוחרים.",
+                "כך כתוב בתעריפון או באתר של הבנק או בית ההשקעות. אין כאן ספק, אבל כדאי לדעת לפני שבוחרים.",
             ),
         }
     }
@@ -708,7 +710,7 @@ impl Plan {
         let (securities, place) = (plural(security, lang), place(exchange, lang));
         match (anything_there, anywhere, lang) {
             (false, _, Lang::En) => format!("Nothing {place} is offered"),
-            (false, _, Lang::He) => format!("דבר לא מוצע {place}"),
+            (false, _, Lang::He) => format!("שום דבר לא מוצע {place}"),
             (true, false, Lang::En) => format!("No {securities} are offered anywhere"),
             (true, false, Lang::He) => format!("{securities} לא מוצעות בשום בורסה"),
             (true, true, Lang::En) => format!("No {securities} are offered {place}"),
@@ -760,7 +762,7 @@ impl Plan {
                 year + 1
             ),
             (_, Lang::He) => format!(
-                "אי אפשר להפקיד יותר מ-{ceiling} בשנה ה-{} (התקרה, מעודכנת לפי המדד), וההפקדות שלכם מגיעות ל-{deposits}",
+                "אי אפשר להפקיד יותר מ-{ceiling} בשנה ה-{} (התקרה, מעודכנת לפי האינפלציה), וההפקדות שלכם מגיעות ל-{deposits}",
                 year + 1
             ),
         }
@@ -995,7 +997,7 @@ impl Plan {
             || {
                 lang.pick(
                     "A standing order buys every month, so it isn't used here",
-                    "הוראת קבע קונה כל חודש, ולכן היא לא בשימוש כאן",
+                    "הוראת קבע קונה כל חודש, ולכן היא לא רלוונטית כאן",
                 )
             },
         )
@@ -1122,7 +1124,7 @@ impl Broker {
         let name = &self.name[lang];
         let rest = lang.pick(
             "The usual plans are compared at first; tick others to add them.",
-            "המסלולים הרגילים מושווים בהתחלה; סמנו אחרים כדי להוסיף אותם.",
+            "בהתחלה מושווים המסלולים הרגילים; סמנו אחרים כדי להוסיף אותם.",
         );
         match (self.kind, self.plans.len(), lang) {
             (BrokerKind::Funds, _, Lang::En) => format!(
@@ -1755,7 +1757,7 @@ pub fn about(lang: Lang) -> About {
                  is sold and converted back and the tax on the gain is paid, and what's left \
                  is what the table ranks by; or, if you choose to keep holding, the table \
                  ranks by what's held, and nothing is paid for selling or in tax.",
-                "כל מסלול מורץ חודש אחר חודש על ההפקדות שלכם. הכסף מגיע בתחילת החודש ומחכה כשקלים עד הקנייה הבאה, שממירה אותו (בחו״ל) וקונה בו, מניות שלמות בלבד במקום שבו הבנק או בית ההשקעות לא מוכר שברים. מה שניהול החשבון עולה, אחוז מההחזקות או סכום קבוע, משולם כל חודש מהשקלים. בסוף הכול נמכר ומומר בחזרה והמס על הרווח משולם, ומה שנשאר הוא מה שלפיו הטבלה מדרגת; או, אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי ההחזקות, ולא משולם דבר על מכירה או כמס.",
+                "המחשבון מחשב כל מסלול חודש אחר חודש, על ההפקדות שלכם. כל הפקדה מגיעה בתחילת החודש ומחכה בשקלים עד הקנייה הבאה. בקנייה הכסף מומר (אם קונים בחו״ל) ומושקע; אם הבנק או בית ההשקעות לא מוכר שברי מניה, נקנות רק מניות שלמות. דמי ניהול החשבון (אחוז מהתיק או סכום קבוע) משולמים כל חודש מהשקלים. בסוף הכול נמכר, מומר חזרה לשקלים, ומשולם מס על הרווח; הסכום שנשאר קובע את הדירוג בטבלה. אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי התיק, בלי עמלת מכירה ובלי מס.",
             ),
             paragraph(
                 "A provident fund for investment or a savings policy is run the same way, \
@@ -1763,7 +1765,7 @@ pub fn about(lang: Lang) -> About {
                  the balance every month, every deposit is invested as it arrives, and \
                  nothing is paid for trades or for converting. It's taken to earn what your \
                  security does, before fees.",
-                "קופת גמל להשקעה או פוליסת חיסכון מורצות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: דמי הניהול שלה יורדים מכל הפקדה ומהצבירה בכל חודש, כל הפקדה מושקעת מיד כשהיא מגיעה, ולא משולם דבר על קנייה, מכירה או המרה. ההנחה היא שהיא מרוויחה, לפני דמי ניהול, מה שנייר הערך שלכם מרוויח.",
+                "קופות ופוליסות מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. המחשבון מניח שהקופה מרוויחה, לפני דמי ניהול, בדיוק מה שנייר הערך שבחרתם מרוויח.",
             ),
             match lang {
                 Lang::En => format!(
@@ -1779,7 +1781,7 @@ pub fn about(lang: Lang) -> About {
                      measured before tax, and the tax is each plan's own."
                 ),
                 Lang::He => format!(
-                    "המס הוא רבע מהרווח הריאלי: מה שהמכירה מכניסה, פחות מה שההחזקות עלו, כשהעלות מוגדלת בשיעור עליית המחירים מאז כל קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת תחת ״אפשרויות נוספות״). מה ששולם כדי לקנות נחשב עלות, כולל העמלות; ממה ששולם על ניהול החשבון יורד רק מה ששולם בשנה האחרונה, כי החוק מתיר אותו רק בשנה שבה יש מכירה. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 לא משלמת מס על הרווח, וקרן השתלמות לא משלמת מס על הרווחים של מה שהופקד עד התקרה השנתית הפטורה. מה שאבד לעמלות נמדד לפני מס, והמס הוא של כל מסלול בעצמו."
+                    "המס הוא מס רווחי הון: 25% מהרווח. את מה ששילמתם בכל קנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז אותה קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה. עמלות הקנייה נחשבות חלק ממחיר הקנייה. מדמי ניהול החשבון מוכר רק מה ששולם בשנה האחרונה, כי החוק מתיר לקזז אותם רק בשנה שבה מוכרים. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 פטורה ממס על הרווח, ובקרן השתלמות פטורים הרווחים על מה שהופקד עד התקרה השנתית. מה שאבד לעמלות נמדד לפני מס; המס מחושב לכל מסלול בנפרד."
                 ),
             },
             paragraph(
@@ -1787,7 +1789,7 @@ pub fn about(lang: Lang) -> About {
                  stay as they are, and money waiting for a purchase earns nothing. A plan with \
                  several price tracks costs what its cheapest does for your inputs, and the \
                  track is named.",
-                "התשואה היא של נייר הערך עצמו, במטבע שלו; שערי החליפין של היום נשארים כפי שהם, וכסף שמחכה לקנייה לא מרוויח דבר. מסלול עם כמה שיטות חיוב עולה כמו הזולה שבהן לנתונים שלכם, ושיטת החיוב מצוינת בשמה.",
+                "התשואה היא של נייר הערך עצמו, במטבע שלו. המחשבון מניח ששערי החליפין נשארים כמו היום, וכסף שמחכה לקנייה לא מרוויח דבר. במסלול עם כמה שיטות חיוב, המחשבון בוחר את הזולה ביותר עבורכם ומציין אותה בשם המסלול.",
             ),
             paragraph(
                 "What's lost to fees is measured against the same deposits with no fees at all, \
@@ -1798,14 +1800,14 @@ pub fn about(lang: Lang) -> About {
                  deposits than yours, from ₪100 to ₪32,000 a month, to show where the ranking \
                  flips: a plan with minimum fees is dear for small deposits and cheap for large \
                  ones.",
-                "מה שאבד לעמלות נמדד מול אותן הפקדות ללא עמלות כלל, בקנייה כל חודש. העלות השנתית של מסלול מציגה את ההפסד הזה כפי שדמי ניהול של קרן מוצגים: החיוב השנתי על ההחזקות שלכם שהיה עולה לכם אותו הדבר. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף ממתין, וגם זה נספר. הגרף לפי הפקדה מריץ כל מסלול על הפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש, כדי להראות היכן הדירוג מתהפך: מסלול עם עמלות מינימום יקר להפקדות קטנות וזול לגדולות.",
+                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״ מחשב כל מסלול גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש, כדי להראות איפה מתחלף המסלול הזול: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
                  does, the inflation can be changed, and every amount can be shown in today's \
                  shekels: each is divided by how much prices will have risen by then. Showing \
                  them so changes no ranking, only how the numbers read.",
-                "תחת ״אפשרויות נוספות״ ההפקדות יכולות לגדול כל שנה כמו משכורת, אפשר לשנות את האינפלציה, ואפשר להציג כל סכום בשקלים של היום: כל אחד מחולק בכמה שהמחירים יעלו עד אז. הצגה כזאת לא משנה שום דירוג, רק איך המספרים נקראים.",
+                "ב״אפשרויות נוספות״ אפשר לתת להפקדות לגדול כל שנה, כמו משכורת, לשנות את האינפלציה, ולהציג כל סכום בשקלים של היום, כלומר מתורגם לערך הכסף היום לפי האינפלציה. הצגה כזאת לא משנה אף דירוג, רק את אופן ההצגה של הסכומים.",
             ),
             paragraph(
                 "Banks publish what they charge. Investment houses publish only a full tariff, \
@@ -1815,7 +1817,7 @@ pub fn about(lang: Lang) -> About {
                  never shown cheaper than its documents allow. A fund's fee is agreed person \
                  by person, so the app shows what savers pay on average, from the funds' \
                  reports to the Capital Market Authority.",
-                "בנקים מפרסמים מה הם גובים. בתי השקעות מפרסמים רק תעריפון מלא, המקסימום שמותר להם לגבות, ומציעים ללקוחות חדשים הרבה פחות בטלפון. מסלול ״מבצע הצטרפות״ שלהם הוא מה שאתרי ההשוואה מציגים למצטרפים, ובכל מקום שבו המבצע שותק נעשה שימוש במחיר התעריפון המלא: מסלול לעולם לא מוצג זול יותר ממה שהמסמכים שלו מאפשרים. דמי הניהול של קופה נקבעים לכל חוסך בנפרד, ולכן האפליקציה מציגה מה שחוסכים משלמים בממוצע, לפי דיווחי הקופות לרשות שוק ההון.",
+                "בנקים מפרסמים כמה הם גובים. בתי השקעות מפרסמים רק תעריפון מלא, כלומר המקסימום שמותר להם לגבות, ובפועל מציעים ללקוחות חדשים בטלפון הרבה פחות. המסלול ״מבצע הצטרפות״ שלהם הוא מה שאתרי ההשוואה מציגים למצטרפים, ובכל מה שהמבצע לא מזכיר נלקח מחיר התעריפון המלא: מסלול אף פעם לא מוצג זול יותר ממה שהמסמכים שלו מראים. דמי הניהול של קופה נקבעים לכל חוסך בנפרד, ולכן המחשבון מציג מה שחוסכים משלמים בממוצע, לפי מה שהקופות מדווחות לרשות שוק ההון.",
             ),
             paragraph(
                 "Every plan's details say how sure each number is. As published: the tariff or \
@@ -1824,7 +1826,7 @@ pub fn about(lang: Lang) -> About {
                  most (the full price, so the plan can only be cheaper) or may cost more (the \
                  cheap side, which the comparison flags). Not counted: a real cost left out, and \
                  why.",
-                "פרטי כל מסלול אומרים עד כמה כל מספר בטוח. כפי שפורסם: התעריפון או אתר הבנק או בית ההשקעות אומרים כך. הפרשנות שלנו: התעריפון לא ברור או שותק, וכך הוא פורש, עם מה שתומך בכך. הנחה: ערך חלופי, לכל היותר (המחיר המלא, כך שהמסלול יכול רק להיות זול יותר) או עשוי לעלות יותר (הצד הזול, שההשוואה מסמנת). לא נכלל: עלות אמיתית שנשארה בחוץ, ולמה.",
+                "בפרטי כל מסלול מצוין עד כמה כל מספר בטוח. ״כפי שפורסם״: כך כתוב בתעריפון או באתר הבנק או בית ההשקעות. ״הפרשנות שלנו״: התעריפון לא ברור או לא מתייחס למקרה, וכך הבנו אותו, ועל סמך מה. ״הערכה״: המחיר לא פורסם, והמחשבון מעריך אותו: ״לכל היותר״ (המחיר המלא, כך שהמסלול יכול רק לצאת זול יותר) או ״עשוי לעלות יותר״ (הערכה זולה, שההשוואה מסמנת). ״לא נכלל״: עלות אמיתית שלא נספרה, והסיבה.",
             ),
         ],
         items: vec![],
@@ -1835,7 +1837,7 @@ pub fn about(lang: Lang) -> About {
         paragraphs: vec![paragraph(
             "Costs every broker has that the app leaves out, and why. Each plan's own gaps \
              are in its details, under \u{201c}Not counted\u{201d}.",
-            "עלויות שיש לכל בנק ובית השקעות ושהאפליקציה משאירה בחוץ, ולמה. הפערים של כל מסלול בפני עצמו נמצאים בפרטיו, תחת ״לא נכלל״.",
+            "עלויות שקיימות בכל הבנקים ובתי ההשקעות, והמחשבון לא סופר אותן, והסיבה. מה שחסר רק במסלול מסוים מופיע בפרטים שלו, תחת ״לא נכלל״.",
         )],
         sources: vec![],
         items: vec![
@@ -1844,7 +1846,7 @@ pub fn about(lang: Lang) -> About {
                 "Tax on dividends along the way: a quarter of each payment at a broker, for \
                  a security that pays them out, and less inside a fund or an ETF that keeps \
                  them. The return is taken as total return, so it isn't counted.",
-                "מס על דיבידנדים לאורך הדרך: רבע מכל תשלום בחשבון מסחר, בנייר ערך שמחלק אותם, ופחות בתוך קופה או קרן סל שצוברת אותם. התשואה נלקחת כתשואה כוללת, ולכן הוא לא נספר.",
+                "מס על דיבידנדים במהלך השנים: 25% מכל דיבידנד בחשבון מסחר, כשנייר הערך מחלק דיבידנדים, ופחות בתוך קופה או בקרן סל שצוברת אותם. המחשבון מניח תשואה כוללת (כולל הדיבידנדים), ולכן המס הזה לא נספר.",
             ),
             item(
                 lang,
@@ -1853,7 +1855,7 @@ pub fn about(lang: Lang) -> About {
                  security in foreign currency is measured against the exchange rate, not \
                  against prices; and a gain that takes a year's income past ₪721,560 pays a \
                  surtax on the part above.",
-                "כללים אחרים של המס על הרווח: אג״ח שקלית לא צמודה משלמת 15% מכל הרווח, ולא רבע מהרווח הריאלי; נייר ערך במטבע חוץ נמדד מול שער החליפין, ולא מול המדד; ורווח שמעלה את ההכנסה השנתית מעל ₪721,560 משלם מס יסף על החלק שמעבר.",
+                "כללי מס אחרים על הרווח: באג״ח שקלית לא צמודה המס הוא 15% מכל הרווח, ולא 25% מהרווח שמעבר לאינפלציה; בנייר ערך במטבע חוץ הרווח נמדד לפי שער החליפין, ולא לפי האינפלציה; ומי שהכנסתו השנתית, כולל הרווח, עוברת ₪721,560 משלם מס יסף על החלק שמעבר.",
             ),
             item(
                 lang,
@@ -1862,7 +1864,7 @@ pub fn about(lang: Lang) -> About {
                  the money comes out as a pension taxed by your income; the app knows \
                  neither. Large sums deposited near the age of 60 go by other rules \
                  (תיקון\u{a0}190), which aren't counted either.",
-                "קופת גמל לחיסכון: מוצר פנסיוני. היא שווה מה שהטבות המס על ההפקדות שוות לכם, והכסף יוצא ממנה כקצבה שממוסה לפי ההכנסה שלכם; האפליקציה לא יודעת אף אחד מהם. סכומים גדולים שמופקדים לקראת גיל 60 כפופים לכללים אחרים (תיקון 190), שגם הם לא נספרים.",
+                "קופת גמל לחיסכון: מוצר פנסיוני. הכדאיות שלה תלויה בהטבות המס שתקבלו על ההפקדות, והכסף יוצא ממנה כקצבה שממוסה לפי ההכנסה שלכם; את שני אלה המחשבון לא יכול לדעת. לסכומים גדולים שמופקדים לקראת גיל 60 יש כללים אחרים (תיקון 190), שגם הם לא נספרים.",
             ),
             item(
                 lang,
@@ -1870,36 +1872,36 @@ pub fn about(lang: Lang) -> About {
                  0.3% of the payment): the return is taken as total return, dividends \
                  reinvested, and 0.3% of a dividend is a few thousandths of a percent a \
                  year.",
-                "דיבידנדים, והעמלות שחלק מהברוקרים גובים עליהם (אלטשולר ומיטב 0.3% מהתשלום): התשואה נלקחת כתשואה כוללת, עם דיבידנדים שמושקעים מחדש, ו-0.3% מדיבידנד הם כמה אלפיות האחוז לשנה.",
+                "דיבידנדים, והעמלה שיש שגובים עליהם (באלטשולר ובמיטב 0.3% מהדיבידנד): המחשבון מניח תשואה כוללת, עם דיבידנדים שמושקעים מחדש, ו-0.3% מדיבידנד הם אלפיות אחוז בשנה.",
             ),
             item(
                 lang,
                 "Third-party fees on US trades (SEC, FINRA, exchange fees): fractions of a \
                  cent a share, passed on by every broker alike.",
-                "עמלות צד שלישי על עסקאות בארה״ב (SEC, FINRA, עמלות בורסה): שברירי סנט למניה, שכל ברוקר מגלגל באותה מידה.",
+                "עמלות של צד שלישי על עסקאות בארה״ב (SEC, FINRA, עמלות הבורסה): שברירי סנט למניה, שכל הבנקים ובתי ההשקעות מגלגלים על הלקוח באותה מידה.",
             ),
             item(
                 lang,
                 "Real-time quotes and advanced trading systems: optional extras.",
-                "ציטוטים בזמן אמת ומערכות מסחר מתקדמות: תוספות לא חובה.",
+                "שערים בזמן אמת ומערכות מסחר מתקדמות: תוספות בתשלום, לא חובה.",
             ),
             item(
                 lang,
                 "Joining gifts and refunds (₪100–₪300, or a refund of early commissions): \
                  one-off, and named in each plan's details.",
-                "מתנות הצטרפות והחזרים (₪100–₪300, או החזר עמלות ראשונות): חד-פעמיים, ומצוינים בפרטי כל מסלול.",
+                "מתנות הצטרפות והחזרים (₪100–₪300, או החזר של העמלות הראשונות): חד-פעמיים, ומצוינים בפרטי כל מסלול.",
             ),
             item(
                 lang,
                 "Interest on credit or on idle cash: the app keeps no debt, and money \
                  waiting for a purchase earns nothing.",
-                "ריבית על אשראי או על מזומן שוכב: האפליקציה לא מחזיקה חוב, וכסף שמחכה לקנייה לא מרוויח דבר.",
+                "ריבית על אשראי או על מזומן בחשבון: המחשבון לא לוקח הלוואות, וכסף שמחכה לקנייה לא מרוויח דבר.",
             ),
             item(
                 lang,
                 "Moving securities to another broker (₪20–₪35 a security, $10–$40 abroad) \
                  and cancelled orders: once, if ever.",
-                "העברת ניירות ערך לבנק או בית השקעות אחר (₪20–₪35 לנייר, $10–$40 בחו״ל) ופקודות שבוטלו: פעם אחת, אם בכלל.",
+                "העברת ניירות ערך לבנק או לבית השקעות אחר (₪20–₪35 לכל נייר ערך, $10–$40 בחו״ל) ופקודות שבוטלו: פעם אחת, אם בכלל.",
             ),
         ],
     };
@@ -1954,7 +1956,7 @@ pub fn about(lang: Lang) -> About {
                 Broker::checked_text(lang)
             ),
             Lang::He => format!(
-                "{} מול מסמך התעריפון והאתר של כל בנק ובית השקעות. תעריפונים משתנים כמה פעמים בשנה: פרטי כל מסלול מקשרים למסמך שלו, וכל הסתייגות לעמוד שהיא נשענת עליו.",
+                "{} מול התעריפון והאתר של כל בנק ובית השקעות. תעריפונים משתנים כמה פעמים בשנה: בפרטי כל מסלול יש קישור לתעריפון שלו, ובכל הסתייגות קישור לעמוד שעליו היא מבוססת.",
                 Broker::checked_text(lang)
             ),
         }],

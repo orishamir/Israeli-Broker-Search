@@ -133,7 +133,7 @@ impl InvalidScenario {
             ),
             InvalidScenario::TooLarge => lang.pick(
                 "the deposits would grow too large to calculate",
-                "ההפקדות יגדלו יותר מדי בשביל החישוב",
+                "ההפקדות גדלות מהר מדי בשביל החישוב",
             ),
         }
     }

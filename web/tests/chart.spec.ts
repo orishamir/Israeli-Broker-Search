@@ -154,7 +154,7 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
   const { plans } = compare(await inputsOnPage(page))
   expect(plans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))?.outcome).toBeDefined()
   await rowOfKey(page, key)
-    .getByRole('button', { name: /לאן הן הלכו$/ })
+    .getByRole('button', { name: /ועל מה שולמו$/ })
     .click()
   await expect(page.getByRole('radio', { name: t.breakdownView })).toBeChecked()
   await expect(page.locator('h4', { hasText: t.yearByYear })).toContainText(label)
