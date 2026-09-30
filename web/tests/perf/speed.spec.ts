@@ -264,6 +264,20 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         ),
     },
     {
+      // Only the chosen calculator is on the page: its whole column and
+      // results are made again, the short term's charts included.
+      label: 'switching calculators (ms)',
+      budget: budgets.view,
+      measure: () =>
+        typical(
+          page,
+          thereAndBack(
+            () => page.getByText(t.shortTerm, { exact: true }).click(),
+            () => page.getByText(t.longTerm, { exact: true }).click(),
+          ),
+        ),
+    },
+    {
       label: 'opening the list of plans (ms)',
       budget: budgets.dialog,
       measure: () => typical(page, thereAndBack(openList, closeList)),

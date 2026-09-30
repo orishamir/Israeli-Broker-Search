@@ -8,6 +8,7 @@
   import FeesForInputs from './FeesForInputs.svelte'
   import Price from './Price.svelte'
   import PlanEditor from './PlanEditor.svelte'
+  import { percent } from './format'
   import { t } from './text'
 
   let { app }: { app: AppState } = $props()
@@ -25,7 +26,9 @@
         ? details.plan.id
         : details.kind === 'broker'
           ? details.broker.name
-          : 'about'
+          : details.kind === 'place'
+            ? details.place.id
+            : 'about'
 
   $effect(() => {
     if (app.details) {
@@ -90,7 +93,7 @@
         <h2 id="details-title">{t.aboutTheNumbers}</h2>
         <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
       </header>
-      {#each app.about.sections as section, index (section.title)}
+      {#each app.aboutShown.sections as section, index (section.title)}
         <section class="about" id="about-{index}">
           <h3>{section.title}</h3>
           {#each section.paragraphs as paragraph (paragraph)}
@@ -119,6 +122,62 @@
         </section>
       {/each}
     </div>
+  {:else if shown?.kind === 'place'}
+    {@const place = shown.place}
+    {@const kind = app.short.kinds.find(({ name }) => name === place.kindName)}
+    {#key place.id}
+      <div class="content">
+        <header>
+          <h2 id="details-title">
+            <span class="mark" style:background={place.color}></span>{place.info.name}
+          </h2>
+          <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
+        </header>
+        <p class="source">
+          <bdi>{place.kindName}</bdi>
+          {#if kind && !place.yours}
+            · <bdi>{kind.dataOf}</bdi> · <bdi>{kind.checked}</bdi> ·
+            <a href={kind.source.url} target="_blank" rel="noreferrer">{kind.source.name} ↗</a>
+          {/if}
+        </p>
+        <p>{place.info.description}</p>
+        <section class="fees">
+          <h4>{t.whatItPays}</h4>
+          {#if place.yours}
+            <p>{t.yourRateIs(place.yours.ratePercent === null ? '?' : percent(place.yours.ratePercent))}</p>
+          {:else if place.info.pays}
+            <p>{place.info.pays}</p>
+          {:else}
+            <p class="caption">{t.ratesByTerm}</p>
+            <table>
+              <tbody>
+                {#each place.info.rates as { term, rate }, index (term)}
+                  <!-- The term the months fall in, as the table uses it. -->
+                  <tr class:chosen={index === app.short.term}>
+                    <td>{term}</td>
+                    <td>{rate === null || rate === undefined ? t.notPublished : percent(rate)}</td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          {/if}
+          <p><strong>{t.taxRule}:</strong> {place.info.tax}</p>
+          <p><strong>{t.whenOut}:</strong> {place.info.liquidityName}</p>
+        </section>
+        {#if place.info.caveats.length > 0}
+          <h3>{t.caveats}</h3>
+          <CaveatGroups groups={place.info.caveats} />
+        {/if}
+        {#if place.info.sources.length > 0}
+          <p class="sources-line"><Sources sources={place.info.sources} /></p>
+        {/if}
+        <p class="about-link">
+          <button class="link" onclick={() => (app.details = { kind: 'about' })}
+            >{t.howTheNumbersAreMade}</button
+          >
+        </p>
+      </div>
+    {/key}
   {:else if shown && broker}
     <!-- Each plan or broker starts afresh, its prices folded. -->
     {#key shown.kind === 'plan' ? shown.plan.id : broker.name}
@@ -414,6 +473,16 @@
     border-radius: 10px;
     background: var(--raised);
   }
+  .fees h4 {
+    margin-top: 0;
+  }
+  .fees p {
+    margin: 6px 0 0;
+  }
+  .caption {
+    color: var(--weak);
+    font-size: 0.85rem;
+  }
   .change {
     margin: 10px 0 0;
   }
@@ -509,5 +578,13 @@
   .plan-description {
     color: var(--weak);
     font-size: 0.9rem;
+  }
+  /* A place's rates sit on the raised box: the chosen term stands out instead. */
+  .fees tr:nth-child(odd) {
+    background: none;
+  }
+  .fees tr.chosen {
+    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    font-weight: 600;
   }
 </style>

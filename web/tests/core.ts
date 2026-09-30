@@ -14,14 +14,24 @@ import {
   around,
   brokers,
   compare,
+  compareShortTerm,
   exchanges,
   initSync,
   securities,
   setLang,
+  shortTermKinds,
   sweep,
   usualInflationPercent,
 } from '../src/lib/core/core'
-import type { Exchange, Inputs, PlanKey, Security, Swept } from '../src/lib/core/core'
+import type {
+  Exchange,
+  Inputs,
+  PlaceKey,
+  PlanKey,
+  Security,
+  ShortTermInputs,
+  Swept,
+} from '../src/lib/core/core'
 
 /** The key of a listed plan: where its broker is, and where it is in the broker's plans. */
 export type ListedKey = Extract<PlanKey, { kind: 'listed' }>
@@ -214,4 +224,102 @@ export function expectedAroundLine(inputs: Inputs): string | undefined {
   const labelOf = (key: PlanKey) =>
     listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.label
   return found && aroundWords(found, swept, labelOf)
+}
+
+// ─────────────────────────── The short term ───────────────────────────
+
+/** The key of a listed place: where its kind is, and where it is in the kind's places. */
+export type ListedPlaceKey = Extract<PlaceKey, { kind: 'listed' }>
+
+/** Every listed place, with its kind and its key. */
+export const shortTermPlaces = shortTermKinds().flatMap((kind, group) =>
+  kind.places.map((place, index) => ({
+    kind,
+    place,
+    key: { kind: 'listed', group, place: index } as ListedPlaceKey,
+    /** As tests name it, and links: "Fixed-rate deposit · Bank Leumi". */
+    englishLabel: `${kind.englishName} · ${place.englishName}`,
+  })),
+)
+
+/** The place called `englishLabel` ("Fixed-rate deposit · Bank Leumi"). */
+export function place(englishLabel: string) {
+  const found = shortTermPlaces.find((listed) => listed.englishLabel === englishLabel)
+  if (!found) throw new Error(`no listed place "${englishLabel}"`)
+  return found
+}
+
+/** What the short-term calculator's inputs say, read back from its fields
+ * and from the ticks in its list of places (closed most of the time). */
+export async function shortTermInputsOnPage(page: Page): Promise<ShortTermInputs> {
+  const number = async (id: string) => {
+    const field = page.locator(`#${id}`)
+    return (await field.count()) ? parseNumber(await field.inputValue()) : null
+  }
+  const places: PlaceKey[] = []
+  for (const { kind, place, key } of shortTermPlaces) {
+    const box = page
+      .getByRole('list', { name: kind.name, includeHidden: true })
+      .getByRole('checkbox', { name: place.name, exact: true, includeHidden: true })
+    if (await box.isChecked()) places.push(key)
+  }
+  // Your deposits: each rate field's id holds the deposit's.
+  const yourDeposits = []
+  const rates = page.locator('[id^="deposit-rate-"]')
+  for (const field of await rates.all()) {
+    const id = (await field.getAttribute('id'))!.replace('deposit-rate-', '')
+    yourDeposits.push({ id, ratePercent: parseNumber(await field.inputValue()) })
+    const box = page.locator('li.yours', { has: field }).getByRole('checkbox', { includeHidden: true })
+    if (await box.isChecked()) places.push({ kind: 'yours', id })
+  }
+  const moreOptions = await page.getByLabel(t.moreOptions, { exact: true }).isChecked()
+  return {
+    firstDeposit: await number('first-deposit'),
+    monthlyDeposit: await number('monthly-deposit'),
+    months: Number(await page.locator('#months').inputValue()),
+    ratePercent: await number('rate'),
+    inflationPercent: moreOptions ? await number('inflation') : usualInflationPercent(),
+    places,
+    yourDeposits,
+  }
+}
+
+/** The short-term table the core would give for `inputs`: each row's name
+ * and its amounts as the page formats them, best first; a place the money
+ * can't be kept in has the core's few words instead. `yourNames`: your
+ * deposits' names, by id. */
+export function expectedPlaceRows(inputs: ShortTermInputs, yourNames: Record<string, string> = {}) {
+  return compareShortTerm(inputs).places.map(({ key, outcome, notOffered }) => {
+    const name =
+      key.kind === 'yours'
+        ? yourNames[key.id]
+        : shortTermPlaces.find((listed) => JSON.stringify(listed.key) === JSON.stringify(key))!.place.name
+    const amounts = outcome
+      ? [
+          shekels(outcome.afterTax),
+          percent(outcome.yearlyAfterTaxPercent),
+          percent(outcome.yearlyCostPercent),
+          outcome.tax === 0 ? t.noTax : shekels(outcome.tax),
+        ]
+      : [notOffered]
+    return { name, amounts }
+  })
+}
+
+/** The short-term table as the page shows it, in the same shape: a place
+ * not offered by the words its cell starts with, before its ?. */
+export async function placeRowsOnPage(page: Page) {
+  const rows = await page.locator('tbody tr').all()
+  return Promise.all(
+    rows.map(async (row) => {
+      const cells = row.locator('td.amount')
+      const offered = (await cells.count()) > 1
+      return {
+        name: await row.locator('.names > span').first().textContent(),
+        amounts: offered
+          ? await cells.allTextContents()
+          : [(await cells.first().evaluate((cell) => cell.firstChild?.textContent ?? '')).trim()],
+      }
+    }),
+  )
 }

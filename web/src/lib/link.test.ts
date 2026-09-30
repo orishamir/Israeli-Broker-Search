@@ -64,3 +64,27 @@ test('nonsense is dropped, field by field', () => {
   })
   expect(BUYING_INTERVALS.map(({ months }) => months)).toEqual([1, 2, 3, 6, 12])
 })
+
+test('a short-term link carries its inputs, places and your deposits, and nothing of the long term', () => {
+  const short: Shared = {
+    family: 'short',
+    short: {
+      firstDeposit: 40_000,
+      monthlyDeposit: 0,
+      months: 24,
+      ratePercent: 3,
+      inflationPercent: 2.5,
+      places: ['Fixed-rate deposit · Bank Leumi', 'Money market fund · Cheapest fund'],
+      yours: [{ id: 'd-1', name: 'הצעה מלאומי', ratePercent: 4.1 }],
+    },
+  }
+  const hash = encode(short)
+  expect(hash).toMatch(/^c=s&d=40000&m=0&n=24&r=3&f=2.5&place=/)
+  expect(decode(hash)).toEqual(short)
+})
+
+test('a short-term link keeps only what makes sense', () => {
+  expect(decode('c=s&n=0&d=-5&m=x&deposits=nonsense')).toEqual({ family: 'short', short: {} })
+  expect(decode('c=s&n=61')).toEqual({ family: 'short', short: {} })
+  expect(decode('c=s&n=60')).toEqual({ family: 'short', short: { months: 60 } })
+})

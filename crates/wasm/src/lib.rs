@@ -17,6 +17,7 @@ use broker_fees::describe::{
     self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced, Source,
 };
 use broker_fees::examples;
+use broker_fees::short_term::{self, Liquidity, Pays, Place, Term};
 use broker_fees::simulation::{self, Fees, InvalidScenario, NotOffered, Outcome, Scenario, Swept};
 use broker_fees::yours::{
     Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, ManagementFields,
@@ -544,6 +545,8 @@ pub enum Field {
     Age,
     UsdRate,
     EurRate,
+    Rate,
+    YourRate,
 }
 
 impl Named for Field {
@@ -560,6 +563,8 @@ impl Named for Field {
             Field::Age => lang.pick("your age", "הגיל שלכם"),
             Field::UsdRate => lang.pick("the dollar's rate", "שער הדולר"),
             Field::EurRate => lang.pick("the euro's rate", "שער האירו"),
+            Field::Rate => lang.pick("the Bank of Israel's rate", "ריבית בנק ישראל"),
+            Field::YourRate => lang.pick("your deposit's rate", "הריבית של הפיקדון שלכם"),
         }
     }
 }
@@ -616,6 +621,9 @@ pub enum InvalidInputs {
     /// Numbers the simulation can't handle: "the yearly return can't be below −100%".
     #[error(transparent)]
     Scenario(#[from] InvalidScenario),
+    /// The same for the short term: "the money can be kept for 1 to 60 months".
+    #[error(transparent)]
+    ShortTerm(#[from] short_term::InvalidScenario),
 }
 
 impl InvalidInputs {
@@ -638,6 +646,7 @@ impl InvalidInputs {
             }
             InvalidInputs::Other(problem) => problem.name(lang).to_owned(),
             InvalidInputs::Scenario(error) => error.text(lang).to_owned(),
+            InvalidInputs::ShortTerm(error) => error.text(lang).to_owned(),
         }
     }
 }
@@ -1585,6 +1594,409 @@ pub fn periods() -> Result<Vec<Ts<PeriodName>>, JsError> {
         .collect()
 }
 
+// ─────────────────────────── The short term ───────────────────────────
+
+/// A kind of place to keep money for the short term, and each one of it.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct KindInfo {
+    pub name: String,
+    pub english_name: String,
+    pub description: String,
+    /// "Rates given, by the data of 08/2026"
+    pub data_of: String,
+    /// "Checked 01/10/2026"
+    pub checked: String,
+    pub source: Source,
+    /// The flag its caveats raise for every place of the kind, when they say
+    /// the numbers may be too good: "August's rates, before a cut". Said
+    /// once, not under each place.
+    pub may_cost_more: Option<String>,
+    pub places: Vec<PlaceInfo>,
+}
+
+/// One place to keep the money.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaceInfo {
+    pub name: String,
+    /// The English name, which links name listed places by.
+    pub english_name: String,
+    pub short_name: String,
+    pub description: String,
+    /// A fund's: "The Bank of Israel's rate, less 0.169% a year".
+    pub pays: Option<String>,
+    /// A fund's fee, in percent a year.
+    pub fee_percent: Option<f64>,
+    /// A deposit's rate for each term, the shortest first; empty for a fund.
+    pub rates: Vec<TermRate>,
+    /// "15% of all the interest"
+    pub tax: String,
+    pub liquidity: Liquidity,
+    /// "Any day"
+    pub liquidity_name: String,
+    /// Its caveats and its kind's, grouped by how sure.
+    pub caveats: Vec<CaveatGroup>,
+    /// The flag under its row when one of its own caveats says the numbers
+    /// may be too good: "A new fund: its fee may rise". Its kind's flag is
+    /// the kind's.
+    pub may_cost_more: Option<String>,
+    /// Every page its numbers rest on: its kind's source, then its caveats'.
+    pub sources: Vec<Source>,
+    /// Ticked when the calculator opens.
+    pub compared_at_first: bool,
+}
+
+/// A deposit's rate for one term.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct TermRate {
+    /// "6 months to a year"
+    pub term: String,
+    /// The longest deposit the term takes, in months.
+    pub longest_months: u32,
+    /// Percent a year; none where the Bank of Israel published none.
+    pub rate: Option<f64>,
+}
+
+impl PlaceInfo {
+    fn new(place: &Place, kind: &short_term::Kind, lang: Lang) -> Self {
+        let rates = match place.pays {
+            Pays::Fixed(rates) => Term::iter()
+                .map(|term| TermRate {
+                    term: term.name(lang).to_owned(),
+                    longest_months: term.longest(),
+                    rate: rates.of(term).map(|rate| number(rate.0)),
+                })
+                .collect(),
+            Pays::TheRateLess(_) => vec![],
+        };
+        let caveats: Vec<&broker_fees::Caveat> =
+            place.caveats.iter().chain(&kind.caveats).collect();
+        PlaceInfo {
+            name: place.name[lang].to_owned(),
+            english_name: place.name.en.to_string(),
+            short_name: place.short_name[lang].to_owned(),
+            description: place.description[lang].to_owned(),
+            pays: place.pays_text(lang),
+            fee_percent: match place.pays {
+                Pays::TheRateLess(fee) => Some(number(fee.0)),
+                Pays::Fixed(_) => None,
+            },
+            rates,
+            tax: place.pays.tax().name(lang).to_owned(),
+            liquidity: place.pays.liquidity(),
+            liquidity_name: place.pays.liquidity().name(lang).to_owned(),
+            caveats: describe::caveat_groups(&caveats, lang),
+            may_cost_more: may_cost_more(&place.caveats, lang),
+            sources: place.sources(kind, lang),
+            compared_at_first: place.compared_at_first,
+        }
+    }
+}
+
+/// The first flag among `caveats` saying the numbers may be too good.
+fn may_cost_more(caveats: &[broker_fees::Caveat], lang: Lang) -> Option<String> {
+    caveats
+        .iter()
+        .find_map(broker_fees::Caveat::may_cost_more_summary)
+        .map(|summary| summary[lang].to_owned())
+}
+
+/// The kinds of place, the funds first, each with every one of it.
+#[wasm_bindgen(js_name = shortTermKinds)]
+pub fn short_term_kinds() -> Result<Vec<Ts<KindInfo>>, JsError> {
+    let lang = lang();
+    short_term::kinds()
+        .iter()
+        .map(|kind| {
+            Ok(KindInfo {
+                name: kind.name[lang].to_owned(),
+                english_name: kind.name.en.to_string(),
+                description: kind.description[lang].to_owned(),
+                data_of: kind.data_of_text(lang),
+                checked: kind.checked_on_text(lang),
+                source: Source::new(&kind.source, lang),
+                may_cost_more: may_cost_more(&kind.caveats, lang),
+                places: kind
+                    .places
+                    .iter()
+                    .map(|place| PlaceInfo::new(place, kind, lang))
+                    .collect(),
+            }
+            .into_ts()?)
+        })
+        .collect()
+}
+
+/// Your own deposit, before a rate is typed: its name, description, tax
+/// and lock. The deposits' caveats and sources are about the banks' rates,
+/// not yours.
+#[wasm_bindgen(js_name = yourDepositInfo)]
+pub fn your_deposit_info() -> Result<Ts<PlaceInfo>, JsError> {
+    let place = short_term::your_deposit(Percent(Decimal::ZERO));
+    let kind = short_term::Kind {
+        places: vec![],
+        caveats: vec![],
+        ..short_term::deposits::kind()
+    };
+    Ok(PlaceInfo {
+        rates: vec![],
+        sources: vec![],
+        ..PlaceInfo::new(&place, &kind, lang())
+    }
+    .into_ts()?)
+}
+
+/// A place to compare: a listed one, by its kind and its position there,
+/// or one of the saver's own deposits.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Tsify)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum PlaceKey {
+    Listed { group: usize, place: usize },
+    Yours { id: String },
+}
+
+/// One of the saver's own deposits, with the id the web app gave it.
+#[derive(Debug, Deserialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct YourDepositInput {
+    pub id: String,
+    /// 3.9 means 3.9% a year.
+    #[tsify(type = "number | null")]
+    pub rate_percent: Option<f64>,
+}
+
+/// What the saver keeps, for how long, what they expect, and where to
+/// compare.
+#[derive(Debug, Deserialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortTermInputs {
+    // The numbers are null while their field is empty.
+    /// ₪, at the start.
+    #[tsify(type = "number | null")]
+    pub first_deposit: Option<f64>,
+    /// ₪, every month.
+    #[tsify(type = "number | null")]
+    pub monthly_deposit: Option<f64>,
+    pub months: u32,
+    /// The Bank of Israel's rate on average over the months: 3.25 means 3.25%.
+    #[tsify(type = "number | null")]
+    pub rate_percent: Option<f64>,
+    /// How much prices rise a year: 2 means 2%.
+    #[tsify(type = "number | null")]
+    pub inflation_percent: Option<f64>,
+    pub places: Vec<PlaceKey>,
+    /// The saver's own deposits that `places` refers to.
+    #[serde(default)]
+    pub your_deposits: Vec<YourDepositInput>,
+}
+
+/// The places compared, best first, and what the money would come to at the
+/// Bank of Israel's rate.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortTermComparisonData {
+    /// Every shekel put in.
+    pub deposited: f64,
+    /// What the money would be worth after each month at the Bank of
+    /// Israel's rate, with nothing kept and no tax.
+    pub at_the_rate: Vec<f64>,
+    /// The deposits' term for these months: "6 months to a year".
+    pub term: String,
+    /// Each compared place, most left after tax first, the ones not offered
+    /// last.
+    pub places: Vec<ShortTermRow>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortTermRow {
+    pub key: PlaceKey,
+    /// Missing when the money can't be kept there.
+    pub outcome: Option<ShortTermOutcomeData>,
+    /// Why not, in a few words: "Takes one sum".
+    pub not_offered: Option<String>,
+    /// And in full, for its "?".
+    pub not_offered_reason: Option<String>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortTermOutcomeData {
+    /// At the start and after each month, before tax.
+    pub value_by_month: Vec<f64>,
+    pub earned: f64,
+    pub tax: f64,
+    pub after_tax: f64,
+    /// What the place kept of what the rate would make; negative where a
+    /// bank pays more.
+    pub kept: f64,
+    pub yearly_cost_percent: f64,
+    pub yearly_after_tax_percent: f64,
+}
+
+/// Compares the places `inputs` names for its money.
+#[wasm_bindgen(js_name = compareShortTerm)]
+pub fn compare_short_term(
+    inputs: Ts<ShortTermInputs>,
+) -> Result<Ts<ShortTermComparisonData>, JsError> {
+    let inputs = inputs.to_rust()?;
+    Ok(compare_places(&inputs).map_err(invalid)?.into_ts()?)
+}
+
+/// What `compare_short_term` does, without the JavaScript around it.
+///
+/// # Errors
+///
+/// An empty or wrong field, or a place that isn't there.
+pub fn compare_places(inputs: &ShortTermInputs) -> Result<ShortTermComparisonData, InvalidInputs> {
+    let lang = lang();
+    let amount = |value: Option<f64>, field| {
+        let amount = value
+            .map_or(Some(Decimal::ZERO), decimal)
+            .ok_or(InvalidInputs::Missing(field))?;
+        if amount < Decimal::ZERO {
+            return Err(InvalidInputs::Negative(field));
+        }
+        Ok(amount)
+    };
+    let scenario = short_term::Scenario {
+        first_deposit: amount(inputs.first_deposit, Field::FirstDeposit)?,
+        monthly_deposit: amount(inputs.monthly_deposit, Field::MonthlyDeposit)?,
+        months: inputs.months,
+        rate: Percent(filled_in(inputs.rate_percent, Field::Rate)?),
+        inflation: Percent(filled_in(inputs.inflation_percent, Field::Inflation)?),
+    };
+    scenario.check()?;
+    let kinds = short_term::kinds();
+    let places = inputs
+        .places
+        .iter()
+        .map(|key| match key {
+            PlaceKey::Listed { group, place } => kinds
+                .get(*group)
+                .and_then(|kind| kind.places.get(*place))
+                .cloned()
+                .ok_or(InvalidInputs::Other(Problem::NoSuchPlan)),
+            PlaceKey::Yours { id } => {
+                let yours = inputs
+                    .your_deposits
+                    .iter()
+                    .find(|yours| &yours.id == id)
+                    .ok_or(InvalidInputs::Other(Problem::NoSuchPlan))?;
+                let rate = filled_in(yours.rate_percent, Field::YourRate)?;
+                if rate < Decimal::ZERO {
+                    return Err(InvalidInputs::Negative(Field::YourRate));
+                }
+                Ok(short_term::your_deposit(Percent(rate)))
+            }
+        })
+        .collect::<Result<Vec<Place>, InvalidInputs>>()?;
+    let refs: Vec<&Place> = places.iter().collect();
+    let comparison = short_term::compare(&refs, &scenario);
+    Ok(ShortTermComparisonData {
+        deposited: number(scenario.deposited()),
+        at_the_rate: comparison.at_the_rate.iter().copied().map(number).collect(),
+        term: Term::for_months(scenario.months)
+            .expect("a checked scenario")
+            .name(lang)
+            .to_owned(),
+        places: comparison
+            .places
+            .into_iter()
+            .map(|compared| {
+                let key = inputs.places[compared.index].clone();
+                match compared.outcome {
+                    Ok(outcome) => ShortTermRow {
+                        key,
+                        outcome: Some(ShortTermOutcomeData {
+                            value_by_month: outcome
+                                .value_by_month
+                                .iter()
+                                .copied()
+                                .map(number)
+                                .collect(),
+                            earned: number(outcome.earned),
+                            tax: number(outcome.tax),
+                            after_tax: number(outcome.after_tax),
+                            kept: number(outcome.kept),
+                            yearly_cost_percent: number(outcome.yearly_cost.0),
+                            yearly_after_tax_percent: number(outcome.yearly_after_tax.0),
+                        }),
+                        not_offered: None,
+                        not_offered_reason: None,
+                    },
+                    Err(why) => ShortTermRow {
+                        key,
+                        outcome: None,
+                        not_offered: Some(why.short(lang).to_owned()),
+                        not_offered_reason: Some(why.reason(lang)),
+                    },
+                }
+            })
+            .collect(),
+    })
+}
+
+/// A short-term pattern for its button.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortTermExampleData {
+    pub name: String,
+    pub explanation: String,
+    pub first_deposit: f64,
+    pub monthly_deposit: f64,
+    pub months: u32,
+}
+
+/// The short-term examples, in the order to offer them.
+#[wasm_bindgen(js_name = shortTermExamples)]
+pub fn short_term_examples() -> Result<Vec<Ts<ShortTermExampleData>>, JsError> {
+    examples::short_term()
+        .into_iter()
+        .map(|example| {
+            Ok(ShortTermExampleData {
+                name: example.name[lang()].to_owned(),
+                explanation: example.explanation[lang()].to_owned(),
+                first_deposit: number(example.first_deposit),
+                monthly_deposit: number(example.monthly_deposit),
+                months: example.months,
+            }
+            .into_ts()?)
+        })
+        .collect()
+}
+
+/// The short-term calculator's page on its numbers.
+#[wasm_bindgen(js_name = aboutShortTerm)]
+pub fn about_short_term() -> Result<Ts<About>, JsError> {
+    Ok(describe::about_short_term(lang()).into_ts()?)
+}
+
+/// The Bank of Israel's rate when the numbers were checked, in percent: what
+/// the expected rate starts at.
+#[wasm_bindgen(js_name = todaysRatePercent)]
+#[must_use]
+pub fn todays_rate_percent() -> f64 {
+    number(short_term::TODAYS_RATE.0)
+}
+
+/// Which of a deposit's rates `months` falls in: its position in
+/// `PlaceInfo::rates`. None past the longest term.
+#[wasm_bindgen(js_name = termFor)]
+#[must_use]
+pub fn term_for(months: u32) -> Option<usize> {
+    Term::for_months(months).map(|term| term as usize)
+}
+
+/// The longest the money can be kept, in months.
+#[wasm_bindgen(js_name = shortTermLongest)]
+#[must_use]
+pub fn short_term_longest() -> u32 {
+    short_term::LONGEST
+}
+
 fn number(value: Decimal) -> f64 {
     value.to_f64().unwrap_or_default()
 }
@@ -2134,5 +2546,161 @@ mod tests {
             BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
             "תעריפון מ-29/06/2026"
         );
+    }
+
+    fn short_term_inputs(places: Vec<PlaceKey>) -> ShortTermInputs {
+        ShortTermInputs {
+            first_deposit: Some(100_000.0),
+            monthly_deposit: None,
+            months: 12,
+            rate_percent: Some(3.25),
+            inflation_percent: Some(2.0),
+            places,
+            your_deposits: vec![],
+        }
+    }
+
+    /// ₪100,000 for a year at the Bank of Jerusalem's 3.87% and in the
+    /// average fund, as the core works them out: the deposit first, its
+    /// term named; with money every month the deposit says why it's out.
+    #[test]
+    fn the_short_term_comparison_is_the_cores() {
+        let deposits = short_term::kinds()[1]
+            .places
+            .iter()
+            .position(|place| place.name.en == "Bank of Jerusalem")
+            .unwrap();
+        let jerusalem = PlaceKey::Listed {
+            group: 1,
+            place: deposits,
+        };
+        let average = PlaceKey::Listed { group: 0, place: 0 };
+        let data =
+            compare_places(&short_term_inputs(vec![average.clone(), jerusalem.clone()])).unwrap();
+        assert_eq!(data.deposited, 100_000.0);
+        assert_eq!(data.term, "6 months to a year");
+        assert_eq!(data.places[0].key, jerusalem);
+        assert_eq!(
+            data.places[0].outcome.as_ref().unwrap().after_tax,
+            103_289.5
+        );
+        assert_eq!(data.places[1].key, average);
+        assert_eq!(data.at_the_rate.len(), 13);
+
+        let monthly = ShortTermInputs {
+            monthly_deposit: Some(1000.0),
+            ..short_term_inputs(vec![jerusalem])
+        };
+        let data = compare_places(&monthly).unwrap();
+        assert!(data.places[0].outcome.is_none());
+        assert_eq!(data.places[0].not_offered.as_deref(), Some("Takes one sum"));
+    }
+
+    /// Your own deposit is compared at the rate you typed; an empty or
+    /// negative rate names the field.
+    #[test]
+    fn your_deposit_is_compared_at_its_rate() {
+        let yours = PlaceKey::Yours { id: "a".into() };
+        let with_rate = |rate| ShortTermInputs {
+            your_deposits: vec![YourDepositInput {
+                id: "a".into(),
+                rate_percent: rate,
+            }],
+            ..short_term_inputs(vec![yours.clone()])
+        };
+        let data = compare_places(&with_rate(Some(4.0))).unwrap();
+        // 4% of ₪100,000, less 15%: ₪3,400.
+        assert_eq!(
+            data.places[0].outcome.as_ref().unwrap().after_tax,
+            103_400.0
+        );
+        assert_eq!(
+            compare_places(&with_rate(None)).unwrap_err(),
+            InvalidInputs::Missing(Field::YourRate)
+        );
+        assert_eq!(
+            compare_places(&with_rate(Some(-1.0))).unwrap_err(),
+            InvalidInputs::Negative(Field::YourRate)
+        );
+    }
+
+    #[test]
+    fn short_term_inputs_say_whats_wrong() {
+        let wrong = |change: fn(&mut ShortTermInputs)| {
+            let mut inputs = short_term_inputs(vec![PlaceKey::Listed { group: 0, place: 0 }]);
+            change(&mut inputs);
+            compare_places(&inputs).unwrap_err()
+        };
+        assert_eq!(
+            wrong(|inputs| inputs.rate_percent = None),
+            InvalidInputs::Missing(Field::Rate)
+        );
+        assert_eq!(
+            wrong(|inputs| inputs.first_deposit = Some(-5.0)),
+            InvalidInputs::Negative(Field::FirstDeposit)
+        );
+        assert_eq!(
+            wrong(|inputs| inputs.months = 0),
+            InvalidInputs::ShortTerm(short_term::InvalidScenario::Months)
+        );
+        assert_eq!(
+            wrong(|inputs| inputs.places = vec![PlaceKey::Listed { group: 5, place: 0 }]),
+            InvalidInputs::Other(Problem::NoSuchPlan)
+        );
+        assert_eq!(
+            wrong(|inputs| inputs.months = 0).text(Lang::He),
+            "אפשר לחסוך לתקופה של חודש עד 60 חודשים"
+        );
+    }
+
+    /// A place as the page lists it: a deposit's rates by term, its tax and
+    /// lock, and the flag its kind's caveat raises; a fund's line.
+    #[test]
+    fn places_are_described_for_the_page() {
+        let kinds = short_term::kinds();
+        let deposits = &kinds[1];
+        let leumi = deposits
+            .places
+            .iter()
+            .find(|place| place.name.en == "Bank Leumi")
+            .unwrap();
+        let info = PlaceInfo::new(leumi, deposits, Lang::He);
+        assert_eq!(info.rates.len(), 7);
+        assert_eq!(info.rates[3].term, "6 חודשים עד שנה");
+        assert_eq!(info.rates[3].rate, Some(3.75));
+        assert_eq!(info.tax, "15% מכל הריבית");
+        assert_eq!(info.liquidity, Liquidity::AtTheEnd);
+        // The deposits' flag is said once, by their kind; One Zero's own
+        // flag is its own.
+        assert_eq!(info.may_cost_more, None);
+        assert_eq!(
+            may_cost_more(&deposits.caveats, Lang::He).as_deref(),
+            Some("ריביות אוגוסט, לפני הורדת ריבית")
+        );
+        let one_zero = deposits
+            .places
+            .iter()
+            .find(|place| place.name.en == "One Zero")
+            .unwrap();
+        assert!(
+            PlaceInfo::new(one_zero, deposits, Lang::He)
+                .may_cost_more
+                .is_some()
+        );
+        assert!(info.compared_at_first);
+        let funds = &kinds[0];
+        let average = PlaceInfo::new(&funds.places[0], funds, Lang::He);
+        assert_eq!(
+            average.pays.as_deref(),
+            Some("ריבית בנק ישראל, פחות 0.169% בשנה")
+        );
+        assert_eq!(average.fee_percent, Some(0.169));
+        assert_eq!(info.fee_percent, None);
+        // A year falls in "6 months to a year", the fourth term.
+        assert_eq!(term_for(12), Some(3));
+        assert_eq!(info.rates[term_for(12).unwrap()].longest_months, 12);
+        assert_eq!(term_for(61), None);
+        assert!(average.rates.is_empty());
+        assert_eq!(average.may_cost_more, None);
     }
 }

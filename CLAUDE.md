@@ -1,9 +1,12 @@
 # Broker search
 
-Compares what Israeli brokers charge for a given investing pattern: ETFs,
-index funds, bonds and stocks, on Tel Aviv or abroad; and, beside them, what
-the same deposits come to in a provident fund for investment, a study fund
-or a savings policy, after fees and tax. A provident fund for savings is
+Two calculators on one page, switched under the title, since only what
+earns the same thing can be ranked. For the long term: what Israeli brokers
+charge for a given investing pattern (ETFs, index funds, bonds and stocks,
+on Tel Aviv or abroad), and, beside them, what the same deposits come to in
+a provident fund for investment, a study fund or a savings policy, after
+fees and tax. For the short term: what a sum, and perhaps an amount every
+month, comes to in a money market fund or a bank's fixed-rate deposit. A provident fund for savings is
 left out on purpose (`policies/not-modeled.md`). The fee model is Rust compiled to WebAssembly;
 the UI is Svelte 5 + ECharts.
 
@@ -24,6 +27,17 @@ the UI is Svelte 5 + ECharts.
   (`Outcome::after_tax`) and says why a plan can't be used (`NotOffered`:
   the security isn't sold, a year's deposits pass a fund's ceiling, or its
   money is still locked at the end).
+  `short_term.rs` is the short-term calculator's engine, apart from
+  `simulation`: a sum, and perhaps an amount every month, kept for 1 to
+  60 months, in a money market fund at the funds' reported fees
+  (`short_term/money_market.rs`), or, the sum alone, on a bank's fixed-rate
+  deposit at each bank's rate for the term as the Bank of Israel publishes
+  it (`short_term/deposits.rs`). A fund earns the Bank of
+  Israel's rate the saver expects, less its fee; a deposit's interest pays
+  15% tax, a fund's real gain 25%. Its words (the kinds' dates, why a place
+  can't be used, its "About the numbers" page, `about_short_term`) are in
+  `describe.rs` too, its examples in `examples.rs` (`short_term()`), and a
+  deposit at a rate the saver typed is `short_term::your_deposit`.
   `describe.rs` holds all text shown
   to users (fee names, explanations, caveat kinds, the "About the numbers"
   page, Hebrew names), in Hebrew and English (see "Hebrew only" below),
@@ -33,7 +47,19 @@ the UI is Svelte 5 + ECharts.
   the example chips.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`.
-- `web`: the app; state lives in `src/lib/app.svelte.ts`. The plans to
+- `web`: the app; state lives in `src/lib/app.svelte.ts`, with the chosen
+  calculator (`family`) and the short term's own state
+  (`short-term.svelte.ts`, `app.short`), kept while the long term's is
+  shown: only the chosen calculator is on the page (`{#if}` in
+  `App.svelte`), under `FamilySwitch.svelte`. Its inputs are
+  `ShortTermInputs.svelte`, its list of places `PlaceSheet.svelte` (the
+  same `Sheet.svelte` as the list of plans), its table `PlaceTable.svelte`,
+  its charts `InterestSplit.svelte` (`interest-split.ts`: the rate's
+  interest split into the saver's, the place's and the tax) and
+  `ValueChart.svelte` (the growth chart's options, in months); a place's
+  details are a kind of `Details`. The two share the palette (`colors.ts`)
+  and the table-and-chart linking (`linked.svelte.ts`), and the More
+  options switch. The plans to
   compare are ticked in a list that opens over the inputs from the "What's
   compared" card (`PlanSheet.svelte`; the whole screen on a phone), one
   folded line per broker, then your plans. The page's own
@@ -44,7 +70,9 @@ the UI is Svelte 5 + ECharts.
   `fee-breakdown.ts`; the components only wire them to ECharts and the
   state, so the options are unit-tested without a browser. `link.ts` puts a
   comparison into the page's address (the Share button): the inputs, the
-  ticked plans by label, and your own ticked plans as data. The expert
+  ticked plans by label, and your own ticked plans as data; a short-term
+  link says so (`c=s`) and carries that calculator's inputs, places and
+  deposits of your own instead. The expert
   inputs (growing deposits, inflation, sell or keep) and the chart by
   deposit sit behind the "More options" switch; off, the state sends the
   core the defaults. The sweep (every plan over a range of deposits, for
@@ -108,7 +136,7 @@ quietly keep running the old core.
   summary is flagged under the plan in the results table, and ⚠ means only
   that, everywhere), `not_counted` (a real cost left out, and why). Every
   text, name and source name is a `Text` pair, written `t("English",
-  "עברית")`: the compiler refuses a caveat with one language.
+"עברית")`: the compiler refuses a caveat with one language.
   `.about_fee(kind)` marks it beside that fee's price; `.when_above(amount)`
   shows it only when the user's biggest order (usually the sale at the end)
   reaches the amount. `.source(&page)` links the page it rests on (the
@@ -217,6 +245,7 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   - the broker and ID columns are de-emphasized.
 
   Groups of inputs go in separate cards.
+
 - **One style:**
   - one tooltip style everywhere;
   - outlined buttons;
@@ -269,6 +298,7 @@ one ("באנגלית"), and links and saved copies name plans in English.
 
 Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
 (עמלות)". Check terms online for what Israelis actually say:
+
 - brokers → בנקים ובתי השקעות, not ברוקרים;
 - plans → מסלולים;
 - securities → ניירות ערך;
@@ -283,6 +313,11 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   השתלמות; a savings policy → פוליסת חיסכון; its fee → דמי ניהול מהצבירה, מהפקדה; a monthly pension →
   קצבה; taking it all at once → משיכה בבת אחת; the deposit ceiling → תקרת
   הפקדה; an index-following track → מסלול עוקב מדד.
+- the two calculators → השקעה לטווח ארוך, חיסכון לטווח קצר; a money
+  market fund → קרן כספית; a fixed-rate deposit → פיקדון בריבית קבועה (a
+  bank's monthly savings plan is a תוכנית חיסכון, not a פיקדון); a place to
+  keep the money, in the short term's table → אפיק; the Bank of Israel's
+  rate → ריבית בנק ישראל.
 
 - Hebrew inside English goes in `<bdi lang="he">`. In Rust strings, join a
   phrase's words with `\u{a0}`: a phrase split across lines reads backwards.

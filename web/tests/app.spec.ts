@@ -1,4 +1,14 @@
-import { expectedRows, inputsOnPage, listed, RATES, rowsOnPage, securityName, usualPlans } from './core'
+import {
+  expectedRows,
+  inputsOnPage,
+  listed,
+  placeRowsOnPage,
+  RATES,
+  rowsOnPage,
+  securityName,
+  shortTermInputsOnPage,
+  usualPlans,
+} from './core'
 import { dateText } from '../src/lib/format'
 import { t } from '../src/lib/text'
 import { choice, expect, planInList, rows, test, tickBrokers } from './fixtures'
@@ -39,6 +49,24 @@ test(
     await expect(page.locator('#skeleton')).toHaveCount(0)
   },
 )
+
+test('a link to the short-term calculator opens it as it was', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await page.getByText(t.shortTerm, { exact: true }).click()
+  await page.getByLabel(t.oneTimeDeposit).fill('40000')
+  await page.locator('#months').fill('24')
+  const before = await placeRowsOnPage(page)
+
+  await page.getByRole('button', { name: t.share, exact: true }).click()
+  await expect(page.getByText(t.linkCopied)).toBeVisible()
+  const link = await page.evaluate(() => navigator.clipboard.readText())
+  expect(link).toContain('#c=s&d=40000&m=0&n=24')
+
+  await page.goto(link)
+  await expect(page.getByRole('radio', { name: t.shortTerm })).toBeChecked()
+  expect(await shortTermInputsOnPage(page)).toMatchObject({ firstDeposit: 40_000, months: 24 })
+  await expect.poll(() => placeRowsOnPage(page)).toEqual(before)
+})
 
 test('Share copies a link that opens the same comparison', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])

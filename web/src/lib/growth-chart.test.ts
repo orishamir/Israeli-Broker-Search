@@ -1,6 +1,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
 import { growthOption, NO_FEES, type GrowthView, type Line } from './growth-chart'
+import { t } from './text'
 
 const line = (id: string, dotted = false): Line => ({
   id,
@@ -93,4 +94,26 @@ test('only end labels are moved apart, and on a phone they too are hidden instea
 test('the value axis fits the lines with a little room above', () => {
   const yAxis = growthOption(view()).yAxis as { max: (range: { min: number; max: number }) => number }
   expect(yAxis.max({ min: 100, max: 200 })).toBe(204)
+})
+
+test('in months, the time axis counts months, and the no-fee line takes the name given', () => {
+  const option = growthOption(view({ months: true, noFeesName: 'At the rate' }))
+  const [noFees, a] = series(option)
+  expect(noFees.name).toBe('At the rate')
+  expect(a.data).toEqual([
+    [0, 100],
+    [1, 110],
+    [2, 120],
+    [3, 130],
+  ])
+  expect(option.xAxis).toMatchObject({ name: t.monthsAxis })
+  // A pinned line is labelled about eight times along it: here, every month.
+  const [, pinned] = series(growthOption(view({ months: true, pinned: new Set(['a']) })))
+  const points = pinned.data as { symbol: string }[]
+  expect(points.map(({ symbol }) => symbol)).toEqual([
+    'emptyCircle',
+    'emptyCircle',
+    'emptyCircle',
+    'emptyCircle',
+  ])
 })

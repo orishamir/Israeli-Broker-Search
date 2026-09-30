@@ -22,18 +22,19 @@ catch the bug:
 
 - A spec per part of the app, so a change runs its own spec first:
 
-  | Changed                                                                        | Spec        |
-  | ------------------------------------------------------------------------------ | ----------- |
-  | InputsPanel, Examples, NumberField, Choices, PlanSheet, BrokerPicker, rates.ts | `inputs`    |
-  | ResultsTable, the stats in App.svelte, PlanPreview                             | `results`   |
-  | GrowthChart, CrossoverChart, echarts.svelte.ts                                 | `chart`     |
-  | FeeBreakdown                                                                   | `breakdown` |
-  | DetailsDialog, FeesForInputs, Caveat\*, Sources, the about page                | `details`   |
-  | Tip, tip.ts, HebrewNames                                                       | `tips`      |
-  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved            | `editor`    |
-  | app.css, anything about size or position                                       | `layout`    |
-  | main.ts, index.html, Share, link.ts                                            | `app`       |
-  | text.ts, text/\*.ts, index.html's language, anything right-to-left             | `hebrew`    |
+  | Changed                                                                        | Spec         |
+  | ------------------------------------------------------------------------------ | ------------ |
+  | InputsPanel, Examples, NumberField, Choices, PlanSheet, BrokerPicker, rates.ts | `inputs`     |
+  | ResultsTable, the stats in App.svelte, PlanPreview                             | `results`    |
+  | GrowthChart, CrossoverChart, echarts.svelte.ts                                 | `chart`      |
+  | FeeBreakdown                                                                   | `breakdown`  |
+  | DetailsDialog, FeesForInputs, Caveat\*, Sources, the about page                | `details`    |
+  | Tip, tip.ts, HebrewNames                                                       | `tips`       |
+  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved            | `editor`     |
+  | app.css, anything about size or position                                       | `layout`     |
+  | main.ts, index.html, Share, link.ts                                            | `app`        |
+  | FamilySwitch, the short term (short-term.svelte.ts, ShortTermInputs, Place\*)  | `short-term` |
+  | text.ts, text/\*.ts, index.html's language, anything right-to-left             | `hebrew`     |
 
   `npx playwright test --project=desktop tests/editor.spec.ts`. The `=`
   matters: `--project desktop tests/x.spec.ts` reads the path as a second

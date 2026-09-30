@@ -3,14 +3,19 @@
 // table. Your own ticked plans travel with it, as data, and become the
 // recipient's. Nothing is sent anywhere: the link is the state.
 
-import type { YourPlan } from './app.svelte'
+import type { Family, YourPlan } from './app.svelte'
 import * as core from './core/core'
 import type { Exchange, Security } from './core/core'
+import { looksLikeYourDeposit, type YourDeposit } from './short-term.svelte'
 
 /** What a link carries. Every field is optional: a link from another
  * version of the app, or one edited by hand, may lack some, and the rest
  * still apply. */
 export interface Shared {
+  /** Which calculator: the long term's, unless it says otherwise. */
+  family?: Family
+  /** The short-term calculator's inputs, when it's the one. */
+  short?: SharedShort
   security?: Security
   exchange?: Exchange
   firstDeposit?: number
@@ -32,6 +37,19 @@ export interface Shared {
   plans?: string[]
   /** Your own ticked plans, whole. */
   yours?: YourPlan[]
+}
+
+/** What a link to the short-term calculator carries. */
+export interface SharedShort {
+  firstDeposit?: number
+  monthlyDeposit?: number
+  months?: number
+  ratePercent?: number
+  inflationPercent?: number
+  /** The ticked listed places, by label: "Fixed-rate deposit · Bank Leumi". */
+  places?: string[]
+  /** Your own ticked deposits, whole. */
+  yours?: YourDeposit[]
 }
 
 /** How often one can buy, in months: the "Buy every" dropdown. */
@@ -64,9 +82,17 @@ const HOLD = 'h'
 const PENSION = 'k'
 const PLAN = 'plan'
 const YOURS = 'yours'
+// The short-term calculator's link says so, and its months; the amounts and
+// the rate reuse the long term's keys, as a link holds one calculator.
+const CALCULATOR = 'c'
+const SHORT = 's'
+const MONTHS = 'n'
+const PLACE = 'place'
+const DEPOSITS = 'deposits'
 
 /** The hash (without its #) that `decode` reads back as `shared`. */
 export function encode(shared: Shared): string {
+  if (shared.family === 'short') return encodeShort(shared.short ?? {})
   const params = new URLSearchParams()
   for (const [field, key] of Object.entries(KEYS)) {
     const value = shared[field as keyof typeof KEYS]
@@ -82,18 +108,63 @@ export function encode(shared: Shared): string {
   return params.toString()
 }
 
-/** What a link's hash says, keeping only what makes sense: a number that
- * isn't one, or a security the core doesn't know, is left out. The core
- * checks the plans' data when they're loaded. */
-export function decode(hash: string): Shared {
-  const params = new URLSearchParams(hash.replace(/^#/, ''))
-  const shared: Shared = {}
-  const number = (key: string, check: (value: number) => boolean = () => true) => {
+function encodeShort(shared: SharedShort): string {
+  const params = new URLSearchParams({ [CALCULATOR]: SHORT })
+  const keys = {
+    firstDeposit: KEYS.firstDeposit,
+    monthlyDeposit: KEYS.monthlyDeposit,
+    months: MONTHS,
+    ratePercent: KEYS.yearlyReturnPercent,
+    inflationPercent: INFLATION,
+  } as const
+  for (const [field, key] of Object.entries(keys)) {
+    const value = shared[field as keyof typeof keys]
+    if (value !== undefined) params.set(key, String(value))
+  }
+  for (const place of shared.places ?? []) params.append(PLACE, place)
+  if (shared.yours?.length) params.set(DEPOSITS, toBase64Url(JSON.stringify(shared.yours)))
+  return params.toString()
+}
+
+/** A link's number, if it's one and `check` accepts it. */
+const numberIn =
+  (params: URLSearchParams) =>
+  (key: string, check: (value: number) => boolean = () => true): number | undefined => {
     const text = params.get(key)
     if (text === null) return undefined
     const value = Number(text)
     return Number.isFinite(value) && check(value) ? value : undefined
   }
+
+/** A link's list, from base64 JSON, keeping only the items `looksRight` accepts. */
+function listIn<T>(
+  params: URLSearchParams,
+  key: string,
+  looksRight: (value: unknown) => value is T,
+): T[] | undefined {
+  const text = params.get(key)
+  if (text === null) return undefined
+  try {
+    const parsed: unknown = JSON.parse(fromBase64Url(text))
+    return Array.isArray(parsed) ? parsed.filter(looksRight) : undefined
+  } catch {
+    // Not a list: left out.
+    return undefined
+  }
+}
+
+/** Only what was there. */
+const defined = <T extends object>(shared: T): T =>
+  Object.fromEntries(Object.entries(shared).filter(([, value]) => value !== undefined)) as T
+
+/** What a link's hash says, keeping only what makes sense: a number that
+ * isn't one, or a security the core doesn't know, is left out. The core
+ * checks the plans' data when they're loaded. */
+export function decode(hash: string): Shared {
+  const params = new URLSearchParams(hash.replace(/^#/, ''))
+  if (params.get(CALCULATOR) === SHORT) return { family: 'short', short: decodeShort(params) }
+  const shared: Shared = {}
+  const number = numberIn(params)
   const among = <T extends string>(key: string, values: T[]) => {
     const text = params.get(key)
     return values.find((value) => value === text)
@@ -122,17 +193,25 @@ export function decode(hash: string): Shared {
   shared.age = number(KEYS.age, (value) => value >= 0 && value <= 120)
   const plans = params.getAll(PLAN)
   if (plans.length > 0) shared.plans = plans
-  const yours = params.get(YOURS)
-  if (yours !== null) {
-    try {
-      const parsed: unknown = JSON.parse(fromBase64Url(yours))
-      if (Array.isArray(parsed)) shared.yours = parsed.filter(looksLikeYourPlan)
-    } catch {
-      // Not a list of plans: left out.
-    }
-  }
-  // Only what was there.
-  return Object.fromEntries(Object.entries(shared).filter(([, value]) => value !== undefined))
+  shared.yours = listIn(params, YOURS, looksLikeYourPlan)
+  return defined(shared)
+}
+
+function decodeShort(params: URLSearchParams): SharedShort {
+  const number = numberIn(params)
+  const places = params.getAll(PLACE)
+  return defined({
+    firstDeposit: number(KEYS.firstDeposit, (value) => value >= 0),
+    monthlyDeposit: number(KEYS.monthlyDeposit, (value) => value >= 0),
+    months: number(
+      MONTHS,
+      (value) => Number.isInteger(value) && value >= 1 && value <= core.shortTermLongest(),
+    ),
+    ratePercent: number(KEYS.yearlyReturnPercent),
+    inflationPercent: number(INFLATION),
+    places: places.length > 0 ? places : undefined,
+    yours: listIn(params, DEPOSITS, looksLikeYourDeposit),
+  })
 }
 
 /** The shape of one of your plans, as far as the web side knows it; the

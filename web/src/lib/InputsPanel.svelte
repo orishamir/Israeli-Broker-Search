@@ -53,7 +53,7 @@
     </label>
     <Tip about={t.moreOptions}>{t.moreOptionsTip(compactPercent(app.usualInflation))}</Tip>
   </div>
-  <Examples {app} />
+  <Examples examples={app.examples} apply={(example) => app.applyExample(example)} />
 </section>
 
 <section class="card">

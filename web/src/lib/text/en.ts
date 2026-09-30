@@ -8,8 +8,7 @@ import type { Swept } from '../core/core'
 
 export const en = {
   // The page
-  title: 'Broker fees, compounded',
-  subtitle: "What Israeli brokers' fees cost you over the years, for ETFs, index funds, bonds and stocks.",
+  title: "What you'll have left",
   share: 'Share',
   linkCopied: 'Link copied',
   linkToComparison: 'Link to this comparison',
@@ -322,6 +321,89 @@ export const en = {
   conversionByStandingOrder: (label: string) => `Conversion ${label}`,
   backTo: (original: string) => `Back to ${original}'s fee`,
   was: (original: string, what?: string) => (what ? `${original}: ${what}` : `${original}:`),
+  // The two calculators
+  calculators: 'For how long',
+  longTerm: 'Long-term investing',
+  longTermKinds: 'ETFs and index funds, bonds, stocks, provident funds',
+  shortTerm: 'Short-term saving',
+  shortTermKinds: 'Bank deposits, money market funds',
+  calculatorsTip:
+    "Two calculators, because a fee calculator can only rank what earns the same thing. For the long term, everything earns the return you expect, and differs in fees, tax and how long the money is locked. For the short term, everything earns about the Bank of Israel's rate, and differs in how much of it reaches you: a fund's fee, or a bank paying less than the rate. An ETF and a deposit don't earn the same thing, so they're never in one table.",
+
+  // The short term's inputs
+  forHowLong: 'For how long',
+  monthsCount: (months: number) =>
+    months === 1 ? 'a month' : months === 2 ? '2 months' : `${months} months`,
+  boiRate: "Bank of Israel's rate, on average",
+  boiRateTip:
+    "The rate you expect the Bank of Israel to set, on average over the months. A money market fund earns about this rate, less its fee, and follows it as it changes. A fixed-rate deposit pays its bank's rate for the whole term, whatever the Bank of Israel does, so the rate you expect decides how the funds compare with the deposits.",
+  boiRateNote: (today: string) =>
+    `Today it's ${today}. A fixed-rate deposit locks in its rate on the day it's opened; a money market fund changes with the Bank of Israel's rate.`,
+  shortTickedAtFirst: 'Ticked at first: the averages, the cheapest fund and the five big banks.',
+  shortWhatsComparedTip:
+    'Money market funds are listed as a kind: the average fee, the cheapest fund and the dearest, since their fees are close. Deposits are listed by bank, at the rates the Bank of Israel published for each. Under “Add or remove” you can also add a deposit at a rate you were offered.',
+  shortMoreOptionsTip: (inflation: string) =>
+    `One more setting: inflation, which a fund's tax depends on. With the switch off, the calculator takes ${inflation} a year.`,
+  shortInflationTip:
+    "How much prices rise a year. A fund's tax is on the gain beyond it, so the higher it is, the less tax a fund pays; a deposit's tax is on all its interest, whatever prices do.",
+
+  // The places to compare
+  yourDeposits: 'Your deposits',
+  yourDepositsTip:
+    "A bank may offer you more than it gives on average, especially for a large sum. Add the deposit you were offered, with its yearly rate, and it's compared like the banks': its tax is 15% of the interest, and the money is locked until the end.",
+  addYourDeposit: '+ Your deposit',
+  depositName: 'Name',
+  depositRate: 'Rate',
+  deleteDeposit: (name: string) => `Delete ${name}`,
+  yourDepositName: 'Your deposit',
+  yourDepositNumbered: (count: number) => `Your deposit ${count}`,
+  ratesFor: (term: string) => `The rates for a deposit of ${term}`,
+  rateOf: (rate: string) => `${rate} interest`,
+  feeOf: (fee: string) => `${fee} fee`,
+  noRate: 'no rate for these months',
+  monthlyNotForDeposits: "A fixed-rate deposit takes one sum: with money every month, it isn't compared.",
+  mayLeaveLess: (name: string) => `${name}: may leave you less. Why?`,
+  whatItPays: 'What it pays',
+  ratesByTerm: 'Its rates, by how long the deposit is',
+  yourRateIs: (rate: string) => `The rate you typed: ${rate} a year, for any term.`,
+  taxRule: 'Tax',
+  caveats: 'Caveats',
+  aboutKind: 'About the kind',
+
+  // The short term's results
+  forMonths: (months: number) => (months === 1 ? 'for a month' : `for ${months} months`),
+  atTheRate: "At the Bank of Israel's rate",
+  noCostsNoTax: 'with no costs and no tax',
+  netYearly: (rate: string) => `${rate} a year, after costs and tax`,
+  canTakeOut: (when: string) => `Can be taken out: ${when.toLowerCase()}`,
+  place: 'Place',
+  netYearlyColumn: 'A year, net',
+  netYearlyTip:
+    'What the money earned after costs and tax, as a yearly rate: the rate at which the same deposits would come to the same sum.',
+  costYearly: 'Cost a year',
+  costYearlyTip:
+    "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. Below zero, the bank pays more than the rate.",
+  shortTaxTip: (inflation: string) =>
+    `A deposit pays 15% of all its interest. A fund pays 25% of its gain beyond inflation (${inflation} a year), when it's sold.`,
+  whenOut: 'When it can come out',
+  whenOutTip:
+    "A fund's units can be sold any business day, and the money arrives a day or two later. A deposit locks the money until its term ends: taking it out earlier loses interest.",
+  tickAPlace: 'Tick at least one place to compare.',
+  splitView: 'Where the interest goes',
+  splitViewTip:
+    "The interest the Bank of Israel's rate would pay on your money, split three ways: what you keep, what the fund or the bank keeps, and the tax. A bank that pays more than the rate goes past the line.",
+  valueOverTime: 'Value over time',
+  valueOverTimeTip: 'What the money is worth in each place, month by month, before tax.',
+  rateLine: (amount: string) => `The line: the Bank of Israel's rate on your money, ${amount}`,
+  yoursPart: 'Yours',
+  keptPart: 'Kept by the fund or the bank',
+  taxPart: 'Tax',
+  splitAria: "Where each place's interest goes: to you, to the place, and to tax",
+  placePinHintMouse: (bars: boolean) => `Click a row or a ${bars ? 'bar' : 'line'} to pin a place`,
+  placePinHintTouch: (bars: boolean) => `Tap a row or a ${bars ? 'bar' : 'line'} to pin a place`,
+  monthsAxis: 'Months',
+  afterMonths: (months: number) => (months === 1 ? 'After a month' : `After ${months} months`),
+  bestBarNote: (rate: string, when: string) => `${rate} a year, after tax · ${when.toLowerCase()}`,
 }
 
 export type Text = typeof en

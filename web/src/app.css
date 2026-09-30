@@ -25,6 +25,8 @@
   --accent: #7b9bff;
   --on-accent: #0d0f14;
   --warning: #f2c14e;
+  /* Good news: money that can come out any day. */
+  --good: #5fd4a0;
   --error: #ff8080;
   --radius: 12px;
   --raised-strong: #262b38;

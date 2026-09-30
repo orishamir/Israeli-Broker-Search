@@ -82,14 +82,14 @@ export const NAME_SIZE = 12
 // its bar. ECharts centers both a row's bar and its name in the row, so an
 // empty slot the height of the name's line goes above each bar, and the
 // name is moved up into it.
-const NAME_LINE = 15
-const GAP = 3
-const BAR = 16
-const NAME_ABOVE = (GAP + BAR) / 2
-const BAR_BELOW = (NAME_LINE + GAP) / 2
+export const NAME_LINE = 15
+export const GAP = 3
+export const BAR = 16
+export const NAME_ABOVE = (GAP + BAR) / 2
+export const BAR_BELOW = (NAME_LINE + GAP) / 2
 
 /** Around the rows: room for the axis below them. */
-const MARGIN = { left: 4, right: 4, top: 4, bottom: 24 }
+export const MARGIN = { left: 4, right: 4, top: 4, bottom: 24 }
 /** The bars' box: a row for each plan, and the axis. */
 export const barsHeight = (rows: number, narrow: boolean) =>
   rows * rowHeight(narrow) + MARGIN.top + MARGIN.bottom

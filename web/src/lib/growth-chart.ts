@@ -37,10 +37,21 @@ export interface GrowthView {
   /** Phones and tablets: pinching there zooms the page, not the chart, so
    * they get a slider to zoom and move with instead of the wheel. */
   touch: boolean
+  /** Time in months rather than years: the short term's. */
+  months?: boolean
+  /** The no-fee line's name, if not "No fees". */
+  noFeesName?: string
 }
 
-/** [years, value] points, a month apart, from index 0 (the start). */
-const points = (values: number[]) => values.map((value, month) => [month / 12, value])
+/** [time, value] points, a month apart, from index 0 (the start): time in
+ * years, or in months. */
+const pointsIn = (months: boolean) => (values: number[]) =>
+  values.map((value, month) => [months ? month : month / 12, value])
+
+/** Which months a pinned line shows its value at: every year, or with time
+ * in months, about eight times along it. */
+const labelEvery = (view: GrowthView, count: number) =>
+  view.months ? Math.max(1, Math.ceil((count - 1) / 8)) : 12
 
 const compactLabel = ({ value }: { value: unknown }) => compactShekels((value as number[])[1])
 
@@ -53,6 +64,8 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
   // Pinned plans, in table order: every other one gets its yearly values
   // below its line rather than above, so they collide less.
   const pinnedOrder = view.lines.map(({ id }) => id).filter((id) => view.pinned.has(id))
+  const points = pointsIn(view.months ?? false)
+  const every = labelEvery(view, line.values.length)
   return {
     id: line.id,
     name: line.label,
@@ -62,7 +75,7 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
     // get plain points, which ECharts copies and compares much faster.
     data: pinned
       ? points(line.values).map((point, index, all) => {
-          const yearly = Number.isInteger(point[0])
+          const yearly = index % every === 0
           // Not at the last point, where the end label shows the same value:
           // the two would collide, and the end label could be hidden.
           const last = index === all.length - 1
@@ -96,12 +109,13 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
 
 export function growthOption(view: GrowthView): ChartOption {
   const series: LineSeriesOption[] = view.lines.map((line) => lineSeries(line, view))
+  const months = view.months ?? false
   if (view.noFees) {
     series.unshift({
       id: NO_FEES,
-      name: t.noFees,
+      name: view.noFeesName ?? t.noFees,
       type: 'line',
-      data: points(view.noFees),
+      data: pointsIn(months)(view.noFees),
       color: WEAK,
       lineStyle: { type: 'dashed', width: 1.5 },
       showSymbol: false,
@@ -114,17 +128,23 @@ export function growthOption(view: GrowthView): ChartOption {
     grid: { left: 16, right: 90, top: 24, bottom: view.touch ? 88 : 32 },
     xAxis: {
       type: 'value',
-      name: t.years,
+      name: months ? t.monthsAxis : t.years,
       nameLocation: 'middle',
       nameGap: 26,
       minInterval: 1,
-      // Zoomed in, the axis ends at fractions of a year; label whole years only.
-      axisLabel: { formatter: (year: number) => (Number.isInteger(year) ? String(year) : ''), color: WEAK },
+      // Zoomed in, the axis ends at fractions of a year; label whole years
+      // (or months) only.
+      axisLabel: { formatter: (time: number) => (Number.isInteger(time) ? String(time) : ''), color: WEAK },
       nameTextStyle: { color: WEAK },
       axisLine: { lineStyle: { color: GRID } },
       splitLine: { show: false },
       // Also the tooltip's title.
-      axisPointer: { label: { formatter: ({ value }) => elapsed(Number(value)) } },
+      axisPointer: {
+        label: {
+          formatter: ({ value }) =>
+            months ? t.afterMonths(Math.round(Number(value))) : elapsed(Number(value)),
+        },
+      },
     },
     // Fits the lines in view exactly (not rounded to a nice number), so it
     // changes smoothly while zooming; a little room above for the labels.
@@ -155,7 +175,7 @@ export function growthOption(view: GrowthView): ChartOption {
             // The years without the plans' lines in it: they're all alike.
             showDataShadow: false,
             brushSelect: false,
-            labelFormatter: (year: number) => `${Math.round(year)}`,
+            labelFormatter: (time: number) => `${Math.round(time)}`,
             textStyle: { color: WEAK },
             borderColor: GRID,
             fillerColor: 'rgba(123, 155, 255, 0.2)',

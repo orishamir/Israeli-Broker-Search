@@ -99,6 +99,29 @@ all. Read those three first.
   Hebrew Wikisource has the Income Tax Ordinance and the fund regulations
   as plain pages, and Kol Zchut the yearly ceilings.
 
+## Researching the short term's figures
+
+- **The Bank of Israel's deposit rates** are in an Excel behind its
+  comparison page, not only in the Power BI dashboard:
+  `boi_files/Pikuah/g060a.xls` (an .xlsx whatever its name), found as the
+  "כאן" link on `.../boi-equator/deposit/` (the old address redirects
+  there). Sheet L7.6.1a is fixed rates, L7.6.2a variable; nine blocks of
+  terms across, ten banks and the system in each, a row a month.
+  `policies/deposit-rates.py` finds the blocks by their titles.
+- **boi.org.il answers `curl` with a Radware challenge** that returns 200
+  for any address, so a made-up URL looks real. Read it with a browser
+  (the text recipe below); its press releases are named by date
+  (`/publications/pressreleases/23-2-26/`), and its list of them loads late.
+- **Maya's API** (`maya.tase.co.il/api/v1/funds/mutual`, a POST) takes at
+  most 30 funds a page (`pageSize` above 30 is a 400) and ignored every
+  classification filter tried, so `money-market-funds.py` reads all ~2,000
+  funds and keeps the ones whose `classification.main` is "כספית שקלית".
+  Plain Python gets through with a browser's user agent and referer; some
+  filter names got a 403 from its firewall instead of an error.
+- **A fund's real cost** is `managementFee + trusteeFee`; a load on buying
+  shows only as `purchasePrice` above `redemptionPrice` (Barak's 0.1%).
+  The distribution fee is the manager's payment to the bank.
+
 ## Tools on this machine
 
 - The system Python has no Pillow: `uv run --with pillow python script.py`.
@@ -209,6 +232,22 @@ all. Read those three first.
 
 ## The web app
 
+- Only the chosen calculator is on the page (`{#if}` in `App.svelte`);
+  the other's state lives on in `AppState` (`app.short`), so switching
+  keeps what was typed. Both calculators' deposit fields keep the ids
+  `first-deposit` and `monthly-deposit`, so labels and tests find them the
+  same way in either.
+- A class field set in the constructor and read by a `$derived` field's
+  initializer is "used before its initialization" to TypeScript, though a
+  derived is only read after the constructor: give the field a default
+  where it's declared (`ShortTermState.expert`). Parameter properties
+  (`constructor(private x)`) are TypeScript that emits code; keep them out
+  of `.svelte.ts`, where Svelte only strips types.
+- A flag every place of a kind shares ("August's rates, before a cut") is
+  said once, for the kind: in the list of places under the kind's name, and
+  in a line under the table. Repeated under each deposit it took 7 of 8
+  rows. A place's own flag stays under its row, and the best place's card
+  shows either.
 - Caveat texts repeat across coverages, so `Caveats.svelte` keys by position.
   `app.spec.ts` opens every plan's dialog and fails on any page error
   (`each_key_duplicate` blanked a dialog): it covers new brokers by itself.
@@ -386,6 +425,8 @@ all. Read those three first.
 
 ## Playwright
 
+- `getByText` for a chart view's name can also match the text of its
+  hidden tip: click a choice through `choice(page, group, name)`.
 - Screenshots were the suite's biggest coupling: 208 baselines on 9
   devices, re-recorded (and looked at) whenever a number, a label or a
   padding changed, since full-page pictures contain everything. Now there
@@ -525,6 +566,7 @@ by the Event Timing API; anything under about 50 ms isn't felt.
 | typing the one-time deposit (ms)                |         56 |      32 |
 | switching the security (ms)                     |         64 |      24 |
 | switching the exchange (ms)                     |         80 |      24 |
+| switching calculators (ms)                      |         64 |      16 |
 | opening the list of plans (ms)                  |         24 |      16 |
 | ticking a broker's four plans (ms)              |         64 |      24 |
 | switching the chart view (ms)                   |         24 |      24 |
@@ -545,6 +587,10 @@ changed nothing: measured against the commit before it on the same machine,
 each number was the same or a frame better. A frame gap moves by one frame
 (17 ms) from run to run: compare runs on a quiet machine, not with the dev
 server and a test run going.
+
+Switching calculators (2026-10-01) makes the whole column and results
+again, since only the chosen one is on the page: 64 ms on the phone, and
+the other numbers stayed where they were.
 
 The sweep moved to a worker the same day: the chart by deposit's frame gap
 went from 150 ms to 33 on the phone, and typing the one-time deposit (a
@@ -569,6 +615,13 @@ chart), so click away first.
 
 ## Open ends
 
+- The link preview (`web/public/og.png`) still shows "Broker fees,
+  compounded" in English, from before the page was Hebrew only and before
+  the title became "כמה יישאר לכם בסוף".
+- The short term's deposit rates are the Bank of Israel's for August 2026,
+  before September's cut to 3.25%: the user chose them as published and
+  dated, with a caveat, over moving each bank by the cut. Update them
+  monthly with `policies/deposit-rates.py`.
 - Scrolling to the end of a dialog scrolls the page behind it. The fix,
   `overscroll-behavior: contain`, is out because the Baseline plugin rejects
   the property (Safari lacks it only on the page root); a lint exception is

@@ -4,12 +4,18 @@
   import type { Choice } from './lib/core/core'
   import CrossoverChart from './lib/CrossoverChart.svelte'
   import DetailsDialog from './lib/DetailsDialog.svelte'
+  import FamilySwitch from './lib/FamilySwitch.svelte'
   import FeeBreakdown from './lib/FeeBreakdown.svelte'
   import GrowthChart from './lib/GrowthChart.svelte'
   import InputsPanel from './lib/InputsPanel.svelte'
+  import InterestSplit from './lib/InterestSplit.svelte'
   import { decode } from './lib/link'
+  import PlaceTable from './lib/PlaceTable.svelte'
   import ResultsTable from './lib/ResultsTable.svelte'
   import Share from './lib/Share.svelte'
+  import type { PlaceResult, ShortTermView } from './lib/short-term.svelte'
+  import ShortTermInputs from './lib/ShortTermInputs.svelte'
+  import ValueChart from './lib/ValueChart.svelte'
   import { askSweep } from './lib/sweeper'
   import { percent, shekels } from './lib/format'
   import { duration, reducedMotion } from './lib/motion'
@@ -49,8 +55,27 @@
     },
   ]
 
+  /** The short-term calculator's views: where the interest goes, and the value over the months. */
+  const shortViews: Choice<ShortTermView>[] = [
+    {
+      value: 'split',
+      name: t.splitView,
+      englishName: en.splitView,
+      explanation: t.splitViewTip,
+      hebrewNames: [],
+    },
+    {
+      value: 'value',
+      name: t.valueOverTime,
+      englishName: en.valueOverTime,
+      explanation: t.valueOverTimeTip,
+      hebrewNames: [],
+    },
+  ]
+
   // Opened from a link, perhaps: its state comes first.
   const app = new AppState(decode(location.hash))
+  const short = app.short
   /** The chart by deposit is for experts: offered with More options only. */
   const views = $derived(allViews.filter((view) => view.value !== 'crossover' || app.moreOptions))
   /** The growth chart's views: over the years, with a zoom. */
@@ -105,9 +130,42 @@
   const bestValue = rolling(() => best?.outcome?.afterTax)
   const bestTax = rolling(() => best?.outcome?.tax)
   const bestLost = rolling(() => best?.outcome?.lostToFees)
+
+  // The same for the short term's summary.
+  const shortComparison = () => ('results' in short.comparison ? short.comparison : undefined)
+  const shortBest = $derived(short.best)
+  const shortDeposited = rolling(() => shortComparison()?.deposited)
+  const shortAtTheRate = rolling(() => shortComparison()?.atTheRate.at(-1))
+  const shortBestValue = rolling(() => shortBest?.outcome?.afterTax)
+
+  /** The kinds whose flag one of the places compared shares. */
+  const flaggedKinds = (results: PlaceResult[]) =>
+    short.kinds.filter(
+      (kind) =>
+        kind.mayCostMore && results.some(({ place, outcome }) => outcome && place.kindName === kind.name),
+    )
+
+  /** The best plan or place, for the bar along a phone's screen. */
+  const bar = $derived.by(() => {
+    if (app.family === 'short') {
+      if (!shortBest?.outcome) return undefined
+      const { place, outcome } = shortBest
+      return {
+        color: place.color,
+        label: place.label,
+        note: t.bestBarNote(percent(outcome.yearlyAfterTaxPercent), place.info.liquidityName),
+      }
+    }
+    if (!best?.outcome) return undefined
+    return {
+      color: best.plan.color,
+      label: best.plan.label,
+      note: t.yearlyAndLost(percent(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees)),
+    }
+  })
 </script>
 
-<!-- index.html's skeleton repeats the title and the line under it. -->
+<!-- index.html's skeleton repeats the title. -->
 <header class="top">
   <div class="title">
     <h1>{t.title}</h1>
@@ -115,102 +173,188 @@
       <Share {app} />
     </div>
   </div>
-  <p>{t.subtitle}</p>
-  <!-- The page on how the numbers are made, opened at each of its sections. -->
+  <!-- The chosen calculator's page on how its numbers are made, opened at
+       each of its sections. -->
   <p class="about">
-    {#each app.about.sections as section, index (section.title)}
+    {#each app.aboutShown.sections as section, index (section.title)}
       {#if index > 0}<span class="separator" aria-hidden="true">·</span>{/if}
       <button class="link" onclick={() => (app.details = { kind: 'about', section: index })}>
         {section.title}
       </button>
     {/each}
   </p>
+  <FamilySwitch {app} />
 </header>
 
-<div class="layout">
-  <aside>
-    <InputsPanel {app} />
-  </aside>
+<!-- Only the chosen calculator is on the page; the other keeps its state. -->
+{#if app.family === 'long'}
+  <div class="layout">
+    <aside>
+      <InputsPanel {app} />
+    </aside>
 
-  <main>
-    {#if 'error' in app.comparison}
-      <p class="card error">{t.checkInputs(app.comparison.error)}</p>
-    {:else}
-      <div class="stats" bind:this={stats}>
-        <div class="card stat">
-          <span class="label">{t.youDeposit}</span>
-          <span class="value">{shekels(deposited.current)}</span>
-          <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
-        </div>
-        <div class="card stat">
-          <span class="label">{t.withNoFees}</span>
-          <span class="value">{shekels(noFees.current)}</span>
-          <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
-        </div>
-        {#if best?.outcome}
-          <div class="card stat best" style:--plan-color={best.plan.color}>
-            <span class="label">{t.best(best.plan.label)}</span>
-            <span class="value">{shekels(bestValue.current)}</span>
-            {#if app.sellAtEnd}
-              <span class="note"
-                >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
-              >
-            {/if}
-            <span class="note"
-              >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
-            >
-            {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
-            <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
-          </div>
-        {/if}
-      </div>
-
-      {#if app.comparison.results.length === 0}
-        <p class="card empty">{t.tickABroker}</p>
+    <main>
+      {#if 'error' in app.comparison}
+        <p class="card error">{t.checkInputs(app.comparison.error)}</p>
       {:else}
-        <section class="card table">
-          <div class="scrolls">
-            <ResultsTable {app} results={app.comparison.results} />
+        <div class="stats" bind:this={stats}>
+          <div class="card stat">
+            <span class="label">{t.youDeposit}</span>
+            <span class="value">{shekels(deposited.current)}</span>
+            <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
           </div>
-        </section>
+          <div class="card stat">
+            <span class="label">{t.withNoFees}</span>
+            <span class="value">{shekels(noFees.current)}</span>
+            <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
+          </div>
+          {#if best?.outcome}
+            <div class="card stat best" style:--plan-color={best.plan.color}>
+              <span class="label">{t.best(best.plan.label)}</span>
+              <span class="value">{shekels(bestValue.current)}</span>
+              {#if app.sellAtEnd}
+                <span class="note"
+                  >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
+                >
+              {/if}
+              <span class="note"
+                >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
+              >
+              {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
+              <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
+            </div>
+          {/if}
+        </div>
 
-        <section class="card" id="chart">
-          <div class="chart-bar">
-            <Choices label={t.chart} options={views} bind:value={app.chartView} wraps />
-            <!-- The hint for lines, the one for bars and the button take turns
+        {#if app.comparison.results.length === 0}
+          <p class="card empty">{t.tickABroker}</p>
+        {:else}
+          <section class="card table">
+            <div class="scrolls">
+              <ResultsTable {app} results={app.comparison.results} />
+            </div>
+          </section>
+
+          <section class="card" id="chart">
+            <div class="chart-bar">
+              <Choices label={t.chart} options={views} bind:value={app.chartView} wraps />
+              <!-- The hint for lines, the one for bars and the button take turns
                  in one place that fits any of them, so pinning the first plan
                  or switching views doesn't move the chart. -->
-            <span class="pinning">
-              {#each [false, true] as bars (bars)}
-                {@const shown = app.pinned.size === 0 && bars === !lines}
-                <span class="hint mouse" class:gone={!shown}>{t.pinHintMouse(bars)}</span>
-                <span class="hint touch" class:gone={!shown}>{t.pinHintTouch(bars)}</span>
-              {/each}
-              <button class:gone={app.pinned.size === 0} onclick={() => app.pinned.clear()}
-                >{t.unpinAll}</button
-              >
-            </span>
-          </div>
-          <!-- Every view stays, so switching back is instant: a hidden one
+              <span class="pinning">
+                {#each [false, true] as bars (bars)}
+                  {@const shown = app.pinned.size === 0 && bars === !lines}
+                  <span class="hint mouse" class:gone={!shown}>{t.pinHintMouse(bars)}</span>
+                  <span class="hint touch" class:gone={!shown}>{t.pinHintTouch(bars)}</span>
+                {/each}
+                <button class:gone={app.pinned.size === 0} onclick={() => app.pinned.clear()}
+                  >{t.unpinAll}</button
+                >
+              </span>
+            </div>
+            <!-- Every view stays, so switching back is instant: a hidden one
                isn't drawn (see echarts.svelte.ts), and the shown one fades in. -->
-          <div class="view" hidden={!overYears} inert={!overYears}>
-            <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
-            <!-- Under the chart it zooms, not in the bar: the bar is then the
+            <div class="view" hidden={!overYears} inert={!overYears}>
+              <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
+              <!-- Under the chart it zooms, not in the bar: the bar is then the
                  same in every view, and switching views doesn't move the chart. -->
-            <p class="hint zoom mouse">{t.zoomHintMouse}</p>
-            <p class="hint zoom touch">{t.zoomHintTouch}</p>
-          </div>
-          <div class="view" hidden={app.chartView !== 'crossover'} inert={app.chartView !== 'crossover'}>
-            <CrossoverChart {app} />
-          </div>
-          <div class="view" hidden={lines} inert={lines}>
-            <FeeBreakdown {app} results={app.comparison.results} />
-          </div>
-        </section>
+              <p class="hint zoom mouse">{t.zoomHintMouse}</p>
+              <p class="hint zoom touch">{t.zoomHintTouch}</p>
+            </div>
+            <div class="view" hidden={app.chartView !== 'crossover'} inert={app.chartView !== 'crossover'}>
+              <CrossoverChart {app} />
+            </div>
+            <div class="view" hidden={lines} inert={lines}>
+              <FeeBreakdown {app} results={app.comparison.results} />
+            </div>
+          </section>
+        {/if}
       {/if}
-    {/if}
-  </main>
-</div>
+    </main>
+  </div>
+{:else}
+  <div class="layout">
+    <aside>
+      <ShortTermInputs {app} />
+    </aside>
+
+    <main>
+      {#if 'error' in short.comparison}
+        <p class="card error">{t.checkInputs(short.comparison.error)}</p>
+      {:else}
+        {@const comparison = short.comparison}
+        <div class="stats" bind:this={stats}>
+          <div class="card stat">
+            <span class="label">{t.youDeposit}</span>
+            <span class="value">{shekels(shortDeposited.current)}</span>
+            <span class="note">{t.forMonths(short.months)}</span>
+          </div>
+          <div class="card stat">
+            <span class="label">{t.atTheRate}</span>
+            <span class="value">{shekels(shortAtTheRate.current)}</span>
+            <span class="note">{t.noCostsNoTax}</span>
+          </div>
+          {#if shortBest?.outcome}
+            <div class="card stat best" style:--plan-color={shortBest.place.color}>
+              <span class="label">{t.best(shortBest.place.label)}</span>
+              <span class="value">{shekels(shortBestValue.current)}</span>
+              <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
+              <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
+              {#if shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
+                <span class="note warning"
+                  >⚠ {shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}</span
+                >
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        {#if comparison.results.length === 0}
+          <p class="card empty">{t.tickAPlace}</p>
+        {:else}
+          <section class="card table">
+            <div class="scrolls">
+              <PlaceTable {short} results={comparison.results} />
+            </div>
+            <!-- A flag every place of a kind shares, once for the kind. -->
+            {#each flaggedKinds(comparison.results) as kind (kind.name)}
+              <p class="kind-flag">⚠ <bdi>{kind.name}</bdi>: <bdi>{kind.mayCostMore}</bdi></p>
+            {/each}
+          </section>
+
+          <section class="card" id="chart">
+            <div class="chart-bar">
+              <Choices label={t.chart} options={shortViews} bind:value={short.chartView} wraps />
+              <span class="pinning">
+                {#each [false, true] as bars (bars)}
+                  {@const shown = short.pinned.size === 0 && bars === (short.chartView === 'split')}
+                  <span class="hint mouse" class:gone={!shown}>{t.placePinHintMouse(bars)}</span>
+                  <span class="hint touch" class:gone={!shown}>{t.placePinHintTouch(bars)}</span>
+                {/each}
+                <button class:gone={short.pinned.size === 0} onclick={() => short.pinned.clear()}
+                  >{t.unpinAll}</button
+                >
+              </span>
+            </div>
+            <div class="view" hidden={short.chartView !== 'split'} inert={short.chartView !== 'split'}>
+              <InterestSplit
+                {short}
+                results={comparison.results}
+                deposited={comparison.deposited}
+                atTheRate={comparison.atTheRate}
+              />
+            </div>
+            <div class="view" hidden={short.chartView !== 'value'} inert={short.chartView !== 'value'}>
+              <ValueChart {short} results={comparison.results} atTheRate={comparison.atTheRate} />
+              <p class="hint zoom mouse">{t.zoomHintMouse}</p>
+              <p class="hint zoom touch">{t.zoomHintTouch}</p>
+            </div>
+          </section>
+        {/if}
+      {/if}
+    </main>
+  </div>
+{/if}
 
 <svelte:window
   onscroll={placeBar}
@@ -218,18 +362,16 @@
   onfocusout={() => (typing = false)}
 />
 
-<!-- The best plan, along the bottom of a phone's screen while the results
-     are below it; tapping it goes to them. -->
-{#if best?.outcome && resultsBelow && !typing}
+<!-- The best plan or place, along the bottom of a phone's screen while the
+     results are below it; tapping it goes to them. -->
+{#if bar && resultsBelow && !typing}
   <button
     class="best-bar"
-    style:--plan-color={best.plan.color}
+    style:--plan-color={bar.color}
     onclick={() => stats?.scrollIntoView({ block: 'start', behavior: reducedMotion ? 'auto' : 'smooth' })}
   >
-    <span class="bar-label">{t.best(best.plan.label)}</span>
-    <span class="bar-note"
-      >{t.yearlyAndLost(percent(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees))}</span
-    >
+    <span class="bar-label">{t.best(bar.label)}</span>
+    <span class="bar-note">{bar.note}</span>
     <span class="bar-arrow" aria-hidden="true">↓</span>
   </button>
 {/if}
@@ -393,6 +535,11 @@
 
   .table {
     padding: 4px;
+  }
+  .kind-flag {
+    margin: 4px 10px 8px;
+    color: var(--warning);
+    font-size: 0.75rem;
   }
   .scrolls {
     overflow-x: auto;

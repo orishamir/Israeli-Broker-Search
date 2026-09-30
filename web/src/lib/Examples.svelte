@@ -1,25 +1,24 @@
-<script lang="ts">
-  import type { AppState } from './app.svelte'
+<script lang="ts" generics="T extends { name: string; explanation: string }">
   import { tip } from './tip'
 
-  /** Ready-made investing patterns: one click fills every basic input. */
-  let { app }: { app: AppState } = $props()
+  /** Ready-made patterns: one click fills the inputs they set. */
+  let { examples, apply }: { examples: T[]; apply: (example: T) => void } = $props()
 
   const popovers = $state<HTMLElement[]>([])
 </script>
 
 <div class="examples">
-  {#each app.examples as example, index (example.name)}
+  {#each examples as example, index (example.name)}
     {@const popover = popovers[index]}
     <button
       type="button"
       class="chip"
-      onclick={() => app.applyExample(example)}
+      onclick={() => apply(example)}
       {@attach popover && tip(popover, { onClick: false })}>{example.name}</button
     >
   {/each}
 </div>
-{#each app.examples as example, index (example.name)}
+{#each examples as example, index (example.name)}
   <div class="popover" popover="manual" role="tooltip" bind:this={popovers[index]}>
     <p><strong>{example.name}</strong></p>
     <p>{example.explanation}</p>

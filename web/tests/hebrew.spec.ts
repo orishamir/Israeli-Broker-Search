@@ -7,8 +7,13 @@ import { aboutPlan, closePlans, expect, openPlans, plansList, test } from './fix
 test('the page is in Hebrew, right to left, in any browser', { tag: '@phone' }, async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await expect(page.locator('html')).toHaveAttribute('lang', 'he')
-  await expect(page).toHaveTitle('עמלות המסחר, בריבית דריבית')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('עמלות המסחר, בריבית דריבית')
+  await expect(page).toHaveTitle('כמה יישאר לכם בסוף')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('כמה יישאר לכם בסוף')
+  // The two calculators, named by how long the money is kept.
+  await expect(page.getByRole('radio', { name: 'השקעה לטווח ארוך' })).toBeChecked()
+  await expect(page.getByRole('radio', { name: 'חיסכון לטווח קצר' })).toHaveAccessibleDescription(
+    'פיקדון בבנק, קרן כספית',
+  )
   // The core's words: a security's name, a plan's, a column's tip.
   await expect(
     page.getByRole('radiogroup', { name: 'נייר ערך' }).getByText('קרן סל', { exact: true }),

@@ -1,4 +1,4 @@
-import { brokerName, exchangeName, securityName } from './core'
+import { brokerName, exchangeName, place, securityName, shortTermExamples } from './core'
 import {
   aboutPlan,
   choice,
@@ -386,6 +386,31 @@ test('with the about page open', { tag: '@phone' }, async ({ page }) => {
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'about')
 })
+
+test(
+  'in the short-term calculator: its list with a deposit of your own, a place, both charts',
+  {
+    tag: '@phone',
+  },
+  async ({ page }) => {
+    await page.getByText(t.shortTerm, { exact: true }).click()
+    await expect(page.getByRole('heading', { name: t.forHowLong })).toBeVisible()
+    await checkLayout(page, 'short term')
+    await page.getByRole('button', { name: t.addOrRemove }).click()
+    await page.getByRole('button', { name: t.addYourDeposit }).click()
+    await checkLayout(page, 'list of places')
+    await page
+      .getByRole('button', { name: t.about(place('Fixed-rate deposit · Bank Leumi').place.name) })
+      .click()
+    await expect(dialog(page)).toBeVisible()
+    await checkLayout(page, "a place's details")
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await choice(page, t.chart, t.valueOverTime).click()
+    await page.getByRole('button', { name: shortTermExamples()[2].name }).click()
+    await checkLayout(page, 'value over time, saving monthly')
+  },
+)
 
 // Pictures, on the two extreme screens only (playwright.config.ts): what
 // the rules can't see, such as a color or an alignment, in the states with

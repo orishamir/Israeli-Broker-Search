@@ -21,34 +21,16 @@ import type {
   WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
+import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
 import { encode, type Shared } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
 import { load, save } from './saved'
+import { ShortTermState, type Place } from './short-term.svelte'
 import type { SweepRequest } from './sweeper'
 import { t } from './text'
 
-/** Chosen to differ as much as they can on the dark background, with color
- * blindness too: the first 8 clearly, the rest less so, as 14 colors can't
- * all be far apart. Checked with the dataviz skill's validator. */
-export const PLAN_COLORS = [
-  '#56b4e9',
-  '#e69f00',
-  '#8d73f0',
-  '#c1e319',
-  '#e141aa',
-  '#3ceedd',
-  '#fd2e1c',
-  '#fc899d',
-  '#27ef8e',
-  '#dc855d',
-  '#39bda0',
-  '#c86b82',
-  '#adc367',
-  '#4493d0',
-]
-/** An unticked plan isn't drawn, so it only needs a color where it's listed. */
-const UNTICKED_COLOR = '#8e95a5'
+export { PLAN_COLORS } from './colors'
 
 /** One of the user's own plans, as kept in this browser. */
 export interface YourPlan {
@@ -112,6 +94,9 @@ export interface Result {
   whyNot: WhyNot | undefined
 }
 
+/** The two calculators: investing for the long term, saving for the short. */
+export type Family = 'long' | 'short'
+
 export type ChartView = 'value' | 'lost' | 'crossover' | 'breakdown'
 /** The chart shown at first: what the fees cost, over the years. */
 const FIRST_VIEW: ChartView = 'lost'
@@ -130,12 +115,14 @@ export type Comparison =
 
 /** What the details dialog shows. A plan of the user's own opens in the
  * editor, and so does a draft, before "Add plan". `about` is the page on how
- * the numbers are made, opened at one of its sections. */
+ * the numbers are made, the chosen calculator's, opened at one of its
+ * sections. A place is one of the short term's. */
 export type Details =
   | { kind: 'broker'; broker: BrokerInfo }
   | { kind: 'plan'; plan: Plan }
   | { kind: 'draft'; draft: YourPlan }
   | { kind: 'about'; section?: number }
+  | { kind: 'place'; place: Place }
 
 export type EditorView = 'simple' | 'full'
 
@@ -166,21 +153,24 @@ function readable(plans: YourPlan[], what: string): YourPlan[] {
   })
 }
 
-/** `plan` with a color looked up whenever it's read, so a plan stays the
- * same object as its color changes. */
-function withColor<T extends object>(plan: T, color: () => string): T & { color: string } {
-  return Object.defineProperty(plan, 'color', { get: color, enumerable: true }) as T & { color: string }
-}
-
 /** Everything the page shows, and what the user chose. The comparison is
  * derived: it's recalculated by the Rust core whenever an input changes. */
 export class AppState {
+  /** The calculator shown. Every link says which; the page opens on the
+   * long term's otherwise. */
+  family = $state<Family>('long')
+  /** The short-term calculator, kept while the long term's is shown. */
+  readonly short: ShortTermState
   readonly brokers: BrokerInfo[] = core.brokers()
   /** How much prices are taken to rise a year, in percent, unless the user
    * says otherwise: the core's, since the tax is worked out with it. */
   readonly usualInflation: number = core.usualInflationPercent()
   /** How the numbers are made, what isn't counted, and the sources. */
   readonly about = core.about()
+  /** The chosen calculator's page on its numbers. */
+  get aboutShown() {
+    return this.family === 'short' ? this.short.about : this.about
+  }
   readonly securities: Choice<Security>[] = core.securities()
   readonly exchanges: Choice<Exchange>[] = core.exchanges()
   /** Ready-made investing patterns, each setting every basic input. */
@@ -285,23 +275,15 @@ export class AppState {
   /** The ticked plans' colors. Each keeps its color while it's ticked, and a
    * newly ticked plan takes the palette's first free color, so they differ
    * as much as they can. A copy shares its original's, as it's drawn dotted. */
-  private colors: ReadonlyMap<string, string> = $derived.by(() => {
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
-    const ticked = new Set(
-      this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.original?.id ?? plan.id),
-    )
-    for (const id of this.handedOut.keys()) if (!ticked.has(id)) this.handedOut.delete(id)
-    for (const id of ticked) {
-      if (this.handedOut.has(id)) continue
-      // Past the palette's end, the least used color.
-      const used = [...this.handedOut.values()]
-      const uses = (color: string) => used.filter((each) => each === color).length
-      const color = PLAN_COLORS.reduce((least, each) => (uses(each) < uses(least) ? each : least))
-      this.handedOut.set(id, color)
-    }
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a copy, never changed
-    return new Map(this.handedOut)
-  })
+  private colors: ReadonlyMap<string, string> = $derived(
+    handOut(
+      this.handedOut,
+      // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
+      new Set(
+        this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.original?.id ?? plan.id),
+      ),
+    ),
+  )
 
   private colorOf(id: string): string {
     return this.colors.get(id) ?? UNTICKED_COLOR
@@ -597,6 +579,9 @@ export class AppState {
   /** A link to this comparison: the inputs and the ticked plans, your own
    * ticked plans included, in the page's address. */
   shareLink(): string {
+    if (this.family === 'short') {
+      return `${location.origin}${location.pathname}#${encode({ family: 'short', short: this.short.shared() })}`
+    }
     const ticked = this.plans.filter((plan) => this.selected.has(plan.id))
     const shared: Shared = {
       security: this.security,
@@ -633,6 +618,7 @@ export class AppState {
    * own, replace what's ticked; your plans from it join yours, a plan with
    * the same id (from your own other device) taking the newer version. */
   private applyShared(shared: Shared) {
+    if (shared.family !== undefined) this.family = shared.family
     if (shared.security !== undefined) this.security = shared.security
     if (shared.exchange !== undefined) this.exchange = shared.exchange
     if (shared.firstDeposit !== undefined) this.firstDeposit = shared.firstDeposit
@@ -752,6 +738,7 @@ export class AppState {
 
   /** `shared`: what the page's address says, if it was opened from a link. */
   constructor(shared: Shared = {}) {
+    this.short = new ShortTermState(() => this.moreOptions, shared.short)
     this.applyShared(shared)
     this.loadRates()
     $effect(() => save('your-plans-v1', this.yourPlans))
