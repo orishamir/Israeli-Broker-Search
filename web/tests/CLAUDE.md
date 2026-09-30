@@ -33,7 +33,7 @@ catch the bug:
   | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved | `editor`    |
   | app.css, anything about size or position                            | `layout`    |
   | main.ts, index.html, Share, link.ts                                 | `app`       |
-  | text.ts, text/\*.ts, the language switch, anything right-to-left    | `hebrew`    |
+  | text.ts, text/\*.ts, index.html's language, anything right-to-left  | `hebrew`    |
 
   `npx playwright test --project=desktop tests/editor.spec.ts`. The `=`
   matters: `--project desktop tests/x.spec.ts` reads the path as a second
@@ -45,8 +45,12 @@ catch the bug:
   them, and `feesFor`, `compare` and `about` give the words a dialog should
   show. A tariff change then changes no browser test; the numbers
   themselves are checked in Rust (`real_tariffs.rs`, `economics.rs`).
-  Plans are named by their label, "Leumi · Pepper" (`listed`, `rowOf`),
-  since plan names repeat across brokers.
+  The page is in Hebrew, and so is the core there; tests name plans by
+  their English label, "Leumi · Pepper" (`listed`, `rowOf`), as links do,
+  since plan names repeat across brokers, and `listed(...).label` is the
+  Hebrew one the page shows. The page's own words come from `t`
+  (`src/lib/text.ts`), a security's or exchange's name from
+  `securityName`/`exchangeName`, a broker's from `brokerName`.
 - **Tags decide the devices** (`playwright.config.ts`): every test runs on
   the desktop; `@phone` also on the Galaxy and the iPhone (WebKit);
   `@touch` only on those two (tapping, the zoom slider, real swipes), with
@@ -67,12 +71,10 @@ catch the bug:
   a rule, not a screenshot. `breakdown.spec.ts` records what the chart
   draws (`fillText`) and checks that every plan's name is drawn whole, on
   one line: none cut to fit the screen.
-- **Pictures, 21 in all, for what rules can't see** (a color, an
-  alignment): the start page on each of the nine devices, the same in
-  Hebrew on the desktop and the two phones (`hebrew.spec.ts`, which runs
-  with a Hebrew browser locale), and, on the narrowest phone and the
-  desktop only (`@pictures`), a plan's details, the editor in both views,
-  and the fee breakdown. What comes from the tariffs
+- **Pictures, 18 in all, for what rules can't see** (a color, an
+  alignment): the start page on each of the nine devices, and, on the
+  narrowest phone and the desktop only (`@pictures`), a plan's details, the
+  editor in both views, and the fee breakdown. What comes from the tariffs
   is masked, so they change only when the page itself does; the breakdown's
   bars can't be, since the amounts are the picture, so a tariff change
   re-records those two. A growth chart is checked by comparing its canvas

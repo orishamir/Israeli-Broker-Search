@@ -6,7 +6,7 @@ import App from './App.svelte'
 import init, { setLang } from './lib/core/core'
 import { reducedMotion } from './lib/motion'
 import { todaysRates } from './lib/rates'
-import { coreLang, lang, rtl, t } from './lib/text'
+import { t } from './lib/text'
 
 // Asked for now, so the answer comes while the core downloads; the app
 // handles a failure when it looks.
@@ -16,11 +16,8 @@ todaysRates().catch(() => undefined)
 // that is synchronous.
 await init()
 
-// The page's language, chosen as it loaded (index.html sets the direction
-// even earlier): the core answers in it from here on.
-setLang(coreLang)
-document.documentElement.lang = lang
-document.documentElement.dir = rtl ? 'rtl' : 'ltr'
+// The core answers in Hebrew from here on.
+setLang('He')
 document.title = t.title
 
 mount(App, { target: document.getElementById('app')! })

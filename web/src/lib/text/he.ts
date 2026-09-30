@@ -8,8 +8,6 @@ export const he: Text = {
   title: 'עמלות המסחר, בריבית דריבית',
   subtitle:
     'כמה העמלות של הבנקים ובתי ההשקעות בישראל עולות לכם לאורך השנים, על קרנות סל, קרנות מחקות, אג״ח ומניות.',
-  otherLanguage: 'English',
-  switchLanguage: 'החלפה לאנגלית',
   share: 'שיתוף',
   linkCopied: 'הקישור הועתק',
   linkToComparison: 'קישור להשוואה הזו',
@@ -105,7 +103,9 @@ export const he: Text = {
   after: (years, months) => {
     const yearsText = years === 1 ? 'שנה' : years === 2 ? 'שנתיים' : `${years} שנים`
     const monthsText = months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`
-    return months === 0 ? `אחרי ${yearsText}` : `אחרי ${yearsText} ו-${monthsText}`
+    // A hyphen joins ו to a number only: ו-5 חודשים, but וחודש.
+    const and = months > 2 ? 'ו-' : 'ו'
+    return months === 0 ? `אחרי ${yearsText}` : `אחרי ${yearsText} ${and}${monthsText}`
   },
 
   // The fee breakdown
@@ -212,7 +212,6 @@ export const he: Text = {
   ratesServiceAnswered: (status) => `שירות השערים ענה ${status}`,
 
   // Names in the other language
-  inHebrew: 'בעברית',
   inEnglish: 'באנגלית',
   alsoCalled: 'נקרא גם',
   whatMeans: (about) => `מה פירוש ״${about}״`,

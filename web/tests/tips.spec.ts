@@ -1,11 +1,12 @@
 import { feesFor, listed, purchaseOnPage, securities, trackOnPage } from './core'
 import { away, choice, expect, test, type Page } from './fixtures'
+import { t } from '../src/lib/text'
 
-// The "?" tips: how they open and close, and that they explain in Hebrew too.
+// The "?" tips: how they open and close, and the other names they give.
 
 const yearlyReturn = (page: Page) => ({
-  button: page.getByRole('button', { name: 'What “Yearly return” means' }),
-  tip: page.getByRole('tooltip').filter({ hasText: 'The S&P 500 has averaged about 10%' }),
+  button: page.getByRole('button', { name: t.whatMeans(t.yearlyReturn) }),
+  tip: page.getByRole('tooltip').filter({ hasText: t.yearlyReturnTip }),
 })
 
 test('a ? explains its label on hover, until the mouse leaves', async ({ page }) => {
@@ -22,13 +23,13 @@ test('a tapped ? explains its label until a tap elsewhere', { tag: '@touch' }, a
   const { button, tip } = yearlyReturn(page)
   await button.tap()
   await expect(tip).toBeVisible()
-  await page.getByRole('heading', { name: 'Deposits' }).tap()
+  await page.getByRole('heading', { name: t.deposits }).tap()
   await expect(tip).toBeHidden()
 })
 
 test('a clicked ? stays open until Esc', async ({ page }) => {
-  const button = page.getByRole('button', { name: 'What “Left after tax” means' })
-  const tip = page.getByRole('tooltip').filter({ hasText: 'after the sell fee' })
+  const button = page.getByRole('button', { name: t.whatMeans(t.leftAfterTax) })
+  const tip = page.getByRole('tooltip').filter({ hasText: t.leftAfterTaxTip })
   await button.click()
   await away(page)
   await expect(tip).toBeVisible()
@@ -36,12 +37,17 @@ test('a clicked ? stays open until Esc', async ({ page }) => {
   await expect(tip).toBeHidden()
 })
 
-test('hovering a security explains it, with its Hebrew names', async ({ page }) => {
+test('hovering a security explains it, with its English name and its other Hebrew names', async ({
+  page,
+}) => {
   const bond = securities().find(({ value }) => value === 'Bond')!
-  await choice(page, 'Security', bond.name).hover()
+  await choice(page, t.security, bond.name).hover()
   const tip = page.getByRole('tooltip').filter({ hasText: bond.explanation })
   await expect(tip).toBeVisible()
-  for (const name of bond.hebrewNames) await expect(tip).toContainText(name)
+  await expect(tip).toContainText(bond.englishName)
+  const others = bond.hebrewNames.filter((name: string) => name !== bond.name)
+  expect(others.length).toBeGreaterThan(0)
+  for (const name of others) await expect(tip).toContainText(name)
 })
 
 /** Opens Pepper's details, and finds the account fee's "?" and what the tip should say. */
@@ -51,9 +57,9 @@ async function custodyTip(page: Page) {
   const custody = feesFor(key.broker, key.plan, purchase, trackOnPage(inputs, key)).fees.find(
     ({ kind }) => kind === 'Account',
   )!
-  await page.getByRole('button', { name: `About ${label}` }).click()
+  await page.getByRole('button', { name: t.about(label) }).click()
   return {
-    button: page.getByRole('dialog').getByRole('button', { name: `What “${custody.name}” means` }),
+    button: page.getByRole('dialog').getByRole('button', { name: t.whatMeans(custody.name) }),
     tip: page.getByRole('tooltip').filter({ hasText: custody.explanation }),
     hebrew: custody.hebrewNames[0],
   }

@@ -1,6 +1,5 @@
 <script module lang="ts">
   import type { Plan } from './app.svelte'
-  import { rtl } from './text'
 
   const WIDTH = 360
   const GAP = 16
@@ -11,9 +10,8 @@
   /** None when the window has no room beside the row (one column): over the
    * list, it would hide the plans the mouse goes to next. */
   export function previewBeside(plan: Plan, row: HTMLElement): Preview | null {
-    const { left, right } = row.getBoundingClientRect()
-    // The window's width without its scrollbar, which `innerWidth` counts.
-    const room = rtl ? left : document.documentElement.clientWidth - right
+    // Left of the row, where the results are on a right-to-left page.
+    const room = row.getBoundingClientRect().left
     return room < GAP + WIDTH ? null : { plan, row }
   }
 </script>
@@ -29,16 +27,16 @@
 
   let { app, preview }: { app: AppState; preview: Preview | null } = $props()
 
-  // Beside the row, on the side of the results (right of it, or left of it
-  // on a right-to-left page), its first line level with the row's, or moved
-  // up just enough to stay in the window, also as its fees change.
+  // Beside the row, on the side of the results (left of it), its first line
+  // level with the row's, or moved up just enough to stay in the window,
+  // also as its fees change.
   const beside =
     (row: HTMLElement): Attachment<HTMLElement> =>
     (element) =>
       autoUpdate(row, element, () =>
         computePosition(row, element, {
           strategy: 'fixed',
-          placement: rtl ? 'left-start' : 'right-start',
+          placement: 'left-start',
           middleware: [offset({ mainAxis: GAP, crossAxis: -8 }), shift({ padding: 8 })],
         }).then(({ x, y }) => {
           element.style.left = `${x}px`

@@ -13,7 +13,7 @@
   import { askSweep } from './lib/sweeper'
   import { percent, shekels } from './lib/format'
   import { duration, reducedMotion } from './lib/motion'
-  import { lang, switchLang, t } from './lib/text'
+  import { t } from './lib/text'
   import { en } from './lib/text/en'
   import { cubicOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
@@ -112,14 +112,6 @@
   <div class="title">
     <h1>{t.title}</h1>
     <div class="actions">
-      <!-- The other language, named in itself, so anyone can find their own. -->
-      <button
-        class="language"
-        lang={lang === 'he' ? 'en' : 'he'}
-        aria-label={t.switchLanguage}
-        onclick={() => switchLang(lang === 'he' ? 'en' : 'he', app.shareLink().split('#')[1] ?? '')}
-        >{t.otherLanguage}</button
-      >
       <Share {app} />
     </div>
   </div>
@@ -404,14 +396,9 @@
   }
   .scrolls {
     overflow-x: auto;
-    /* A shadow at the right edge while there's more to scroll to: the cover
-       moves with the content and hides it at the end. */
-    background:
-      linear-gradient(to left, var(--surface) 40%, transparent) right / 40px 100% no-repeat local,
-      radial-gradient(farthest-side at 100% 50%, rgb(0 0 0 / 0.6), transparent) right / 16px 100% no-repeat
-        scroll;
-  }
-  :global(html[dir='rtl']) .scrolls {
+    /* A shadow at the left edge, where a right-to-left table ends, while
+       there's more to scroll to: the cover moves with the content and hides
+       it at the end. */
     background:
       linear-gradient(to right, var(--surface) 40%, transparent) left / 40px 100% no-repeat local,
       radial-gradient(farthest-side at 0% 50%, rgb(0 0 0 / 0.6), transparent) left / 16px 100% no-repeat
@@ -460,7 +447,7 @@
     margin: 0;
     text-align: end;
   }
-  /* The language switch and Share, at the end of the title's row. */
+  /* Share, at the end of the title's row. */
   .actions {
     display: flex;
     align-items: center;

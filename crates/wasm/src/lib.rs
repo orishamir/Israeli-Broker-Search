@@ -164,9 +164,6 @@ pub struct BrokerInfo {
     /// the funds apart.
     pub kind: BrokerKind,
     pub name: String,
-    /// A kind of fund's Hebrew name, shown beside the English one, which
-    /// nobody in Israel calls it by.
-    pub hebrew_name: Option<String>,
     /// The English name, which saved copies of its plans name it by.
     pub english_name: String,
     /// "Leumi", beside a plan's name where plan names repeat: "Leumi · Online".
@@ -203,7 +200,6 @@ impl BrokerInfo {
         BrokerInfo {
             kind: broker.kind,
             name: broker.name[lang].to_owned(),
-            hebrew_name: (broker.kind == BrokerKind::Funds).then(|| broker.name.he.to_string()),
             english_name: broker.name.en.to_string(),
             short_name: broker.short_name[lang].to_owned(),
             english_short_name: broker.short_name.en.to_string(),
@@ -2076,7 +2072,7 @@ mod tests {
         assert_eq!(infos.len(), brokers + funds::all().len());
         for broker in &infos[..brokers] {
             assert_ne!(broker.kind, BrokerKind::Funds);
-            assert!(broker.compared_at_first && broker.hebrew_name.is_none());
+            assert!(broker.compared_at_first);
             for plan in &broker.plans {
                 assert!(plan.tariff.management.is_none() && plan.pension_from_age.is_none());
             }
@@ -2084,7 +2080,6 @@ mod tests {
         let gemel = &infos[brokers];
         assert_eq!(gemel.kind, BrokerKind::Funds);
         assert_eq!(gemel.name, "Provident fund for investment");
-        assert_eq!(gemel.hebrew_name.as_deref(), Some("קופת גמל להשקעה"));
         assert_eq!(gemel.tariff_date, "Fees paid, by the data of 08/2026");
         assert_eq!(gemel.checked, "Checked 30/09/2026");
         assert!(gemel.compared_at_first);
@@ -2107,7 +2102,7 @@ mod tests {
                 .all(|plan| plan.pension_from_age == Some(60))
         );
         let study = &infos[brokers + 1];
-        assert_eq!(study.hebrew_name.as_deref(), Some("קרן השתלמות"));
+        assert_eq!(study.name, "Study fund");
         assert!(!study.compared_at_first);
         assert!(
             study

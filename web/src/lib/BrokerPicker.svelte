@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AppState } from './app.svelte'
   import PlanPreview, { previewBeside, type Preview } from './PlanPreview.svelte'
-  import { lang, t } from './text'
+  import { t } from './text'
   import Tip from './Tip.svelte'
 
   /** The brokers, or with `funds` the kinds of fund: each list in its own
@@ -50,10 +50,6 @@
         onclick={() => (app.details = { kind: 'broker', broker })}>ℹ</button
       >
     </div>
-    <!-- A fund goes by its Hebrew name: nobody calls it by the English one. -->
-    {#if broker.hebrewName && lang !== 'he'}
-      <p class="date"><bdi lang="he">{broker.hebrewName}</bdi></p>
-    {/if}
     <!-- A fund's tax rule is what sets it apart: said outright, not only in its caveats. -->
     {#if broker.taxRule}<p class="date rule">{broker.taxRule}</p>{/if}
     <p class="date">{broker.tariffDate}</p>

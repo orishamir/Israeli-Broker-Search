@@ -2,6 +2,8 @@ import {
   about,
   brokerCaveats,
   brokers,
+  exchangeName,
+  feeKinds,
   feesFor,
   listed,
   listedPlans,
@@ -10,18 +12,19 @@ import {
   trackOnPage,
 } from './core'
 import { away, choice, closeDialog, expect, test, type Page } from './fixtures'
+import { t } from '../src/lib/text'
 
 // The details dialog: a plan's fees for what's bought, its caveats and its
 // prices, its broker, and the page about the numbers. Each is compared with
 // what the core describes for the inputs on the page.
 
-/** Opens the details of the plan called `label`, and describes them as the
- * core does for the page's inputs. */
-async function open(page: Page, label: string) {
-  const { key, plan } = listed(label)
+/** Opens the details of the plan called `englishLabel`, and describes them
+ * as the core does for the page's inputs. */
+async function open(page: Page, englishLabel: string) {
+  const { key, plan, label } = listed(englishLabel)
   const { inputs, purchase } = await purchaseOnPage(page)
   const fees = feesFor(key.broker, key.plan, purchase, trackOnPage(inputs, key))
-  await page.getByRole('button', { name: `About ${label}` }).click()
+  await page.getByRole('button', { name: t.about(label) }).click()
   const dialog = page.getByRole('dialog', { name: plan.name })
   await expect(dialog).toBeVisible()
   return { dialog, fees, purchase }
@@ -33,7 +36,7 @@ test(
   async ({ page }) => {
     const { broker, plan } = listed('Leumi · Pepper')
     const { dialog, fees, purchase } = await open(page, 'Leumi · Pepper')
-    await expect(dialog).toContainText(`For ${purchasePhrase(purchase.security, purchase.exchange)}:`)
+    await expect(dialog).toContainText(t.forPurchase(purchasePhrase(purchase.security, purchase.exchange)))
     await expect(dialog).toContainText(`${broker.tariffDate} · ${broker.checked}`)
     await expect(dialog).toContainText(plan.description)
 
@@ -66,8 +69,8 @@ test(
       }
     }
     // The rest are with all its prices.
-    const summary = dialog.getByText('All prices')
-    await expect(summary).toContainText(`${fees.others.length} caveat`)
+    const summary = dialog.getByText(t.allPrices)
+    await expect(summary).toContainText(t.andCaveatsAboutOthers(fees.others.length))
     await summary.click()
     await expect(dialog.locator('.tariff')).toBeVisible()
     await expect(dialog.locator('.tariff table').first().locator('tr')).toHaveCount(
@@ -86,11 +89,12 @@ test("a plan's fees follow what's bought: nothing about conversion on Tel Aviv",
   const abroad = await open(page, 'Leumi · Pepper')
   expect(abroad.fees.fees.map(({ kind }) => kind)).toContain('Conversion')
   await closeDialog(page)
-  await choice(page, 'Exchange', 'Tel Aviv').click()
+  await choice(page, t.exchange, exchangeName('Tlv')).click()
   const { dialog, fees } = await open(page, 'Leumi · Pepper')
   expect(fees.fees.map(({ kind }) => kind)).not.toContain('Conversion')
   await expect(dialog.locator('.fees-for > dl > dt')).toHaveCount(fees.fees.length)
-  await expect(dialog.locator('.fees-for')).not.toContainText('Conversion')
+  const conversion = feeKinds().find(({ value }) => value === 'Conversion')!.name
+  await expect(dialog.locator('.fees-for')).not.toContainText(conversion)
   // Selling everything at the end is a big order, so a caveat about large
   // orders in Tel Aviv now matters.
   const texts = fees.caveats.flatMap((group) => group.caveats.map(({ text }) => text))
@@ -100,12 +104,12 @@ test("a plan's fees follow what's bought: nothing about conversion on Tel Aviv",
 })
 
 test('a plan with tracks names the one picked and the others', async ({ page }) => {
-  const { key, label } = listed('IBI · Full tariff')
-  await page.getByRole('checkbox', { name: 'IBI', exact: true }).check()
-  const { dialog, fees } = await open(page, label)
+  const { key, broker } = listed('IBI · Full tariff')
+  await page.getByRole('checkbox', { name: broker.name, exact: true }).check()
+  const { dialog, fees } = await open(page, 'IBI · Full tariff')
   const track = fees.fees[0].parts.find(({ kind }) => kind === 'Track')!
   await expect(dialog.locator('dd.part', { hasText: track.label })).toContainText(track.price.text)
-  expect(track.price.text).toContain('(others: ')
+  expect(track.price.text).toContain('(אחרות: ')
   expect(key.kind).toBe('listed')
 })
 
@@ -136,13 +140,13 @@ test(
 test("every broker's plan's details open, with all its prices", async ({ page }) => {
   // A loop over everything: near the timeout under load.
   test.slow()
-  const buttons = page.getByRole('button', { name: /^About .+ · / })
+  const buttons = page.getByRole('button', { name: new RegExp(`^${t.about('.+ · ')}`) })
   await expect(buttons).toHaveCount(listedPlans.length)
   for (const { label } of listedPlans.filter(({ plan }) => !plan.tariff.management)) {
-    await page.getByRole('button', { name: `About ${label}`, exact: true }).click()
+    await page.getByRole('button', { name: t.about(label), exact: true }).click()
     await away(page)
     const dialog = page.getByRole('dialog')
-    await dialog.getByText('All prices').click()
+    await dialog.getByText(t.allPrices).click()
     await expect(dialog.locator('.tariff')).toBeVisible()
     await closeDialog(page)
   }
@@ -154,16 +158,14 @@ test("a fund's plan's details show its fee alone, from the regulator's data", as
   const funds = listedPlans.filter(({ plan }) => plan.tariff.management)
   expect(funds.length).toBeGreaterThan(0)
   for (const { label, plan, broker } of funds) {
-    await page.getByRole('button', { name: `About ${label}`, exact: true }).click()
+    await page.getByRole('button', { name: t.about(label), exact: true }).click()
     await away(page)
     const dialog = page.getByRole('dialog')
-    await expect(dialog.getByText('All prices')).toBeHidden()
+    await expect(dialog.getByText(t.allPrices)).toBeHidden()
     await expect(dialog.locator('.fees-for')).toContainText(plan.tariff.management!.ofBalance.text)
-    await expect(dialog.locator('.fees-for')).not.toContainText('For an ETF')
+    await expect(dialog.locator('.fees-for')).not.toContainText(t.forPurchase(purchasePhrase('Etf', 'Usa')))
     await expect(dialog.locator('.source')).toContainText(broker.tariffDate)
-    await expect(
-      dialog.locator('.source').getByRole('link', { name: "The Capital Market Authority's data ↗" }),
-    ).toBeVisible()
+    await expect(dialog.locator('.source').getByRole('link', { name: 'נתוני רשות שוק ההון ↗' })).toBeVisible()
     await closeDialog(page)
   }
 })
@@ -171,7 +173,7 @@ test("a fund's plan's details show its fee alone, from the regulator's data", as
 test('the numbers are explained, from the title and from a plan', { tag: '@phone' }, async ({ page }) => {
   const { sections } = about()
   await page.getByRole('button', { name: sections[2].title }).click()
-  const dialog = page.getByRole('dialog', { name: 'About the numbers' })
+  const dialog = page.getByRole('dialog', { name: t.aboutTheNumbers })
   await expect(dialog).toBeVisible()
   for (const section of sections)
     await expect(dialog.getByRole('heading', { name: section.title })).toBeVisible()
@@ -182,15 +184,16 @@ test('the numbers are explained, from the title and from a plan', { tag: '@phone
     for (const source of group.sources)
       await expect(item.getByRole('link', { name: `${source.name} ↗` })).toBeVisible()
   }
-  await expect(dialog.getByRole('link', { name: 'Tariff (PDF) ↗' })).toHaveCount(
+  await expect(dialog.getByRole('link', { name: `${t.tariffPdf} ↗` })).toHaveCount(
     brokers().filter(({ sourceUrl, kind }) => sourceUrl && kind !== 'Funds').length,
   )
   await closeDialog(page)
 
-  await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
+  const pepper = listed('Leumi · Pepper')
+  await page.getByRole('button', { name: t.about(pepper.label) }).click()
   await page
-    .getByRole('dialog', { name: 'Pepper' })
-    .getByRole('button', { name: /How the numbers are made/ })
+    .getByRole('dialog', { name: pepper.plan.name })
+    .getByRole('button', { name: t.howTheNumbersAreMade })
     .click()
   await expect(dialog).toBeVisible()
   await expect(dialog).toContainText(sections[1].title)

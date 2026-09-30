@@ -330,7 +330,7 @@ button:active:not(.link) {
 .popover > * + * {
   margin-top: 6px;
 }
-/* Hebrew phrases in English sentences read wrongly when split over lines. */
+/* Phrases in the other language read wrongly when split over lines. */
 .popover bdi {
   white-space: nowrap;
 }

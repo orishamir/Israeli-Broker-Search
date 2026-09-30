@@ -10,9 +10,6 @@ export const en = {
   // The page
   title: 'Broker fees, compounded',
   subtitle: "What Israeli brokers' fees cost you over the years, for ETFs, index funds, bonds and stocks.",
-  /** The other language, to switch to: shown in that language. */
-  otherLanguage: 'עברית',
-  switchLanguage: 'Switch to Hebrew',
   share: 'Share',
   linkCopied: 'Link copied',
   linkToComparison: 'Link to this comparison',
@@ -225,7 +222,6 @@ export const en = {
   ratesServiceAnswered: (status: number) => `the rates service answered ${status}`,
 
   // Names in the other language
-  inHebrew: 'In Hebrew',
   inEnglish: 'In English',
   alsoCalled: 'Also called',
   whatMeans: (about: string) => `What “${about}” means`,

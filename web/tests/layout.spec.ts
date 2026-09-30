@@ -1,4 +1,6 @@
+import { brokerName, exchangeName, listed, securityName } from './core'
 import { choice, expect, fitScreenToPage, test, type Page } from './fixtures'
+import { t } from '../src/lib/text'
 
 // Runs on every device in playwright.config.ts, including the layout-only
 // ones: rules that hold at any screen size, in every state of the page. The
@@ -140,6 +142,16 @@ async function checkLayout(page: Page, state: string) {
 }
 
 const dialog = (page: Page) => page.getByRole('dialog')
+/** The ℹ and ✎ of the plan called `englishLabel`. */
+const about = (page: Page, englishLabel: string) =>
+  page.getByRole('button', { name: t.about(listed(englishLabel).label), exact: true })
+const pencil = (page: Page, englishLabel: string) =>
+  page.getByRole('button', { name: t.changeACopy(listed(englishLabel).label), exact: true })
+/** The plan called `englishLabel` in the sidebar. */
+const tick = (page: Page, englishLabel: string) => {
+  const { broker, plan } = listed(englishLabel)
+  return page.getByRole('list', { name: broker.name }).getByRole('checkbox', { name: plan.name })
+}
 
 // The rules themselves: each must notice the bug it's for, so a rule that
 // never fires can't pass for a clean page.
@@ -190,7 +202,7 @@ test('at the start', { tag: '@phone' }, async ({ page }) => {
 
 // A chosen choice is bold, and so wider: every one must still fit.
 test('with every security and exchange chosen', { tag: '@phone' }, async ({ page }) => {
-  for (const group of ['Security', 'Exchange']) {
+  for (const group of [t.security, t.exchange]) {
     const choices = page.getByRole('radiogroup', { name: group }).locator('label')
     for (const choice of await choices.all()) {
       await choice.click()
@@ -202,77 +214,79 @@ test('with every security and exchange chosen', { tag: '@phone' }, async ({ page
 test('with the exchange rates open, and a tip open', { tag: '@phone' }, async ({ page }) => {
   await page.getByText('$1 = ₪3.0338').click()
   await checkLayout(page, 'rates')
-  await page.getByRole('button', { name: 'What “Buy every” means' }).click()
+  await page.getByRole('button', { name: t.whatMeans(t.buyEvery) }).click()
   expect(await layoutProblems(page), 'tip').toEqual([])
 })
 
 test('on the fee breakdown', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
+  await choice(page, t.chart, t.breakdownView).click()
   await checkLayout(page, 'breakdown')
 })
 
 test('with more options, and on the chart by deposit', { tag: '@phone' }, async ({ page }) => {
-  await page.getByLabel('More options', { exact: true }).check()
+  await page.getByLabel(t.moreOptions, { exact: true }).check()
   await checkLayout(page, 'more options')
-  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('By deposit').click()
+  await choice(page, t.chart, t.byDepositView).click()
   await checkLayout(page, 'by deposit')
-  await page.getByRole('button', { name: 'Share', exact: true }).hover()
+  await page.getByRole('button', { name: t.share, exact: true }).hover()
   expect(await layoutProblems(page), 'share tip').toEqual([])
 })
 
 test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
+  await about(page, 'Leumi · Pepper').click()
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'plan')
-  await dialog(page).getByText('All prices').click()
+  await dialog(page).getByText(t.allPrices).click()
   await checkLayout(page, 'plan, all prices')
-  await dialog(page).getByRole('button', { name: 'Bank Leumi' }).click()
+  await dialog(page)
+    .getByRole('button', { name: brokerName('Bank Leumi') })
+    .click()
   await checkLayout(page, 'broker')
 })
 
 test('with a plan of your own', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('button', { name: "Change a copy of Leumi · Pepper's fees" }).click()
-  await dialog(page).getByRole('button', { name: 'Add plan' }).click()
+  await pencil(page, 'Leumi · Pepper').click()
+  await dialog(page).getByRole('button', { name: t.addPlan }).click()
   await checkLayout(page, 'your plans')
 })
 
 test('in the plan editor, in both views, with a checklist open', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('button', { name: "Change a copy of Leumi · Pepper's fees" }).click()
+  await pencil(page, 'Leumi · Pepper').click()
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'simple')
-  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await choice(dialog(page), t.view, t.fullPriceList).click()
   await checkLayout(page, 'full price list')
-  await dialog(page).getByRole('button', { name: 'Anything on USA, Europe ▾' }).click()
+  await dialog(page)
+    .getByRole('button', { name: `הכול ב${exchangeName('Usa')}, ${exchangeName('Europe')} ▾` })
+    .click()
   await checkLayout(page, 'checklist')
 })
 
 // Second prices sit under the fee they're part of, in details and in the editor.
 test('with second prices', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('button', { name: "About Leumi · Online, 'Leumi 18+'" }).click()
+  await about(page, "Leumi · Online, 'Leumi 18+'").click()
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'details')
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: "Change a copy of Leumi · Online, 'Leumi 18+''s fees" }).click()
+  await pencil(page, "Leumi · Online, 'Leumi 18+'").click()
   await checkLayout(page, 'second conversion fee')
-  await dialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await dialog(page).getByRole('button', { name: t.cancel }).click()
 
-  await page.getByRole('radiogroup', { name: 'Security' }).getByText('Index fund', { exact: true }).click()
-  await page.getByRole('radiogroup', { name: 'Exchange' }).getByText('Tel Aviv').click()
-  await page
-    .getByRole('button', { name: "Change a copy of Leumi · Online, monthly standing order's fees" })
-    .click()
+  await choice(page, t.security, securityName('IndexFund')).click()
+  await choice(page, t.exchange, exchangeName('Tlv')).click()
+  await pencil(page, 'Leumi · Online, monthly standing order').click()
   await checkLayout(page, 'standing order')
-  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await choice(dialog(page), t.view, t.fullPriceList).click()
   await checkLayout(page, 'standing order, full price list')
 })
 
 test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page }) => {
   for (const broker of ['Altshuler Shaham Trade', 'Bank Leumi', 'Excellence Trade', 'IBI', 'Meitav Trade']) {
-    await page.getByRole('checkbox', { name: broker, exact: true }).check()
+    await page.getByRole('checkbox', { name: brokerName(broker), exact: true }).check()
   }
   await checkLayout(page, 'every plan')
-  await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
+  await choice(page, t.chart, t.breakdownView).click()
   await checkLayout(page, 'every plan, breakdown')
 })
 
@@ -281,16 +295,16 @@ test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page 
 // button, and the hint's words change with the view.
 test('pinning and switching views leave the chart where it is', { tag: '@phone' }, async ({ page }) => {
   // Every view, the chart by deposit too.
-  await page.getByLabel('More options', { exact: true }).check()
+  await page.getByLabel(t.moreOptions, { exact: true }).check()
   const bar = page.locator('.chart-bar')
   const heights: Record<string, number> = {}
-  for (const view of ['Lost to fees', 'Value', 'By deposit', 'Fee breakdown']) {
-    await choice(page, 'Chart', view).click()
+  for (const view of [t.lostView, t.valueView, t.byDepositView, t.breakdownView]) {
+    await choice(page, t.chart, view).click()
     heights[view] = (await bar.boundingBox())!.height
     await page.locator('tbody tr td.rank').first().click()
-    await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
+    await expect(page.getByRole('button', { name: t.unpinAll })).toBeVisible()
     heights[`${view}, pinned`] = (await bar.boundingBox())!.height
-    await page.getByRole('button', { name: 'Unpin all' }).click()
+    await page.getByRole('button', { name: t.unpinAll }).click()
   }
   expect(new Set(Object.values(heights)).size, JSON.stringify(heights)).toBe(1)
 })
@@ -298,20 +312,20 @@ test('pinning and switching views leave the chart where it is', { tag: '@phone' 
 // Tracks, a handling fee and a price per share plus a percentage, in details
 // and in the editor; then fractions and a conversion by standing order.
 test('with tracks and a handling fee', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('checkbox', { name: 'IBI', exact: true }).check()
-  await page.getByRole('button', { name: 'About IBI · Full tariff' }).click()
-  await dialog(page).getByText('All prices').click()
+  await page.getByRole('checkbox', { name: brokerName('IBI'), exact: true }).check()
+  await about(page, 'IBI · Full tariff').click()
+  await dialog(page).getByText(t.allPrices).click()
   await checkLayout(page, 'details')
   await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: "Change a copy of IBI · Full tariff's fees" }).click()
+  await pencil(page, 'IBI · Full tariff').click()
   await checkLayout(page, 'editor')
-  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+  await choice(dialog(page), t.view, t.fullPriceList).click()
   await checkLayout(page, 'editor, full price list')
-  await dialog(page).getByRole('button', { name: 'Cancel' }).click()
+  await dialog(page).getByRole('button', { name: t.cancel }).click()
 
-  await page.getByRole('button', { name: "Change a copy of Interactive · Standard's fees" }).click()
-  await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Simple').click()
+  await pencil(page, 'Interactive · Standard').click()
+  await choice(dialog(page), t.view, t.simple).click()
   await checkLayout(page, 'fractions and conversion by standing order')
 })
 
@@ -322,45 +336,41 @@ test(
   'with funds: the pension, their details and editor, and a ceiling passed',
   { tag: '@phone' },
   async ({ page }) => {
-    await page
-      .getByRole('list', { name: 'Savings policy' })
-      .getByRole('checkbox', { name: 'Average fee' })
-      .check()
-    await page.getByRole('radiogroup', { name: 'Taking the money out' }).getByText('As a pension').click()
+    await tick(page, 'Savings policy · Average fee').check()
+    await choice(page, t.takingTheMoneyOut, t.asAPension).click()
     await checkLayout(page, 'as a pension')
-    await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
+    await choice(page, t.chart, t.breakdownView).click()
     await checkLayout(page, 'breakdown with funds')
 
-    await page.getByRole('button', { name: 'About Provident fund · Average fee' }).click()
+    await about(page, 'Provident fund · Average fee').click()
     await expect(dialog(page)).toBeVisible()
     await checkLayout(page, 'fund')
-    await dialog(page).getByRole('button', { name: 'Provident fund for investment' }).click()
+    await dialog(page)
+      .getByRole('button', { name: brokerName('Provident fund for investment') })
+      .click()
     await checkLayout(page, 'kind of fund')
     await page.keyboard.press('Escape')
 
-    await page.getByRole('button', { name: "Change a copy of Provident fund · Average fee's fees" }).click()
+    await pencil(page, 'Provident fund · Average fee').click()
     await checkLayout(page, 'fund editor')
-    await dialog(page).getByRole('button', { name: 'Add plan' }).click()
-    await page.getByLabel('Every month').fill('8000')
-    await expect(page.getByText('Your deposits are over its yearly ceiling').first()).toBeVisible()
+    await dialog(page).getByRole('button', { name: t.addPlan }).click()
+    await page.getByLabel(t.everyMonth).fill('8000')
+    await expect(page.getByText(t.overTheCeiling).first()).toBeVisible()
     await checkLayout(page, 'over the ceiling')
 
     // A study fund, kept for fewer years than it's locked for.
-    await page
-      .getByRole('list', { name: 'Study fund' })
-      .getByRole('checkbox', { name: 'Average fee' })
-      .check()
-    await page.getByRole('button', { name: 'About Study fund · Average fee' }).click()
+    await tick(page, 'Study fund · Average fee').check()
+    await about(page, 'Study fund · Average fee').click()
     await checkLayout(page, 'study fund')
     await page.keyboard.press('Escape')
     await page.locator('#years').fill('5')
-    await expect(page.getByText('Its money is still locked when your years are up')).toBeVisible()
+    await expect(page.getByText(t.stillLocked)).toBeVisible()
     await checkLayout(page, 'locked')
   },
 )
 
 test('with the about page open', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('button', { name: 'How the numbers are made' }).click()
+  await page.getByRole('button', { name: 'איך המספרים מחושבים' }).click()
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'about')
 })
@@ -372,9 +382,9 @@ test('with the about page open', { tag: '@phone' }, async ({ page }) => {
 // the picture.
 test.describe('pictures', { tag: '@pictures' }, () => {
   test("of a plan's details", async ({ page }) => {
-    await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
+    await about(page, 'Leumi · Pepper').click()
     await expect(dialog(page)).toBeVisible()
-    await dialog(page).getByText('All prices').click()
+    await dialog(page).getByText(t.allPrices).click()
     await page.mouse.move(0, 0)
     await expect(dialog(page)).toHaveScreenshot('plan-dialog.png', {
       mask: [
@@ -388,7 +398,7 @@ test.describe('pictures', { tag: '@pictures' }, () => {
   })
 
   test('of the editor, in both views', async ({ page }) => {
-    await page.getByRole('button', { name: "Change a copy of Leumi · Pepper's fees" }).click()
+    await pencil(page, 'Leumi · Pepper').click()
     await expect(dialog(page)).toBeVisible()
     await page.mouse.move(0, 0)
     const masks = () => [
@@ -396,13 +406,13 @@ test.describe('pictures', { tag: '@pictures' }, () => {
       dialog(page).locator('.was'),
     ]
     await expect(dialog(page)).toHaveScreenshot('editor.png', { mask: masks() })
-    await dialog(page).getByRole('radiogroup', { name: 'View' }).getByText('Full price list').click()
+    await choice(dialog(page), t.view, t.fullPriceList).click()
     await page.mouse.move(0, 0)
     await expect(dialog(page)).toHaveScreenshot('editor-full.png', { mask: masks() })
   })
 
   test('of the fee breakdown', async ({ page }) => {
-    await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
+    await choice(page, t.chart, t.breakdownView).click()
     await page.mouse.move(0, 0)
     const card = page.locator('section.card', { has: page.locator('.bars') })
     await fitScreenToPage(page)

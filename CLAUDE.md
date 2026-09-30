@@ -26,7 +26,7 @@ the UI is Svelte 5 + ECharts.
   money is still locked at the end).
   `describe.rs` holds all text shown
   to users (fee names, explanations, caveat kinds, the "About the numbers"
-  page, Hebrew names), in both languages (see "Two languages" below),
+  page, Hebrew names), in Hebrew and English (see "Hebrew only" below),
   `yours.rs` holds
   the user's own plans (changed copies of listed plans, and plans of their
   own) and the editor's fields, `examples.rs` the ready-made patterns behind
@@ -34,8 +34,8 @@ the UI is Svelte 5 + ECharts.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`.
 - `web`: the app; state lives in `src/lib/app.svelte.ts`. The page's own
-  words are in `src/lib/text/en.ts` and `he.ts`, read through `text.ts`
-  (`t`, `lang`, `rtl`). Your plans are kept in localStorage (`saved.ts`) as
+  words are in `src/lib/text/he.ts` (typed as `en.ts`), read through
+  `text.ts` (`t`). Your plans are kept in localStorage (`saved.ts`) as
   core `Plan`s the web side never looks inside (`PlanData`). The charts' options are pure functions in
   `growth-chart.ts`, `crossover-chart.ts` (the chart by deposit) and
   `fee-breakdown.ts`; the components only wire them to ECharts and the
@@ -228,12 +228,13 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   - the other lines fade only a little.
 - **The dark theme only.** It should feel fast.
 
-## Two languages
+## Hebrew only
 
-The page is shown in English or Hebrew: a Hebrew browser gets Hebrew,
-right to left, and the header's switch changes it (remembered in
-localStorage; the switch reloads the page with the comparison in its
-address, so every text is asked for once, in one language).
+The page is shown in Hebrew, right to left, whatever the browser's
+language: `index.html` says so (`lang="he" dir="rtl"`), and there is no
+English interface. The English texts stay beside the Hebrew ones, in the
+core and in `en.ts`: the page shows a term's English name under its Hebrew
+one ("באנגלית"), and links and saved copies name plans in English.
 
 - Core: `Lang` (`En`, `He`) and `Text { en, he }` in `lib.rs`. Every
   function that makes words takes a `lang`; a fixed text is
@@ -241,21 +242,25 @@ address, so every text is asked for once, in one language).
   falls back to English: a missing translation doesn't compile. Names of
   enums are `Named::name(lang)`; there's no `Display` for user-facing types.
 - Wasm: `setLang` once, before anything else; every binding answers in it.
-  Links and saved copies name plans by their English names (`englishName`,
-  `englishLabel`), the same in every language.
-- Web: `t.<key>` from `text.ts`; `he.ts` is typed as `en.ts`, so a missing
-  key fails svelte-check. Tips with `<bdi lang="he">` terms inside English
-  keep their markup in the component, under `{#if lang === 'he'}`.
+  `main.ts` and the tests set `He`. Links and saved copies name plans by
+  their English names (`englishName`, `englishLabel`).
+- Web: `t.<key>` from `text.ts`, which is `he.ts`; `he.ts` is typed as
+  `en.ts`, so a key missing from either fails svelte-check. `en` itself is
+  read only for English names (`englishName` of the page's own choices).
 - Hebrew in Rust strings goes on one line, however long (rustfmt leaves
   it), with ״ (U+05F4) for quotes so nothing needs escaping. Second person
   is plural ("שלכם", "סמנו").
 - CSS is direction-neutral: logical properties (`margin-inline-start`,
   `text-align: start`, `inset-inline-start`), except where a physical
   measurement is used (`offsetLeft` moves the choices' highlight from the
-  left). A line of numbers with `=` or `·` gets `<bdi dir="ltr">`, or it
+  left; the plan preview opens on the left; a pinned row's inset mark). A line of numbers with `=` or `·` gets `<bdi dir="ltr">`, or it
   reads backwards. The charts stay left to right.
-- `tests/hebrew.spec.ts` covers the Hebrew page; the other specs run in
-  English (Playwright's default locale).
+- Every spec drives the Hebrew page, from an English browser (Playwright's
+  default locale), which `tests/hebrew.spec.ts` checks still gets Hebrew.
+  Specs name the page's words by `t` and the core's by the core
+  (`tests/core.ts`: plans by their English label, `securityName`,
+  `exchangeName`, `brokerName`), and write Hebrew out only to check
+  wording.
 
 ## Hebrew
 

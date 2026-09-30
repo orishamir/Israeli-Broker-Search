@@ -100,7 +100,7 @@ test('a name too long for the box is cut, by whole characters', () => {
 test('amounts show inside a part only where they fit', () => {
   const formatter = (width: number, focus: 'all' | 'account') => {
     const option = barsOption({ bars, focus, pinned: new Set(), width, measure })
-    const purchases = (option.series as BarSeriesOption[]).find(({ name }) => name === 'Purchases')!
+    const purchases = (option.series as BarSeriesOption[]).find(({ name }) => name === 'קניות')!
     return purchases.label!.formatter as (params: { value: number }) => string
   }
   // 800 px wide, 740 for ₪600 of bars: ₪500 is about 617 px, ₪20 about 25.

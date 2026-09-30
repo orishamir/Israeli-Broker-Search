@@ -1,11 +1,10 @@
-import { expect, fitScreenToPage, test } from './fixtures'
+import { expect, test } from './fixtures'
 
-// The page in Hebrew: a Hebrew browser gets it right to left, every text the
-// page frames the numbers with in Hebrew, and the core's words in Hebrew too.
-// The switch in the header goes back to English, keeping the comparison.
-test.use({ locale: 'he-IL' })
+// The page is in Hebrew, right to left, whatever the browser's language (the
+// tests' is English): every text the page frames the numbers with, and the
+// core's words too.
 
-test('a Hebrew browser gets the page in Hebrew, right to left', { tag: '@phone' }, async ({ page }) => {
+test('the page is in Hebrew, right to left, in any browser', { tag: '@phone' }, async ({ page }) => {
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl')
   await expect(page.locator('html')).toHaveAttribute('lang', 'he')
   await expect(page).toHaveTitle('עמלות המסחר, בריבית דריבית')
@@ -40,41 +39,4 @@ test("a plan's details are in Hebrew, tariff and caveats included", async ({ pag
   await expect(dialog).toContainText('קנייה או מכירה')
   await expect(dialog).toContainText('הפרשנות שלנו')
   await expect(dialog.getByRole('link', { name: /תעריפון \(PDF\)/ }).first()).toBeVisible()
-})
-
-// Beside the plan, on the side of the results, which is the left here.
-test("a plan's preview opens left of it, on the screen", async ({ page }) => {
-  const plan = page.getByRole('list', { name: 'בנק לאומי' }).getByRole('listitem').first()
-  await plan.hover()
-  const preview = page.locator('.preview')
-  await expect(preview).toBeInViewport({ ratio: 1 })
-  const [planBox, previewBox] = [(await plan.boundingBox())!, (await preview.boundingBox())!]
-  expect(previewBox.x + previewBox.width).toBeLessThan(planBox.x)
-})
-
-test('the switch goes back to English and keeps the comparison', async ({ page }) => {
-  await page.getByLabel('כל חודש').fill('3,500')
-  await page.getByRole('button', { name: 'החלפה לאנגלית' }).click()
-  await expect(page.locator('html')).toHaveAttribute('dir', 'ltr')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Broker fees, compounded')
-  await expect(page.getByLabel('Every month')).toHaveValue('3,500')
-  // Remembered: the next visit is in English too, whatever the browser says.
-  await page.reload()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Broker fees, compounded')
-})
-
-test('the start page in Hebrew', { tag: ['@phone', '@pictures'] }, async ({ page }) => {
-  await fitScreenToPage(page)
-  await expect(page).toHaveScreenshot('start-he.png', {
-    fullPage: true,
-    mask: [
-      page.locator('td.amount'),
-      page.locator('.stat .value'),
-      page.locator('.stat.best .label'),
-      page.locator('.stat.best .around'),
-      page.locator('.best-bar'),
-      page.locator('.chart'),
-      page.locator('.date'),
-    ],
-  })
 })

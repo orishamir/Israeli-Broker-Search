@@ -1,6 +1,7 @@
 import { expect, test as base, type Page } from '@playwright/test'
 import { dateText } from '../../src/lib/format'
-import { RATES } from '../core'
+import { t } from '../../src/lib/text'
+import { brokerName, exchangeName, listed, RATES, securityName } from '../core'
 
 // What the page costs to use, measured as a person feels it:
 // - Each interaction's time to the next paint, from the browser's Event
@@ -132,24 +133,24 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const budgets = BUDGETS[project]
   const choice = (group: string, name: string) =>
     page.getByRole('radiogroup', { name: group }).getByText(name, { exact: true })
-  const monthly = page.getByLabel('Every month')
-  const first = page.getByLabel('One-time deposit')
+  const monthly = page.getByLabel(t.everyMonth)
+  const first = page.getByLabel(t.oneTimeDeposit)
   // The chart by deposit is an expert's: offered with More options only.
-  const moreOptions = page.getByLabel('More options', { exact: true })
-  const leumi = page.getByRole('checkbox', { name: 'Bank Leumi', exact: true })
+  const moreOptions = page.getByLabel(t.moreOptions, { exact: true })
+  const leumi = page.getByRole('checkbox', { name: brokerName('Bank Leumi'), exact: true })
   // Unticking the broker unticks its usual plan too; ticking that back
   // leaves the table as it was.
   // Three banks have an "Online" plan: the checkbox in Leumi's list.
   const online = page
-    .getByRole('list', { name: 'Bank Leumi' })
-    .getByRole('checkbox', { name: 'Online', exact: true })
+    .getByRole('list', { name: brokerName('Bank Leumi') })
+    .getByRole('checkbox', { name: listed('Leumi · Online').plan.name, exact: true })
   const chart = page.locator('.chart')
   const chartBox = async () => {
     await chart.scrollIntoViewIfNeeded()
     return (await chart.boundingBox())!
   }
   const openDetails = async () => {
-    await page.getByRole('button', { name: 'About Leumi · Pepper' }).click()
+    await page.getByRole('button', { name: t.about(listed('Leumi · Pepper').label) }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await page.mouse.move(0, 0)
     await page.keyboard.press('Escape')
@@ -177,7 +178,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const churn = async (rounds: number) => {
     for (let round = 0; round < rounds; round++) {
       await monthly.fill(String(1000 + round * 10))
-      await choice('Chart', round % 2 ? 'Fee breakdown' : 'Lost to fees').click()
+      await choice(t.chart, round % 2 ? t.breakdownView : t.lostView).click()
       await openDetails()
     }
   }
@@ -216,8 +217,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         typical(
           page,
           thereAndBack(
-            () => choice('Security', 'Bond').click(),
-            () => choice('Security', 'ETF').click(),
+            () => choice(t.security, securityName('Bond')).click(),
+            () => choice(t.security, securityName('Etf')).click(),
           ),
         ),
     },
@@ -228,8 +229,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         typical(
           page,
           thereAndBack(
-            () => choice('Exchange', 'Tel Aviv').click(),
-            () => choice('Exchange', 'USA').click(),
+            () => choice(t.exchange, exchangeName('Tlv')).click(),
+            () => choice(t.exchange, exchangeName('Usa')).click(),
           ),
         ),
     },
@@ -255,8 +256,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         typical(
           page,
           thereAndBack(
-            () => choice('Chart', 'Fee breakdown').click(),
-            () => choice('Chart', 'Lost to fees').click(),
+            () => choice(t.chart, t.breakdownView).click(),
+            () => choice(t.chart, t.lostView).click(),
           ),
         ),
     },
@@ -270,8 +271,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         const time = await typical(
           page,
           thereAndBack(
-            () => choice('Chart', 'By deposit').click(),
-            () => choice('Chart', 'Lost to fees').click(),
+            () => choice(t.chart, t.byDepositView).click(),
+            () => choice(t.chart, t.lostView).click(),
           ),
         )
         await moreOptions.uncheck()
@@ -288,7 +289,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       budget: budgets.tip,
       measure: () =>
         typical(page, async () => {
-          await page.getByRole('button', { name: 'What “Yearly return” means' }).click()
+          await page.getByRole('button', { name: t.whatMeans(t.yearlyReturn) }).click()
           await expect(page.getByRole('tooltip').filter({ hasText: 'S&P 500' })).toBeVisible()
           await page.keyboard.press('Escape')
         }),
@@ -310,8 +311,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       budget: budgets.frameGap,
       measure: async () => {
         await moreOptions.check()
-        const gap = await longestFrameGap(page, () => choice('Chart', 'By deposit').click())
-        await choice('Chart', 'Lost to fees').click()
+        const gap = await longestFrameGap(page, () => choice(t.chart, t.byDepositView).click())
+        await choice(t.chart, t.lostView).click()
         await moreOptions.uncheck()
         return gap
       },

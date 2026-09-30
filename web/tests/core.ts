@@ -1,20 +1,33 @@
 // The Rust core, in Node, for working out what the page should show. Tests
 // compare the page with what the core says for the inputs on it, rather
 // than with numbers written into the test, so a tariff change doesn't break
-// a test of the page: the numbers themselves are checked in Rust.
+// a test of the page: the numbers themselves are checked in Rust. It answers
+// in Hebrew, as on the page; tests name plans in English, as links do.
 
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { aroundWords } from '../src/lib/around'
 import { percent, shekels } from '../src/lib/format'
 import { parseNumber } from '../src/lib/numbers'
-import { around, brokers, compare, initSync, sweep, usualInflationPercent } from '../src/lib/core/core'
+import { t } from '../src/lib/text'
+import {
+  around,
+  brokers,
+  compare,
+  exchanges,
+  initSync,
+  securities,
+  setLang,
+  sweep,
+  usualInflationPercent,
+} from '../src/lib/core/core'
 import type { Exchange, Inputs, PlanKey, Security, Swept } from '../src/lib/core/core'
 
 /** The key of a listed plan: where its broker is, and where it is in the broker's plans. */
 export type ListedKey = Extract<PlanKey, { kind: 'listed' }>
 
 initSync({ module: readFileSync(new URL('../src/lib/core/core_bg.wasm', import.meta.url)) })
+setLang('He')
 export * from '../src/lib/core/core'
 
 /** The exchange rates tests/fixtures.ts answers the app with. */
@@ -26,8 +39,10 @@ export const listedPlans = brokers().flatMap((broker, brokerIndex) =>
     broker,
     plan,
     key: { kind: 'listed', broker: brokerIndex, plan: planIndex } as ListedKey,
-    /** As the table and buttons name it: "Leumi · Pepper". */
+    /** As the table and buttons name it: "לאומי · פפר". */
     label: `${broker.shortName} · ${plan.name}`,
+    /** As tests name it, and links: "Leumi · Pepper". */
+    englishLabel: `${broker.englishShortName} · ${plan.englishName}`,
     /** Ticked when the app opens: each broker's usual plan, and what
      * savers in a provident fund for investment pay on average. */
     usual: broker.comparedAtFirst && planIndex === broker.newCustomerPlan,
@@ -36,12 +51,22 @@ export const listedPlans = brokers().flatMap((broker, brokerIndex) =>
 
 export const usualPlans = listedPlans.filter(({ usual }) => usual)
 
-/** The plan called `label` ("Leumi · Pepper"). */
-export function listed(label: string) {
-  const found = listedPlans.find((plan) => plan.label === label)
-  if (!found) throw new Error(`no listed plan "${label}"`)
+/** The plan called `englishLabel` ("Leumi · Pepper"). */
+export function listed(englishLabel: string) {
+  const found = listedPlans.find((plan) => plan.englishLabel === englishLabel)
+  if (!found) throw new Error(`no listed plan "${englishLabel}"`)
   return found
 }
+
+/** A broker's name on the page, by its English one: "בנק לאומי" for "Bank Leumi". */
+export const brokerName = (englishName: string) =>
+  brokers().find((broker) => broker.englishName === englishName)!.name
+
+/** A security's name on the page: "קרן סל" for `Etf`. */
+export const securityName = (value: Security) => securities().find((choice) => choice.value === value)!.name
+
+/** An exchange's name on the page: "תל אביב" for `Tlv`. */
+export const exchangeName = (value: Exchange) => exchanges().find((choice) => choice.value === value)!.name
 
 /** What the page's inputs say, read back from its fields and ticks, as the
  * core takes them. */
@@ -59,16 +84,16 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
       .getByRole('checkbox', { name: plan.name, exact: true })
     if (await box.isChecked()) ticked.push(key)
   }
-  const exchange = (await chosen('Exchange')) as Exchange
+  const exchange = (await chosen(t.exchange)) as Exchange
   // The expert fields are on the page only under "More options"; off, the
   // app takes the defaults.
-  const moreOptions = await page.getByLabel('More options', { exact: true }).isChecked()
+  const moreOptions = await page.getByLabel(t.moreOptions, { exact: true }).isChecked()
   const inflation = moreOptions ? await number('inflation') : usualInflationPercent()
   // How the money is taken out is asked only while a ticked plan pays a pension.
-  const wayOut = page.getByRole('radiogroup', { name: 'Taking the money out' })
-  const asPension = (await wayOut.count()) > 0 && (await chosen('Taking the money out')) === 'pension'
+  const wayOut = page.getByRole('radiogroup', { name: t.takingTheMoneyOut })
+  const asPension = (await wayOut.count()) > 0 && (await chosen(t.takingTheMoneyOut)) === 'pension'
   return {
-    security: (await chosen('Security')) as Security,
+    security: (await chosen(t.security)) as Security,
     exchange,
     firstDeposit: await number('first-deposit'),
     monthlyDeposit: await number('monthly-deposit'),
@@ -79,12 +104,10 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
     depositGrowthPercent: moreOptions ? await number('deposit-growth') : 0,
     inflationPercent: inflation,
     inTodaysMoney:
-      moreOptions &&
-      !!inflation &&
-      (await page.getByRole('checkbox', { name: "Show amounts in today's money" }).isChecked()),
+      moreOptions && !!inflation && (await page.getByRole('checkbox', { name: t.todaysMoney }).isChecked()),
     asPension,
     age: asPension ? await number('age') : null,
-    sellAtEnd: moreOptions ? (await chosen('At the end')) === 'sell' : true,
+    sellAtEnd: moreOptions ? (await chosen(t.atTheEnd)) === 'sell' : true,
     // The rate fields are only on the page abroad; the app has the same rates.
     ilsPerUsd: exchange === 'Tlv' ? RATES.ilsPerUsd : await number('usd'),
     ilsPerEur: exchange === 'Tlv' ? RATES.ilsPerEur : await number('eur'),
@@ -109,7 +132,7 @@ export function expectedRows(inputs: Inputs) {
         ? [
             shekels(outcome.afterTax),
             lost,
-            outcome.tax === 0 ? 'none' : shekels(outcome.tax),
+            outcome.tax === 0 ? t.none : shekels(outcome.tax),
             yearly,
             fees,
             shekels(outcome.held),
@@ -128,15 +151,17 @@ export async function rowsOnPage(page: Page) {
       broker: await row.locator('.broker').textContent(),
       amounts: (await row.locator('td.amount').allTextContents())
         .map((text) => text.replace(/ ›$/, ''))
-        .filter((text) => !/^(Not offered|Your deposits are over|Its money is still locked)/.test(text)),
+        .filter(
+          (text) => ![t.notOffered, t.overTheCeiling, t.stillLocked].some((why) => text.startsWith(why)),
+        ),
     })),
   )
 }
 
-/** The row of the plan called `label` ("Meitav · Typical offer"): plan names
- * repeat across brokers, so the row is found by both names. */
-export function rowOf(page: Page, label: string) {
-  const { plan, broker } = listed(label)
+/** The row of the plan called `englishLabel` ("Meitav · Typical offer"):
+ * plan names repeat across brokers, so the row is found by both names. */
+export function rowOf(page: Page, englishLabel: string) {
+  const { plan, broker } = listed(englishLabel)
   return page
     .locator('tbody tr')
     .filter({ has: page.getByText(plan.name, { exact: true }) })
@@ -145,7 +170,7 @@ export function rowOf(page: Page, label: string) {
 
 /** The row of the plan with `key`. */
 export const rowOfKey = (page: Page, key: PlanKey) =>
-  rowOf(page, listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.label)
+  rowOf(page, listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.englishLabel)
 
 /** What the page buys, as the core takes it for a plan's fees and caveats:
  * with the biggest order of the comparison, if the inputs allow one. */

@@ -201,10 +201,8 @@
     --row-background: color-mix(in srgb, var(--plan-color) 16%, var(--surface));
     background: var(--row-background);
   }
+  /* At the row's start, on the right: an inset shadow has no logical form. */
   tbody tr.pinned td:first-child {
-    box-shadow: inset 3px 0 var(--plan-color);
-  }
-  :global(html[dir='rtl']) tbody tr.pinned td:first-child {
     box-shadow: inset -3px 0 var(--plan-color);
   }
   .rank {

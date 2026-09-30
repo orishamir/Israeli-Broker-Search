@@ -35,10 +35,10 @@ test('every plan is a series by its id, at each amount, with costs below the flo
 
 test('both axes are logarithmic, and the deposit axis is named for what varies', () => {
   const monthly = crossoverOption(view())
-  expect(monthly.xAxis).toMatchObject({ type: 'log', min: 100, max: 10000, name: 'Deposit a month' })
-  expect(monthly.yAxis).toMatchObject({ type: 'log', name: 'Yearly fees' })
+  expect(monthly.xAxis).toMatchObject({ type: 'log', min: 100, max: 10000, name: 'הפקדה בחודש' })
+  expect(monthly.yAxis).toMatchObject({ type: 'log', name: 'עמלות בשנה' })
   const once = crossoverOption(view({ swept: 'OneTime', yours: 200_000 }))
-  expect(once.xAxis).toMatchObject({ name: 'One-time deposit', max: 200_000 })
+  expect(once.xAxis).toMatchObject({ name: 'הפקדה חד-פעמית', max: 200_000 })
 })
 
 test("a fund's line ends where the deposits pass its ceiling", () => {
@@ -56,7 +56,7 @@ test("the user's deposit is a dashed marker, and stretches the axis to reach it"
   expect(marker.markLine).toMatchObject({
     data: [{ xAxis: 50_000 }],
     lineStyle: { type: 'dashed' },
-    label: { formatter: 'You: ₪50,000 a month' },
+    label: { formatter: 'אתם: ₪50,000 בחודש' },
   })
   expect(crossoverOption(view({ yours: 50_000 })).xAxis).toMatchObject({ max: 50_000 })
   expect(crossoverOption(view({ yours: 50 })).xAxis).toMatchObject({ min: 50 })

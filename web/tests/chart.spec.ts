@@ -1,4 +1,5 @@
 import { compare, inputsOnPage, listed, rowOf, rowOfKey } from './core'
+import { t } from '../src/lib/text'
 import { away, canvasPicture, choice, expect, recordDrawnText, test, type Page } from './fixtures'
 
 // The growth chart: pinning and hovering, linked with the table, and zooming.
@@ -26,16 +27,16 @@ test('rows highlight on hover and pin on click, and the chart redraws them', asy
   await rowOf(page, 'Leumi · Online').click()
   await away(page)
   await expect(meitav).toHaveClass(/highlighted/)
-  await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
+  await expect(page.getByRole('button', { name: t.unpinAll })).toBeVisible()
   await expect.poll(() => canvasPicture(chart)).not.toBe(plain)
 
   const pinned = await canvasPicture(chart)
-  await choice(page, 'Chart', 'Value').click()
+  await choice(page, t.chart, t.valueView).click()
   await expect.poll(() => canvasPicture(chart)).not.toBe(pinned)
 
-  await page.getByRole('button', { name: 'Unpin all' }).click()
+  await page.getByRole('button', { name: t.unpinAll }).click()
   await expect(meitav).not.toHaveClass(/highlighted/)
-  await expect(page.getByRole('button', { name: 'Unpin all' })).toBeHidden()
+  await expect(page.getByRole('button', { name: t.unpinAll })).toBeHidden()
 })
 
 // A chart behind another view keeps its canvas, so coming back to it has
@@ -49,10 +50,10 @@ test('coming back to the chart over the years draws nothing again', async ({ pag
       for (let frame = 0; frame < 3; frame++) await new Promise((resolve) => requestAnimationFrame(resolve))
       await new Promise((resolve) => setTimeout(resolve))
     })
-  await choice(page, 'Chart', 'Fee breakdown').click()
+  await choice(page, t.chart, t.breakdownView).click()
   await drawingDone()
   const drawn = await recordDrawnText(page)
-  await choice(page, 'Chart', 'Lost to fees').click()
+  await choice(page, t.chart, t.lostView).click()
   await drawingDone()
   expect(await drawn()).toEqual([])
 })
@@ -93,7 +94,7 @@ test('hovering a line highlights its row, clicking pins it', async ({ page }) =>
   await page.mouse.up()
   await away(page)
   await expect(highlightedRow).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
+  await expect(page.getByRole('button', { name: t.unpinAll })).toBeVisible()
 })
 
 test('tapping a line pins it', { tag: '@touch' }, async ({ page }) => {
@@ -102,7 +103,7 @@ test('tapping a line pins it', { tag: '@touch' }, async ({ page }) => {
   // "coarse pointer" mode), so the top of the plot, near the best lines.
   await page.touchscreen.tap(box.x + box.width * 0.72, box.y + 90)
   await expect(page.locator('tbody tr.pinned')).toHaveCount(1)
-  await expect(page.getByRole('button', { name: 'Unpin all' })).toBeVisible()
+  await expect(page.getByRole('button', { name: t.unpinAll })).toBeVisible()
 })
 
 // ECharts shows its first tooltip in the middle of the chart before moving
@@ -130,7 +131,7 @@ test('a first tap on the chart moves neither the page nor its zoom', { tag: '@to
   await page.touchscreen.tap(box.x + box.width * 0.2, box.y + 150)
   expect(await views).toHaveLength(1)
   // Headed by the time, in either view over the years.
-  const tooltip = (await page.locator('.chart > div', { hasText: 'After' }).boundingBox())!
+  const tooltip = (await page.locator('.chart > div', { hasText: 'אחרי' }).boundingBox())!
   expect(tooltip.x).toBeGreaterThanOrEqual(box.x)
   expect(tooltip.x + tooltip.width).toBeLessThanOrEqual(box.x + box.width)
 })
@@ -153,10 +154,10 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
   const { plans } = compare(await inputsOnPage(page))
   expect(plans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))?.outcome).toBeDefined()
   await rowOfKey(page, key)
-    .getByRole('button', { name: /see what they went to$/ })
+    .getByRole('button', { name: /לאן הן הלכו$/ })
     .click()
-  await expect(page.getByRole('radio', { name: 'Fee breakdown' })).toBeChecked()
-  await expect(page.locator('h4', { hasText: 'Year by year' })).toContainText(label)
+  await expect(page.getByRole('radio', { name: t.breakdownView })).toBeChecked()
+  await expect(page.locator('h4', { hasText: t.yearByYear })).toContainText(label)
   await expect(rowOfKey(page, key)).toHaveClass(/pinned/)
   await expect(page.locator('#chart')).toBeInViewport()
 })
@@ -165,13 +166,13 @@ test('the chart by deposit draws the plans, follows the pins, and its marker fol
   page,
 }) => {
   // An expert's chart: offered with More options only.
-  await expect(choice(page, 'Chart', 'By deposit')).toHaveCount(0)
-  await page.getByLabel('More options', { exact: true }).check()
-  await choice(page, 'Chart', 'By deposit').click()
+  await expect(choice(page, t.chart, t.byDepositView)).toHaveCount(0)
+  await page.getByLabel(t.moreOptions, { exact: true }).check()
+  await choice(page, t.chart, t.byDepositView).click()
   const chart = page.locator('.by-deposit')
   await expect(chart.locator('canvas')).toBeVisible()
-  await expect(page.getByText('Click a row or a line to pin it')).toBeVisible()
-  await expect(page.getByText('Wheel: zoom years')).toBeHidden()
+  await expect(page.getByText(t.pinHintMouse(false))).toBeVisible()
+  await expect(page.getByText(t.zoomHintMouse)).toBeHidden()
   const plain = await canvasPicture(chart)
 
   const meitav = rowOf(page, 'Meitav · Typical offer')
@@ -181,6 +182,6 @@ test('the chart by deposit draws the plans, follows the pins, and its marker fol
   await expect.poll(() => canvasPicture(chart)).not.toBe(plain)
 
   const pinned = await canvasPicture(chart)
-  await page.getByLabel('Every month').fill('5000')
+  await page.getByLabel(t.everyMonth).fill('5000')
   await expect.poll(() => canvasPicture(chart)).not.toBe(pinned)
 })

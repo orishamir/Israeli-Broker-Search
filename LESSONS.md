@@ -243,12 +243,16 @@ all. Read those three first.
   placed from a measured box is physical too: the plan preview opened at
   the row's `right`, so in Hebrew it went off the screen, with only a strip
   showing, and no test hovered a plan on the Hebrew page. Floating UI's
-  sides are physical as well, so the preview picks `left-start` by `rtl`.
-- Two languages: the core's `Text` pairs and `lang.pick` make a missing
-  Hebrew a compile error; the web's `he.ts` is typed as `en.ts` for the
-  same reason. The switch reloads the page (state in the hash) rather than
-  re-rendering: the core's texts are read once, at construction, by
-  `AppState`, and a live switch would have to rebuild all of it.
+  sides are physical as well, so the preview opens `left-start`.
+- Two languages, then one: the core's `Text` pairs and `lang.pick` make a
+  missing Hebrew a compile error; the web's `he.ts` is typed as `en.ts` for
+  the same reason. There was an English page, and a switch that reloaded
+  the page (state in the hash) rather than re-rendering, since `AppState`
+  reads the core's texts once. The English page was removed on 2026-09-30;
+  the English texts stayed, for English names beside the Hebrew ones and
+  for links. In Hebrew, a label ending in a plan's label ("על לאומי ·
+  אונליין") is a prefix of its siblings' ("…אונליין, 'לאומי 18+'"), where
+  the English one ended in "'s fees": find such buttons with `exact`.
 - Loading: `index.html` draws the page's shape before any script, with
   pulsing blocks where the words go, and `main.ts` fades it out once the app
   has mounted. Its styles repeat app.css and App.svelte on purpose: it must

@@ -1,16 +1,27 @@
 import { barY, nameY, NARROW_SCREEN } from '../src/lib/fee-breakdown'
-import { brokers, compare, expectedRows, inputsOnPage, listedPlans, purchasePhrase, rowOfKey } from './core'
+import {
+  brokers,
+  compare,
+  exchangeName,
+  expectedRows,
+  feeKinds,
+  inputsOnPage,
+  listedPlans,
+  purchasePhrase,
+  rowOfKey,
+} from './core'
 import { away, canvasPicture, checkbox, choice, expect, recordDrawnText, test, type Page } from './fixtures'
+import { t } from '../src/lib/text'
 
 // The fee breakdown: comparing by one fee, and picking a plan to see year by
 // year. The bars' options are checked in src/lib/fee-breakdown.test.ts.
 
 test.beforeEach(async ({ page }) => {
-  await choice(page, 'Chart', 'Fee breakdown').click()
+  await choice(page, t.chart, t.breakdownView).click()
   await away(page)
 })
 
-const overTime = (page: Page) => page.locator('h4', { hasText: 'Year by year' })
+const overTime = (page: Page) => page.locator('h4', { hasText: t.yearByYear })
 
 /** The compared plans by their fees, least first: the order of the bars. */
 async function byFees(page: Page) {
@@ -30,8 +41,8 @@ test(
     const bars = page.locator('.bars')
     const all = await canvasPicture(bars)
     const custody = page
-      .getByRole('group', { name: 'Compare the plans by' })
-      .getByRole('button', { name: 'Keeping the account' })
+      .getByRole('group', { name: t.compareBy })
+      .getByRole('button', { name: feeKinds().find(({ value }) => value === 'Account')!.name })
     await custody.click()
     await away(page)
     await expect(custody).toHaveAttribute('aria-pressed', 'true')
@@ -115,12 +126,12 @@ test(
 )
 
 test('plans without a price are named, not just left out', { tag: '@phone' }, async ({ page }) => {
-  await choice(page, 'Exchange', 'Europe').click()
+  await choice(page, t.exchange, exchangeName('Europe')).click()
   const unoffered = compare(await inputsOnPage(page))
     .plans.filter(({ outcome }) => !outcome)
     .map(({ key }) => listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.label)
   expect(unoffered.length).toBeGreaterThan(0)
-  const hint = page.getByText(`Not offered for ${purchasePhrase('Etf', 'Europe')}:`)
+  const hint = page.getByText(`${t.notOfferedFor(purchasePhrase('Etf', 'Europe'))}:`)
   for (const label of unoffered) await expect(hint).toContainText(label)
 })
 

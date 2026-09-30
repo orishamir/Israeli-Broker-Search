@@ -15,10 +15,11 @@ test('black on light colors, white on dark', () => {
 })
 
 test("a chart's time is in years and months", () => {
-  expect(elapsed(0)).toBe('After 0 years')
-  expect(elapsed(1)).toBe('After 1 year')
-  expect(elapsed(15 + 5 / 12)).toBe('After 15 years, 5 months')
-  expect(elapsed(2 + 1 / 12)).toBe('After 2 years, 1 month')
+  expect(elapsed(0)).toBe('אחרי 0 שנים')
+  expect(elapsed(1)).toBe('אחרי שנה')
+  expect(elapsed(15 + 5 / 12)).toBe('אחרי 15 שנים ו-5 חודשים')
+  expect(elapsed(2 + 1 / 12)).toBe('אחרי שנתיים וחודש')
+  expect(elapsed(3 + 2 / 12)).toBe('אחרי 3 שנים וחודשיים')
 })
 
 test('a date reads day first, as Israelis write it', () => {

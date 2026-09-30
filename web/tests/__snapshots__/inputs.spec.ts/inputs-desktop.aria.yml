@@ -1,287 +1,289 @@
 - complementary:
-  - heading "Try an example" [level=3]
-  - checkbox "More options"
-  - text: More options
-  - button "What “More options” means": "?"
-  - button "Monthly, Tel Aviv"
-  - button "Monthly, US ETF"
-  - button "One lump sum"
-  - button "Bonds, 5 years"
-  - heading "What you buy" [level=3]
-  - button "What “What you buy” means": "?"
-  - radiogroup "Security":
-    - radio "ETF" [checked]
-    - text: ETF
-    - radio "Index fund"
-    - text: Index fund
-    - radio "Bond"
-    - text: Bond
-    - radio "Stock"
-    - text: Stock
-  - term: In Hebrew
-  - definition: קרן סל
-  - term: Also called
+  - heading "נסו דוגמה" [level=3]
+  - checkbox "אפשרויות נוספות"
+  - text: אפשרויות נוספות
+  - button "מה פירוש ״אפשרויות נוספות״": "?"
+  - button "חודשי, תל אביב"
+  - button "חודשי, קרן סל בארה״ב"
+  - button "סכום חד-פעמי"
+  - button "אג״ח, 5 שנים"
+  - heading "מה קונים" [level=3]
+  - button "מה פירוש ״מה קונים״": "?"
+  - radiogroup "נייר ערך":
+    - radio "קרן סל" [checked]
+    - text: קרן סל
+    - radio "קרן מחקה"
+    - text: קרן מחקה
+    - radio "אג״ח"
+    - text: אג״ח
+    - radio "מניה"
+    - text: מניה
+  - term: באנגלית
+  - definition: ETF
+  - term: נקרא גם
   - definition: קרן סל מחקה מדד קרן סל במסלול רציף תעודת סל
-  - paragraph: "/A basket of many companies in one security, such as the \\d+ biggest in the US\\. You buy and sell it on the stock exchange like a share: at any moment of the trading day, at whatever price it's going for right then\\. Brokers charge it as they charge a share\\. Called תעודת סל until \\d+\\./"
-  - heading "Traded on" [level=3]
-  - button "What “Traded on” means": "?"
-  - radiogroup "Exchange":
-    - radio "Tel Aviv"
-    - text: Tel Aviv
-    - radio "USA" [checked]
-    - text: USA
-    - radio "Europe"
-    - text: Europe
-  - paragraph: /NYSE or Nasdaq\. Prices are in dollars, so your shekels are converted, which some brokers charge for\. The same S&P \d+ ETF bought here, such as VOO, needs shekels turned into dollars, and back when you sell\./
+  - paragraph: "/סל של חברות רבות בנייר ערך אחד, למשל \\d+ הגדולות בארה״ב\\. קונים ומוכרים אותה בבורסה כמו מניה: בכל רגע ביום המסחר, במחיר שבו היא נסחרת באותו רגע\\. הבנקים ובתי ההשקעות מחייבים אותה כמו מניה\\. עד \\d+ נקראה תעודת סל\\./"
+  - heading "נסחר ב" [level=3]
+  - button "מה פירוש ״נסחר ב״": "?"
+  - radiogroup "בורסה":
+    - radio "תל אביב"
+    - text: תל אביב
+    - radio "ארה״ב" [checked]
+    - text: ארה״ב
+    - radio "אירופה"
+    - text: אירופה
+  - term: באנגלית
+  - definition: USA
+  - paragraph: /NYSE או נאסד״ק\. המחירים בדולרים, ולכן השקלים שלכם מומרים, וחלק מהבנקים ובתי ההשקעות גובים על כך\. אותה קרן סל על S&P \d+ שנקנית כאן, כמו VOO, דורשת להפוך שקלים לדולרים, ובחזרה במכירה\./
   - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+\/\d+\/\d+/
-  - heading "Deposits" [level=3]
-  - text: One-time deposit
-  - textbox "One-time deposit": /\d+,\d+/
-  - text: Every month
-  - textbox "Every month": /\d+,\d+/
-  - text: Buy every
-  - button "What “Buy every” means": "?"
-  - combobox "Buy every":
-    - option "month" [selected]
-    - option "2 months"
-    - option "3 months"
-    - option "6 months"
-    - option "year"
-  - heading "Expectations" [level=3]
-  - text: Yearly return
-  - button "What “Yearly return” means": "?"
-  - textbox "Yearly return": /\d+/
-  - text: Years
-  - slider "Years": /\d+/
+  - heading "הפקדות" [level=3]
+  - text: הפקדה חד-פעמית
+  - textbox "הפקדה חד-פעמית": /\d+,\d+/
+  - text: כל חודש
+  - textbox "כל חודש": /\d+,\d+/
+  - text: קנייה כל
+  - button "מה פירוש ״קנייה כל״": "?"
+  - combobox "קנייה כל":
+    - option "חודש" [selected]
+    - option "חודשיים"
+    - option "3 חודשים"
+    - option "6 חודשים"
+    - option "שנה"
+  - heading "ציפיות" [level=3]
+  - text: תשואה שנתית
+  - button "מה פירוש ״תשואה שנתית״": "?"
+  - textbox "תשואה שנתית": /\d+/
+  - text: שנים
+  - slider "שנים": /\d+/
   - status: /\d+/
-  - text: Share price
-  - button "What “Share price” means": "?"
-  - textbox "Share price": /\d+/
-  - heading "Brokers and plans to compare" [level=3]
-  - button "What “Brokers and plans” means": "?"
-  - paragraph: "Ticked at first: each broker's usual plan, the one a new customer gets."
-  - checkbox "Altshuler Shaham Trade" [checked=mixed]
-  - text: Altshuler Shaham Trade
-  - button "About Altshuler Shaham Trade": ℹ
-  - paragraph: Tariff date not stated
-  - list "Altshuler Shaham Trade":
+  - text: מחיר מניה
+  - button "מה פירוש ״מחיר מניה״": "?"
+  - textbox "מחיר מניה": /\d+/
+  - heading "בנקים, בתי השקעות ומסלולים להשוואה" [level=3]
+  - button "מה פירוש ״בנקים, בתי השקעות ומסלולים״": "?"
+  - paragraph: "מסומן בהתחלה: המסלול הרגיל של כל בנק ובית השקעות, זה שלקוח חדש מקבל."
+  - checkbox "אלטשולר שחם טרייד" [checked=mixed]
+  - text: אלטשולר שחם טרייד
+  - button "על אלטשולר שחם טרייד": ℹ
+  - paragraph: תאריך התעריפון לא צוין
+  - list "אלטשולר שחם טרייד":
     - listitem:
-      - checkbox "Full tariff"
-      - text: Full tariff
-      - button "Change a copy of Altshuler · Full tariff's fees": ✎
-      - button "About Altshuler · Full tariff": ℹ
+      - checkbox "תעריפון מלא"
+      - text: תעריפון מלא
+      - button "שינוי עותק של העמלות של אלטשולר · תעריפון מלא": ✎
+      - button "על אלטשולר · תעריפון מלא": ℹ
     - listitem:
-      - checkbox "New customers" [checked]
-      - text: New customers usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Altshuler · New customers's fees": ✎
-      - button "About Altshuler · New customers": ℹ
-  - checkbox "Bank Leumi" [checked=mixed]
-  - text: Bank Leumi
-  - button "About Bank Leumi": ℹ
-  - paragraph: /Tariff of \d+\/\d+\/\d+/
-  - list "Bank Leumi":
+      - checkbox "לקוחות חדשים" [checked]
+      - text: לקוחות חדשים רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של אלטשולר · לקוחות חדשים": ✎
+      - button "על אלטשולר · לקוחות חדשים": ℹ
+  - checkbox "בנק לאומי" [checked=mixed]
+  - text: בנק לאומי
+  - button "על בנק לאומי": ℹ
+  - paragraph: /תעריפון מ-\d+\/\d+\/\d+/
+  - list "בנק לאומי":
     - listitem:
-      - checkbox "Online" [checked]
-      - text: Online usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Leumi · Online's fees": ✎
-      - button "About Leumi · Online": ℹ
+      - checkbox "אונליין" [checked]
+      - text: אונליין רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של לאומי · אונליין": ✎
+      - button "על לאומי · אונליין": ℹ
     - listitem:
-      - checkbox /Online, 'Leumi \d+\+'/
-      - text: /Online, 'Leumi \d+\+'/
-      - button /Change a copy of Leumi · Online, 'Leumi \d+\+''s fees/: ✎
-      - button /About Leumi · Online, 'Leumi \d+\+'/: ℹ
+      - checkbox /אונליין, 'לאומי \d+\+'/
+      - text: /אונליין, 'לאומי \d+\+'/
+      - button /שינוי עותק של העמלות של לאומי · אונליין, 'לאומי \d+\+'/: ✎
+      - button /על לאומי · אונליין, 'לאומי \d+\+'/: ℹ
     - listitem:
-      - checkbox "Online, monthly standing order"
-      - text: Online, monthly standing order
-      - button "Change a copy of Leumi · Online, monthly standing order's fees": ✎
-      - button "About Leumi · Online, monthly standing order": ℹ
+      - checkbox "אונליין, הוראת קבע חודשית"
+      - text: אונליין, הוראת קבע חודשית
+      - button "שינוי עותק של העמלות של לאומי · אונליין, הוראת קבע חודשית": ✎
+      - button "על לאומי · אונליין, הוראת קבע חודשית": ℹ
     - listitem:
-      - checkbox "Pepper"
-      - text: Pepper
-      - button "Change a copy of Leumi · Pepper's fees": ✎
-      - button "About Leumi · Pepper": ℹ
-  - checkbox "Excellence Trade" [checked=mixed]
-  - text: Excellence Trade
-  - button "About Excellence Trade": ℹ
-  - paragraph: Tariff date not stated
-  - list "Excellence Trade":
+      - checkbox "פפר"
+      - text: פפר
+      - button "שינוי עותק של העמלות של לאומי · פפר": ✎
+      - button "על לאומי · פפר": ℹ
+  - checkbox "אקסלנס טרייד" [checked=mixed]
+  - text: אקסלנס טרייד
+  - button "על אקסלנס טרייד": ℹ
+  - paragraph: תאריך התעריפון לא צוין
+  - list "אקסלנס טרייד":
     - listitem:
-      - checkbox "Full tariff"
-      - text: Full tariff
-      - button "Change a copy of Excellence · Full tariff's fees": ✎
-      - button "About Excellence · Full tariff": ℹ
+      - checkbox "תעריפון מלא"
+      - text: תעריפון מלא
+      - button "שינוי עותק של העמלות של אקסלנס · תעריפון מלא": ✎
+      - button "על אקסלנס · תעריפון מלא": ℹ
     - listitem:
-      - checkbox "Typical offer" [checked]
-      - text: Typical offer usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Excellence · Typical offer's fees": ✎
-      - button "About Excellence · Typical offer": ℹ
+      - checkbox "מבצע הצטרפות" [checked]
+      - text: מבצע הצטרפות רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של אקסלנס · מבצע הצטרפות": ✎
+      - button "על אקסלנס · מבצע הצטרפות": ℹ
   - checkbox "IBI" [checked=mixed]
   - text: IBI
-  - button "About IBI": ℹ
-  - paragraph: /Tariff of \d+\/\d+\/\d+/
+  - button "על IBI": ℹ
+  - paragraph: /תעריפון מ-\d+\/\d+\/\d+/
   - list "IBI":
     - listitem:
-      - checkbox "Full tariff"
-      - text: Full tariff
-      - button "Change a copy of IBI · Full tariff's fees": ✎
-      - button "About IBI · Full tariff": ℹ
+      - checkbox "תעריפון מלא"
+      - text: תעריפון מלא
+      - button "שינוי עותק של העמלות של IBI · תעריפון מלא": ✎
+      - button "על IBI · תעריפון מלא": ℹ
     - listitem:
-      - checkbox "Typical offer" [checked]
-      - text: Typical offer usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of IBI · Typical offer's fees": ✎
-      - button "About IBI · Typical offer": ℹ
-  - checkbox "Interactive Israel" [checked]
-  - text: Interactive Israel
-  - button "About Interactive Israel": ℹ
-  - paragraph: /Tariff of \d+\/\d+\/\d+/
-  - list "Interactive Israel":
+      - checkbox "מבצע הצטרפות" [checked]
+      - text: מבצע הצטרפות רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של IBI · מבצע הצטרפות": ✎
+      - button "על IBI · מבצע הצטרפות": ℹ
+  - checkbox "אינטראקטיב ישראל" [checked]
+  - text: אינטראקטיב ישראל
+  - button "על אינטראקטיב ישראל": ℹ
+  - paragraph: /תעריפון מ-\d+\/\d+\/\d+/
+  - list "אינטראקטיב ישראל":
     - listitem:
-      - checkbox "Standard" [checked]
-      - text: Standard usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Interactive · Standard's fees": ✎
-      - button "About Interactive · Standard": ℹ
-  - checkbox "Meitav Trade" [checked=mixed]
-  - text: Meitav Trade
-  - button "About Meitav Trade": ℹ
-  - paragraph: /Tariff of \d+\/\d+/
-  - list "Meitav Trade":
+      - checkbox "רגיל" [checked]
+      - text: רגיל רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של אינטראקטיב · רגיל": ✎
+      - button "על אינטראקטיב · רגיל": ℹ
+  - checkbox "מיטב טרייד" [checked=mixed]
+  - text: מיטב טרייד
+  - button "על מיטב טרייד": ℹ
+  - paragraph: /תעריפון מ-\d+\/\d+/
+  - list "מיטב טרייד":
     - listitem:
-      - checkbox "Full tariff"
-      - text: Full tariff
-      - button "Change a copy of Meitav · Full tariff's fees": ✎
-      - button "About Meitav · Full tariff": ℹ
+      - checkbox "תעריפון מלא"
+      - text: תעריפון מלא
+      - button "שינוי עותק של העמלות של מיטב · תעריפון מלא": ✎
+      - button "על מיטב · תעריפון מלא": ℹ
     - listitem:
-      - checkbox "Typical offer" [checked]
-      - text: Typical offer usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Meitav · Typical offer's fees": ✎
-      - button "About Meitav · Typical offer": ℹ
-  - checkbox "Mizrahi-Tefahot Bank" [checked=mixed]
-  - text: Mizrahi-Tefahot Bank
-  - button "About Mizrahi-Tefahot Bank": ℹ
-  - paragraph: /Tariff of \d+\/\d+\/\d+/
-  - list "Mizrahi-Tefahot Bank":
+      - checkbox "מבצע הצטרפות" [checked]
+      - text: מבצע הצטרפות רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של מיטב · מבצע הצטרפות": ✎
+      - button "על מיטב · מבצע הצטרפות": ℹ
+  - checkbox "בנק מזרחי-טפחות" [checked=mixed]
+  - text: בנק מזרחי-טפחות
+  - button "על בנק מזרחי-טפחות": ℹ
+  - paragraph: /תעריפון מ-\d+\/\d+\/\d+/
+  - list "בנק מזרחי-טפחות":
     - listitem:
-      - checkbox "Online" [checked]
-      - text: Online usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Mizrahi · Online's fees": ✎
-      - button "About Mizrahi · Online": ℹ
+      - checkbox "אונליין" [checked]
+      - text: אונליין רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של מזרחי · אונליין": ✎
+      - button "על מזרחי · אונליין": ℹ
     - listitem:
-      - checkbox "Online, young customers"
-      - text: Online, young customers
-      - button "Change a copy of Mizrahi · Online, young customers's fees": ✎
-      - button "About Mizrahi · Online, young customers": ℹ
-  - checkbox "Bank Otsar Hahayal" [checked=mixed]
-  - text: Bank Otsar Hahayal
-  - button "About Bank Otsar Hahayal": ℹ
-  - paragraph: /Tariff of \d+\/\d+\/\d+/
-  - list "Bank Otsar Hahayal":
+      - checkbox "אונליין, לקוחות צעירים"
+      - text: אונליין, לקוחות צעירים
+      - button "שינוי עותק של העמלות של מזרחי · אונליין, לקוחות צעירים": ✎
+      - button "על מזרחי · אונליין, לקוחות צעירים": ℹ
+  - checkbox "בנק אוצר החייל" [checked=mixed]
+  - text: בנק אוצר החייל
+  - button "על בנק אוצר החייל": ℹ
+  - paragraph: /תעריפון מ-\d+\/\d+\/\d+/
+  - list "בנק אוצר החייל":
     - listitem:
-      - checkbox "Online" [checked]
-      - text: Online usual
-      - button "What “usual” means": "?"
-      - button "Change a copy of Otsar Hahayal · Online's fees": ✎
-      - button "About Otsar Hahayal · Online": ℹ
+      - checkbox "אונליין" [checked]
+      - text: אונליין רגיל
+      - button "מה פירוש ״רגיל״": "?"
+      - button "שינוי עותק של העמלות של אוצר החייל · אונליין": ✎
+      - button "על אוצר החייל · אונליין": ℹ
     - listitem:
-      - checkbox "Online, standing order"
-      - text: Online, standing order
-      - button "Change a copy of Otsar Hahayal · Online, standing order's fees": ✎
-      - button "About Otsar Hahayal · Online, standing order": ℹ
+      - checkbox "אונליין, הוראת קבע"
+      - text: אונליין, הוראת קבע
+      - button "שינוי עותק של העמלות של אוצר החייל · אונליין, הוראת קבע": ✎
+      - button "על אוצר החייל · אונליין, הוראת קבע": ℹ
     - listitem:
-      - checkbox "Otzar Habitachon club"
-      - text: Otzar Habitachon club
-      - button "Change a copy of Otsar Hahayal · Otzar Habitachon club's fees": ✎
-      - button "About Otsar Hahayal · Otzar Habitachon club": ℹ
+      - checkbox "מועדון ״אוצר הביטחון״"
+      - text: מועדון ״אוצר הביטחון״
+      - button "שינוי עותק של העמלות של אוצר החייל · מועדון ״אוצר הביטחון״": ✎
+      - button "על אוצר החייל · מועדון ״אוצר הביטחון״": ℹ
     - listitem:
-      - checkbox "Top Trade"
-      - text: Top Trade
-      - button "Change a copy of Otsar Hahayal · Top Trade's fees": ✎
-      - button "About Otsar Hahayal · Top Trade": ℹ
-  - heading "Funds and policies to compare" [level=3]
-  - button "What “Funds and policies” means": "?"
-  - paragraph: "Ticked at first: what savers in a provident fund for investment pay on average."
-  - checkbox "Provident fund for investment" [checked=mixed]
-  - text: Provident fund for investment
-  - button "About Provident fund for investment": ℹ
-  - paragraph: קופת גמל להשקעה
-  - paragraph: /Fees paid, by the data of \d+\/\d+/
-  - list "Provident fund for investment":
+      - checkbox "טופ טרייד"
+      - text: טופ טרייד
+      - button "שינוי עותק של העמלות של אוצר החייל · טופ טרייד": ✎
+      - button "על אוצר החייל · טופ טרייד": ℹ
+  - heading "קופות ופוליסות להשוואה" [level=3]
+  - button "מה פירוש ״קופות ופוליסות״": "?"
+  - paragraph: "מסומן בהתחלה: מה שחוסכים בקופת גמל להשקעה משלמים בממוצע."
+  - checkbox "קופת גמל להשקעה" [checked=mixed]
+  - text: קופת גמל להשקעה
+  - button "על קופת גמל להשקעה": ℹ
+  - paragraph: /אין מס בקצבה מגיל \d+; אחרת ממוסה כמו חשבון מסחר/
+  - paragraph: /דמי הניהול שנגבו, לפי נתוני \d+\/\d+/
+  - list "קופת גמל להשקעה":
     - listitem:
-      - checkbox "Average fee" [checked]
-      - text: Average fee
-      - button "Change a copy of Provident fund · Average fee's fees": ✎
-      - button "About Provident fund · Average fee": ℹ
+      - checkbox "דמי ניהול ממוצעים" [checked]
+      - text: דמי ניהול ממוצעים
+      - button "שינוי עותק של העמלות של גמל להשקעה · דמי ניהול ממוצעים": ✎
+      - button "על גמל להשקעה · דמי ניהול ממוצעים": ℹ
     - listitem:
-      - checkbox "Cheapest company"
-      - text: Cheapest company
-      - button "Change a copy of Provident fund · Cheapest company's fees": ✎
-      - button "About Provident fund · Cheapest company": ℹ
+      - checkbox "החברה הזולה"
+      - text: החברה הזולה
+      - button "שינוי עותק של העמלות של גמל להשקעה · החברה הזולה": ✎
+      - button "על גמל להשקעה · החברה הזולה": ℹ
     - listitem:
-      - checkbox "Dearest company"
-      - text: Dearest company
-      - button "Change a copy of Provident fund · Dearest company's fees": ✎
-      - button "About Provident fund · Dearest company": ℹ
+      - checkbox "החברה היקרה"
+      - text: החברה היקרה
+      - button "שינוי עותק של העמלות של גמל להשקעה · החברה היקרה": ✎
+      - button "על גמל להשקעה · החברה היקרה": ℹ
     - listitem:
-      - checkbox "Legal maximum"
-      - text: Legal maximum
-      - button "Change a copy of Provident fund · Legal maximum's fees": ✎
-      - button "About Provident fund · Legal maximum": ℹ
-  - checkbox "Study fund"
-  - text: Study fund
-  - button "About Study fund": ℹ
-  - paragraph: קרן השתלמות
-  - paragraph: /Fees paid, by the data of \d+\/\d+/
-  - list "Study fund":
+      - checkbox "המקסימום המותר"
+      - text: המקסימום המותר
+      - button "שינוי עותק של העמלות של גמל להשקעה · המקסימום המותר": ✎
+      - button "על גמל להשקעה · המקסימום המותר": ℹ
+  - checkbox "קרן השתלמות"
+  - text: קרן השתלמות
+  - button "על קרן השתלמות": ℹ
+  - paragraph: /אין מס על הרווחים אחרי 6 שנים, על עד ₪\d+,\d+ שהופקדו בשנה/
+  - paragraph: /דמי הניהול שנגבו, לפי נתוני \d+\/\d+/
+  - list "קרן השתלמות":
     - listitem:
-      - checkbox "Average fee"
-      - text: Average fee
-      - button "Change a copy of Study fund · Average fee's fees": ✎
-      - button "About Study fund · Average fee": ℹ
+      - checkbox "דמי ניהול ממוצעים"
+      - text: דמי ניהול ממוצעים
+      - button "שינוי עותק של העמלות של קרן השתלמות · דמי ניהול ממוצעים": ✎
+      - button "על קרן השתלמות · דמי ניהול ממוצעים": ℹ
     - listitem:
-      - checkbox "Cheapest company"
-      - text: Cheapest company
-      - button "Change a copy of Study fund · Cheapest company's fees": ✎
-      - button "About Study fund · Cheapest company": ℹ
+      - checkbox "החברה הזולה"
+      - text: החברה הזולה
+      - button "שינוי עותק של העמלות של קרן השתלמות · החברה הזולה": ✎
+      - button "על קרן השתלמות · החברה הזולה": ℹ
     - listitem:
-      - checkbox "Dearest company"
-      - text: Dearest company
-      - button "Change a copy of Study fund · Dearest company's fees": ✎
-      - button "About Study fund · Dearest company": ℹ
+      - checkbox "החברה היקרה"
+      - text: החברה היקרה
+      - button "שינוי עותק של העמלות של קרן השתלמות · החברה היקרה": ✎
+      - button "על קרן השתלמות · החברה היקרה": ℹ
     - listitem:
-      - checkbox "Legal maximum"
-      - text: Legal maximum
-      - button "Change a copy of Study fund · Legal maximum's fees": ✎
-      - button "About Study fund · Legal maximum": ℹ
-  - checkbox "Savings policy"
-  - text: Savings policy
-  - button "About Savings policy": ℹ
-  - paragraph: פוליסת חיסכון
-  - paragraph: /Fees paid, by the data of \d+\/\d+/
-  - list "Savings policy":
+      - checkbox "המקסימום המותר"
+      - text: המקסימום המותר
+      - button "שינוי עותק של העמלות של קרן השתלמות · המקסימום המותר": ✎
+      - button "על קרן השתלמות · המקסימום המותר": ℹ
+  - checkbox "פוליסת חיסכון"
+  - text: פוליסת חיסכון
+  - button "על פוליסת חיסכון": ℹ
+  - paragraph: ממוסה כמו חשבון מסחר
+  - paragraph: /דמי הניהול שנגבו, לפי נתוני \d+\/\d+/
+  - list "פוליסת חיסכון":
     - listitem:
-      - checkbox "Average fee"
-      - text: Average fee
-      - button "Change a copy of Savings policy · Average fee's fees": ✎
-      - button "About Savings policy · Average fee": ℹ
+      - checkbox "דמי ניהול ממוצעים"
+      - text: דמי ניהול ממוצעים
+      - button "שינוי עותק של העמלות של פוליסת חיסכון · דמי ניהול ממוצעים": ✎
+      - button "על פוליסת חיסכון · דמי ניהול ממוצעים": ℹ
     - listitem:
-      - checkbox "Highest fee"
-      - text: Highest fee
-      - button "Change a copy of Savings policy · Highest fee's fees": ✎
-      - button "About Savings policy · Highest fee": ℹ
-  - heading "Taking the money out" [level=3]
-  - button "What “Taking the money out” means": "?"
-  - radiogroup "Taking the money out":
-    - radio "All at once" [checked]
-    - text: All at once
-    - radio "As a pension"
-    - text: As a pension
-  - heading "Your plans" [level=3]
-  - button "What “Your plans” means": "?"
-  - paragraph: Think you can get lower fees, or use a broker that isn't listed? ✎ on a plan changes a copy of it.
-  - button "+ New plan"
+      - checkbox "דמי הניהול המרביים"
+      - text: דמי הניהול המרביים
+      - button "שינוי עותק של העמלות של פוליסת חיסכון · דמי הניהול המרביים": ✎
+      - button "על פוליסת חיסכון · דמי הניהול המרביים": ℹ
+  - heading "משיכת הכסף" [level=3]
+  - button "מה פירוש ״משיכת הכסף״": "?"
+  - radiogroup "משיכת הכסף":
+    - radio "בבת אחת" [checked]
+    - text: בבת אחת
+    - radio "כקצבה"
+    - text: כקצבה
+  - heading "המסלולים שלכם" [level=3]
+  - button "מה פירוש ״המסלולים שלכם״": "?"
+  - paragraph: חושבים שתוכלו לקבל עמלות נמוכות יותר, או משתמשים בבנק או בית השקעות שלא ברשימה? ✎ על מסלול משנה עותק שלו.
+  - button "+ מסלול חדש"

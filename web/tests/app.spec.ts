@@ -1,5 +1,6 @@
-import { expectedRows, inputsOnPage, RATES, rowsOnPage, usualPlans } from './core'
+import { expectedRows, inputsOnPage, listed, RATES, rowsOnPage, securityName, usualPlans } from './core'
 import { dateText } from '../src/lib/format'
+import { t } from '../src/lib/text'
 import { checkbox, choice, expect, rows, test } from './fixtures'
 
 // Starting up: what the page shows once the core has loaded.
@@ -9,7 +10,7 @@ test(
   { tag: '@phone' },
   async ({ page }) => {
     await expect(rows(page)).toHaveCount(usualPlans.length)
-    await expect(page.getByText("Ticked at first: each broker's usual plan")).toBeVisible()
+    await expect(page.getByText(t.tickedAtFirst)).toBeVisible()
     const usual = page.locator('aside li', { has: page.locator('.usual') })
     await expect(usual).toHaveCount(usualPlans.filter(({ broker }) => broker.kind !== 'Funds').length)
     for (const plan of await usual.all()) await expect(plan.getByRole('checkbox')).toBeChecked()
@@ -17,13 +18,13 @@ test(
     const { plan } = usualPlans[0]
     await expect(page.getByRole('checkbox', { name: plan.name, exact: true }).first()).toBeChecked()
     // Of the funds, listed apart, only the provident fund's average.
-    await expect(page.getByText('Ticked at first: what savers in a provident fund')).toBeVisible()
-    const average = (fund: string) =>
-      page.getByRole('list', { name: fund }).getByRole('checkbox', { name: 'Average fee' })
-    await expect(average('Provident fund for investment')).toBeChecked()
+    await expect(page.getByText(t.fundsTickedAtFirst)).toBeVisible()
+    const average = (fund: string) => {
+      const { broker, plan } = listed(`${fund} · Average fee`)
+      return page.getByRole('list', { name: broker.name }).getByRole('checkbox', { name: plan.name })
+    }
+    await expect(average('Provident fund')).toBeChecked()
     await expect(average('Savings policy')).not.toBeChecked()
-    // It goes by its Hebrew name, shown under the English one.
-    await expect(page.locator('aside').getByText('קופת גמל להשקעה', { exact: true })).toBeVisible()
   },
 )
 
@@ -41,14 +42,14 @@ test(
 
 test('Share copies a link that opens the same comparison', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-  await choice(page, 'Security', 'Bond').click()
-  await page.getByLabel('Every month').fill('3500')
-  await checkbox(page, 'Bank Leumi').check()
+  await choice(page, t.security, securityName('Bond')).click()
+  await page.getByLabel(t.everyMonth).fill('3500')
+  await checkbox(page, listed('Leumi · Online').broker.name).check()
   const before = expectedRows(await inputsOnPage(page))
   await expect.poll(() => rowsOnPage(page)).toEqual(before)
 
-  await page.getByRole('button', { name: 'Share', exact: true }).click()
-  await expect(page.getByText('Link copied')).toBeVisible()
+  await page.getByRole('button', { name: t.share, exact: true }).click()
+  await expect(page.getByText(t.linkCopied)).toBeVisible()
   const link = await page.evaluate(() => navigator.clipboard.readText())
   expect(link).toContain('#s=Bond&x=Usa&d=10000&m=3500')
 

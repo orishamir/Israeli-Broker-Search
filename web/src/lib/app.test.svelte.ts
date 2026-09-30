@@ -63,7 +63,7 @@ test("each broker's usual plan and the provident fund's average are ticked at fi
   expect(ranked.map(({ plan }) => plan.id).toSorted()).toEqual(usual.toSorted())
   const left = ranked.map(({ outcome }) => outcome?.afterTax ?? -Infinity)
   expect(left).toEqual(left.toSorted((a, b) => b - a))
-  expect(app.purchase).toBe('an ETF bought in the USA')
+  expect(app.purchase).toBe('קרן סל שנקנית בארה״ב')
 })
 
 test('how the money is taken out is asked only while a ticked plan pays a pension, and everything is sold', () => {
@@ -84,7 +84,7 @@ test('how the money is taken out is asked only while a ticked plan pays a pensio
   app.age = 39
   expect(outcomeOf().tax).toBe(atOnce.tax)
   app.age = null
-  expect(app.comparison).toEqual({ error: 'fill in your age' })
+  expect(app.comparison).toEqual({ error: 'מלאו את הגיל שלכם' })
   app.age = 45
 
   // Without the fund there's no pension to ask about, and none is sent.
@@ -108,7 +108,7 @@ test("deposits over a fund's yearly ceiling leave it without numbers, saying why
   expect(row.plan.id).toBe(fund.id)
   expect(row).toMatchObject({ outcome: undefined, rank: undefined, whyNot: 'OverTheCeiling' })
   expect(row.notOffered).toBe(
-    "No more than ₪83,641 can be deposited in a year, and your first year's deposits come to ₪130,000",
+    'אי אפשר להפקיד יותר מ-₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל-₪130,000',
   )
 })
 
@@ -127,27 +127,27 @@ test('a study fund is locked for six years, and taxes only the gains on what is 
   app.monthlyDeposit = 1_500
   expect(taxOf(study.id)).toBe(0)
   // The fund says its rule under its name, and its row what became of it.
-  expect(study.broker!.taxRule).toBe('No tax on gains after 6 years, on up to ₪20,566 deposited a year')
-  expect(rowOf().taxNote).toBe('No tax: your deposits are within ₪20,566 a year')
+  expect(study.broker!.taxRule).toBe('אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה')
+  expect(rowOf().taxNote).toBe('אין מס: ההפקדות שלכם בתוך ₪20,566 בשנה')
   app.monthlyDeposit = 2_000
-  expect(rowOf().taxNote).toBe('Taxed only on what you deposit over ₪20,566 a year')
+  expect(rowOf().taxNote).toBe('המס הוא רק על מה שמופקד מעל ₪20,566 בשנה')
   expect(results(app).find(({ plan }) => plan.broker?.kind !== 'Funds')!.taxNote).toBeUndefined()
   // No pension from a study fund: it asks nothing about the way out.
   expect(study.info.pensionFromAge).toBeUndefined()
 
   app.years = 5
   expect(rowOf()).toMatchObject({ outcome: undefined, whyNot: 'Locked' })
-  expect(rowOf().notOffered).toContain('only 6 years after the first deposit')
+  expect(rowOf().notOffered).toContain('רק 6 שנים אחרי ההפקדה הראשונה')
 })
 
 test('bad inputs are reported in words, not thrown', () => {
   const app = start()
   app.monthlyDeposit = -5
-  expect(app.comparison).toEqual({ error: expect.stringMatching(/negative/) })
+  expect(app.comparison).toEqual({ error: expect.stringMatching(/ערך שלילי/) })
   expect(app.buying.largestTrade).toBeNull()
   app.monthlyDeposit = 2000
   app.yearlyReturnPercent = null
-  expect(app.comparison).toEqual({ error: expect.stringMatching(/yearly return/) })
+  expect(app.comparison).toEqual({ error: expect.stringMatching(/התשואה השנתית/) })
   app.yearlyReturnPercent = 10
   expect(results(app).length).toBeGreaterThan(0)
   expect(app.buying.largestTrade).toBeGreaterThan(0)
@@ -223,11 +223,11 @@ test('a new plan of your own takes the next free name, and is ticked when added'
   const app = start()
   app.draftNewPlan()
   const draft = draftOf(app.details)
-  expect(core.planInfo(draft.plan).name).toBe('Your plan')
+  expect(core.planInfo(draft.plan).name).toBe('המסלול שלכם')
   app.addYourPlan(draft)
   expect(app.selected.has(planId({ kind: 'yours', id: draft.id }))).toBe(true)
   app.draftNewPlan()
-  expect(core.planInfo(draftOf(app.details).plan).name).toBe('Your plan 2')
+  expect(core.planInfo(draftOf(app.details).plan).name).toBe('המסלול שלכם 2')
 })
 
 test('deleting a plan of your own unticks it, unpins it and stops hovering it', () => {
@@ -269,17 +269,18 @@ test('a copy knows its original by name, shares its color, and charges the same 
   const original = app.listedPlans.find(({ id }) => app.selected.has(id))!
   app.draftCopyOf(original)
   const draft = draftOf(app.details)
+  // By English names, the same in every language.
   expect(draft.basedOn).toEqual({
-    broker: original.subtitle,
-    plan: original.info.name,
-    track: original.info.tariff.tracks[app.trackOf(original) ?? 0]?.name,
+    broker: original.broker!.englishName,
+    plan: original.info.englishName,
+    track: original.info.tariff.tracks[app.trackOf(original) ?? 0]?.englishName,
   })
   app.addYourPlan(draft)
   const copy = app.plans.find(({ yours }) => yours?.id === draft.id)!
   expect(copy.original).toBe(original)
   expect(copy.color).toBe(original.color)
-  expect(copy.subtitle).toBe(`Your deal · ${original.subtitle}`)
-  expect(copy.label).toBe(original.label.replace(original.info.name, `${original.info.name}, your deal`))
+  expect(copy.subtitle).toBe(`העסקה שלכם · ${original.subtitle}`)
+  expect(copy.label).toBe(original.label.replace(original.info.name, `${original.info.name}, העסקה שלכם`))
   const leftAfterSelling = (id: string) =>
     results(app).find(({ plan }) => plan.id === id)!.outcome!.afterSelling
   expect(leftAfterSelling(copy.id)).toBe(leftAfterSelling(original.id))
@@ -329,7 +330,7 @@ test('an example fills every basic input, and leaves the expert ones', () => {
   const app = start()
   app.moreOptions = true
   app.inflationPercent = 3
-  const example = app.examples.find(({ name }) => name === 'Bonds, 5 years')!
+  const example = app.examples.find(({ name }) => name === 'אג״ח, 5 שנים')!
   app.applyExample(example)
   expect(app.inputs).toMatchObject({
     security: example.security,
@@ -425,7 +426,7 @@ test('a link without plans keeps what is ticked; one with plans replaces it, and
   // A newer version of your own plan, and one listed plan: exactly those are ticked.
   const newer = { ...mine, plan: core.rename(mine.plan, 'Renamed') }
   const withPlans = start_from(
-    `http://localhost:3000/#${encode({ plans: [first.listedPlans[0].label], yours: [newer] })}`,
+    `http://localhost:3000/#${encode({ plans: [first.listedPlans[0].englishLabel], yours: [newer] })}`,
   )
   expect(withPlans.yourPlans).toHaveLength(1)
   expect(core.planInfo(withPlans.yourPlans[0].plan).name).toBe('Renamed')
@@ -462,7 +463,7 @@ test("the best plan's line keeps its words until the sweep answers, shown while 
   expect(app.aroundLine.shown).toBe(false)
   answer()
   const first = app.aroundLine
-  expect(first).toEqual({ text: expect.stringMatching(/^The cheapest at any monthly deposit/), shown: true })
+  expect(first).toEqual({ text: expect.stringMatching(/^הזול ביותר בכל הפקדה חודשית/), shown: true })
   // Typing the deposit the sweep varies asks nothing new.
   const asked = app.sweepRequest
   app.monthlyDeposit = 2500
