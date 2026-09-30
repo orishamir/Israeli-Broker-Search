@@ -33,7 +33,7 @@
     - radio "Europe"
     - text: Europe
   - paragraph: /NYSE or Nasdaq\. Prices are in dollars, so your shekels are converted, which some brokers charge for\. The same S&P \d+ ETF bought here, such as VOO, needs shekels turned into dollars, and back when you sell\./
-  - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+/\d+/\d+/
+  - group: /\$1 = ₪\d+\.\d+ · €1 = ₪\d+\.\d+ · \d+\/\d+\/\d+/
   - heading "Deposits" [level=3]
   - text: One-time deposit
   - textbox "One-time deposit": /\d+,\d+/
@@ -161,6 +161,126 @@
       - button "What “usual” means": "?"
       - button "Change a copy of Meitav · Typical offer's fees": ✎
       - button "About Meitav · Typical offer": ℹ
+  - checkbox "Mizrahi-Tefahot Bank" [checked=mixed]
+  - text: Mizrahi-Tefahot Bank
+  - button "About Mizrahi-Tefahot Bank": ℹ
+  - paragraph: /Tariff of \d+\/\d+\/\d+/
+  - list "Mizrahi-Tefahot Bank":
+    - listitem:
+      - checkbox "Online" [checked]
+      - text: Online usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Mizrahi · Online's fees": ✎
+      - button "About Mizrahi · Online": ℹ
+    - listitem:
+      - checkbox "Online, young customers"
+      - text: Online, young customers
+      - button "Change a copy of Mizrahi · Online, young customers's fees": ✎
+      - button "About Mizrahi · Online, young customers": ℹ
+  - checkbox "Bank Otsar Hahayal" [checked=mixed]
+  - text: Bank Otsar Hahayal
+  - button "About Bank Otsar Hahayal": ℹ
+  - paragraph: /Tariff of \d+\/\d+\/\d+/
+  - list "Bank Otsar Hahayal":
+    - listitem:
+      - checkbox "Online" [checked]
+      - text: Online usual
+      - button "What “usual” means": "?"
+      - button "Change a copy of Otsar Hahayal · Online's fees": ✎
+      - button "About Otsar Hahayal · Online": ℹ
+    - listitem:
+      - checkbox "Online, standing order"
+      - text: Online, standing order
+      - button "Change a copy of Otsar Hahayal · Online, standing order's fees": ✎
+      - button "About Otsar Hahayal · Online, standing order": ℹ
+    - listitem:
+      - checkbox "Otzar Habitachon club"
+      - text: Otzar Habitachon club
+      - button "Change a copy of Otsar Hahayal · Otzar Habitachon club's fees": ✎
+      - button "About Otsar Hahayal · Otzar Habitachon club": ℹ
+    - listitem:
+      - checkbox "Top Trade"
+      - text: Top Trade
+      - button "Change a copy of Otsar Hahayal · Top Trade's fees": ✎
+      - button "About Otsar Hahayal · Top Trade": ℹ
+  - heading "Funds and policies to compare" [level=3]
+  - button "What “Funds and policies” means": "?"
+  - paragraph: "Ticked at first: what savers in a provident fund for investment pay on average."
+  - checkbox "Provident fund for investment" [checked=mixed]
+  - text: Provident fund for investment
+  - button "About Provident fund for investment": ℹ
+  - paragraph: קופת גמל להשקעה
+  - paragraph: /Fees paid, by the data of \d+\/\d+/
+  - list "Provident fund for investment":
+    - listitem:
+      - checkbox "Average fee" [checked]
+      - text: Average fee
+      - button "Change a copy of Provident fund · Average fee's fees": ✎
+      - button "About Provident fund · Average fee": ℹ
+    - listitem:
+      - checkbox "Cheapest company"
+      - text: Cheapest company
+      - button "Change a copy of Provident fund · Cheapest company's fees": ✎
+      - button "About Provident fund · Cheapest company": ℹ
+    - listitem:
+      - checkbox "Dearest company"
+      - text: Dearest company
+      - button "Change a copy of Provident fund · Dearest company's fees": ✎
+      - button "About Provident fund · Dearest company": ℹ
+    - listitem:
+      - checkbox "Legal maximum"
+      - text: Legal maximum
+      - button "Change a copy of Provident fund · Legal maximum's fees": ✎
+      - button "About Provident fund · Legal maximum": ℹ
+  - checkbox "Study fund"
+  - text: Study fund
+  - button "About Study fund": ℹ
+  - paragraph: קרן השתלמות
+  - paragraph: /Fees paid, by the data of \d+\/\d+/
+  - list "Study fund":
+    - listitem:
+      - checkbox "Average fee"
+      - text: Average fee
+      - button "Change a copy of Study fund · Average fee's fees": ✎
+      - button "About Study fund · Average fee": ℹ
+    - listitem:
+      - checkbox "Cheapest company"
+      - text: Cheapest company
+      - button "Change a copy of Study fund · Cheapest company's fees": ✎
+      - button "About Study fund · Cheapest company": ℹ
+    - listitem:
+      - checkbox "Dearest company"
+      - text: Dearest company
+      - button "Change a copy of Study fund · Dearest company's fees": ✎
+      - button "About Study fund · Dearest company": ℹ
+    - listitem:
+      - checkbox "Legal maximum"
+      - text: Legal maximum
+      - button "Change a copy of Study fund · Legal maximum's fees": ✎
+      - button "About Study fund · Legal maximum": ℹ
+  - checkbox "Savings policy"
+  - text: Savings policy
+  - button "About Savings policy": ℹ
+  - paragraph: פוליסת חיסכון
+  - paragraph: /Fees paid, by the data of \d+\/\d+/
+  - list "Savings policy":
+    - listitem:
+      - checkbox "Average fee"
+      - text: Average fee
+      - button "Change a copy of Savings policy · Average fee's fees": ✎
+      - button "About Savings policy · Average fee": ℹ
+    - listitem:
+      - checkbox "Highest fee"
+      - text: Highest fee
+      - button "Change a copy of Savings policy · Highest fee's fees": ✎
+      - button "About Savings policy · Highest fee": ℹ
+  - heading "Taking the money out" [level=3]
+  - button "What “Taking the money out” means": "?"
+  - radiogroup "Taking the money out":
+    - radio "All at once" [checked]
+    - text: All at once
+    - radio "As a pension"
+    - text: As a pension
   - heading "Your plans" [level=3]
   - button "What “Your plans” means": "?"
   - paragraph: Think you can get lower fees, or use a broker that isn't listed? ✎ on a plan changes a copy of it.

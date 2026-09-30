@@ -16,7 +16,8 @@
 <!-- The fees that apply to what the user buys, each marked with how sure its
      number is where a caveat is about it. -->
 <div class="fees-for">
-  <p class="for">{t.forPurchase(app.purchase)}</p>
+  <!-- A fund charges the same whatever is bought. -->
+  {#if !plan.info.tariff.management}<p class="for">{t.forPurchase(app.purchase)}</p>{/if}
   <dl>
     {#each fees as fee (fee.name)}
       <dt>

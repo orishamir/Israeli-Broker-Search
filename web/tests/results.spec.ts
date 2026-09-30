@@ -215,18 +215,118 @@ test('in one column there is no room beside a plan, so hovering it previews noth
 })
 
 test(
-  'keeping the holdings drops the sold column; inflation restates the amounts; the yearly cost is the core’s',
+  'keeping the holdings drops the tax and what is left after it; today’s money restates the amounts; the yearly fees are the core’s',
   { tag: '@phone' },
   async ({ page }) => {
-    await expect(page.locator('th', { hasText: 'Yearly cost' })).toBeVisible()
+    const tax = page.locator('th', { hasText: /^Tax/ })
+    await expect(page.locator('th', { hasText: 'Left after tax' })).toBeVisible()
+    await expect(tax).toBeVisible()
     await page.getByLabel('More options', { exact: true }).check()
     await choice(page, 'At the end', 'Keep').click()
-    await expect(page.locator('th', { hasText: 'Value if sold' })).toBeHidden()
-    await page.getByLabel('Inflation', { exact: true }).fill('2')
+    await expect(page.locator('th', { hasText: 'Left after tax' })).toBeHidden()
+    await expect(tax).toBeHidden()
+    // Nothing is taken out, so how it's taken out isn't asked.
+    await expect(page.getByRole('radiogroup', { name: 'Taking the money out' })).toBeHidden()
+    await page.getByRole('checkbox', { name: "Show amounts in today's money" }).check()
     await expect(page.getByText('over 20 years, in today’s money')).toBeVisible()
     const expected = expectedRows(await inputsOnPage(page))
     await expect.poll(() => rowsOnPage(page)).toEqual(expected)
-    // The best plan's yearly cost is in the summary too.
-    await expect(page.locator('.stat.best .note').first()).toContainText(`· ${expected[0].amounts[0]} a year`)
+    // The best plan's yearly fees are in the summary too: held, lost, yearly.
+    await expect(page.locator('.stat.best .note').first()).toContainText(`· ${expected[0].amounts[2]} a year`)
+  },
+)
+
+const FUND = 'Provident fund · Average fee'
+
+test(
+  'as a pension from 60 the provident fund pays no tax; how the money is taken out is asked only while it is ticked',
+  { tag: '@phone' },
+  async ({ page }) => {
+    const wayOut = page.getByRole('radiogroup', { name: 'Taking the money out' })
+    const taxOf = (label: string) => rowOf(page, label).locator('td.amount').nth(2)
+    await expect(taxOf(FUND)).not.toHaveText('none')
+    // Its row says why its tax is what it is; a broker's row has nothing to say.
+    await expect(rowOf(page, FUND).locator('.tax-note')).toHaveText(
+      'Taxed like a broker; no tax as a pension from 60',
+    )
+    await expect(rows(page).locator('.tax-note')).toHaveCount(1)
+    // The age is asked only with the pension.
+    await expect(page.getByLabel('Your age today', { exact: true })).toBeHidden()
+    await wayOut.getByText('As a pension').click()
+    await expect(page.getByLabel('Your age today', { exact: true })).toHaveValue('45')
+    await expect(page.getByText("You'd be 65 at the end: old enough for the pension")).toBeVisible()
+    await expect(taxOf(FUND)).toHaveText('none')
+    await expect(rowOf(page, FUND).locator('.tax-note')).toHaveText('No tax: taken as a pension from 60')
+    await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
+    // The best plan, with nothing to pay.
+    await expect(page.locator('.stat.best .label')).toHaveText(`Best: ${FUND}`)
+    await expect(page.locator('.stat.best .note').first()).toHaveText('left, with no tax to pay')
+
+    // 39 today is 59 after the 20 years: the fund is taxed like the rest.
+    await page.getByLabel('Your age today', { exact: true }).fill('39')
+    await expect(page.getByText("You'd be 59 at the end. The pension opens at 60")).toBeVisible()
+    await expect(taxOf(FUND)).not.toHaveText('none')
+    await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
+
+    // No fund ticked, nothing to ask.
+    await page
+      .getByRole('list', { name: 'Provident fund for investment' })
+      .getByRole('checkbox', { name: 'Average fee' })
+      .uncheck()
+    await expect(wayOut).toBeHidden()
+    await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
+  },
+)
+
+test(
+  'a study fund says its tax rule and what became of its tax; kept for less than six years, that it is still locked',
+  { tag: '@phone' },
+  async ({ page }) => {
+    const average = page
+      .getByRole('list', { name: 'Study fund' })
+      .getByRole('checkbox', { name: 'Average fee' })
+    await expect(page.locator('aside').getByText('קרן השתלמות', { exact: true })).toBeVisible()
+    // Its rule is said under its name, before it's ticked.
+    await expect(
+      page.locator('aside').getByText('No tax on gains after 6 years, on up to ₪20,566 deposited a year'),
+    ).toBeVisible()
+    await average.check()
+    const row = rowOf(page, 'Study fund · Average fee')
+    await expect(row).not.toHaveClass(/not-offered/)
+    await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
+    // ₪10,000 and ₪2,000 a month is more than the tax-free amount; ₪1,500
+    // a month alone isn't.
+    await expect(row.locator('.tax-note')).toHaveText('Taxed only on what you deposit over ₪20,566 a year')
+    await page.getByLabel('One-time deposit').fill('0')
+    await page.getByLabel('Every month').fill('1500')
+    await expect(row.locator('.tax-note')).toHaveText('No tax: your deposits are within ₪20,566 a year')
+    await expect(row.locator('td.amount').nth(2)).toHaveText('none')
+    // It pays no pension, so it's the provident fund the way out is asked for.
+    await expect(page.getByRole('radiogroup', { name: 'Taking the money out' })).toBeVisible()
+
+    await page.locator('#years').fill('5')
+    await expect(row).toHaveClass(/not-offered/)
+    await expect(row).toContainText('Its money is still locked when your years are up')
+    await row.getByRole('button', { name: 'What “The lock” means' }).click()
+    await expect(
+      page.getByRole('tooltip').filter({ hasText: 'only 6 years after the first deposit' }),
+    ).toBeVisible()
+  },
+)
+
+test(
+  'deposits over a fund’s yearly ceiling leave it last, saying by how much',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await page.getByLabel('Every month').fill('8000')
+    const row = rowOf(page, FUND)
+    await expect(row).toHaveClass(/not-offered/)
+    await expect(row).toContainText('Your deposits are over its yearly ceiling')
+    await expect(rows(page).last()).toContainText('Provident fund for investment')
+    await row.getByRole('button', { name: 'What “The ceiling” means' }).click()
+    const { plans } = compare(await inputsOnPage(page))
+    const reason = plans.at(-1)!.notOffered!
+    expect(reason).toContain('No more than ₪83,641 can be deposited in a year')
+    await expect(page.getByRole('tooltip').filter({ hasText: reason })).toBeVisible()
   },
 )

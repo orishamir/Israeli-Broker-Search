@@ -1,7 +1,8 @@
-use broker_fees::simulation::{Scenario, simulate};
+use broker_fees::simulation::{NotOffered, Scenario, free_plan, simulate};
 use broker_fees::tariffs::{
     altshuler, excellence, ibi, interactive, leumi, meitav, mizrahi, otsar_hahayal,
 };
+use broker_fees::vehicles::{GainsTax, LARGEST_GEMEL_FEE, LARGEST_STUDY_FUND_FEE, Pension};
 use broker_fees::*;
 
 use Exchange::{Europe, Tlv, Usa};
@@ -120,6 +121,9 @@ fn the_cheapest_track_is_picked() {
             buy_every_months: 1,
             share_price,
             sell_at_end: true,
+            inflation: Percent(dec!(0)),
+            age: 30,
+            withdrawal: Withdrawal::LumpSum,
         };
         let outcome = simulate(&p, &scenario, &rates()).unwrap();
         p.tracks[outcome.track.unwrap()].name.en.to_string()
@@ -147,6 +151,9 @@ fn the_cheapest_track_is_picked() {
         buy_every_months: 1,
         share_price: dec!(100),
         sell_at_end: true,
+        inflation: Percent(dec!(0)),
+        age: 30,
+        withdrawal: Withdrawal::LumpSum,
     };
     assert_eq!(simulate(&p, &tel_aviv, &rates()).unwrap().track, None);
 }
@@ -291,7 +298,7 @@ fn every_broker_names_its_new_customer_plan() {
 
 #[test]
 fn no_caveat_is_shown_twice() {
-    for b in tariffs::all() {
+    for b in listed() {
         for p in &b.plans {
             for exchange in Exchange::iter() {
                 for security in Security::iter() {
@@ -414,7 +421,7 @@ fn offers_say_where_the_full_tariff_is_used() {
 /// real address. The tariff itself counts, for readings of its wording.
 #[test]
 fn every_reading_links_to_its_source() {
-    for b in tariffs::all() {
+    for b in listed() {
         let caveats = b
             .caveats
             .iter()
@@ -443,9 +450,14 @@ fn every_reading_links_to_its_source() {
                 );
             }
         }
-        // The broker's list starts with its tariff and names each page once.
+        // The broker's list starts with its tariff, a fund's with the
+        // regulator's data, and each names each page once.
         let sources = b.sources(Lang::En);
-        assert_eq!(sources[0].name, "Tariff (PDF)", "{}", b.name.en);
+        let first = match b.kind {
+            BrokerKind::Funds => "The Capital Market Authority's data",
+            BrokerKind::Bank | BrokerKind::InvestmentHouse => "Tariff (PDF)",
+        };
+        assert_eq!(sources[0].name, first, "{}", b.name.en);
         let mut urls: Vec<&str> = sources.iter().map(|s| s.url.as_str()).collect();
         urls.sort_unstable();
         urls.dedup();
@@ -460,10 +472,17 @@ fn every_reading_links_to_its_source() {
 
 #[test]
 fn brokers_round_trip_through_json() {
-    for b in tariffs::all() {
+    for b in listed() {
         let json = serde_json::to_string(&b).unwrap();
         assert_eq!(serde_json::from_str::<Broker>(&json).unwrap(), b);
     }
+    // Written before brokers said whether they're compared at first: every
+    // one was.
+    let leumi = leumi();
+    let mut older = serde_json::to_value(&leumi).unwrap();
+    let removed = older.as_object_mut().unwrap().remove("compared_at_first");
+    assert_eq!(removed, Some(serde_json::Value::Bool(true)));
+    assert_eq!(serde_json::from_value::<Broker>(older).unwrap(), leumi);
 }
 
 #[test]
@@ -602,7 +621,7 @@ fn leumi_plans_have_their_own_words_and_caveats() {
 /// large ones of a condition ("at least ₪5,000", "up to ₪200,000").
 #[test]
 fn plan_descriptions_leave_prices_to_the_price_list() {
-    for broker in broker_fees::tariffs::all() {
+    for broker in listed() {
         for plan in &broker.plans {
             for text in [&*plan.description.en, &*plan.description.he] {
                 let name = format!("{} · {}: {text}", broker.name.en, plan.name.en);
@@ -625,7 +644,7 @@ fn plan_descriptions_leave_prices_to_the_price_list() {
 /// No broker or plan is left unexplained.
 #[test]
 fn every_broker_and_plan_is_described() {
-    for broker in broker_fees::tariffs::all() {
+    for broker in listed() {
         assert!(!broker.description.is_empty(), "{}", broker.name.en);
         assert!(!broker.short_name.is_empty(), "{}", broker.name.en);
         for plan in &broker.plans {
@@ -1210,4 +1229,285 @@ fn otsar_plans_have_their_own_words_and_caveats() {
             "{name}"
         );
     }
+}
+
+// ─────────────────────────── The law: tax and ceilings ───────────────────────────
+
+/// One deposit, kept for `years` at `yearly_return`, by a saver of `age`.
+fn one_deposit(first_deposit: Decimal, years: u32, yearly_return: Decimal, age: u32) -> Scenario {
+    Scenario {
+        security: IndexFund,
+        exchange: Tlv,
+        first_deposit,
+        monthly_deposit: dec!(0),
+        deposit_growth: Percent(dec!(0)),
+        yearly_return: Percent(yearly_return),
+        years,
+        buy_every_months: 1,
+        share_price: dec!(100),
+        sell_at_end: true,
+        inflation: Percent(dec!(0)),
+        age,
+        withdrawal: Withdrawal::LumpSum,
+    }
+}
+
+/// A fund with `fee`, and nothing to pay for trades inside it.
+fn fund(vehicle: Vehicle, fee: ManagementFee) -> Plan {
+    Plan {
+        vehicle,
+        management: Some(fee),
+        ..free_plan()
+    }
+}
+
+/// The figures as published for 2026 (`policies/sources.md`): a provident
+/// fund for investment takes ₪83,641 a year, charges at most 4% of deposits
+/// and 1.05% of the balance, and pays a tax-free pension from 60; a study
+/// fund charges at most 2% of the balance, opens after 6 years, and doesn't
+/// tax the gains on ₪20,566 a year; everywhere a lump sum pays 25% of the
+/// real gain. Only the provident fund has a ceiling or a pension, and only
+/// the study fund a lock or a tax-free part.
+#[test]
+fn the_rules_are_the_published_ones() {
+    let a_quarter = GainsTax::OfRealGain(Percent(dec!(25)));
+    let gemel = Vehicle::InvestmentGemel.rules();
+    assert_eq!(gemel.deposit_ceiling, Some(dec!(83641)));
+    assert_eq!(gemel.lump_sum, a_quarter);
+    assert_eq!(
+        gemel.pension,
+        Some(Pension {
+            from_age: 60,
+            tax: GainsTax::Exempt
+        })
+    );
+    assert_eq!(LARGEST_GEMEL_FEE.of_deposits, Percent(dec!(4)));
+    assert_eq!(LARGEST_GEMEL_FEE.of_balance, Percent(dec!(1.05)));
+    assert_eq!(
+        (gemel.tax_free_deposits, gemel.open_after_years),
+        (None, None)
+    );
+    let study = Vehicle::StudyFund.rules();
+    assert_eq!(study.tax_free_deposits, Some(dec!(20566)));
+    assert_eq!(study.open_after_years, Some(6));
+    assert_eq!((study.deposit_ceiling, study.pension), (None, None));
+    assert_eq!(study.lump_sum, a_quarter);
+    assert_eq!(LARGEST_STUDY_FUND_FEE.of_deposits, Percent(dec!(0)));
+    assert_eq!(LARGEST_STUDY_FUND_FEE.of_balance, Percent(dec!(2)));
+    for vehicle in [Vehicle::Brokerage, Vehicle::SavingsPolicy] {
+        let rules = vehicle.rules();
+        assert_eq!(rules.deposit_ceiling, None, "{vehicle:?}");
+        assert_eq!(rules.lump_sum, a_quarter, "{vehicle:?}");
+        assert_eq!(rules.pension, None, "{vehicle:?}");
+        assert_eq!(rules.tax_free_deposits, None, "{vehicle:?}");
+        assert_eq!(rules.open_after_years, None, "{vehicle:?}");
+    }
+}
+
+/// ₪10,000 in a provident fund at the most the law allows, for a year with
+/// no growth: 4% of the deposit is ₪400, leaving ₪9,600. Then 1.05% a year
+/// of the balance, a twelfth (0.0875%) each month:
+/// 9,600 × 0.999125¹² = ₪9,499.68. The fees are the other ₪500.32, and with
+/// no gain there's no tax.
+#[test]
+fn a_provident_fund_at_the_legal_maximum() {
+    let p = fund(Vehicle::InvestmentGemel, LARGEST_GEMEL_FEE);
+    let scenario = one_deposit(dec!(10000), 1, dec!(0), 30);
+    let outcome = simulate(&p, &scenario, &rates()).unwrap();
+    assert_eq!(outcome.after_selling.round_dp(2), dec!(9499.68));
+    assert_eq!(outcome.fees.management.round_dp(2), dec!(500.32));
+    assert_eq!(outcome.fees.total(), outcome.fees.management);
+    assert_eq!(outcome.value_by_month[0], dec!(10000));
+    // After the first month: 9,600 × 0.999125.
+    assert_eq!(outcome.value_by_month[1], dec!(9591.6));
+    assert_eq!(outcome.tax, dec!(0));
+    assert_eq!(outcome.after_tax, outcome.after_selling);
+}
+
+/// ₪80,000 for ten years at 10% a year, with no fees, while prices rise 2%
+/// a year. It grows to 80,000 × 1.1¹⁰ = ₪207,499.40. What it cost, raised
+/// with prices, is 80,000 × 1.02¹⁰ = ₪97,519.55, so the real gain is
+/// ₪109,979.84 and a quarter of it, ₪27,494.96, is tax: ₪180,004.44 is left.
+/// The same at a broker, in a savings policy, and in a provident fund taken
+/// as a lump sum, or as a pension before 60. As a pension from 60 the fund
+/// pays no tax.
+#[test]
+fn a_quarter_of_the_gain_beyond_the_rise_in_prices() {
+    let no_fee = ManagementFee {
+        of_deposits: Percent(dec!(0)),
+        of_balance: Percent(dec!(0)),
+    };
+    let run = |vehicle, age, withdrawal| {
+        let scenario = Scenario {
+            inflation: Percent(dec!(2)),
+            withdrawal,
+            ..one_deposit(dec!(80000), 10, dec!(10), age)
+        };
+        simulate(&fund(vehicle, no_fee), &scenario, &rates()).unwrap()
+    };
+    let taxed = [
+        (Vehicle::Brokerage, 50, Withdrawal::LumpSum),
+        (Vehicle::Brokerage, 50, Withdrawal::Pension),
+        (Vehicle::SavingsPolicy, 50, Withdrawal::Pension),
+        (Vehicle::InvestmentGemel, 50, Withdrawal::LumpSum),
+        (Vehicle::InvestmentGemel, 49, Withdrawal::Pension),
+    ];
+    for (vehicle, age, withdrawal) in taxed {
+        let outcome = run(vehicle, age, withdrawal);
+        let who = format!("{vehicle:?} at {age}, {withdrawal:?}");
+        assert_eq!(outcome.after_selling.round_dp(2), dec!(207499.40), "{who}");
+        assert_eq!(outcome.tax.round_dp(2), dec!(27494.96), "{who}");
+        assert_eq!(outcome.after_tax.round_dp(2), dec!(180004.44), "{who}");
+    }
+    let pension = run(Vehicle::InvestmentGemel, 50, Withdrawal::Pension);
+    assert_eq!(pension.tax, dec!(0));
+    assert_eq!(pension.after_tax.round_dp(2), dec!(207499.40));
+}
+
+/// ₪41,132 in a study fund for ten years at 10% a year, with no fees, while
+/// prices rise 2% a year. It grows to 41,132 × 1.1¹⁰ = ₪106,685.81. Half of
+/// it, ₪20,566, was within the year's tax-free amount. The other half's real
+/// gain is half of 106,685.81 − 41,132 × 1.02¹⁰ = 56,546.14, and a quarter
+/// of that half is tax: ₪7,068.27, leaving ₪99,617.55. With ₪20,566 there's
+/// no tax, and for five years the fund isn't offered at all.
+#[test]
+fn a_study_fund_taxes_the_gains_on_what_is_over_its_amount() {
+    let no_fee = ManagementFee {
+        of_deposits: Percent(dec!(0)),
+        of_balance: Percent(dec!(0)),
+    };
+    let p = fund(Vehicle::StudyFund, no_fee);
+    let after = |first_deposit, years| {
+        let scenario = Scenario {
+            inflation: Percent(dec!(2)),
+            ..one_deposit(first_deposit, years, dec!(10), 30)
+        };
+        simulate(&p, &scenario, &rates())
+    };
+    let twice = after(dec!(41132), 10).unwrap();
+    assert_eq!(twice.after_selling.round_dp(2), dec!(106685.81));
+    assert_eq!(twice.tax.round_dp(2), dec!(7068.27));
+    assert_eq!(twice.after_tax.round_dp(2), dec!(99617.55));
+    let within = after(dec!(20566), 10).unwrap();
+    assert_eq!(within.tax, dec!(0));
+    assert_eq!(
+        after(dec!(20566), 5).err(),
+        Some(NotOffered::Locked { years: 6 })
+    );
+}
+
+/// Custody comes off the proceeds only in the year it's paid in, so a saver
+/// who sells at the end deducts the last year's. ₪100,000 at 10% a year for
+/// two years, with 0.1% a year of custody taken monthly on the holdings and
+/// nothing else to pay: with g = 1.1^(1/12), the second year's custody is
+/// 100,000 × 0.001 / 12 × (g¹³ + … + g²⁴) = ₪115.87 (the first year's,
+/// ₪105.34, comes off nothing). The holdings grow to ₪121,000, so the tax is
+/// (121,000 − 100,000 − 115.87) / 4 = ₪5,221.03, not ₪5,250.
+#[test]
+fn only_the_last_years_custody_comes_off_the_gain() {
+    let p = Plan {
+        custody: vec![CustodyFee {
+            securities: vec![],
+            exchanges: vec![],
+            percent: Percent(dec!(0.1)),
+            per: Period::Year,
+            billed: Period::Month,
+            min: None,
+        }],
+        ..free_plan()
+    };
+    let outcome = simulate(&p, &one_deposit(dec!(100000), 2, dec!(10), 30), &rates()).unwrap();
+    assert_eq!(outcome.fees_by_year[0].custody.round_dp(2), dec!(105.34));
+    assert_eq!(outcome.fees_by_year[1].custody.round_dp(2), dec!(115.87));
+    assert_eq!(outcome.tax.round_dp(2), dec!(5221.03));
+}
+
+/// The fund's ceiling is on what goes in during one year: ₪83,641 is taken,
+/// a shekel more is not.
+#[test]
+fn a_provident_fund_takes_no_more_than_its_ceiling() {
+    let p = fund(Vehicle::InvestmentGemel, LARGEST_GEMEL_FEE);
+    let at = one_deposit(dec!(83641), 1, dec!(0), 30);
+    assert!(simulate(&p, &at, &rates()).is_ok());
+    let over = one_deposit(dec!(83642), 1, dec!(0), 30);
+    assert_eq!(
+        simulate(&p, &over, &rates()).err(),
+        Some(NotOffered::OverTheCeiling { year: 0 })
+    );
+}
+
+// ─────────────────────────── Funds and policies ───────────────────────────
+
+/// What savers paid, from the regulator's data of August 2026
+/// (`policies/gemel-net.py` prints these): the provident funds for
+/// investment that anyone can join average 0.6168% of the balance and
+/// 0.0010% of deposits; Harel is the cheapest company at 0.5519%, Mor the
+/// dearest at 0.7188%. The study funds anyone can join, without the
+/// self-managed ones, average 0.6125% and take nothing from deposits; Migdal
+/// is the cheapest at 0.5281%, Mor the dearest at 0.6981%. The insurers'
+/// investment policies sold since 2004 average 0.9393%. The funds' maximums
+/// are the regulations', and the policy's the 2% the insurers state.
+#[test]
+fn the_funds_fees_are_the_regulators() {
+    let fee = |b: Broker, name: &str| plan(b, name).management.unwrap();
+    let of = |of_balance, of_deposits| ManagementFee {
+        of_balance: Percent(of_balance),
+        of_deposits: Percent(of_deposits),
+    };
+    let gemel = funds::investment_gemel;
+    assert_eq!(fee(gemel(), "Average fee"), of(dec!(0.62), dec!(0)));
+    assert_eq!(fee(gemel(), "Cheapest company"), of(dec!(0.55), dec!(0)));
+    assert_eq!(fee(gemel(), "Dearest company"), of(dec!(0.72), dec!(0)));
+    assert_eq!(fee(gemel(), "Legal maximum"), LARGEST_GEMEL_FEE);
+    let study = funds::study_fund;
+    assert_eq!(fee(study(), "Average fee"), of(dec!(0.61), dec!(0)));
+    assert_eq!(fee(study(), "Cheapest company"), of(dec!(0.53), dec!(0)));
+    assert_eq!(fee(study(), "Dearest company"), of(dec!(0.70), dec!(0)));
+    assert_eq!(fee(study(), "Legal maximum"), LARGEST_STUDY_FUND_FEE);
+    let policy = funds::savings_policy;
+    assert_eq!(fee(policy(), "Average fee"), of(dec!(0.94), dec!(0)));
+    assert_eq!(fee(policy(), "Highest fee"), of(dec!(2), dec!(0)));
+}
+
+/// A fund's plan is its vehicle's, and charges its manager's fee and nothing
+/// else, whatever is bought and wherever: the first plan of each is the one
+/// compared at first, and only the provident fund is ticked when the app
+/// opens.
+#[test]
+fn a_funds_plans_charge_only_the_manager() {
+    let kinds = [
+        (funds::investment_gemel(), Vehicle::InvestmentGemel, true),
+        (funds::study_fund(), Vehicle::StudyFund, false),
+        (funds::savings_policy(), Vehicle::SavingsPolicy, false),
+    ];
+    assert_eq!(funds::all().len(), kinds.len());
+    for (b, vehicle, compared_at_first) in kinds {
+        assert_eq!(b.kind, BrokerKind::Funds);
+        assert_eq!(b.compared_at_first, compared_at_first, "{}", b.name.en);
+        assert_eq!(b.plans[b.new_customer_plan].name.en, "Average fee");
+        for p in &b.plans {
+            assert_eq!(p.vehicle, vehicle, "{}", p.name.en);
+            for security in Security::iter() {
+                for exchange in Exchange::iter() {
+                    let scenario = Scenario {
+                        security,
+                        exchange,
+                        monthly_deposit: dec!(2000),
+                        // Long enough for a study fund to open.
+                        ..one_deposit(dec!(10000), 7, dec!(8), 30)
+                    };
+                    let outcome = simulate(p, &scenario, &rates()).unwrap();
+                    assert_eq!(
+                        outcome.fees.total(),
+                        outcome.fees.management,
+                        "{} {security:?} on {exchange:?}",
+                        p.name.en
+                    );
+                    assert!(outcome.fees.management > dec!(0));
+                }
+            }
+        }
+    }
+    // Every broker is compared at first.
+    assert!(tariffs::all().iter().all(|b| b.compared_at_first));
 }

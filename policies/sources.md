@@ -255,3 +255,133 @@ and the banks' unpublished markups, come from these:
   tariff's own row (part 4, notes 3 and 14). Its prices are stated for a
   portfolio of up to ₪200,000; a larger one is assumed to pay the same, and
   the plan is flagged.
+
+## Tax and the vehicles
+
+Checked on 30 September 2026 (`vehicles::checked`). `vehicles.rs` holds what
+the law says about each kind of account, whoever runs it: the tax on the gain
+at the end, and how much may be deposited in a year. The table ranks by
+what's left after the tax (`Outcome::after_tax`).
+
+- **Inflation, 2% a year unless the user sets another**
+  (`simulation::USUAL_INFLATION`): the middle of the Bank of Israel's target
+  of 1–3%, "as it has been since 2003"
+  ([the bank's review of the target, November 2024](https://boi.org.il/en/communication-and-publications/press-releases/6-11-24/)).
+
+- **25% of the real gain, everywhere:** the Income Tax Ordinance
+  ([Hebrew Wikisource](https://he.wikisource.org/wiki/פקודת_מס_הכנסה)),
+  section 91(b)(1): an individual pays "at a rate of no more than 25%" on a
+  real capital gain. Section 88 defines the real gain as the gain less the
+  inflationary amount, "the part of the gain by which the adjusted cost
+  exceeds the cost": so a loss pays nothing, and falling prices never lower
+  a cost. [Meitav Trade's guide](https://www.meitav.co.il/trade/capital_market_guide/capital_market_tax/)
+  says the same in plain words.
+- **Provident fund for investment (קופת גמל להשקעה):** Kol Zchut, a rights
+  guide backed by the Ministry of Justice.
+  - [The fund](https://www.kolzchut.org.il/he/קופת_גמל_להשקעה): no more than
+    ₪83,641 in a calendar year (2026), in all of a person's funds together;
+    no tax benefit on deposits; tax is paid only on withdrawal. Menora
+    Mivtachim gives the ceiling to the agora, ₪83,641.09.
+  - [Its fees](https://www.kolzchut.org.il/he/דמי_ניהול_בקופת_גמל_להשקעה): at
+    most 4% of each deposit and 1.05% a year of the balance, under section
+    2(a) of the management-fee regulations (`LARGEST_GEMEL_FEE`).
+  - [The pension](https://www.kolzchut.org.il/he/פטור_ממס_על_רווחים_בקופת_גמל_להשקעה_המשולמת_כקצבה_לאחר_גיל_60):
+    from 60, taken as a monthly pension, the gains are exempt whatever else
+    the saver earns; a lump sum, or any withdrawal before 60, pays 25% of the
+    real gain. Its example (₪200,000 of real gain) is a test in
+    `vehicles.rs`.
+- **Study fund (קרן השתלמות):** Kol Zchut, on
+  [the fund](https://www.kolzchut.org.il/he/קרן_השתלמות) and on
+  [the self-employed's](https://www.kolzchut.org.il/he/קרן_השתלמות_לעובד_עצמאי).
+  - A self-employed saver deposits what they like. The gains are exempt if
+    no more than ₪20,566 was deposited in the year (2026) and the money is
+    taken out after 6 years; "sums deposited beyond this ceiling are charged
+    capital gains tax at 25%". Taken out sooner, it's taxed as income, so
+    the plan isn't offered for fewer than 6 years (3 for studies or at
+    retirement age, not modelled).
+  - An employee can't open one without the employer, who deposits up to
+    7.5% of the salary (₪14,140.80 a year) against the employee's 2.5%
+    (₪4,713.60), to a salary of ₪15,712 a month (2026). The app counts the
+    self-employed's fund; a caveat says so.
+  - Its fee: "at a rate of no more than 2% a year" of the balance, and
+    nothing from deposits, in the management-fee regulations
+    ([Hebrew Wikisource](https://he.wikisource.org/wiki/תקנות_הפיקוח_על_שירותים_פיננסיים_(קופות_גמל)_(דמי_ניהול)),
+    `LARGEST_STUDY_FUND_FEE`); the same page has the provident fund's 1.05%
+    and 4%.
+- **Savings policy (פוליסת חיסכון):** no ceiling, 25% of the real gain on
+  withdrawal, no pension, and moving to another insurer is a taxed
+  withdrawal: [Analyst](https://www.analyst.co.il/articles/savings-policy-and-investment-provident-fund/),
+  [Menora Mivtachim](https://www.menoramivt.co.il/general/articles-fellow/gemel-invest-differnces),
+  [Bizportal](https://www.bizportal.co.il/longtermsavings/news/article/20038012).
+  Menora states a largest fee of 2% of the balance a year. It isn't entered:
+  confirm it against the regulation when the policies' prices are.
+
+How the rules were read:
+
+- **What the holdings cost** is what was paid to buy them ("the amount the
+  taxpayer spent to acquire the asset", section 88): the order's fee, the
+  conversion, and a manager's share of the deposit. Custody and the monthly
+  fee aren't cost: "the expenses incurred in that same tax year" (management
+  and custody fees for securities) are deducted from the proceeds, by
+  regulation 6(a) of the regulations on computing the capital gain on
+  securities, 2002
+  ([Nevo](https://www.nevo.co.il/law_html/law01/999_087.htm)). Someone who
+  sells only at the end deducts the last year's; the earlier years' had no
+  sale to come off (`simulate_prices`). In a fund the gain is what comes out
+  less what went in, so every fee comes off it.
+- **Prices** rise at the inflation the user gives, the same every month.
+- **The ceiling** is checked on each year of the period as if it were a
+  calendar year, and rises with prices as the law raises it each January.
+  So does the study fund's tax-free amount, which can fall if prices do.
+- **A study fund's taxed part** is, of each year's deposits, the share
+  beyond that year's tax-free amount: that share of what's bought in the
+  year, with its gains, is taxed at the end like a gain at a broker.
+- **A saver too young for the pension** at the end of the period is taxed
+  as for a lump sum: the money is counted then, not left to wait.
+
+## Funds and policies
+
+Checked on 30 September 2026 (`funds::checked`). `funds.rs` lists each kind
+of fund as a whole, not each company: a saver's fee is agreed person by
+person, and the companies' averages are within 0.2% of each other.
+
+The fees are the Capital Market Authority's, from the monthly reports of
+the funds and insurers, as its open data gives them (data.gov.il, the
+datasets `gemelnet` and `insurance`, shown on
+[Gemel Net](https://gemelnet.cma.gov.il/) and
+[Bituach Net](https://bituachnet.cma.gov.il/)). `gemel-net.py` here works
+them out; run it for the report of August 2026 (`202608`) to get the numbers
+below. Each track's average fee is weighted by the money in it, and tracks
+that report no fee (new ones) are left out.
+
+- **Provident fund for investment:** the tracks classified קופת גמל להשקעה
+  and open to everyone (כלל האוכלוסיה), 123 tracks of 11 companies, ₪99
+  billion. All together 0.6168% of the balance and 0.0010% of deposits:
+  "Average fee" is 0.62% and nothing on deposits. By company, Harel is the
+  cheapest at 0.5519% ("Cheapest company", 0.55%) and Mor the dearest at
+  0.7188% ("Dearest company", 0.72%). The funds of one employer's or one
+  sector's workers (teachers, the electric company) charge less and aren't
+  open to others. "Legal maximum" is the regulations' (above).
+- **Study fund:** the tracks classified קרנות השתלמות and open to
+  everyone, without the self-managed ones (names with ניהול אישי or IRA,
+  whose savers pay a broker's trade fees on top): 131 tracks of 11
+  companies. All together 0.6125% of the balance and nothing from deposits
+  ("Average fee", 0.61%); Migdal the cheapest at 0.5281% (0.53%), Mor the
+  dearest at 0.6981% (0.70%).
+- **The figure is a yearly one:** it changed in January 2025 and January
+  2026 for nearly every fund and in no other month, so it's taken as what
+  savers paid over the year before. The app says "data of August 2026" and
+  that it last changed in January.
+- **Savings policy:** Bituach Net reports the insurers' investment policies
+  together, as "policies sold since 2004": 168 tracks of 8 insurers, ₪351
+  billion, 0.9393% of the balance, and 1.7663% of deposits in the 141 that
+  report a fee on deposits. They include managers' insurance (ביטוח מנהלים),
+  a pension product with a fee on deposits; savings policies aren't reported
+  apart. "Average fee" is that 0.94% with nothing on deposits, shown as our
+  reading, since Menora Mivtachim calls the fee on the balance a savings
+  policy's only cost. "Highest fee" is the 2% of the balance that Menora and
+  Bizportal give as the most; the regulation behind it wasn't read.
+- **What a fund's own investing costs:** the regulations on direct expenses
+  ([Hebrew Wikisource](https://he.wikisource.org/wiki/תקנות_הפיקוח_על_שירותים_פיננסיים_(קופות_גמל)_(הוצאות_ישירות_בשל_ביצוע_עסקאות)))
+  cap outside managers' fees and the like at 0.25% of a fund's assets a
+  year. Not counted, like an ETF's own fee.

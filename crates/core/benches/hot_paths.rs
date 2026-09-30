@@ -4,7 +4,9 @@
 //! prints the timings, so a change that slows the app shows up as a number.
 
 use broker_fees::simulation::{Scenario, compare, simulate};
-use broker_fees::{Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Security, tariffs};
+use broker_fees::{
+    Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Security, Withdrawal, tariffs,
+};
 use rust_decimal_macros::dec;
 
 fn main() {
@@ -28,6 +30,9 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
         buy_every_months: 1,
         share_price: dec!(500),
         sell_at_end: true,
+        inflation: Percent(dec!(0)),
+        age: 30,
+        withdrawal: Withdrawal::LumpSum,
     }
 }
 

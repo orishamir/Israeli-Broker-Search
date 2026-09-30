@@ -11,9 +11,9 @@
     const sweep = app.sweep
     const lines: CostLine[] = (sweep?.plans ?? []).flatMap(({ key, costs }) => {
       const plan = app.plansById.get(planId(key))
-      // Plans that don't offer the security have no line.
+      // Plans that can't be used at the user's own deposit have no line.
       const rank = app.rankOf(planId(key))
-      if (!plan || !costs || rank === undefined) return []
+      if (!plan || rank === undefined) return []
       return [
         { id: plan.id, label: plan.label, color: plan.color, rank, dotted: plan.yours !== undefined, costs },
       ]

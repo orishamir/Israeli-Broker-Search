@@ -31,7 +31,9 @@ export interface CostLine {
   rank: number
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean
-  costs: number[]
+  /** Missing where the plan can't be used: a year's deposits at that amount
+   * are over a fund's ceiling. Its line ends there. */
+  costs: (number | null)[]
 }
 
 export interface CrossoverView {
@@ -59,11 +61,13 @@ function lineSeries(line: CostLine, view: CrossoverView): LineSeriesOption {
     id: line.id,
     name: line.label,
     type: 'line',
-    data: view.amounts.map((amount, index) => {
-      const point = [amount, Math.max(line.costs[index], FLOOR)]
+    data: view.amounts.flatMap((amount, index) => {
+      const cost = line.costs[index]
+      if (cost === null) return []
+      const point = [amount, Math.max(cost, FLOOR)]
       // The first point sits on the axis, where a label above it would cover
       // the axis's own labels: its label goes to the right instead.
-      return index === 0 ? { value: point, label: { position: 'right' } } : point
+      return [index === 0 ? { value: point, label: { position: 'right' } } : point]
     }),
     color: line.color,
     lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1, type: line.dotted ? 'dotted' : 'solid' },

@@ -141,7 +141,11 @@
           {/if}
           {broker.tariffDate} · {broker.checked}
           {#if broker.sourceUrl}
-            · <a href={broker.sourceUrl} target="_blank" rel="noreferrer">{t.tariffPdf} ↗</a>
+            <!-- A broker's tariff, or for a kind of fund the regulator's data. -->
+            ·
+            <a href={broker.sourceUrl} target="_blank" rel="noreferrer"
+              >{broker.kind === 'Funds' ? broker.sources[0]?.name : t.tariffPdf} ↗</a
+            >
           {/if}
         </p>
 
@@ -160,7 +164,8 @@
             <h3>{t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
-          <details>
+          <!-- A fund's fee is all it charges, and it's shown above. -->
+          <details hidden={tariff.management !== undefined}>
             <summary>
               {t.allPrices}{#if others.length > 0}<span class="more"
                   >{t.andCaveatsAboutOthers(others.length)}</span

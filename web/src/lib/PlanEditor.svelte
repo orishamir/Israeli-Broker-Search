@@ -37,6 +37,8 @@
   ]
 
   const info = $derived(core.planInfo(yours.plan))
+  /** A fund's or a policy's plan: its manager's fee is all there is to change. */
+  const managed = $derived(info.tariff.management !== undefined)
   const originalPlan = $derived(app.originalOf(yours))
   const original: Original | undefined = $derived(
     originalPlan?.key.kind === 'listed'
@@ -112,11 +114,14 @@
   {/if}
 </p>
 
-<div class="view">
-  <Choices label={t.view} options={views} bind:value={app.editorView} />
-</div>
+<!-- A fund's fee is all it charges: there's no price list to open. -->
+{#if !managed}
+  <div class="view">
+    <Choices label={t.view} options={views} bind:value={app.editorView} />
+  </div>
+{/if}
 
-{#if app.editorView === 'simple'}
+{#if managed || app.editorView === 'simple'}
   <div class="fees">
     <SimpleFees {app} {yours} {original} {change} {errors} />
   </div>

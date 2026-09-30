@@ -277,7 +277,13 @@ button:active:not(.link) {
 }
 .popover[popover] {
   position: fixed;
-  inset: auto;
+  /* At the corner, as wide as its words (up to the maximum), until tip.ts
+     places it. Left where it falls in the page, it was as narrow as the room
+     to its right, a few pixels beside a ? at the screen's edge: each
+     placement then widened it a little, which moved it again, and Safari
+     reported a ResizeObserver loop. */
+  inset: 0 auto auto 0;
+  width: max-content;
   margin: 0;
   /* Taller than the space left: scrolls inside (see tip.ts). */
   overflow-y: auto;

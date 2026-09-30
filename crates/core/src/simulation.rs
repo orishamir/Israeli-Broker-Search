@@ -14,10 +14,24 @@
 //! - Custody is charged every month, a twelfth of a year's fee on what's
 //!   held, and so is a plan's handling fee; both are paid from the shekels.
 //!   What they don't cover is owed, and the next deposits repay it first.
+//! - A manager's fee ([`ManagementFee`](crate::ManagementFee)) comes off
+//!   each deposit as it arrives, and off the holdings every month. A fund
+//!   or a policy invests every deposit at once
+//!   ([`Vehicle::invests_for_you`](crate::Vehicle::invests_for_you)),
+//!   however often the saver would buy at a broker.
 //! - A plan with tracks is run on each, and costs what the cheapest does.
 //! - At the end everything is sold and converted back to shekels, except
 //!   what would cost more to sell than it's worth; or, if the user would
 //!   rather keep holding, nothing is.
+//! - Selling is when the gain is taxed, by the rules of the plan's vehicle
+//!   ([`Vehicle::rules`](crate::Vehicle::rules)): on what the sale brings
+//!   beyond what the holdings cost, the cost raised by how much prices rose
+//!   since each purchase. What's paid to buy counts as cost, the fees on
+//!   the order and on the deposit included. Custody and the monthly fee
+//!   come off the proceeds only in the tax year they're paid in, so only
+//!   the last year's lower the gain. Where part of a year's deposits is tax-free (a study fund),
+//!   only the rest of each purchase is taxed. Holdings that are kept owe
+//!   no tax yet.
 //!
 //! Besides the shekels themselves, an outcome says what the fees amount to
 //! as a yearly charge on the holdings, like a fund's management fee
@@ -30,16 +44,20 @@
 //! - The expected return is in the security's own currency. Exchange rates
 //!   stay the same for the whole period.
 //! - Waiting money earns nothing, and owing costs nothing.
-//! - Taxes are ignored.
+//! - The only tax is the one on the gain at the end: none on dividends
+//!   along the way. Prices rise steadily, and a security abroad is measured
+//!   against them too, though the law measures it against the exchange
+//!   rate, which stays the same here.
 
 use crate::money::{Currency, ExchangeRates, Money, iso};
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::vehicles::Withdrawal;
 use crate::{
-    ConversionFee, Exchange, Holding, IntoEnumIterator, Lang, Percent, Plan, Price, Security, Text,
-    Trade, TradeFee,
+    ConversionFee, Exchange, Holding, IntoEnumIterator, Lang, ManagementFee, Percent, Plan, Price,
+    Security, Text, Trade, TradeFee, Vehicle,
 };
 
 /// What the user invests in, and how.
@@ -69,7 +87,19 @@ pub struct Scenario {
     /// shekels: one more trade fee and conversion. Otherwise the securities
     /// are kept, and the outcome is what they're worth.
     pub sell_at_end: bool,
+    /// How much prices rise a year. The tax is on the gain beyond it, and a
+    /// ceiling on deposits rises with it.
+    pub inflation: Percent,
+    /// The saver's age today: some ways out open only from an age.
+    pub age: u32,
+    /// How the money is taken out at the end, which can change the tax.
+    pub withdrawal: Withdrawal,
 }
+
+/// How much prices are taken to rise a year unless the user says otherwise:
+/// the middle of the Bank of Israel's target of 1% to 3%. The tax is on the
+/// gain beyond it.
+pub const USUAL_INFLATION: Percent = Percent(rust_decimal_macros::dec!(2));
 
 /// The most, in ₪, that the deposits may grow to: far more than any real
 /// portfolio, and far enough below the largest `Decimal` (about 8 × 10²⁸)
@@ -144,6 +174,53 @@ impl Scenario {
                 Some(this_year)
             })
             .flat_map(|deposit| std::iter::repeat_n(deposit, 12))
+    }
+
+    /// What's deposited in each year, first year first: its twelve monthly
+    /// deposits, and in the first year the one-time deposit too.
+    #[must_use]
+    pub fn deposits_by_year(&self) -> Vec<Decimal> {
+        let monthly: Vec<Decimal> = self.monthly_deposits().collect();
+        let mut by_year: Vec<Decimal> = monthly
+            .chunks(12)
+            .map(|year| year.iter().copied().sum())
+            .collect();
+        if let Some(first) = by_year.first_mut() {
+            *first += self.first_deposit;
+        }
+        by_year
+    }
+
+    /// By year, the share of the deposits whose gains `vehicle` taxes: what
+    /// is deposited beyond its tax-free amount. `None` if it taxes them all.
+    #[must_use]
+    pub fn taxed_shares(&self, vehicle: Vehicle) -> Option<Vec<Decimal>> {
+        let rules = vehicle.rules();
+        rules.tax_free_deposits?;
+        let shares = (0..).zip(self.deposits_by_year()).map(|(year, deposits)| {
+            let free = rules.tax_free_deposits_in(year, self.inflation);
+            let taxed = (deposits - free.unwrap_or_default()).max(Decimal::ZERO);
+            // A year with no deposits has nothing to tax.
+            taxed.checked_div(deposits).unwrap_or_default()
+        });
+        Some(shares.collect())
+    }
+
+    /// The first year (0 is the first) whose deposits are more than
+    /// `vehicle` takes in a year, if any is.
+    #[must_use]
+    pub fn first_year_over_the_ceiling(&self, vehicle: Vehicle) -> Option<u32> {
+        let rules = vehicle.rules();
+        // Most plans have no ceiling: nothing to add up.
+        rules.deposit_ceiling?;
+        (0..)
+            .zip(self.deposits_by_year())
+            .find(|&(year, deposits)| {
+                rules
+                    .deposit_ceiling_in(year, self.inflation)
+                    .is_some_and(|ceiling| deposits > ceiling)
+            })
+            .map(|(year, _)| year)
     }
 
     /// Checks for what [`simulate`] can't handle: losing more than
@@ -244,6 +321,12 @@ pub struct Outcome {
     /// − 1, ends with the same `after_selling`. Comparable to a fund's
     /// fee, and between scenarios of any size. 100% when nothing is left.
     pub yearly_cost: Percent,
+    /// The tax on the gain, paid on selling at the end: by the rules of the
+    /// plan's vehicle, for the saver's age and way of taking the money out.
+    /// Nothing while the holdings are kept.
+    pub tax: Decimal,
+    /// What's left of `after_selling` once the tax is paid.
+    pub after_tax: Decimal,
 }
 
 /// Fees in ₪, by what they were charged for. Adding two adds each kind, so
@@ -268,6 +351,8 @@ pub struct Fees {
     pub custody: Decimal,
     /// Keeping the account: a monthly handling fee.
     pub handling: Decimal,
+    /// A manager's share of the deposits and of the holdings.
+    pub management: Decimal,
     /// Selling everything at the end and converting back to shekels.
     pub selling: Decimal,
 }
@@ -275,7 +360,12 @@ pub struct Fees {
 impl Fees {
     #[must_use]
     pub fn total(&self) -> Decimal {
-        self.purchases + self.conversions + self.custody + self.handling + self.selling
+        self.purchases
+            + self.conversions
+            + self.custody
+            + self.handling
+            + self.management
+            + self.selling
     }
 }
 
@@ -345,6 +435,8 @@ impl Outcome {
             track: self.track,
             largest_trade: self.largest_trade,
             yearly_cost: self.yearly_cost,
+            tax: self.tax / at_end,
+            after_tax: self.after_tax / at_end,
         }
     }
 
@@ -367,14 +459,39 @@ impl Outcome {
     }
 }
 
-/// Runs `scenario` on `plan`, on its cheapest track if it has tracks.
-/// Returns `None` if the plan has no price for the security on that
-/// exchange. Check the scenario first ([`Scenario::check`]): absurd amounts
-/// can overflow.
-#[must_use]
-pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Option<Outcome> {
+/// Why a plan can't be used for a scenario.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum NotOffered {
+    /// The plan has no price for the security on that exchange.
+    #[error("the plan doesn't sell this security on this exchange")]
+    NoPrice,
+    /// The deposits of `year` (0 is the first) are more than the plan's
+    /// vehicle takes in a year.
+    #[error("the deposits of year {year} are over the vehicle's yearly ceiling")]
+    OverTheCeiling { year: u32 },
+    /// The money can be taken out only `years` after the first deposit,
+    /// which is later than the scenario ends.
+    #[error("the vehicle's money can't be taken out for {years} years")]
+    Locked { years: u32 },
+}
+
+/// Runs `scenario` on `plan`, on its cheapest track if it has tracks, or
+/// says why the plan can't be used for it. Check the scenario first
+/// ([`Scenario::check`]): absurd amounts can overflow.
+pub fn simulate(
+    plan: &Plan,
+    scenario: &Scenario,
+    rates: &ExchangeRates,
+) -> Result<Outcome, NotOffered> {
+    let locked_for = plan.vehicle.rules().open_after_years;
+    if let Some(years) = locked_for.filter(|&years| scenario.years < years) {
+        return Err(NotOffered::Locked { years });
+    }
+    if let Some(year) = scenario.first_year_over_the_ceiling(plan.vehicle) {
+        return Err(NotOffered::OverTheCeiling { year });
+    }
     let mut outcome = if plan.tracks.is_empty() {
-        simulate_prices(plan, scenario, rates)?
+        simulate_prices(plan, scenario, rates).ok_or(NotOffered::NoPrice)?
     } else {
         // The first of the cheapest: tracks that don't price this trade cost
         // the same, and give the first track, reported as none.
@@ -385,14 +502,15 @@ pub fn simulate(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Opti
                     simulate_prices(&plan.on_track(index), scenario, rates)?,
                 ))
             })
-            .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))?;
+            .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))
+            .ok_or(NotOffered::NoPrice)?;
         outcome.track = plan
             .track_for(index, scenario.security, scenario.exchange)
             .map(|_| index);
         outcome
     };
     outcome.yearly_cost = yearly_cost(scenario, outcome.after_selling);
-    Some(outcome)
+    Ok(outcome)
 }
 
 /// The yearly charge on the holdings that would cost as much as ending with
@@ -436,20 +554,25 @@ fn yearly_cost(scenario: &Scenario, after_selling: Decimal) -> Percent {
     Percent(Decimal::try_from(percent).map_or(Decimal::ONE_HUNDRED, |percent| percent.round_dp(4)))
 }
 
-/// Runs `scenario` on `plan`'s own prices, without choosing a track.
+/// Runs `scenario` on `plan`'s own prices, without choosing a track. `None`
+/// if the plan has no price for the security on that exchange.
 fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Option<Outcome> {
     let price = &plan.trade_row(scenario.security, scenario.exchange)?.price;
+    let buy_every_months = buys_every_months(plan, scenario);
     // A standing order buys every month; buying less often takes one-off orders.
     let standing_order = plan
         .standing_order_row(scenario.security, scenario.exchange)
-        .filter(|_| scenario.buy_every_months == 1)
+        .filter(|_| buy_every_months == 1)
         .map(|row| &row.price);
     let currency = scenario.exchange.currency();
     let monthly_growth = monthly_growth(scenario.yearly_return);
+    // The law never lowers a cost: when prices fall, the whole gain is taxed.
+    let rising_prices = self::monthly_growth(scenario.inflation).max(Decimal::ONE);
 
     let mut cash_ils = Decimal::ZERO; // negative while fees are owed
     let mut left = Decimal::ZERO; // converted and not yet spent, in `currency`
     let mut invested = Decimal::ZERO; // in `currency`
+    let mut taxed = Taxed::new(plan, scenario);
     let mut share_price = scenario.share_price;
     let mut value_by_month = vec![scenario.first_deposit];
     let mut fees_by_year = Vec::new();
@@ -462,27 +585,20 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         } else {
             Decimal::ZERO
         };
-        cash_ils += monthly_deposit + one_time;
+        // A manager's share comes off first, and is part of what the
+        // holdings cost: the tax counts the whole deposit as paid in.
+        let deposited = monthly_deposit + one_time;
+        let one_time = plan.deposit_less_fee(one_time);
+        let arrived = plan.deposit_less_fee(monthly_deposit) + one_time;
+        fees_this_year.management += deposited - arrived;
+        taxed.add(month, deposited - arrived, Decimal::ZERO);
+        cash_ils += arrived;
         let mut trade_fees_this_month = Decimal::ZERO;
 
-        if month % scenario.buy_every_months.max(1) == 0 && cash_ils > Decimal::ZERO {
-            // A standing order buys only the monthly deposits; the one-time
-            // deposit is a one-off order.
-            let conversion = &plan.conversion;
-            let orders = match standing_order {
-                Some(standing_order) => {
-                    let by_standing_order = plan
-                        .standing_order_conversion
-                        .as_ref()
-                        .unwrap_or(conversion);
-                    vec![
-                        (one_time, price, conversion),
-                        (cash_ils - one_time, standing_order, by_standing_order),
-                    ]
-                }
-                None => vec![(cash_ils, price, conversion)],
-            };
-            for (amount, price, conversion) in orders {
+        if month % buy_every_months == 0 && cash_ils > Decimal::ZERO {
+            for (amount, price, conversion) in
+                orders(plan, price, standing_order, one_time, cash_ils)
+            {
                 if amount <= Decimal::ZERO {
                     continue;
                 }
@@ -497,6 +613,7 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
                     continue;
                 };
                 cash_ils -= amount;
+                taxed.add(month, amount, purchase.bought);
                 left = purchase.left;
                 invested += purchase.bought;
                 largest_trade = largest_trade.max(purchase.bought);
@@ -507,13 +624,15 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
 
         invested *= monthly_growth;
         share_price *= monthly_growth;
+        taxed.month_passes(monthly_growth, rising_prices, plan.management);
 
-        let holding = Holding {
-            security: scenario.security,
-            exchange: scenario.exchange,
-            value: Money::from_decimal(invested, currency),
-        };
-        let custody_ils = *plan.custody_per_year(&[holding], rates).amount() / Decimal::from(12);
+        if let Some(fee) = plan.management {
+            let charge = fee.for_month(invested);
+            invested -= charge;
+            fees_this_year.management += in_ils(charge, currency, rates);
+        }
+
+        let custody_ils = custody_for_month(plan, scenario, invested, rates);
         fees_this_year.custody += custody_ils;
         cash_ils -= custody_ils;
 
@@ -535,17 +654,148 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         selling: sale.fees_ils,
         ..fees_by_year.iter().copied().sum()
     };
+    // What keeping the account cost in the year of the sale comes off its
+    // proceeds; earlier years' can't, having had no sale to come off.
+    let last_year = fees_by_year.last().copied().unwrap_or_default();
+    let gain = taxed.gain(sale.proceeds_ils, invested) - (last_year.custody + last_year.handling);
+    let tax = tax_on_selling(plan, scenario, gain);
+    let after_selling = sale.proceeds_ils + cash_ils;
     Some(Outcome {
         value_by_month,
         held,
-        after_selling: sale.proceeds_ils + cash_ils,
+        after_selling,
         fees,
         fees_by_year,
         track: None,
         largest_trade: largest_trade.max(sale.sold),
         // Worked out by `simulate`, once the track is chosen.
         yearly_cost: Percent::default(),
+        tax,
+        after_tax: after_selling - tax,
     })
+}
+
+/// What the tax at the end is worked out on: the holdings whose gain is
+/// taxed, and what they cost, raised with prices. That's all of them, except
+/// in a vehicle where part of each year's deposits is tax-free (a study
+/// fund): there, only the rest of each purchase is counted.
+struct Taxed {
+    /// By year, the share of the deposits whose gain is taxed; `None` if
+    /// all of it is.
+    shares: Option<Vec<Decimal>>,
+    /// The taxed holdings, in the exchange's currency. Followed only where
+    /// they aren't all the holdings.
+    invested: Decimal,
+    /// What they cost in ₪, raised with prices.
+    cost: Decimal,
+}
+
+impl Taxed {
+    fn new(plan: &Plan, scenario: &Scenario) -> Self {
+        Taxed {
+            shares: scenario.taxed_shares(plan.vehicle),
+            invested: Decimal::ZERO,
+            cost: Decimal::ZERO,
+        }
+    }
+
+    /// In `month`, `paid_ils` went into holdings worth `bought`.
+    fn add(&mut self, month: u32, paid_ils: Decimal, bought: Decimal) {
+        match &self.shares {
+            None => self.cost += paid_ils,
+            Some(shares) => {
+                let share = shares[(month / 12) as usize];
+                self.cost += paid_ils * share;
+                self.invested += bought * share;
+            }
+        }
+    }
+
+    /// A month passes: the holdings grow, a manager takes its share of
+    /// them, and what they cost rises with prices.
+    fn month_passes(&mut self, growth: Decimal, prices: Decimal, fee: Option<ManagementFee>) {
+        self.cost *= prices;
+        if self.shares.is_some() {
+            self.invested *= growth;
+            self.invested -= fee.map_or(Decimal::ZERO, |fee| fee.for_month(self.invested));
+        }
+    }
+
+    /// The taxed gain, in ₪, when selling all of `invested` brings
+    /// `proceeds_ils`: the taxed holdings' part of it, less their cost.
+    fn gain(&self, proceeds_ils: Decimal, invested: Decimal) -> Decimal {
+        if self.shares.is_none() {
+            return proceeds_ils - self.cost;
+        }
+        let part = self.invested.checked_div(invested).unwrap_or_default();
+        proceeds_ils * part - self.cost
+    }
+}
+
+/// How often `plan` buys: as often as the scenario says at a broker, and
+/// every month where a manager invests each deposit as it arrives.
+fn buys_every_months(plan: &Plan, scenario: &Scenario) -> u32 {
+    if plan.vehicle.invests_for_you() {
+        1
+    } else {
+        scenario.buy_every_months.max(1)
+    }
+}
+
+/// The orders that invest `cash_ils`, each with its price and what
+/// converting for it costs. A standing order buys only the monthly
+/// deposits; the `one_time` deposit is a one-off order.
+fn orders<'a>(
+    plan: &'a Plan,
+    price: &'a Price,
+    standing_order: Option<&'a Price>,
+    one_time: Decimal,
+    cash_ils: Decimal,
+) -> Vec<(Decimal, &'a Price, &'a ConversionFee)> {
+    let conversion = &plan.conversion;
+    match standing_order {
+        Some(standing_order) => {
+            let by_standing_order = plan
+                .standing_order_conversion
+                .as_ref()
+                .unwrap_or(conversion);
+            vec![
+                (one_time, price, conversion),
+                (cash_ils - one_time, standing_order, by_standing_order),
+            ]
+        }
+        None => vec![(cash_ils, price, conversion)],
+    }
+}
+
+/// A month's custody on `invested` (in the exchange's currency), in ₪: a
+/// twelfth of a year's.
+fn custody_for_month(
+    plan: &Plan,
+    scenario: &Scenario,
+    invested: Decimal,
+    rates: &ExchangeRates,
+) -> Decimal {
+    let holding = Holding {
+        security: scenario.security,
+        exchange: scenario.exchange,
+        value: Money::from_decimal(invested, scenario.exchange.currency()),
+    };
+    *plan.custody_per_year(&[holding], rates).amount() / Decimal::from(12)
+}
+
+/// The tax on selling at the end with `real_gain`, in ₪: by the rules of
+/// the plan's vehicle, for the saver's age then and the way they take the
+/// money out. Holdings that are kept aren't taxed yet.
+fn tax_on_selling(plan: &Plan, scenario: &Scenario, real_gain: Decimal) -> Decimal {
+    if !scenario.sell_at_end {
+        return Decimal::ZERO;
+    }
+    let age = scenario.age.saturating_add(scenario.years);
+    plan.vehicle
+        .rules()
+        .tax_at(scenario.withdrawal, age)
+        .on(real_gain)
 }
 
 /// Every compared plan's outcome, best first, and what the same investing
@@ -561,12 +811,12 @@ pub struct Comparison {
 pub struct PlanOutcome {
     /// Where the plan is in the list given to [`compare`].
     pub index: usize,
-    /// `None` if the plan doesn't offer the security on that exchange.
-    pub outcome: Option<Outcome>,
+    /// Or why the plan can't be used for the scenario.
+    pub outcome: Result<Outcome, NotOffered>,
 }
 
-/// Runs `scenario` on each of `plans`, sorted by what's left after selling,
-/// most first. Plans that don't offer the security go last.
+/// Runs `scenario` on each of `plans`, sorted by what's left after selling
+/// and paying the tax, most first. Plans that can't be used for it go last.
 #[must_use]
 pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> Comparison {
     // With no fees there's no reason to wait, so the no-fee plan buys every
@@ -585,7 +835,10 @@ pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> C
             outcome: simulate(plan, scenario, rates),
         })
         .collect();
-    plans.sort_by_key(|plan| std::cmp::Reverse(plan.outcome.as_ref().map(|o| o.after_selling)));
+    plans.sort_by_key(|plan| {
+        let left = plan.outcome.as_ref().ok().map(|o| o.after_tax);
+        std::cmp::Reverse(left)
+    });
     Comparison { no_fees, plans }
 }
 
@@ -667,9 +920,10 @@ pub struct Sweep {
     pub swept: Swept,
     /// ₪, smallest first.
     pub amounts: Vec<Decimal>,
-    /// By plan, in the order given to [`sweep`], then by amount. `None` for a
-    /// plan that doesn't offer the security on that exchange.
-    pub costs: Vec<Option<Vec<Percent>>>,
+    /// By plan, in the order given to [`sweep`], then by amount. `None`
+    /// where the plan can't be used: it doesn't offer the security on that
+    /// exchange, at any amount, or the deposits are over its ceiling.
+    pub costs: Vec<Vec<Option<Percent>>>,
 }
 
 /// Runs each of `plans` on `scenario` with the `swept` deposit at each of
@@ -690,6 +944,7 @@ pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept:
                 .map(|&amount| {
                     simulate(plan, &swept.scenario_with(scenario, amount), rates)
                         .map(|outcome| outcome.yearly_cost)
+                        .ok()
                 })
                 .collect()
         })
@@ -743,7 +998,8 @@ impl Sweep {
     /// the amounts tried. Between two amounts, the costs are taken to change
     /// steadily along a logarithmic scale of amounts, as the chart by deposit
     /// draws them; near a crossing the two plans cost about the same anyway.
-    /// `None` if `best` isn't the cheapest at the user's deposit.
+    /// Only the amounts `best` can be used at count: a fund's end at its
+    /// ceiling. `None` if `best` isn't the cheapest at the user's deposit.
     #[must_use]
     pub fn around(
         &self,
@@ -760,11 +1016,7 @@ impl Sweep {
             .enumerate()
             .filter(|&(_, &amount)| amount != deposit)
             .map(|(index, &amount)| {
-                let costs = self
-                    .costs
-                    .iter()
-                    .map(|costs| costs.as_ref().map(|costs| costs[index]))
-                    .collect();
+                let costs = self.costs.iter().map(|costs| costs[index]).collect();
                 (amount, costs)
             })
             .collect();
@@ -773,11 +1025,21 @@ impl Sweep {
         if !cheaper_than(&points[here].1, best)?.is_empty() {
             return None;
         }
+        // The amounts around the user's where `best` can be used.
+        let usable = |point: &Point| point.1.get(best).is_some_and(Option::is_some);
+        let from = points[..here]
+            .iter()
+            .rposition(|point| !usable(point))
+            .map_or(0, |unusable| unusable + 1);
+        let to = points[here..]
+            .iter()
+            .position(|point| !usable(point))
+            .map_or(points.len(), |unusable| here + unusable);
         Some(Around {
-            from: points[0].0,
-            to: points[points.len() - 1].0,
-            below: first_crossing(points[..=here].iter().rev(), best),
-            above: first_crossing(points[here..].iter(), best),
+            from: points[from].0,
+            to: points[to - 1].0,
+            below: first_crossing(points[from..=here].iter().rev(), best),
+            above: first_crossing(points[here..to].iter(), best),
         })
     }
 }
@@ -826,13 +1088,15 @@ fn first_crossing<'a>(
 
 /// How far from `near` towards `far` the costs of `best` and `plan` meet,
 /// as a fraction of the way, taking them to change steadily between: `best`
-/// is no dearer at `near` (a gap of 0 or less), and dearer at `far`.
+/// is no dearer at `near` (a gap of 0 or less), and dearer at `far`. A plan
+/// that can't be used at `near` (its deposits are over its ceiling there)
+/// is only known to be cheaper at `far`, so that's where they meet.
 fn meeting(near: &Point, far: &Point, best: usize, plan: usize) -> f64 {
     let cost = |point: &Point, which: usize| point.1.get(which).copied().flatten()?.0.to_f64();
     let gap = |point: &Point| Some(cost(point, best)? - cost(point, plan)?);
     match (gap(near), gap(far)) {
         (Some(near), Some(far)) => -near / (far - near),
-        _ => 0.0,
+        _ => 1.0,
     }
 }
 
@@ -844,6 +1108,7 @@ pub fn free_plan() -> Plan {
     Plan {
         name: Text::new("No fees", "ללא עמלות"),
         description: Text::same(""),
+        vehicle: Vehicle::Brokerage,
         trading: vec![TradeFee {
             securities: vec![],
             exchanges: vec![],
@@ -855,6 +1120,7 @@ pub fn free_plan() -> Plan {
         custody: vec![],
         conversion: ConversionFee::FREE,
         handling: None,
+        management: None,
         fractions_on: Exchange::iter().collect(),
         min_first_deposit: None,
         caveats: vec![],
@@ -1087,6 +1353,9 @@ mod tests {
             buy_every_months: 1,
             share_price: dec!(100),
             sell_at_end: true,
+            inflation: Percent(dec!(0)),
+            age: 30,
+            withdrawal: Withdrawal::LumpSum,
         }
     }
 
@@ -1161,18 +1430,24 @@ mod tests {
         let comparison = compare(&plans, &s, &rates());
         let order: Vec<usize> = comparison.plans.iter().map(|p| p.index).collect();
         assert_eq!(order, [2, 1, 0]); // Pepper, Online, then Altshuler
-        assert!(comparison.plans[2].outcome.is_none());
+        assert_eq!(
+            comparison.plans[2].outcome.as_ref().err(),
+            Some(&NotOffered::NoPrice)
+        );
         assert_eq!(comparison.no_fees.fees, Fees::default());
     }
 
     #[test]
-    fn plan_without_a_price_is_none() {
+    fn plan_without_a_price_is_not_offered() {
         let altshuler = crate::tariffs::altshuler().plans.remove(0);
         let s = Scenario {
             exchange: Exchange::Europe,
             ..scenario()
         };
-        assert!(simulate(&altshuler, &s, &rates()).is_none());
+        assert_eq!(
+            simulate(&altshuler, &s, &rates()).err(),
+            Some(NotOffered::NoPrice)
+        );
     }
 
     /// A plan with a trade price for anything, and nothing else to pay. It
@@ -1344,7 +1619,7 @@ mod tests {
                 };
                 let comparison = compare(&plans, &s, &rates());
                 for compared in &comparison.plans {
-                    if let Some(outcome) = &compared.outcome {
+                    if let Ok(outcome) = &compared.outcome {
                         let lost = outcome.lost_to_fees(&comparison.no_fees);
                         let name = &plans[compared.index].name.en;
                         assert!(
@@ -1612,7 +1887,7 @@ mod tests {
         };
         for broker in crate::tariffs::all() {
             for plan in broker.plans {
-                let Some(outcome) = simulate(&plan, &s, &rates()) else {
+                let Ok(outcome) = simulate(&plan, &s, &rates()) else {
                     continue;
                 };
                 assert_eq!(

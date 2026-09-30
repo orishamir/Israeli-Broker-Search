@@ -29,6 +29,8 @@ export const en = {
   best: (label: string) => `Best: ${label}`,
   lostAndYearly: (lost: string, yearly: string) => `${lost} lost to fees · ${yearly} a year`,
   yearlyAndLost: (yearly: string, lost: string) => `${yearly} a year · ${lost} lost to fees`,
+  /** Under the best plan's amount: what it is, and the tax it's after. */
+  leftAfter: (tax: string | undefined) => (tax ? `left after ${tax} of tax` : 'left, with no tax to pay'),
   // The best plan at other values of the deposit the chart by deposit varies.
   cheapestThroughout: (from: string, to: string, swept: Swept) =>
     swept === 'Monthly'
@@ -52,15 +54,19 @@ export const en = {
   // The table
   rank: 'Rank',
   plan: 'Plan',
-  yearlyCost: 'Yearly cost',
+  leftAfterTax: 'Left after tax',
+  leftAfterTaxTip:
+    'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
+  yearlyCost: 'Yearly fees',
   yearlyCostTip:
-    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
+    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
   lostToFees: 'Lost to fees',
   lostToFeesTip: (selling: boolean) =>
-    `How much less you end up with${selling ? ', after selling,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
-  valueIfSold: 'Value if sold',
-  valueIfSoldTip:
-    "What you'd get in shekels by selling everything at the end, after the sell fee and converting back. Before tax. Abroad, that's one more trade fee and one more conversion.",
+    `How much less you end up with${selling ? ', after selling and before tax,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
+  tax: 'Tax',
+  taxTip: (inflation: string) =>
+    `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year). What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
+  noTax: 'none',
   feesPaid: 'Fees paid',
   feesPaidTip: (selling: boolean) =>
     `Every fee charged: purchases, conversions, keeping the account${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.`,
@@ -70,6 +76,10 @@ export const en = {
   feesLink: (label: string, amount: string) => `${label} fees: ${amount}, see what they went to`,
   notOfferedFor: (purchase: string) => `Not offered for ${purchase}`,
   notOffered: 'Not offered',
+  overTheCeiling: 'Your deposits are over its yearly ceiling',
+  theCeiling: 'The ceiling',
+  stillLocked: 'Its money is still locked when your years are up',
+  theLock: 'The lock',
 
   // The charts
   chart: 'Chart',
@@ -80,9 +90,10 @@ export const en = {
     'How much less each plan has than with no fees and buying every month, year by year. Shows where plans overtake each other. The end is after selling, as in the table.',
   byDepositView: 'By deposit',
   byDepositViewTip:
-    "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking flips. Plans with minimum fees cost a lot for small deposits and little for large ones. The dashed line is your deposit.",
+    "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking by fees flips. Plans with minimum fees cost a lot for small deposits and little for large ones, and a fund's line ends where a year's deposits pass its ceiling. The dashed line is your deposit. Tax isn't in this chart.",
   breakdownView: 'Fee breakdown',
-  breakdownViewTip: 'What each plan pays in fees, by kind, and how they pile up over the years.',
+  breakdownViewTip:
+    'What each plan pays in fees, by kind, and how they pile up over the years. Tax isn’t a fee, and isn’t here.',
   pinHintMouse: (bars: boolean) => `Click a row or a ${bars ? 'bar' : 'line'} to pin it`,
   pinHintTouch: (bars: boolean) => `Tap a row or a ${bars ? 'bar' : 'line'} to pin it`,
   zoomHintMouse: 'Wheel: zoom years · Drag: move · R: reset',
@@ -95,6 +106,7 @@ export const en = {
   depositAMonth: 'Deposit a month',
   oneTimeDeposit: 'One-time deposit',
   aMonth: 'a month',
+  aYear: 'a year',
   atOnce: 'at once',
   /** "After 15 years, 5 months": a chart's time, from whole months. */
   after: (years: number, months: number) => {
@@ -110,6 +122,8 @@ export const en = {
   conversionsTip: "Converting shekels to the security's currency: the fee and the markup.",
   account: 'Keeping the account',
   accountTip: 'A share of what you hold, a fixed amount a month, or both.',
+  management: 'Management fee',
+  managementTip: 'What a fund or a policy takes: a share of the balance every year, and of each deposit.',
   selling: 'Selling',
   sellingTip: 'Selling everything at the end, and converting back to shekels.',
   clickAFee: 'Click',
@@ -125,8 +139,8 @@ export const en = {
   // The inputs
   tryAnExample: 'Try an example',
   moreOptions: 'More options',
-  moreOptionsTip:
-    "Three more inputs, for a closer picture: deposits that grow every year as a salary does, inflation, to see every amount in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same, no inflation, and selling at the end.",
+  moreOptionsTip: (inflation: string) =>
+    `More inputs, for a closer picture: deposits that grow every year as a salary does, another inflation, amounts in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same, prices rising ${inflation} a year, amounts as they will be, and selling at the end.`,
   whatYouBuy: 'What you buy',
   security: 'Security',
   tradedOn: 'Traded on',
@@ -157,7 +171,10 @@ export const en = {
     "Today's price of one share. Brokers here sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return.",
   inflation: 'Inflation',
   inflationTip:
-    "Prices rise, so a shekel in 20 years buys less than one today. Enter the yearly inflation you expect (Israel's target is 1–3%) and every amount is shown in today's shekels: divided by how much prices will have risen by then. The ranking doesn't change, only how the numbers read. 0 shows the amounts as they will be.",
+    "How much prices rise a year. Tax is paid only on the gain beyond it, so a higher inflation means less tax. Israel's target is 1–3%, and the app starts from its middle.",
+  todaysMoney: "Show amounts in today's money",
+  todaysMoneyTip:
+    "Prices rise, so a shekel in 20 years buys less than one today. Ticked, every amount is shown in today's shekels: divided by how much prices will have risen by then, at the inflation above. The ranking doesn't change, only how the numbers read.",
   atTheEnd: 'At the end',
   atTheEndTip:
     'Whether everything is sold when the years are up, paying a last trade fee and, abroad, a last conversion, or kept. Selling is the usual assumption, and what most of the fees lead up to.',
@@ -170,6 +187,25 @@ export const en = {
   brokersAndPlans: 'Brokers and plans to compare',
   brokersAndPlansShort: 'Brokers and plans',
   tickedAtFirst: "Ticked at first: each broker's usual plan, the one a new customer gets.",
+  fundsAndPolicies: 'Funds and policies to compare',
+  fundsAndPoliciesShort: 'Funds and policies',
+  fundsAndPoliciesTip:
+    "Instead of buying securities yourself at a broker, you can hand the money to a manager who invests it for a share of it: a fund or a policy. It's taxed by its own rules, and the table counts that. Each is listed as a kind, by what its savers pay, since a fund's fee is agreed person by person.",
+  fundsTickedAtFirst: 'Ticked at first: what savers in a provident fund for investment pay on average.',
+  takingTheMoneyOut: 'Taking the money out',
+  takingTheMoneyOutTip: (age: number) =>
+    `A provident fund for investment can be taken all at once, like selling at a broker, or from the age of ${age} as a monthly pension, which isn't taxed. A broker and a savings policy pay no pension: for them nothing changes.`,
+  allAtOnce: 'All at once',
+  allAtOnceTip: 'Everything is taken out when the years are up, and the gain is taxed.',
+  asAPension: 'As a pension',
+  asAPensionTip: (age: number) =>
+    `From ${age}, the money in a provident fund for investment can move to a fund that pays a monthly pension: the gain isn't taxed, and neither is the pension. The table counts what is moved.`,
+  yourAge: 'Your age today',
+  yourAgeTip: 'A pension opens from an age, so the table needs to know how old you will be at the end.',
+  oldEnough: (then: number, from: number) =>
+    `You'd be ${then} at the end: old enough for the pension, which opens at ${from}.`,
+  tooYoung: (then: number, from: number) =>
+    `You'd be ${then} at the end. The pension opens at ${from}, so the fund is taxed as if taken all at once.`,
   usual: 'usual',
   mayCostMoreAt: (broker: string) => `May cost more at ${broker}: see why`,
   about: (name: string) => `About ${name}`,
@@ -213,6 +249,8 @@ export const en = {
   buyingByStandingOrder: 'Buying by standing order',
   everything: 'Everything',
   none: 'none',
+  ofTheBalance: 'Of the balance',
+  ofEachDeposit: 'Of each deposit',
   shareOfHoldings: 'As a share of what you hold',
   fixedAmount: 'As a fixed amount',
   conversion: 'Conversion',

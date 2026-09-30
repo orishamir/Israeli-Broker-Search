@@ -88,11 +88,26 @@ all. Read those three first.
   non-US rate: 0.3% listed, 0.25% in the PDF). The document is followed and
   the difference noted in `policies/sources.md`.
 
+- The Capital Market Authority's open data (data.gov.il) answers a plain
+  `curl` only with the user agent `datagov-external-client`; its dataset
+  pages are drawn by script, so link to gemelnet.cma.gov.il and
+  bituachnet.cma.gov.il instead. The fee a fund reports
+  (`AVG_ANNUAL_MANAGEMENT_FEE`) is a yearly figure that changes every
+  January. Bituach Net has no class for savings policies: they're inside
+  "policies sold since 2004", with managers' insurance.
+- The Bank of Israel's site and the ordinance on Nevo don't answer `curl`;
+  Hebrew Wikisource has the Income Tax Ordinance and the fund regulations
+  as plain pages, and Kol Zchut the yearly ceilings.
+
 ## Tools on this machine
 
 - The system Python has no Pillow: `uv run --with pillow python script.py`.
 - The Cargo packages are `broker-fees` (the core) and `broker-fees-wasm` (the
   bindings): `cargo test -p broker-fees`.
+- `toMatchAriaSnapshot` passes on a page that has more than the snapshot:
+  `inputs-desktop.aria.yml` went two brokers behind unnoticed. After adding
+  to the inputs, re-record it (`--update-snapshots=all -g "as text"`);
+  `--update-snapshots=changed` re-records only the pictures that differ.
 - `npx playwright test --update-snapshots tests/x.spec.ts` fails: the flag
   takes an optional mode and swallows the path. Write
   `--update-snapshots=all tests/x.spec.ts`.
@@ -184,11 +199,13 @@ all. Read those three first.
   the no-fee value to fees over 20 years (`usual_plans_lose_a_plausible_share`);
   a tariff or model change outside that band deserves a look before the
   band is widened.
-- The core's hot paths in release, 2026-09-29 (`cargo bench -p broker-fees`):
-  comparing every listed plan 2.7 ms on Tel Aviv and 4.8 ms abroad (the
-  tracks), one plan 0.56 ms, a plan's fees in words 3 µs, the editor's
-  full view 6.5 µs, a plan through JSON 6 µs. The comparison is the only
-  call that costs anything on a keystroke.
+- The core's hot paths in release, 2026-09-30 (`cargo bench -p broker-fees`):
+  comparing every listed plan (19 of them) 3.9 ms on Tel Aviv and 6.6 ms
+  abroad (the tracks), one plan 0.57 ms, a plan's fees in words 3 µs, the
+  editor's full view 6.5 µs, a plan through JSON 6.5 µs. The comparison is
+  the only call that costs anything on a keystroke. Working out the tax
+  added nothing measurable to one plan (0.56 ms the day before, with 13
+  plans compared in 2.7 and 4.8 ms).
 
 ## The web app
 
@@ -254,6 +271,14 @@ all. Read those three first.
   the threshold. The row height now follows a media query on the screen
   (`NARROW_SCREEN` in `fee-breakdown.ts`), which the width can't change.
   The test fixture fails a test on any page error, which is how it showed.
+- A tip (`.popover[popover]`) must not take its size from where it happens
+  to sit before `tip.ts` places it. With `inset: auto` it stayed in the
+  flow's position, beside a ? near the screen's right edge, and was as
+  narrow as the room there (100 px wide, 692 tall on the iPhone 15): each
+  placement widened it, which moved it again, and Safari reported a
+  ResizeObserver loop as a page error. It now starts at the corner with
+  `width: max-content`, capped by its `max-width`. Only WebKit reported it,
+  and only for tips in the table's rightmost cells.
 - The charts' options are built by pure functions (`growth-chart.ts`,
   `fee-breakdown.ts`) from plain inputs (lines, bars, what's pinned), not
   from `AppState`: the components map the state to those inputs and wire

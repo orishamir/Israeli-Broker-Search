@@ -20,8 +20,9 @@ use strum::IntoEnumIterator;
 use crate::describe::{self, PriceText, Priced};
 use crate::simulation::whole_shares;
 use crate::{
-    ConversionFee, Currency, CustodyFee, Exchange, HandlingFee, Lang, Markup, Money, Named,
-    Percent, PercentFee, Period, Plan, Price, Security, Text, TradeFee, empty_or_contains, iso,
+    ConversionFee, Currency, CustodyFee, Exchange, HandlingFee, Lang, ManagementFee, Markup, Money,
+    Named, Percent, PercentFee, Period, Plan, Price, Security, Text, TradeFee, Vehicle,
+    empty_or_contains, iso,
 };
 
 // ─────────────────────────── Rows, by what they cover ───────────────────────────
@@ -267,6 +268,17 @@ pub struct HandlingFields {
     pub less_trade_fees: bool,
 }
 
+/// A manager's fee as the editor's fields: percentages, an empty one none.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
+#[serde(rename_all = "camelCase")]
+pub struct ManagementFields {
+    /// Of the balance, a year.
+    pub of_balance: Option<Amount>,
+    /// Of each deposit.
+    pub of_deposits: Option<Amount>,
+}
+
 /// One fee in the editor: its fields, the same in words, and the original
 /// plan's if it's different.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -332,6 +344,9 @@ pub struct SimpleFees {
     /// Whether fractions of a share are sold, for a security that's
     /// otherwise bought in whole shares there; `None` for others.
     pub sells_fractions: Option<bool>,
+    /// A fund's or a policy's fee. It's all such a plan charges, so the
+    /// editor shows it alone.
+    pub management: Option<Fee<ManagementFields>>,
 }
 
 /// Every row of a plan's price list: the editor's full view.
@@ -652,6 +667,17 @@ impl HandlingFee {
     }
 }
 
+impl ManagementFee {
+    fn fee(&self, lang: Lang) -> Fee<ManagementFields> {
+        let percent = |percent: Percent| (!percent.is_zero()).then_some(Amount(percent.0));
+        let fields = ManagementFields {
+            of_balance: percent(self.of_balance),
+            of_deposits: percent(self.of_deposits),
+        };
+        Fee::new(fields, iso::ILS, self.price_text(lang))
+    }
+}
+
 // ─────────────────────────── Your plans ───────────────────────────
 
 impl Plan {
@@ -672,11 +698,17 @@ impl Plan {
                 )
             },
         );
-        Plan {
-            name: Text::owned(
+        // A fund's listed plans are other people's fees, not a deal to better.
+        let name = if self.vehicle.invests_for_you() {
+            Text::new("Your fee", "דמי הניהול שלכם")
+        } else {
+            Text::owned(
                 format!("{}, your deal", self.name.en),
                 format!("{}, העסקה שלכם", self.name.he),
-            ),
+            )
+        };
+        Plan {
+            name,
             description,
             caveats: vec![],
             ..self.on_track(index).most_specific_first()
@@ -700,6 +732,7 @@ impl Plan {
         Plan {
             name: Text::same(name),
             description: Text::same(""),
+            vehicle: Vehicle::Brokerage,
             trading: vec![
                 free(vec![Exchange::Tlv]),
                 free(vec![Exchange::Usa, Exchange::Europe]),
@@ -710,6 +743,7 @@ impl Plan {
             custody: vec![CustodyFee::none(vec![])],
             conversion: ConversionFee::FREE,
             handling: None,
+            management: None,
             fractions_on: vec![],
             min_first_deposit: None,
             caveats: vec![],
@@ -796,7 +830,20 @@ impl Plan {
             }),
             sells_fractions: whole_shares(security, exchange)
                 .then(|| self.sells_fractions_on(exchange)),
+            management: self.management.map(|fee| {
+                let original = original.and_then(|plan| plan.management);
+                fee.fee(lang).compared_to(original.map(|fee| fee.fee(lang)))
+            }),
         }
+    }
+
+    /// Sets the manager's fee: a fund's or a policy's only one.
+    pub fn set_management(&mut self, fields: &ManagementFields) -> Result<(), InvalidFee> {
+        self.management = Some(ManagementFee {
+            of_balance: Percent(amount_or_zero(fields.of_balance)?),
+            of_deposits: Percent(amount_or_zero(fields.of_deposits)?),
+        });
+        Ok(())
     }
 
     /// Sets the trade fee for `security` on `exchange`: the row it uses, or a
@@ -1475,12 +1522,82 @@ mod tests {
         let mut saved = serde_json::to_value(&plan).unwrap();
         saved.as_object_mut().unwrap().remove("standing_orders");
         assert_eq!(serde_json::from_value::<Plan>(saved).unwrap(), plan);
+        // Saved before plans had a vehicle or a manager's fee: a broker's
+        // plan, with no manager.
+        let mut saved = serde_json::to_value(&plan).unwrap();
+        for field in ["vehicle", "management"] {
+            let removed = saved.as_object_mut().unwrap().remove(field);
+            assert!(removed.is_some(), "{field}");
+        }
+        assert_eq!(serde_json::from_value::<Plan>(saved).unwrap(), plan);
+        // A fund keeps both.
+        let fund = Plan {
+            vehicle: Vehicle::InvestmentGemel,
+            management: Some(crate::vehicles::LARGEST_GEMEL_FEE),
+            ..plan
+        };
+        let json = serde_json::to_string(&fund).unwrap();
+        assert_eq!(serde_json::from_str::<Plan>(&json).unwrap(), fund);
         let fields = serde_json::to_string(&MarkupFields {
             percent: Some(Amount(dec!(0.7))),
             per_dollar: None,
         })
         .unwrap();
         assert_eq!(fields, r#"{"percent":0.7}"#);
+    }
+
+    /// A copy of a fund's plan is "Your fee": the manager's fee is all
+    /// there is to change, and the copy says what the original took.
+    #[test]
+    fn a_funds_fee_is_changed_in_a_copy() {
+        let listed = crate::funds::investment_gemel().plans.remove(0);
+        let mut copy = listed.copy_of(None);
+        assert_eq!(copy.name.en, "Your fee");
+        assert_eq!(copy.name.he, "דמי הניהול שלכם");
+        assert_eq!(copy.vehicle, listed.vehicle);
+        let fee = |plan: &Plan| {
+            plan.simple_fees(Security::Etf, Exchange::Usa, Some(&listed), Lang::En)
+                .management
+                .unwrap()
+        };
+        let unchanged = fee(&copy);
+        assert_eq!(
+            unchanged.fields,
+            ManagementFields {
+                of_balance: Some(Amount(dec!(0.62))),
+                of_deposits: None,
+            }
+        );
+        assert_eq!(unchanged.price.text, "0.62% of the balance a year");
+        assert_eq!(unchanged.was, None);
+
+        let fields = ManagementFields {
+            of_balance: Some(Amount(dec!(0.5))),
+            of_deposits: Some(Amount(dec!(1))),
+        };
+        copy.set_management(&fields).unwrap();
+        let changed = fee(&copy);
+        assert_eq!(changed.fields, fields);
+        assert_eq!(
+            changed.price.text,
+            "0.5% of the balance a year, plus 1% of each deposit"
+        );
+        assert_eq!(
+            changed.was.unwrap().price.text,
+            "0.62% of the balance a year"
+        );
+
+        let negative = ManagementFields {
+            of_balance: Some(Amount(dec!(-1))),
+            of_deposits: None,
+        };
+        assert_eq!(copy.set_management(&negative), Err(InvalidFee::Negative));
+        assert_eq!(fee(&copy).fields, fields);
+        // A broker's plan has no manager, and its copy is a deal.
+        let online = named("Online");
+        let fees = online.simple_fees(Security::Etf, Exchange::Usa, None, Lang::En);
+        assert_eq!(fees.management, None);
+        assert_eq!(online.copy_of(None).name.en, "Online, your deal");
     }
 
     #[test]

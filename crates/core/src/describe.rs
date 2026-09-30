@@ -11,11 +11,12 @@ use rusty_money::{Formatter as MoneyFormatter, Params};
 use serde::{Deserialize, Serialize};
 use time::macros::format_description;
 
-use crate::simulation::Outcome;
+use crate::simulation::{NotOffered, Outcome, Scenario, USUAL_INFLATION};
 use crate::{
     Basis, Broker, BrokerKind, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange,
-    ExchangeRates, HandlingFee, IntoEnumIterator, Lang, Markup, Money, Named, Page, PercentFee,
-    Period, Plan, Price, Security, TariffDate, Text, TradeFee, tariffs,
+    ExchangeRates, HandlingFee, IntoEnumIterator, Lang, ManagementFee, Markup, Money, Named, Page,
+    PercentFee, Period, Plan, Price, Security, TariffDate, Text, TradeFee, Vehicle, Withdrawal,
+    funds, ils, tariffs,
 };
 
 /// A price in words, and whether it's nothing, so that every view dims the
@@ -269,6 +270,10 @@ pub enum FeeKind {
     Conversion,
     SecondConversion,
     Markup,
+    /// A fund's or a policy's yearly share of what has built up.
+    Management,
+    /// Its share of each deposit.
+    DepositFee,
 }
 
 impl Named for FeeKind {
@@ -281,6 +286,8 @@ impl Named for FeeKind {
             FeeKind::Conversion => lang.pick("Conversion", "המרת מט\u{5f4}ח"),
             FeeKind::SecondConversion => lang.pick("Second conversion fee", "עמלת המרה שנייה"),
             FeeKind::Markup => lang.pick("Conversion markup", "מרווח המרה"),
+            FeeKind::Management => lang.pick("Management fee", "דמי ניהול מהצבירה"),
+            FeeKind::DepositFee => lang.pick("Fee on deposits", "דמי ניהול מהפקדה"),
         }
     }
 }
@@ -297,6 +304,8 @@ impl FeeKind {
             FeeKind::Conversion => lang.pick("conversion", "המרה"),
             FeeKind::SecondConversion => lang.pick("or, if less", "או, אם נמוך יותר"),
             FeeKind::Markup => lang.pick("markup", "מרווח"),
+            FeeKind::Management => lang.pick("management fee", "דמי ניהול מהצבירה"),
+            FeeKind::DepositFee => lang.pick("from deposits", "מההפקדות"),
         }
     }
 }
@@ -350,6 +359,18 @@ impl Explained for FeeKind {
                  is ₪14 on ₪2,000.",
                 "מרווח ההמרה: הבנק או בית ההשקעות ממיר לפי שער גרוע משער השוק בשיעור הזה. הוא לא מופיע כעמלה, אבל עולה אותו הדבר: בשער שוק של ₪3.50 לדולר, מרווח של 0.7% פירושו לשלם ₪3.52, שהם ₪14 על ₪2,000.",
             ),
+            FeeKind::Management => lang.pick(
+                "What the company running a fund or a policy takes for investing your money: \
+                 a share of everything that has built up, every year. It comes out of the \
+                 balance a little each month, so there's never a bill: 0.6% a year on \
+                 ₪100,000 is ₪600 that year, and more as the savings grow.",
+                "מה שהחברה שמנהלת קופה או פוליסה גובה על השקעת הכסף שלכם: אחוז מכל מה שנצבר, כל שנה. הם יורדים מהיתרה מעט בכל חודש, כך שאף פעם אין חשבון לתשלום: 0.6% בשנה על ₪100,000 הם ₪600 באותה שנה, ויותר ככל שהחיסכון גדל.",
+            ),
+            FeeKind::DepositFee => lang.pick(
+                "A share of every deposit, taken before it's invested: at 4%, ₪1,920 of a \
+                 ₪2,000 deposit is invested. Few funds take one.",
+                "אחוז מכל הפקדה, שנגבה לפני שהיא מושקעת: ב-4%, מושקעים ₪1,920 מתוך הפקדה של ₪2,000. מעט קופות גובות אותם.",
+            ),
         }
     }
 
@@ -364,6 +385,8 @@ impl Explained for FeeKind {
             FeeKind::Conversion => &["עמלת המרת מט\"ח"],
             FeeKind::SecondConversion => &[],
             FeeKind::Markup => &["מרווח המרה"],
+            FeeKind::Management => &["דמי ניהול מהצבירה", "דמי ניהול מיתרה צבורה"],
+            FeeKind::DepositFee => &["דמי ניהול מהפקדה", "דמי ניהול מהפקדות"],
         }
     }
 }
@@ -693,11 +716,60 @@ impl Plan {
         }
     }
 
+    /// Why the plan can't be used for `scenario`: that it doesn't sell the
+    /// security there ([`Plan::not_offered_reason`]), how far a year's
+    /// deposits are over its ceiling, or how long its money is locked.
     #[must_use]
-    #[allow(
-        clippy::too_many_lines,
-        reason = "one fee after another, each in words"
-    )]
+    pub fn why_not_offered(&self, reason: NotOffered, scenario: &Scenario, lang: Lang) -> String {
+        let year = match reason {
+            NotOffered::NoPrice => {
+                return self.not_offered_reason(scenario.security, scenario.exchange, lang);
+            }
+            NotOffered::Locked { years } => {
+                return match lang {
+                    Lang::En => format!(
+                        "Its money can be taken out on these terms only {years} years after \
+                         the first deposit. Sooner, it's taxed as income"
+                    ),
+                    Lang::He => format!(
+                        "אפשר למשוך את הכסף בתנאים האלה רק {years} שנים אחרי ההפקדה הראשונה. לפני כן הוא ממוסה כהכנסה"
+                    ),
+                };
+            }
+            NotOffered::OverTheCeiling { year } => year,
+        };
+        let whole = |amount: Decimal| format_money(ils(amount.round()));
+        let ceiling = self
+            .vehicle
+            .rules()
+            .deposit_ceiling_in(year, scenario.inflation);
+        let ceiling = whole(ceiling.unwrap_or_default());
+        let deposits = scenario.deposits_by_year();
+        let deposits = whole(deposits.get(year as usize).copied().unwrap_or_default());
+        match (year, lang) {
+            (0, Lang::En) => format!(
+                "No more than {ceiling} can be deposited in a year, and your first year's \
+                 deposits come to {deposits}"
+            ),
+            (0, Lang::He) => format!(
+                "אי אפשר להפקיד יותר מ-{ceiling} בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל-{deposits}"
+            ),
+            (_, Lang::En) => format!(
+                "No more than {ceiling} can be deposited in year {} (the ceiling, raised with \
+                 prices), and your deposits come to {deposits}",
+                year + 1
+            ),
+            (_, Lang::He) => format!(
+                "אי אפשר להפקיד יותר מ-{ceiling} בשנה ה-{} (התקרה, מעודכנת לפי המדד), וההפקדות שלכם מגיעות ל-{deposits}",
+                year + 1
+            ),
+        }
+    }
+
+    /// What the plan charges for `buying`, in words, with the caveats that
+    /// apply. A fund or a policy charges its manager's fee and nothing else;
+    /// a broker's plan its trade, account and conversion fees.
+    #[must_use]
     pub fn describe_fees_for(
         &self,
         buying: Buying,
@@ -706,6 +778,36 @@ impl Plan {
         rates: &ExchangeRates,
         lang: Lang,
     ) -> FeesFor {
+        let mut fees = if self.vehicle.invests_for_you() {
+            vec![]
+        } else {
+            self.tariff_lines(buying, track, lang)
+        };
+        fees.extend(self.management.map(|fee| fee.line(lang)));
+        let caveats: Vec<&Caveat> = broker_caveats.iter().chain(&self.caveats).collect();
+        let (groups, others) = sort_caveats(&caveats, buying, rates, lang);
+        let mattering: Vec<&Caveat> = caveats
+            .iter()
+            .copied()
+            .filter(|caveat| caveat.matters_for(buying, rates))
+            .collect();
+        for fee in &mut fees {
+            fee.attach(&mattering, lang);
+        }
+        FeesFor {
+            fees,
+            caveats: groups,
+            others,
+        }
+    }
+
+    /// A broker's fees for `buying`: the trade, keeping the account and,
+    /// abroad, the conversion.
+    #[allow(
+        clippy::too_many_lines,
+        reason = "one fee after another, each in words"
+    )]
+    fn tariff_lines(&self, buying: Buying, track: Option<usize>, lang: Lang) -> Vec<FeeLine> {
         let Buying {
             security, exchange, ..
         } = buying;
@@ -808,21 +910,7 @@ impl Plan {
             line.parts.push(FeeLine::new(FeeKind::Markup, markup, lang));
             fees.push(line);
         }
-        let caveats: Vec<&Caveat> = broker_caveats.iter().chain(&self.caveats).collect();
-        let (groups, others) = sort_caveats(&caveats, buying, rates, lang);
-        let mattering: Vec<&Caveat> = caveats
-            .iter()
-            .copied()
-            .filter(|caveat| caveat.matters_for(buying, rates))
-            .collect();
-        for fee in &mut fees {
-            fee.attach(&mattering, lang);
-        }
-        FeesFor {
-            fees,
-            caveats: groups,
-            others,
-        }
+        fees
     }
 
     /// Why the plan may cost more than shown for `buying`, if a caveat says
@@ -914,6 +1002,103 @@ impl Plan {
     }
 }
 
+impl Vehicle {
+    /// How its gains are taxed, in a line to show under a fund's name: "No
+    /// tax on gains after 6 years, on up to ₪20,566 deposited a year". The
+    /// one thing a saver must know about it, so it's said outright and not
+    /// only among the caveats. `None` for a broker's account, which the
+    /// others are measured against.
+    #[must_use]
+    pub fn tax_rule(self, lang: Lang) -> Option<String> {
+        let rules = self.rules();
+        Some(match self {
+            Vehicle::Brokerage => return None,
+            Vehicle::SavingsPolicy => lang
+                .pick("Taxed like a broker", "ממוסה כמו חשבון מסחר")
+                .to_owned(),
+            Vehicle::InvestmentGemel => {
+                let age = rules.pension?.from_age;
+                match lang {
+                    Lang::En => {
+                        format!("No tax as a pension from {age}; otherwise taxed like a broker")
+                    }
+                    Lang::He => format!("אין מס בקצבה מגיל {age}; אחרת ממוסה כמו חשבון מסחר"),
+                }
+            }
+            Vehicle::StudyFund => {
+                let years = rules.open_after_years?;
+                let amount = format_money(ils(rules.tax_free_deposits?));
+                match lang {
+                    Lang::En => format!(
+                        "No tax on gains after {years} years, on up to {amount} deposited a year"
+                    ),
+                    Lang::He => {
+                        format!("אין מס על הרווחים אחרי {years} שנים, על עד {amount} שהופקדו בשנה")
+                    }
+                }
+            }
+        })
+    }
+}
+
+impl Plan {
+    /// What became of the tax for `scenario`, in a line under the plan in
+    /// the table: "No tax: your deposits are within ₪20,566 a year". Beside
+    /// its tax, so the number doesn't have to be worked out from the
+    /// caveats. `None` for a broker's plan, and when nothing is sold: then
+    /// nobody is taxed yet.
+    #[must_use]
+    pub fn tax_note(&self, scenario: &Scenario, lang: Lang) -> Option<String> {
+        if !scenario.sell_at_end {
+            return None;
+        }
+        let rules = self.vehicle.rules();
+        Some(match self.vehicle {
+            Vehicle::Brokerage => return None,
+            Vehicle::SavingsPolicy => return self.vehicle.tax_rule(lang),
+            Vehicle::StudyFund => {
+                let amount = format_money(ils(rules.tax_free_deposits?));
+                let shares = scenario.taxed_shares(self.vehicle)?;
+                let within = shares.iter().all(Decimal::is_zero);
+                match (within, lang) {
+                    (true, Lang::En) => {
+                        format!("No tax: your deposits are within {amount} a year")
+                    }
+                    (true, Lang::He) => format!("אין מס: ההפקדות שלכם בתוך {amount} בשנה"),
+                    (false, Lang::En) => {
+                        format!("Taxed only on what you deposit over {amount} a year")
+                    }
+                    (false, Lang::He) => format!("המס הוא רק על מה שמופקד מעל {amount} בשנה"),
+                }
+            }
+            Vehicle::InvestmentGemel => {
+                let age = rules.pension?.from_age;
+                let then = scenario.age.saturating_add(scenario.years);
+                match (scenario.withdrawal, then >= age, lang) {
+                    (Withdrawal::Pension, true, Lang::En) => {
+                        format!("No tax: taken as a pension from {age}")
+                    }
+                    (Withdrawal::Pension, true, Lang::He) => {
+                        format!("אין מס: נמשכת כקצבה מגיל {age}")
+                    }
+                    (Withdrawal::Pension, false, Lang::En) => format!(
+                        "Taxed like a broker: the pension opens at {age}, and you'd be {then}"
+                    ),
+                    (Withdrawal::Pension, false, Lang::He) => format!(
+                        "ממוסה כמו חשבון מסחר: הקצבה נפתחת בגיל {age}, ואתם תהיו בני {then}"
+                    ),
+                    (Withdrawal::LumpSum, _, Lang::En) => {
+                        format!("Taxed like a broker; no tax as a pension from {age}")
+                    }
+                    (Withdrawal::LumpSum, _, Lang::He) => {
+                        format!("ממוסה כמו חשבון מסחר; אין מס בקצבה מגיל {age}")
+                    }
+                }
+            }
+        })
+    }
+}
+
 impl Outcome {
     /// "Its fees are more than you deposit", when they are: then its numbers
     /// go below zero, as the fees become a debt.
@@ -940,6 +1125,13 @@ impl Broker {
             "המסלולים הרגילים מושווים בהתחלה; סמנו אחרים כדי להוסיף אותם.",
         );
         match (self.kind, self.plans.len(), lang) {
+            (BrokerKind::Funds, _, Lang::En) => format!(
+                "What savers pay on average: the fee is agreed person by person, so there's \
+                 no price list to show. {rest}"
+            ),
+            (BrokerKind::Funds, _, Lang::He) => format!(
+                "מה שחוסכים משלמים בממוצע: דמי הניהול נקבעים לכל חוסך בנפרד, ולכן אין תעריפון להציג. {rest}"
+            ),
             (_, 1, Lang::En) => {
                 format!("The one plan {name} offers: its published price list. {rest}")
             }
@@ -978,10 +1170,32 @@ impl Broker {
             }
         };
         let date = date.expect("a fixed format");
-        match lang {
-            Lang::En => format!("Tariff of {date}"),
-            Lang::He => format!("תעריפון מ-{date}"),
+        match (self.kind, lang) {
+            (BrokerKind::Funds, Lang::En) => format!("Fees paid, by the data of {date}"),
+            (BrokerKind::Funds, Lang::He) => format!("דמי הניהול שנגבו, לפי נתוני {date}"),
+            (_, Lang::En) => format!("Tariff of {date}"),
+            (_, Lang::He) => format!("תעריפון מ-{date}"),
         }
+    }
+
+    /// When its numbers were last checked: "Checked 29/09/2026".
+    #[must_use]
+    pub fn checked_on_text(&self, lang: Lang) -> String {
+        match self.kind {
+            BrokerKind::Funds => checked_text(funds::checked(), lang),
+            BrokerKind::Bank | BrokerKind::InvestmentHouse => Broker::checked_text(lang),
+        }
+    }
+}
+
+/// "Checked 29/09/2026"
+fn checked_text(date: time::Date, lang: Lang) -> String {
+    let date = date
+        .format(format_description!("[day]/[month]/[year]"))
+        .expect("a fixed format");
+    match lang {
+        Lang::En => format!("Checked {date}"),
+        Lang::He => format!("נבדק ב-{date}"),
     }
 }
 
@@ -1082,6 +1296,75 @@ fn account_price_text(
             nothing: false,
             reason: None,
         },
+    }
+}
+
+impl ManagementFee {
+    /// "0.62% of the balance a year", or "none".
+    #[must_use]
+    pub fn balance_price_text(&self, lang: Lang) -> PriceText {
+        if self.of_balance.is_zero() {
+            return PriceText::none(lang);
+        }
+        let text = match lang {
+            Lang::En => format!("{} of the balance a year", self.of_balance),
+            Lang::He => format!("{} מהצבירה בשנה", self.of_balance),
+        };
+        PriceText {
+            text,
+            nothing: false,
+            reason: None,
+        }
+    }
+
+    /// "4% of each deposit", or "none".
+    #[must_use]
+    pub fn deposit_price_text(&self, lang: Lang) -> PriceText {
+        if self.of_deposits.is_zero() {
+            return PriceText::none(lang);
+        }
+        let text = match lang {
+            Lang::En => format!("{} of each deposit", self.of_deposits),
+            Lang::He => format!("{} מכל הפקדה", self.of_deposits),
+        };
+        PriceText {
+            text,
+            nothing: false,
+            reason: None,
+        }
+    }
+
+    /// The fee on the balance, with the fee on deposits under it.
+    fn line(&self, lang: Lang) -> FeeLine {
+        let mut line = FeeLine::new(FeeKind::Management, self.balance_price_text(lang), lang);
+        line.parts.push(FeeLine::new(
+            FeeKind::DepositFee,
+            self.deposit_price_text(lang),
+            lang,
+        ));
+        line
+    }
+}
+
+/// "0.62% of the balance a year", "1.05% of the balance a year, plus 4% of
+/// each deposit", or "none".
+impl Priced for ManagementFee {
+    fn is_nothing(&self) -> bool {
+        self.of_balance.is_zero() && self.of_deposits.is_zero()
+    }
+
+    fn text(&self, lang: Lang) -> String {
+        let (balance, deposits) = (self.balance_price_text(lang), self.deposit_price_text(lang));
+        match (balance.nothing, deposits.nothing) {
+            (_, true) => balance.text,
+            (true, false) => deposits.text,
+            (false, false) => format!(
+                "{}, {} {}",
+                balance.text,
+                lang.pick("plus", "ועוד"),
+                deposits.text
+            ),
+        }
     }
 }
 
@@ -1310,8 +1593,16 @@ impl Broker {
         caveats: impl Iterator<Item = &'a Caveat>,
         lang: Lang,
     ) -> Vec<Source> {
+        let name = match self.kind {
+            BrokerKind::Funds => {
+                Text::new("The Capital Market Authority's data", "נתוני רשות שוק ההון")
+            }
+            BrokerKind::Bank | BrokerKind::InvestmentHouse => {
+                Text::new("Tariff (PDF)", "תעריפון (PDF)")
+            }
+        };
         let tariff = self.source_url.iter().map(|url| Page {
-            name: Text::new("Tariff (PDF)", "תעריפון (PDF)"),
+            name: name.clone(),
             url: url.clone(),
         });
         let mut pages = tariff.collect::<Vec<Page>>();
@@ -1349,13 +1640,7 @@ impl Broker {
     /// brokers' documents and sites.
     #[must_use]
     pub fn checked_text(lang: Lang) -> String {
-        let date = tariffs::checked()
-            .format(format_description!("[day]/[month]/[year]"))
-            .expect("a fixed format");
-        match lang {
-            Lang::En => format!("Checked {date}"),
-            Lang::He => format!("נבדק ב-{date}"),
-        }
+        checked_text(tariffs::checked(), lang)
     }
 }
 
@@ -1466,11 +1751,37 @@ pub fn about(lang: Lang) -> About {
                  of the month and waits as shekels until the next purchase, which converts it \
                  (abroad) and buys with it, whole shares only where the broker sells no \
                  fractions. What keeping the account costs, a share of the holdings or a \
-                 fixed amount, is paid every month out of the shekels. At the end everything is sold and converted back, and that's the \
-                 value the table ranks by; or, if you choose to keep holding, the table ranks \
-                 by what's held, and nothing is paid for selling.",
-                "כל מסלול מורץ חודש אחר חודש על ההפקדות שלכם. הכסף מגיע בתחילת החודש ומחכה כשקלים עד הקנייה הבאה, שממירה אותו (בחו״ל) וקונה בו, מניות שלמות בלבד במקום שבו הבנק או בית ההשקעות לא מוכר שברים. מה שניהול החשבון עולה, אחוז מההחזקות או סכום קבוע, משולם כל חודש מהשקלים. בסוף הכול נמכר ומומר בחזרה, וזה השווי שלפיו הטבלה מדרגת; או, אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי ההחזקות, ולא משולם דבר על מכירה.",
+                 fixed amount, is paid every month out of the shekels. At the end everything \
+                 is sold and converted back and the tax on the gain is paid, and what's left \
+                 is what the table ranks by; or, if you choose to keep holding, the table \
+                 ranks by what's held, and nothing is paid for selling or in tax.",
+                "כל מסלול מורץ חודש אחר חודש על ההפקדות שלכם. הכסף מגיע בתחילת החודש ומחכה כשקלים עד הקנייה הבאה, שממירה אותו (בחו״ל) וקונה בו, מניות שלמות בלבד במקום שבו הבנק או בית ההשקעות לא מוכר שברים. מה שניהול החשבון עולה, אחוז מההחזקות או סכום קבוע, משולם כל חודש מהשקלים. בסוף הכול נמכר ומומר בחזרה והמס על הרווח משולם, ומה שנשאר הוא מה שלפיו הטבלה מדרגת; או, אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי ההחזקות, ולא משולם דבר על מכירה או כמס.",
             ),
+            paragraph(
+                "A provident fund for investment or a savings policy is run the same way, \
+                 with a manager in the broker's place: its fee comes off each deposit and off \
+                 the balance every month, every deposit is invested as it arrives, and \
+                 nothing is paid for trades or for converting. It's taken to earn what your \
+                 security does, before fees.",
+                "קופת גמל להשקעה או פוליסת חיסכון מורצות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: דמי הניהול שלה יורדים מכל הפקדה ומהצבירה בכל חודש, כל הפקדה מושקעת מיד כשהיא מגיעה, ולא משולם דבר על קנייה, מכירה או המרה. ההנחה היא שהיא מרוויחה, לפני דמי ניהול, מה שנייר הערך שלכם מרוויח.",
+            ),
+            match lang {
+                Lang::En => format!(
+                    "Tax is a quarter of the real gain: what selling brings, less what the \
+                     holdings cost, the cost raised by how much prices rose since each \
+                     purchase ({USUAL_INFLATION} a year, unless you set another inflation \
+                     under \u{201c}More options\u{201d}). What was paid to buy counts as cost, \
+                     fees included; of what was paid to keep the account, only the last \
+                     year's comes off, the law allowing it only in the year of a sale. A provident \
+                     fund for investment taken as a monthly pension from the age of 60 pays \
+                     no tax on the gain, and a study fund pays none on the gains of what was \
+                     deposited within its yearly tax-free amount. What's lost to fees is \
+                     measured before tax, and the tax is each plan's own."
+                ),
+                Lang::He => format!(
+                    "המס הוא רבע מהרווח הריאלי: מה שהמכירה מכניסה, פחות מה שההחזקות עלו, כשהעלות מוגדלת בשיעור עליית המחירים מאז כל קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת תחת ״אפשרויות נוספות״). מה ששולם כדי לקנות נחשב עלות, כולל העמלות; ממה ששולם על ניהול החשבון יורד רק מה ששולם בשנה האחרונה, כי החוק מתיר אותו רק בשנה שבה יש מכירה. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 לא משלמת מס על הרווח, וקרן השתלמות לא משלמת מס על הרווחים של מה שהופקד עד התקרה השנתית הפטורה. מה שאבד לעמלות נמדד לפני מס, והמס הוא של כל מסלול בעצמו."
+                ),
+            },
             paragraph(
                 "The return is the security's own, in its own currency; today's exchange rates \
                  stay as they are, and money waiting for a purchase earns nothing. A plan with \
@@ -1491,18 +1802,20 @@ pub fn about(lang: Lang) -> About {
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
-                 does, and inflation can be taken off, so that every amount reads in today's \
-                 shekels: each is divided by how much prices will have risen by then. That \
-                 changes no ranking, only how the numbers read.",
-                "תחת ״אפשרויות נוספות״ ההפקדות יכולות לגדול כל שנה כמו משכורת, ואפשר לנכות אינפלציה, כך שכל סכום נקרא בשקלים של היום: כל אחד מחולק בכמה שהמחירים יעלו עד אז. זה לא משנה שום דירוג, רק איך המספרים נקראים.",
+                 does, the inflation can be changed, and every amount can be shown in today's \
+                 shekels: each is divided by how much prices will have risen by then. Showing \
+                 them so changes no ranking, only how the numbers read.",
+                "תחת ״אפשרויות נוספות״ ההפקדות יכולות לגדול כל שנה כמו משכורת, אפשר לשנות את האינפלציה, ואפשר להציג כל סכום בשקלים של היום: כל אחד מחולק בכמה שהמחירים יעלו עד אז. הצגה כזאת לא משנה שום דירוג, רק איך המספרים נקראים.",
             ),
             paragraph(
                 "Banks publish what they charge. Investment houses publish only a full tariff, \
                  the most they may charge, and offer new customers far less by phone. Their \
                  \u{201c}Typical offer\u{201d} plan is what comparison sites list for joining, \
                  and wherever the offer is silent the full tariff's price is used: a plan is \
-                 never shown cheaper than its documents allow.",
-                "בנקים מפרסמים מה הם גובים. בתי השקעות מפרסמים רק תעריפון מלא, המקסימום שמותר להם לגבות, ומציעים ללקוחות חדשים הרבה פחות בטלפון. מסלול ״מבצע הצטרפות״ שלהם הוא מה שאתרי ההשוואה מציגים למצטרפים, ובכל מקום שבו המבצע שותק נעשה שימוש במחיר התעריפון המלא: מסלול לעולם לא מוצג זול יותר ממה שהמסמכים שלו מאפשרים.",
+                 never shown cheaper than its documents allow. A fund's fee is agreed person \
+                 by person, so the app shows what savers pay on average, from the funds' \
+                 reports to the Capital Market Authority.",
+                "בנקים מפרסמים מה הם גובים. בתי השקעות מפרסמים רק תעריפון מלא, המקסימום שמותר להם לגבות, ומציעים ללקוחות חדשים הרבה פחות בטלפון. מסלול ״מבצע הצטרפות״ שלהם הוא מה שאתרי ההשוואה מציגים למצטרפים, ובכל מקום שבו המבצע שותק נעשה שימוש במחיר התעריפון המלא: מסלול לעולם לא מוצג זול יותר ממה שהמסמכים שלו מאפשרים. דמי הניהול של קופה נקבעים לכל חוסך בנפרד, ולכן האפליקציה מציגה מה שחוסכים משלמים בממוצע, לפי דיווחי הקופות לרשות שוק ההון.",
             ),
             paragraph(
                 "Every plan's details say how sure each number is. As published: the tariff or \
@@ -1528,8 +1841,28 @@ pub fn about(lang: Lang) -> About {
         items: vec![
             item(
                 lang,
-                "Taxes: they don't depend on the broker.",
-                "מסים: הם לא תלויים בבנק או בבית ההשקעות.",
+                "Tax on dividends along the way: a quarter of each payment at a broker, for \
+                 a security that pays them out, and less inside a fund or an ETF that keeps \
+                 them. The return is taken as total return, so it isn't counted.",
+                "מס על דיבידנדים לאורך הדרך: רבע מכל תשלום בחשבון מסחר, בנייר ערך שמחלק אותם, ופחות בתוך קופה או קרן סל שצוברת אותם. התשואה נלקחת כתשואה כוללת, ולכן הוא לא נספר.",
+            ),
+            item(
+                lang,
+                "Other rules of the tax on the gain: a shekel bond that isn't linked to \
+                 prices pays 15% of its whole gain, not a quarter of the real one; a \
+                 security in foreign currency is measured against the exchange rate, not \
+                 against prices; and a gain that takes a year's income past ₪721,560 pays a \
+                 surtax on the part above.",
+                "כללים אחרים של המס על הרווח: אג״ח שקלית לא צמודה משלמת 15% מכל הרווח, ולא רבע מהרווח הריאלי; נייר ערך במטבע חוץ נמדד מול שער החליפין, ולא מול המדד; ורווח שמעלה את ההכנסה השנתית מעל ₪721,560 משלם מס יסף על החלק שמעבר.",
+            ),
+            item(
+                lang,
+                "A provident fund for savings (קופת\u{a0}גמל\u{a0}לחיסכון): a pension \
+                 product. It's worth what its tax benefits on deposits are worth to you, and \
+                 the money comes out as a pension taxed by your income; the app knows \
+                 neither. Large sums deposited near the age of 60 go by other rules \
+                 (תיקון\u{a0}190), which aren't counted either.",
+                "קופת גמל לחיסכון: מוצר פנסיוני. היא שווה מה שהטבות המס על ההפקדות שוות לכם, והכסף יוצא ממנה כקצבה שממוסה לפי ההכנסה שלכם; האפליקציה לא יודעת אף אחד מהם. סכומים גדולים שמופקדים לקראת גיל 60 כפופים לכללים אחרים (תיקון 190), שגם הם לא נספרים.",
             ),
             item(
                 lang,
@@ -1570,7 +1903,7 @@ pub fn about(lang: Lang) -> About {
             ),
         ],
     };
-    let mut groups: Vec<SourceGroup> = tariffs::all()
+    let mut groups: Vec<SourceGroup> = crate::listed()
         .iter()
         .map(|broker| SourceGroup {
             title: format!("{} · {}", &broker.name[lang], broker.tariff_date_text(lang)),
@@ -1600,6 +1933,16 @@ pub fn about(lang: Lang) -> About {
             "הבורסה לניירות ערך בתל אביב: תעריפוני החברים והעמלות הממוצעות בפועל (יוני 2026), שמאשרים את המבצעים והכריעו שורות לא ברורות",
         ),
         sources: links(&[tariffs::exchange_calculator()], lang),
+    });
+    groups.push(SourceGroup {
+        title: paragraph(
+            "The tax on the gain: the law, and a broker's account of it",
+            "המס על הרווח: החוק, והסבר של בית השקעות",
+        ),
+        sources: links(
+            &[funds::income_tax_ordinance(), funds::meitav_on_tax()],
+            lang,
+        ),
     });
     let sources = Section {
         title: paragraph("Sources", "מקורות"),
@@ -2054,7 +2397,7 @@ mod tests {
         // One plan: nothing to choose between.
         let interactive = text(tariffs::interactive());
         assert!(interactive.starts_with("The one plan Interactive Israel offers"));
-        for broker in tariffs::all() {
+        for broker in crate::listed() {
             assert!(
                 broker
                     .usual_plan_text(Lang::En)
@@ -2082,12 +2425,17 @@ mod tests {
         );
         let sources = &about.sections[2];
         assert!(sources.paragraphs[0].starts_with("Checked 29/09/2026"));
-        // A group per broker, its tariff first, then the comparison sites and
-        // the exchange.
-        assert_eq!(sources.sources.len(), tariffs::all().len() + 2);
-        for (group, broker) in sources.sources.iter().zip(tariffs::all()) {
+        // A group per broker and per kind of fund, its tariff or the
+        // regulator's data first, then the comparison sites, the exchange
+        // and the law.
+        assert_eq!(sources.sources.len(), crate::listed().len() + 3);
+        for (group, broker) in sources.sources.iter().zip(crate::listed()) {
             assert!(group.title.starts_with(&*broker.name.en), "{}", group.title);
-            assert_eq!(group.sources[0].name, "Tariff (PDF)");
+            let first = match broker.kind {
+                BrokerKind::Funds => "The Capital Market Authority's data",
+                BrokerKind::Bank | BrokerKind::InvestmentHouse => "Tariff (PDF)",
+            };
+            assert_eq!(group.sources[0].name, first);
             assert!(
                 group.sources.len() > 1,
                 "{}: only the tariff",
@@ -2095,6 +2443,259 @@ mod tests {
             );
         }
         assert_eq!(sources.items, Vec::new());
+    }
+
+    /// A fund charges its manager's fee and nothing else, whatever is
+    /// bought: no trade, account or conversion lines.
+    #[test]
+    fn a_fund_charges_only_its_managers_fee() {
+        let fund = funds::investment_gemel();
+        let lines = |plan: usize, lang| {
+            let buying = buying(Security::Etf, Exchange::Usa);
+            fund.describe_fees_for(&fund.plans[plan], buying, None, &rates(), lang)
+                .fees
+        };
+        let average = lines(0, Lang::En);
+        assert_eq!(average.len(), 1);
+        assert_eq!(average[0].kind, FeeKind::Management);
+        assert_eq!(average[0].price.text, "0.62% of the balance a year");
+        assert_eq!(average[0].parts.len(), 1);
+        assert_eq!(average[0].parts[0].kind, FeeKind::DepositFee);
+        assert_eq!(average[0].parts[0].price, PriceText::nothing("none"));
+        // Each says where its number comes from.
+        let mark = average[0].mark.as_ref().unwrap();
+        assert_eq!(mark.kind, CaveatKind::Published);
+        assert!(average[0].parts[0].mark.is_some());
+        assert_eq!(lines(0, Lang::He)[0].price.text, "0.62% מהצבירה בשנה");
+
+        let most = lines(3, Lang::En);
+        assert_eq!(most[0].price.text, "1.05% of the balance a year");
+        assert_eq!(most[0].parts[0].price.text, "4% of each deposit");
+        assert_eq!(lines(3, Lang::He)[0].parts[0].price.text, "4% מכל הפקדה");
+        let fee = fund.plans[3].management.unwrap();
+        assert_eq!(
+            fee.text(Lang::En),
+            "1.05% of the balance a year, plus 4% of each deposit"
+        );
+        let only_deposits = ManagementFee {
+            of_balance: crate::Percent(dec!(0)),
+            ..fee
+        };
+        assert_eq!(only_deposits.text(Lang::En), "4% of each deposit");
+        assert!(!only_deposits.is_nothing());
+        let nothing = ManagementFee {
+            of_deposits: crate::Percent(dec!(0)),
+            ..only_deposits
+        };
+        assert!(nothing.is_nothing());
+        assert_eq!(nothing.price_text(Lang::En), PriceText::nothing("none"));
+    }
+
+    /// A plan the deposits are too much for says the ceiling and what the
+    /// deposits come to, in the year they pass it.
+    #[test]
+    fn a_plan_over_its_ceiling_says_by_how_much() {
+        use crate::Withdrawal;
+        let fund = funds::investment_gemel().plans.remove(0);
+        let at_once = Scenario {
+            security: Security::Etf,
+            exchange: Exchange::Europe,
+            first_deposit: dec!(100000),
+            monthly_deposit: dec!(0),
+            deposit_growth: crate::Percent(dec!(0)),
+            yearly_return: crate::Percent(dec!(5)),
+            years: 3,
+            buy_every_months: 1,
+            share_price: dec!(100),
+            sell_at_end: true,
+            inflation: crate::Percent(dec!(0)),
+            age: 30,
+            withdrawal: Withdrawal::LumpSum,
+        };
+        let over = |year| NotOffered::OverTheCeiling { year };
+        assert_eq!(
+            fund.why_not_offered(over(0), &at_once, Lang::En),
+            "No more than ₪83,641 can be deposited in a year, and your first year's deposits \
+             come to ₪100,000"
+        );
+        assert_eq!(
+            fund.why_not_offered(over(0), &at_once, Lang::He),
+            "אי אפשר להפקיד יותר מ-₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל-₪100,000"
+        );
+        // ₪6,900 a month is ₪82,800 a year; 3% more the next year is ₪85,284,
+        // and at 2% inflation the ceiling is 83,641 × 1.02 = ₪85,313.82 by
+        // then, which rounds to ₪85,314.
+        let growing = Scenario {
+            first_deposit: dec!(0),
+            monthly_deposit: dec!(6900),
+            deposit_growth: crate::Percent(dec!(3)),
+            inflation: crate::Percent(dec!(2)),
+            ..at_once.clone()
+        };
+        assert_eq!(
+            fund.why_not_offered(over(1), &growing, Lang::En),
+            "No more than ₪85,314 can be deposited in year 2 (the ceiling, raised with prices), \
+             and your deposits come to ₪85,284"
+        );
+        assert!(
+            fund.why_not_offered(over(1), &growing, Lang::He)
+                .contains("בשנה ה-2")
+        );
+        // A study fund kept for less than its six years.
+        let study = funds::study_fund().plans.remove(0);
+        let locked = NotOffered::Locked { years: 6 };
+        assert_eq!(
+            study.why_not_offered(locked, &at_once, Lang::En),
+            "Its money can be taken out on these terms only 6 years after the first deposit. \
+             Sooner, it's taxed as income"
+        );
+        assert!(
+            study
+                .why_not_offered(locked, &at_once, Lang::He)
+                .starts_with("אפשר למשוך את הכסף בתנאים האלה רק 6 שנים")
+        );
+        // A broker that doesn't sell the security says so, as before.
+        let altshuler = tariffs::altshuler().plans.remove(0);
+        assert_eq!(
+            altshuler.why_not_offered(NotOffered::NoPrice, &at_once, Lang::En),
+            altshuler.not_offered_reason(Security::Etf, Exchange::Europe, Lang::En)
+        );
+    }
+
+    /// Each fund's tax rule is one line, said under its name; a broker's
+    /// account has none, being what the others are measured against.
+    #[test]
+    fn a_funds_tax_rule_is_said_in_a_line() {
+        let rule = |vehicle: Vehicle, lang| vehicle.tax_rule(lang);
+        assert_eq!(rule(Vehicle::Brokerage, Lang::En), None);
+        assert_eq!(
+            rule(Vehicle::StudyFund, Lang::En).as_deref(),
+            Some("No tax on gains after 6 years, on up to ₪20,566 deposited a year")
+        );
+        assert_eq!(
+            rule(Vehicle::StudyFund, Lang::He).as_deref(),
+            Some("אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה")
+        );
+        assert_eq!(
+            rule(Vehicle::InvestmentGemel, Lang::En).as_deref(),
+            Some("No tax as a pension from 60; otherwise taxed like a broker")
+        );
+        assert_eq!(
+            rule(Vehicle::InvestmentGemel, Lang::He).as_deref(),
+            Some("אין מס בקצבה מגיל 60; אחרת ממוסה כמו חשבון מסחר")
+        );
+        assert_eq!(
+            rule(Vehicle::SavingsPolicy, Lang::En).as_deref(),
+            Some("Taxed like a broker")
+        );
+        assert_eq!(
+            rule(Vehicle::SavingsPolicy, Lang::He).as_deref(),
+            Some("ממוסה כמו חשבון מסחר")
+        );
+    }
+
+    /// A fund's row says what became of its tax for the deposits and the
+    /// way out at hand; a broker's row, and any row when nothing is sold,
+    /// says nothing.
+    #[test]
+    fn a_funds_row_says_what_became_of_its_tax() {
+        use crate::Percent;
+        let monthly = |monthly_deposit, age, withdrawal| Scenario {
+            security: Security::Etf,
+            exchange: Exchange::Usa,
+            first_deposit: dec!(0),
+            monthly_deposit,
+            deposit_growth: Percent(dec!(0)),
+            yearly_return: Percent(dec!(10)),
+            years: 20,
+            buy_every_months: 1,
+            share_price: dec!(500),
+            sell_at_end: true,
+            inflation: Percent(dec!(2)),
+            age,
+            withdrawal,
+        };
+        let at_once = |monthly_deposit| monthly(monthly_deposit, 30, Withdrawal::LumpSum);
+        let note = |plan: &Plan, scenario: &Scenario| plan.tax_note(scenario, Lang::En);
+        let of = |broker: Broker| broker.plans.into_iter().next().unwrap();
+
+        // ₪1,700 a month is ₪20,400 a year: within. ₪2,000 a month isn't.
+        let study = of(funds::study_fund());
+        assert_eq!(
+            note(&study, &at_once(dec!(1700))).as_deref(),
+            Some("No tax: your deposits are within ₪20,566 a year")
+        );
+        assert_eq!(
+            note(&study, &at_once(dec!(2000))).as_deref(),
+            Some("Taxed only on what you deposit over ₪20,566 a year")
+        );
+        assert_eq!(
+            study.tax_note(&at_once(dec!(1700)), Lang::He).as_deref(),
+            Some("אין מס: ההפקדות שלכם בתוך ₪20,566 בשנה")
+        );
+        assert_eq!(
+            study.tax_note(&at_once(dec!(2000)), Lang::He).as_deref(),
+            Some("המס הוא רק על מה שמופקד מעל ₪20,566 בשנה")
+        );
+
+        let gemel = of(funds::investment_gemel());
+        assert_eq!(
+            note(&gemel, &at_once(dec!(2000))).as_deref(),
+            Some("Taxed like a broker; no tax as a pension from 60")
+        );
+        assert_eq!(
+            note(&gemel, &monthly(dec!(2000), 40, Withdrawal::Pension)).as_deref(),
+            Some("No tax: taken as a pension from 60")
+        );
+        assert_eq!(
+            note(&gemel, &monthly(dec!(2000), 39, Withdrawal::Pension)).as_deref(),
+            Some("Taxed like a broker: the pension opens at 60, and you'd be 59")
+        );
+        assert_eq!(
+            gemel
+                .tax_note(&monthly(dec!(2000), 39, Withdrawal::Pension), Lang::He)
+                .as_deref(),
+            Some("ממוסה כמו חשבון מסחר: הקצבה נפתחת בגיל 60, ואתם תהיו בני 59")
+        );
+        assert_eq!(
+            note(&of(funds::savings_policy()), &at_once(dec!(2000))).as_deref(),
+            Some("Taxed like a broker")
+        );
+        assert_eq!(note(&of(tariffs::leumi()), &at_once(dec!(2000))), None);
+        // Kept, not sold: no tax to explain.
+        let kept = Scenario {
+            sell_at_end: false,
+            ..at_once(dec!(2000))
+        };
+        assert_eq!(note(&study, &kept), None);
+        assert_eq!(note(&gemel, &kept), None);
+    }
+
+    /// A kind of fund says whose fees it shows and from when, where a
+    /// broker names its tariff.
+    #[test]
+    fn a_fund_says_whose_fees_it_shows() {
+        let fund = funds::investment_gemel();
+        assert!(
+            fund.usual_plan_text(Lang::En)
+                .starts_with("What savers pay on average")
+        );
+        assert_eq!(
+            fund.tariff_date_text(Lang::En),
+            "Fees paid, by the data of 08/2026"
+        );
+        assert_eq!(
+            fund.tariff_date_text(Lang::He),
+            "דמי הניהול שנגבו, לפי נתוני 08/2026"
+        );
+        assert_eq!(fund.checked_on_text(Lang::En), "Checked 30/09/2026");
+        assert_eq!(
+            tariffs::leumi().checked_on_text(Lang::En),
+            Broker::checked_text(Lang::En)
+        );
+        let sources = fund.sources(Lang::En);
+        assert_eq!(sources[0].name, "The Capital Market Authority's data");
+        assert_eq!(sources[0].url, "https://gemelnet.cma.gov.il/");
     }
 
     /// Hebrew letters, with the spaces, quotes and slashes the names use.
@@ -2285,6 +2886,8 @@ mod tests {
             track: None,
             largest_trade: Decimal::ZERO,
             yearly_cost: Percent::default(),
+            tax: Decimal::ZERO,
+            after_tax: Decimal::ZERO,
         };
         assert_eq!(
             outcome.warning(dec!(200), Lang::En),

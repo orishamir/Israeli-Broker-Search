@@ -21,17 +21,29 @@ const shared: Shared = {
   sharePrice: 500,
   depositGrowthPercent: 3,
   inflationPercent: 2,
+  inTodaysMoney: true,
   sellAtEnd: false,
+  asPension: true,
+  age: 41,
   plans: ['Leumi · Pepper', 'Meitav · Typical offer'],
   yours: [yours],
 }
 
 test('a link carries everything there and back, and reads as short keys', () => {
   const hash = encode(shared)
-  expect(hash).toMatch(/^s=IndexFund&x=Tlv&d=10000&m=2500.5&r=7&y=25&b=3&p=500&g=3&i=2&h=1&plan=/)
+  expect(hash).toMatch(/^s=IndexFund&x=Tlv&d=10000&m=2500.5&r=7&y=25&b=3&p=500&g=3&a=41&i=2&h=1&k=1&plan=/)
   expect(decode(hash)).toEqual(shared)
   // With or without the #, as the address bar gives it.
   expect(decode(`#${hash}`)).toEqual(shared)
+})
+
+test("an inflation alone is for the tax; with today's money it keeps the key older links used", () => {
+  expect(encode({ inflationPercent: 3 })).toBe('f=3')
+  expect(decode('f=3')).toEqual({ inflationPercent: 3 })
+  expect(encode({ inflationPercent: 3, inTodaysMoney: true })).toBe('i=3')
+  // A link from before the two were told apart: its amounts were in today's money.
+  expect(decode('i=3')).toEqual({ inflationPercent: 3, inTodaysMoney: true })
+  expect(decode('a=500&k=2')).toEqual({})
 })
 
 test('what is left out stays out, and selling at the end is the default that is not written', () => {

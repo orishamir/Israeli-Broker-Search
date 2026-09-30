@@ -45,17 +45,99 @@ const draftOf = (details: Details | null) => {
   return details.draft
 }
 
-test("each broker's usual plan is ticked at first, and the plans are ranked best first", () => {
+test("each broker's usual plan and the provident fund's average are ticked at first, ranked by what is left after tax", () => {
   const app = start()
-  const usual = app.brokers.map((broker, index) =>
-    planId({ kind: 'listed', broker: index, plan: broker.newCustomerPlan }),
+  const usual = app.brokers.flatMap((broker, index) =>
+    broker.comparedAtFirst ? [planId({ kind: 'listed', broker: index, plan: broker.newCustomerPlan })] : [],
   )
   expect([...app.selected]).toEqual(usual)
+  // Every broker, and of the funds only the provident fund for investment.
+  const funds = app.brokers.filter(({ kind }) => kind === 'Funds')
+  expect(funds.map(({ englishName, comparedAtFirst }) => [englishName, comparedAtFirst])).toEqual([
+    ['Provident fund for investment', true],
+    ['Study fund', false],
+    ['Savings policy', false],
+  ])
+  expect(usual).toHaveLength(app.brokers.length - 2)
   const ranked = results(app)
   expect(ranked.map(({ plan }) => plan.id).toSorted()).toEqual(usual.toSorted())
-  const left = ranked.map(({ outcome }) => outcome?.afterSelling ?? -Infinity)
+  const left = ranked.map(({ outcome }) => outcome?.afterTax ?? -Infinity)
   expect(left).toEqual(left.toSorted((a, b) => b - a))
   expect(app.purchase).toBe('an ETF bought in the USA')
+})
+
+test('how the money is taken out is asked only while a ticked plan pays a pension, and everything is sold', () => {
+  const app = start()
+  const fund = app.listedPlans.find((plan) => plan.englishLabel === 'Provident fund · Average fee')!
+  const outcomeOf = () => results(app).find(({ plan }) => plan.id === fund.id)!.outcome!
+  expect(app.pensionFromAge).toBe(60)
+  expect(app.inputs).toMatchObject({ asPension: false })
+  const atOnce = outcomeOf()
+  expect(atOnce.tax).toBeGreaterThan(0)
+
+  // 45 today, 65 after the 20 years: old enough, and the fund comes first.
+  app.wayOut = 'pension'
+  expect(app.inputs).toMatchObject({ asPension: true, age: 45 })
+  expect(outcomeOf().tax).toBe(0)
+  expect(outcomeOf().afterTax).toBe(atOnce.afterSelling)
+  expect(results(app)[0].plan.id).toBe(fund.id)
+  app.age = 39
+  expect(outcomeOf().tax).toBe(atOnce.tax)
+  app.age = null
+  expect(app.comparison).toEqual({ error: 'fill in your age' })
+  app.age = 45
+
+  // Without the fund there's no pension to ask about, and none is sent.
+  app.setSelected([fund.id], false)
+  expect(app.pensionFromAge).toBeUndefined()
+  expect(app.inputs).toMatchObject({ asPension: false })
+  app.setSelected([fund.id], true)
+  expect(app.inputs).toMatchObject({ asPension: true })
+  // Nor when the holdings are kept: nothing is taken out.
+  app.moreOptions = true
+  app.atEnd = 'hold'
+  expect(app.pensionFromAge).toBeUndefined()
+  expect(outcomeOf().tax).toBe(0)
+})
+
+test("deposits over a fund's yearly ceiling leave it without numbers, saying why", () => {
+  const app = start()
+  const fund = app.listedPlans.find((plan) => plan.englishLabel === 'Provident fund · Average fee')!
+  app.monthlyDeposit = 10_000
+  const row = results(app).at(-1)!
+  expect(row.plan.id).toBe(fund.id)
+  expect(row).toMatchObject({ outcome: undefined, rank: undefined, whyNot: 'OverTheCeiling' })
+  expect(row.notOffered).toBe(
+    "No more than ₪83,641 can be deposited in a year, and your first year's deposits come to ₪130,000",
+  )
+})
+
+test('a study fund is locked for six years, and taxes only the gains on what is over its yearly amount', () => {
+  const app = start()
+  const study = app.listedPlans.find((plan) => plan.englishLabel === 'Study fund · Average fee')!
+  app.setSelected([study.id], true)
+  const rowOf = () => results(app).find(({ plan }) => plan.id === study.id)!
+  // ₪10,000 and ₪2,000 a month is more than the ₪20,566 a year whose gains
+  // are tax-free: some tax, less than the same money pays elsewhere.
+  const fund = app.listedPlans.find((plan) => plan.englishLabel === 'Provident fund · Average fee')!
+  const taxOf = (id: string) => results(app).find(({ plan }) => plan.id === id)!.outcome!.tax
+  expect(taxOf(study.id)).toBeGreaterThan(0)
+  expect(taxOf(study.id)).toBeLessThan(taxOf(fund.id))
+  app.firstDeposit = 0
+  app.monthlyDeposit = 1_500
+  expect(taxOf(study.id)).toBe(0)
+  // The fund says its rule under its name, and its row what became of it.
+  expect(study.broker!.taxRule).toBe('No tax on gains after 6 years, on up to ₪20,566 deposited a year')
+  expect(rowOf().taxNote).toBe('No tax: your deposits are within ₪20,566 a year')
+  app.monthlyDeposit = 2_000
+  expect(rowOf().taxNote).toBe('Taxed only on what you deposit over ₪20,566 a year')
+  expect(results(app).find(({ plan }) => plan.broker?.kind !== 'Funds')!.taxNote).toBeUndefined()
+  // No pension from a study fund: it asks nothing about the way out.
+  expect(study.info.pensionFromAge).toBeUndefined()
+
+  app.years = 5
+  expect(rowOf()).toMatchObject({ outcome: undefined, whyNot: 'Locked' })
+  expect(rowOf().notOffered).toContain('only 6 years after the first deposit')
 })
 
 test('bad inputs are reported in words, not thrown', () => {
@@ -209,16 +291,32 @@ test('off, the expert inputs are not sent; on, they are, and keeping the holding
   const app = start()
   expect(app.moreOptions).toBe(false)
   app.depositGrowthPercent = 5
-  app.inflationPercent = 2
   app.atEnd = 'hold'
-  expect(app.inputs).toMatchObject({ depositGrowthPercent: 0, inflationPercent: 0, sellAtEnd: true })
+  app.inflationPercent = 3
+  app.todaysMoney = true
+  expect(app.usualInflation).toBe(2)
+  expect(app.inputs).toMatchObject({
+    depositGrowthPercent: 0,
+    inflationPercent: 2,
+    inTodaysMoney: false,
+    sellAtEnd: true,
+  })
   expect(app.inTodaysMoney).toBe(false)
   const plain = results(app)[0].outcome!
 
   app.moreOptions = true
-  expect(app.inputs).toMatchObject({ depositGrowthPercent: 5, inflationPercent: 2, sellAtEnd: false })
+  expect(app.inputs).toMatchObject({
+    depositGrowthPercent: 5,
+    inflationPercent: 3,
+    inTodaysMoney: true,
+    sellAtEnd: false,
+  })
   expect(app.sellAtEnd).toBe(false)
   expect(app.inTodaysMoney).toBe(true)
+  // The inflation alone lowers the tax; the amounts are as they will be.
+  app.todaysMoney = false
+  expect(app.inputs).toMatchObject({ inflationPercent: 3, inTodaysMoney: false })
+  expect(app.inTodaysMoney).toBe(false)
   const kept = results(app).find(({ plan }) => plan.id === results(app)[0].plan.id)!.outcome!
   expect(kept.fees.selling).toBe(0)
   expect(kept.afterSelling).toBe(kept.held)
@@ -285,7 +383,10 @@ test('a link carries the comparison: opened from one, the page shows the same, y
   app.monthlyDeposit = 3_000
   app.years = 7
   app.moreOptions = true
-  app.inflationPercent = 2
+  app.inflationPercent = 3
+  app.todaysMoney = true
+  app.wayOut = 'pension'
+  app.age = 52
   const [firstListed] = app.listedPlans
   app.setSelected([firstListed.id], true)
   const link = app.shareLink()
@@ -298,7 +399,9 @@ test('a link carries the comparison: opened from one, the page shows the same, y
   expect(opened.monthlyDeposit).toBe(3_000)
   expect(opened.years).toBe(7)
   expect(opened.moreOptions).toBe(true)
-  expect(opened.inflationPercent).toBe(2)
+  expect(opened.inflationPercent).toBe(3)
+  expect(opened.inTodaysMoney).toBe(true)
+  expect(opened.inputs).toMatchObject({ asPension: true, age: 52 })
   expect(opened.yourPlans.map(({ id }) => id)).toEqual([draft.id])
   expect([...opened.selected].toSorted()).toEqual([...app.selected].toSorted())
   expect(results(opened).map(({ plan, outcome }) => [plan.id, outcome?.afterSelling])).toEqual(

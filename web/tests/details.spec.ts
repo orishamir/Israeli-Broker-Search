@@ -133,17 +133,37 @@ test(
 
 // Opening each plan's details, with all its prices, breaks nothing: the
 // fixture fails the test on any error thrown in the page.
-test("every plan's details open", async ({ page }) => {
+test("every broker's plan's details open, with all its prices", async ({ page }) => {
   // A loop over everything: near the timeout under load.
   test.slow()
   const buttons = page.getByRole('button', { name: /^About .+ · / })
   await expect(buttons).toHaveCount(listedPlans.length)
-  for (const button of await buttons.all()) {
-    await button.click()
+  for (const { label } of listedPlans.filter(({ plan }) => !plan.tariff.management)) {
+    await page.getByRole('button', { name: `About ${label}`, exact: true }).click()
     await away(page)
     const dialog = page.getByRole('dialog')
     await dialog.getByText('All prices').click()
     await expect(dialog.locator('.tariff')).toBeVisible()
+    await closeDialog(page)
+  }
+})
+
+// A fund's fee is all it charges, whatever is bought: there's no price list
+// to unfold, and nothing about the purchase.
+test("a fund's plan's details show its fee alone, from the regulator's data", async ({ page }) => {
+  const funds = listedPlans.filter(({ plan }) => plan.tariff.management)
+  expect(funds.length).toBeGreaterThan(0)
+  for (const { label, plan, broker } of funds) {
+    await page.getByRole('button', { name: `About ${label}`, exact: true }).click()
+    await away(page)
+    const dialog = page.getByRole('dialog')
+    await expect(dialog.getByText('All prices')).toBeHidden()
+    await expect(dialog.locator('.fees-for')).toContainText(plan.tariff.management!.ofBalance.text)
+    await expect(dialog.locator('.fees-for')).not.toContainText('For an ETF')
+    await expect(dialog.locator('.source')).toContainText(broker.tariffDate)
+    await expect(
+      dialog.locator('.source').getByRole('link', { name: "The Capital Market Authority's data ↗" }),
+    ).toBeVisible()
     await closeDialog(page)
   }
 })
@@ -163,7 +183,7 @@ test('the numbers are explained, from the title and from a plan', { tag: '@phone
       await expect(item.getByRole('link', { name: `${source.name} ↗` })).toBeVisible()
   }
   await expect(dialog.getByRole('link', { name: 'Tariff (PDF) ↗' })).toHaveCount(
-    brokers().filter(({ sourceUrl }) => sourceUrl).length,
+    brokers().filter(({ sourceUrl, kind }) => sourceUrl && kind !== 'Funds').length,
   )
   await closeDialog(page)
 

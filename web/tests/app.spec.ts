@@ -4,16 +4,28 @@ import { checkbox, choice, expect, rows, test } from './fixtures'
 
 // Starting up: what the page shows once the core has loaded.
 
-test("starts with each broker's usual plan ticked and compared", { tag: '@phone' }, async ({ page }) => {
-  await expect(rows(page)).toHaveCount(usualPlans.length)
-  await expect(page.getByText("Ticked at first: each broker's usual plan")).toBeVisible()
-  const usual = page.locator('aside li', { has: page.locator('.usual') })
-  await expect(usual).toHaveCount(usualPlans.length)
-  for (const plan of await usual.all()) await expect(plan.getByRole('checkbox')).toBeChecked()
-  // "usual" isn't part of the plan's name.
-  const { plan } = usualPlans[0]
-  await expect(page.getByRole('checkbox', { name: plan.name, exact: true }).first()).toBeChecked()
-})
+test(
+  "starts with each broker's usual plan and the provident fund's average ticked and compared",
+  { tag: '@phone' },
+  async ({ page }) => {
+    await expect(rows(page)).toHaveCount(usualPlans.length)
+    await expect(page.getByText("Ticked at first: each broker's usual plan")).toBeVisible()
+    const usual = page.locator('aside li', { has: page.locator('.usual') })
+    await expect(usual).toHaveCount(usualPlans.filter(({ broker }) => broker.kind !== 'Funds').length)
+    for (const plan of await usual.all()) await expect(plan.getByRole('checkbox')).toBeChecked()
+    // "usual" isn't part of the plan's name.
+    const { plan } = usualPlans[0]
+    await expect(page.getByRole('checkbox', { name: plan.name, exact: true }).first()).toBeChecked()
+    // Of the funds, listed apart, only the provident fund's average.
+    await expect(page.getByText('Ticked at first: what savers in a provident fund')).toBeVisible()
+    const average = (fund: string) =>
+      page.getByRole('list', { name: fund }).getByRole('checkbox', { name: 'Average fee' })
+    await expect(average('Provident fund for investment')).toBeChecked()
+    await expect(average('Savings policy')).not.toBeChecked()
+    // It goes by its Hebrew name, shown under the English one.
+    await expect(page.locator('aside').getByText('קופת גמל להשקעה', { exact: true })).toBeVisible()
+  },
+)
 
 test(
   "shows today's rates once downloaded, and the loading shape is gone",

@@ -28,6 +28,62 @@ Amounts are the tariff's maximums unless marked as an offer.
 - **Orders not executed or cancelled:** Leumi ₪25; the investment houses
   charge nothing.
 
+## Tax and the vehicles
+
+What `vehicles.rs` and the tax at the end leave out (September 2026). The
+sources are in `sources.md`, "Tax and the vehicles".
+
+- **Tax on dividends along the way:** 25% of each payment at a broker, for a
+  security that pays out; less inside a fund or an accumulating ETF. On the
+  S&P 500 it's about 0.3% a year. The return is taken as total return.
+- **Unlinked shekel bonds:** taxed at 15% of the whole gain (section
+  91(b)(3)), not 25% of the real one. The app doesn't know which bond is
+  bought, so every security is taxed as 25% of the real gain.
+- **The exchange rate as the index:** for a security in foreign currency
+  the law measures the real gain against the exchange rate (section 88,
+  "מדד"). Exchange rates stay the same in the simulation, so the price
+  index is used for every security: the shekel is taken to weaken as prices
+  rise.
+- **The surtax (מס יסף):** 3% more, and 2% more on income from capital, on
+  what passes ₪721,560 in a year. A sale large enough pays it in any
+  vehicle that taxes the gain.
+- **Custody and the monthly fee as deductions:** see `sources.md`.
+- **Losses set against other gains, and withdrawing in parts.**
+- **What the investment itself charges:** an ETF's or fund's own yearly fee
+  at a broker, and a provident fund's direct expenses (הוצאות ישירות, up to
+  0.25% a year on managed tracks, close to nothing on index ones). Both are
+  left out, on both sides.
+- **A proposed cap on the pension exemption:** in June 2026 a Finance
+  Ministry committee recommended limiting the tax-free gains of a provident
+  fund for investment to ₪200,000 a saver
+  ([Globes](https://www.globes.co.il/news/article.aspx?did=1001547467),
+  [Bizportal](https://www.bizportal.co.il/longtermsavings/news/article/20034793)).
+  Not law: the exemption is modelled whole. Check again before the pension
+  is shown.
+- **Tax benefits on deposits:** the self-employed may deduct deposits to
+  a study fund of up to 4.5% of their income, to ₪13,203 a year (2026). Not
+  counted, by the user's decision; a caveat says the fund may be worth
+  more.
+- **An employee's study fund:** it needs the employer, who pays three
+  quarters of it. The app counts a self-employed saver's fund; the
+  employer's share isn't counted.
+- **A provident fund for savings (קופת גמל לחיסכון):** left out, by the
+  user's decision (30 September 2026). The first ₪38,412 deposited each year
+  (2026) is pension money: worth its tax benefit on the way in, and taken
+  out as a pension taxed by the saver's income. Only what's above that goes
+  by תיקון 190 (from 60: a tax-free pension, or a lump sum at 15% of the
+  nominal gain for those with a pension of ₪5,306 a month), per
+  [Meitav](https://www.meitav.co.il/provident_pension/amendment_190/).
+  Counting it needs the saver's income, tax bracket and what their pension
+  already uses. "What isn't counted" on the page says so.
+- **Each company's own fee:** the funds are listed by kind, at what savers
+  pay on average and at the cheapest and dearest company (`sources.md`,
+  "Funds and policies"). Self-managed funds (ניהול אישי, IRA) aren't listed.
+- **A managed track's own return:** a fund is taken to earn what the chosen
+  security does before fees, which only an index-following track does.
+- **A savings policy's own average fee:** not published apart from the
+  insurers' other policies; the app's is a reading.
+
 ## Mizrahi-Tefahot Bank
 
 - Custody cap: ₪10,750 a quarter on each of Tel Aviv and foreign holdings.

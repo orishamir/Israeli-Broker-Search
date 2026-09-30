@@ -15,8 +15,18 @@ test('a Hebrew browser gets the page in Hebrew, right to left', { tag: '@phone' 
     page.getByRole('radiogroup', { name: 'נייר ערך' }).getByText('קרן סל', { exact: true }),
   ).toBeVisible()
   await expect(page.getByRole('checkbox', { name: 'בנק לאומי' })).toBeVisible()
-  await expect(page.locator('.stat.best .label')).toContainText('הזול ביותר: ')
-  await expect(page.locator('th', { hasText: 'עלות שנתית' })).toBeVisible()
+  await expect(page.locator('.stat.best .label')).toContainText('המשתלם ביותר: ')
+  await expect(page.locator('th', { hasText: 'נשאר אחרי מס' })).toBeVisible()
+  // A kind of fund, and how its money is taken out.
+  await expect(
+    page.getByRole('list', { name: 'קופת גמל להשקעה' }).getByRole('checkbox', { name: 'דמי ניהול ממוצעים' }),
+  ).toBeChecked()
+  await expect(page.getByRole('radiogroup', { name: 'משיכת הכסף' }).getByText('כקצבה')).toBeVisible()
+  // Its tax rule, under its name and in its row.
+  await expect(
+    page.locator('aside').getByText('אין מס בקצבה מגיל 60; אחרת ממוסה כמו חשבון מסחר'),
+  ).toBeVisible()
+  await expect(page.locator('tbody .tax-note')).toHaveText('ממוסה כמו חשבון מסחר; אין מס בקצבה מגיל 60')
   // Nothing sticks out sideways in the mirrored layout.
   const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
   expect(pageWidth).toBeLessThanOrEqual(await page.evaluate(() => innerWidth))

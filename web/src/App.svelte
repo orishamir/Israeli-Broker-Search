@@ -102,7 +102,8 @@
   const comparison = () => ('results' in app.comparison ? app.comparison : undefined)
   const deposited = rolling(() => comparison()?.deposited)
   const noFees = rolling(() => comparison()?.noFees.afterSelling)
-  const bestValue = rolling(() => best?.outcome?.afterSelling)
+  const bestValue = rolling(() => best?.outcome?.afterTax)
+  const bestTax = rolling(() => best?.outcome?.tax)
   const bestLost = rolling(() => best?.outcome?.lostToFees)
 </script>
 
@@ -158,6 +159,11 @@
           <div class="card stat best" style:--plan-color={best.plan.color}>
             <span class="label">{t.best(best.plan.label)}</span>
             <span class="value">{shekels(bestValue.current)}</span>
+            {#if app.sellAtEnd}
+              <span class="note"
+                >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
+              >
+            {/if}
             <span class="note"
               >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
             >

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { AppState, AtEnd } from './app.svelte'
+  import type { AppState, AtEnd, WayOut } from './app.svelte'
   import BrokerPicker from './BrokerPicker.svelte'
   import Choices from './Choices.svelte'
   import type { Choice } from './core/core'
   import Examples from './Examples.svelte'
   import HebrewNames from './HebrewNames.svelte'
-  import { dateText } from './format'
+  import { compactPercent, dateText } from './format'
   import { BUYING_INTERVALS } from './link'
   import NumberField from './NumberField.svelte'
   import { lang, t } from './text'
@@ -18,6 +18,24 @@
   const atEndChoices: Choice<AtEnd>[] = [
     { value: 'sell', name: t.sell, englishName: en.sell, explanation: t.sellTip, hebrewNames: [] },
     { value: 'hold', name: t.keep, englishName: en.keep, explanation: t.keepTip, hebrewNames: [] },
+  ]
+
+  /** How the money is taken out, for the age a ticked plan's pension opens at. */
+  const wayOutChoices = (pensionFromAge: number): Choice<WayOut>[] => [
+    {
+      value: 'atOnce',
+      name: t.allAtOnce,
+      englishName: en.allAtOnce,
+      explanation: t.allAtOnceTip,
+      hebrewNames: [],
+    },
+    {
+      value: 'pension',
+      name: t.asAPension,
+      englishName: en.asAPension,
+      explanation: t.asAPensionTip(pensionFromAge),
+      hebrewNames: ['קצבה'],
+    },
   ]
 
   const security = $derived(app.securities.find(({ value }) => value === app.security)!)
@@ -33,7 +51,7 @@
       <input type="checkbox" bind:checked={app.moreOptions} />
       {t.moreOptions}
     </label>
-    <Tip about={t.moreOptions}>{t.moreOptionsTip}</Tip>
+    <Tip about={t.moreOptions}>{t.moreOptionsTip(compactPercent(app.usualInflation))}</Tip>
   </div>
   <Examples {app} />
 </section>
@@ -211,6 +229,14 @@
       </span>
       <NumberField id="inflation" suffix={t.percentAYear} step={0.5} bind:value={app.inflationPercent} />
 
+      <span class="whole-row">
+        <label class="switch">
+          <input type="checkbox" bind:checked={app.todaysMoney} />
+          {t.todaysMoney}
+        </label>
+        <Tip about={t.todaysMoney}>{t.todaysMoneyTip}</Tip>
+      </span>
+
       <span>
         <span class="label-text">{t.atTheEnd}</span><Tip about={t.atTheEnd}>{t.atTheEndTip}</Tip>
       </span>
@@ -241,6 +267,44 @@
   </div>
   <BrokerPicker {app} />
 </section>
+
+<section class="card">
+  <div class="heading">
+    <h3>{t.fundsAndPolicies}</h3>
+    <Tip about={t.fundsAndPoliciesShort}>
+      <p>{t.fundsAndPoliciesTip}</p>
+    </Tip>
+  </div>
+  <BrokerPicker {app} funds />
+</section>
+
+<!-- Asked only while it changes something: a ticked plan pays a pension. -->
+{#if app.pensionFromAge !== undefined}
+  {@const from = app.pensionFromAge}
+  <section class="card">
+    <div class="heading">
+      <h3>{t.takingTheMoneyOut}</h3>
+      <Tip about={t.takingTheMoneyOut}>{t.takingTheMoneyOutTip(from)}</Tip>
+    </div>
+    <div class="fields">
+      <!-- Across the card, under its heading, which says what is chosen:
+           beside a label the two wouldn't fit on one row. -->
+      <div class="whole-row">
+        <Choices label={t.takingTheMoneyOut} options={wayOutChoices(from)} bind:value={app.wayOut} />
+      </div>
+      {#if app.wayOut === 'pension'}
+        <span>
+          <label for="age">{t.yourAge}</label><Tip about={t.yourAge}>{t.yourAgeTip}</Tip>
+        </span>
+        <NumberField id="age" step={1} bind:value={app.age} />
+        {#if app.age !== null}
+          {@const then = Math.floor(app.age) + app.years}
+          <p class="whole-row note">{then >= from ? t.oldEnough(then, from) : t.tooYoung(then, from)}</p>
+        {/if}
+      {/if}
+    </div>
+  </section>
+{/if}
 
 <section class="card">
   <div class="heading">
@@ -318,6 +382,19 @@
   }
   .fields select {
     width: 100%;
+  }
+  /* Across both columns: a switch with its ?, a note under a field. */
+  .fields > .whole-row {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    white-space: normal;
+  }
+  .note {
+    margin: 0;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--weak);
   }
   .explained {
     margin-top: 10px;

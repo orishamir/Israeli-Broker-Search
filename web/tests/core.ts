@@ -8,7 +8,7 @@ import type { Page } from '@playwright/test'
 import { aroundWords } from '../src/lib/around'
 import { percent, shekels } from '../src/lib/format'
 import { parseNumber } from '../src/lib/numbers'
-import { around, brokers, compare, initSync, sweep } from '../src/lib/core/core'
+import { around, brokers, compare, initSync, sweep, usualInflationPercent } from '../src/lib/core/core'
 import type { Exchange, Inputs, PlanKey, Security, Swept } from '../src/lib/core/core'
 
 /** The key of a listed plan: where its broker is, and where it is in the broker's plans. */
@@ -28,7 +28,9 @@ export const listedPlans = brokers().flatMap((broker, brokerIndex) =>
     key: { kind: 'listed', broker: brokerIndex, plan: planIndex } as ListedKey,
     /** As the table and buttons name it: "Leumi · Pepper". */
     label: `${broker.shortName} · ${plan.name}`,
-    usual: planIndex === broker.newCustomerPlan,
+    /** Ticked when the app opens: each broker's usual plan, and what
+     * savers in a provident fund for investment pay on average. */
+    usual: broker.comparedAtFirst && planIndex === broker.newCustomerPlan,
   })),
 )
 
@@ -61,6 +63,10 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
   // The expert fields are on the page only under "More options"; off, the
   // app takes the defaults.
   const moreOptions = await page.getByLabel('More options', { exact: true }).isChecked()
+  const inflation = moreOptions ? await number('inflation') : usualInflationPercent()
+  // How the money is taken out is asked only while a ticked plan pays a pension.
+  const wayOut = page.getByRole('radiogroup', { name: 'Taking the money out' })
+  const asPension = (await wayOut.count()) > 0 && (await chosen('Taking the money out')) === 'pension'
   return {
     security: (await chosen('Security')) as Security,
     exchange,
@@ -71,7 +77,13 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
     buyEveryMonths: Number(await page.locator('#buy-every').inputValue()),
     sharePrice: await number('share-price'),
     depositGrowthPercent: moreOptions ? await number('deposit-growth') : 0,
-    inflationPercent: moreOptions ? await number('inflation') : 0,
+    inflationPercent: inflation,
+    inTodaysMoney:
+      moreOptions &&
+      !!inflation &&
+      (await page.getByRole('checkbox', { name: "Show amounts in today's money" }).isChecked()),
+    asPension,
+    age: asPension ? await number('age') : null,
     sellAtEnd: moreOptions ? (await chosen('At the end')) === 'sell' : true,
     // The rate fields are only on the page abroad; the app has the same rates.
     ilsPerUsd: exchange === 'Tlv' ? RATES.ilsPerUsd : await number('usd'),
@@ -83,19 +95,26 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
 
 /** The results table the core would give for `inputs`: each row's plan
  * name and its amounts as the page formats them, best first, in the table's
- * column order. Nothing "if sold" when nothing is sold. */
+ * column order: what's left after tax first when everything is sold, and
+ * what's held, with no tax yet, when nothing is. */
 export function expectedRows(inputs: Inputs) {
   return compare(inputs).plans.map(({ key, outcome }) => {
     const plan = listedPlans.find((listed) => JSON.stringify(listed.key) === JSON.stringify(key))!
-    const amounts = outcome
-      ? [
-          percent(outcome.yearlyCostPercent),
-          shekels(outcome.lostToFees),
-          ...(inputs.sellAtEnd ? [shekels(outcome.afterSelling)] : []),
-          shekels(outcome.fees.total),
-          shekels(outcome.held),
-        ]
+    const [lost, yearly, fees] = outcome
+      ? [shekels(outcome.lostToFees), percent(outcome.yearlyCostPercent), shekels(outcome.fees.total)]
       : []
+    const amounts = !outcome
+      ? []
+      : inputs.sellAtEnd
+        ? [
+            shekels(outcome.afterTax),
+            lost,
+            outcome.tax === 0 ? 'none' : shekels(outcome.tax),
+            yearly,
+            fees,
+            shekels(outcome.held),
+          ]
+        : [shekels(outcome.held), lost, yearly, fees]
     return { name: plan.plan.name, broker: plan.broker.name, amounts }
   })
 }
@@ -109,7 +128,7 @@ export async function rowsOnPage(page: Page) {
       broker: await row.locator('.broker').textContent(),
       amounts: (await row.locator('td.amount').allTextContents())
         .map((text) => text.replace(/ ›$/, ''))
-        .filter((text) => !text.startsWith('Not offered')),
+        .filter((text) => !/^(Not offered|Your deposits are over|Its money is still locked)/.test(text)),
     })),
   )
 }

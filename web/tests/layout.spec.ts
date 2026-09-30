@@ -315,6 +315,50 @@ test('with tracks and a handling fee', { tag: '@phone' }, async ({ page }) => {
   await checkLayout(page, 'fractions and conversion by standing order')
 })
 
+// A fund: how its money is taken out, its details with no price list to
+// unfold, its one fee in the editor, and its row when the deposits are over
+// its ceiling.
+test(
+  'with funds: the pension, their details and editor, and a ceiling passed',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await page
+      .getByRole('list', { name: 'Savings policy' })
+      .getByRole('checkbox', { name: 'Average fee' })
+      .check()
+    await page.getByRole('radiogroup', { name: 'Taking the money out' }).getByText('As a pension').click()
+    await checkLayout(page, 'as a pension')
+    await page.getByRole('radiogroup', { name: 'Chart' }).getByText('Fee breakdown').click()
+    await checkLayout(page, 'breakdown with funds')
+
+    await page.getByRole('button', { name: 'About Provident fund · Average fee' }).click()
+    await expect(dialog(page)).toBeVisible()
+    await checkLayout(page, 'fund')
+    await dialog(page).getByRole('button', { name: 'Provident fund for investment' }).click()
+    await checkLayout(page, 'kind of fund')
+    await page.keyboard.press('Escape')
+
+    await page.getByRole('button', { name: "Change a copy of Provident fund · Average fee's fees" }).click()
+    await checkLayout(page, 'fund editor')
+    await dialog(page).getByRole('button', { name: 'Add plan' }).click()
+    await page.getByLabel('Every month').fill('8000')
+    await expect(page.getByText('Your deposits are over its yearly ceiling').first()).toBeVisible()
+    await checkLayout(page, 'over the ceiling')
+
+    // A study fund, kept for fewer years than it's locked for.
+    await page
+      .getByRole('list', { name: 'Study fund' })
+      .getByRole('checkbox', { name: 'Average fee' })
+      .check()
+    await page.getByRole('button', { name: 'About Study fund · Average fee' }).click()
+    await checkLayout(page, 'study fund')
+    await page.keyboard.press('Escape')
+    await page.locator('#years').fill('5')
+    await expect(page.getByText('Its money is still locked when your years are up')).toBeVisible()
+    await checkLayout(page, 'locked')
+  },
+)
+
 test('with the about page open', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: 'How the numbers are made' }).click()
   await expect(dialog(page)).toBeVisible()

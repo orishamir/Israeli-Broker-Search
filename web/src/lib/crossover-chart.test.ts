@@ -2,7 +2,7 @@ import type { LineSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
 import { crossoverOption, FLOOR, YOURS, type CostLine, type CrossoverView } from './crossover-chart'
 
-const line = (id: string, costs: number[], dotted = false): CostLine => ({
+const line = (id: string, costs: (number | null)[], dotted = false): CostLine => ({
   id,
   label: `Plan ${id}`,
   color: '#56b4e9',
@@ -36,9 +36,17 @@ test('every plan is a series by its id, at each amount, with costs below the flo
 test('both axes are logarithmic, and the deposit axis is named for what varies', () => {
   const monthly = crossoverOption(view())
   expect(monthly.xAxis).toMatchObject({ type: 'log', min: 100, max: 10000, name: 'Deposit a month' })
-  expect(monthly.yAxis).toMatchObject({ type: 'log', name: 'Yearly cost' })
+  expect(monthly.yAxis).toMatchObject({ type: 'log', name: 'Yearly fees' })
   const once = crossoverOption(view({ swept: 'OneTime', yours: 200_000 }))
   expect(once.xAxis).toMatchObject({ name: 'One-time deposit', max: 200_000 })
+})
+
+test("a fund's line ends where the deposits pass its ceiling", () => {
+  const [fund, broker] = series(
+    crossoverOption(view({ lines: [line('fund', [0.6, 0.6, null]), line('broker', [5, 0.5, 0.2])] })),
+  )
+  expect(fund.data).toEqual([{ value: [100, 0.6], label: { position: 'right' } }, [1000, 0.6]])
+  expect(broker.data).toHaveLength(3)
 })
 
 test("the user's deposit is a dashed marker, and stretches the axis to reach it", () => {

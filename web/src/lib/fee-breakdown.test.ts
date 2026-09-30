@@ -17,6 +17,7 @@ const fees = (purchases: number, account: number): FeeAmounts => ({
   purchases,
   conversions: 0,
   account,
+  management: 0,
   selling: 0,
   total: purchases + account,
 })
@@ -41,6 +42,7 @@ test('a focused fee is stacked first and keeps its color; the rest fade', () => 
     'account',
     'purchases',
     'conversions',
+    'management',
     'selling',
   ])
   const account = FEE_TYPES.find(({ key }) => key === 'account')!
@@ -63,7 +65,7 @@ test('the bars name each plan, marking pinned ones, with the totals at the end',
   // The outline, the slots above the bars where the names go, then a
   // stacked series per fee, each faded for unpinned plans.
   const series = option.series as (BarSeriesOption & { type: string })[]
-  expect(series.map(({ type }) => type)).toEqual(['custom', 'bar', 'bar', 'bar', 'bar', 'bar'])
+  expect(series.map(({ type }) => type)).toEqual(['custom', 'bar', 'bar', 'bar', 'bar', 'bar', 'bar'])
   expect(series[2].data).toEqual([
     { value: 500, itemStyle: { opacity: 0.6 } },
     { value: 100, itemStyle: { opacity: 1 } },

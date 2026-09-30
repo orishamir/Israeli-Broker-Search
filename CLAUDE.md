@@ -1,8 +1,11 @@
 # Broker search
 
 Compares what Israeli brokers charge for a given investing pattern: ETFs,
-index funds, bonds and stocks, on Tel Aviv or abroad. The fee model is Rust
-compiled to WebAssembly; the UI is Svelte 5 + ECharts.
+index funds, bonds and stocks, on Tel Aviv or abroad; and, beside them, what
+the same deposits come to in a provident fund for investment, a study fund
+or a savings policy, after fees and tax. A provident fund for savings is
+left out on purpose (`policies/not-modeled.md`). The fee model is Rust compiled to WebAssembly;
+the UI is Svelte 5 + ECharts.
 
 ## Layout
 
@@ -10,9 +13,21 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
   `simulation.rs` runs them over the years (and states an outcome as a
   yearly cost like a fund's fee, in today's money, and over a range of
   deposits: `sweep`, with `Sweep::around` for where the cheapest plan stops
-  being cheapest), `describe.rs` holds all text shown to users (fee
-  names, explanations, caveat kinds, the "About the numbers" page, Hebrew
-  names), in both languages (see "Two languages" below), `yours.rs` holds
+  being cheapest), `vehicles.rs` holds what the law says about each kind of
+  account (a brokerage account, a provident fund for investment, a study
+  fund, a savings policy): the tax on the gain at the end, the ceiling on
+  deposits or their tax-free part, and how long the money is locked, the
+  same whoever runs the money, while fees belong to the plan (a fund's is a
+  `ManagementFee`). `funds.rs` lists the kinds of fund like brokers
+  (`BrokerKind::Funds`), by what savers pay; `listed()` is the brokers, then
+  the funds. The comparison ranks by what's left after tax
+  (`Outcome::after_tax`) and says why a plan can't be used (`NotOffered`:
+  the security isn't sold, a year's deposits pass a fund's ceiling, or its
+  money is still locked at the end).
+  `describe.rs` holds all text shown
+  to users (fee names, explanations, caveat kinds, the "About the numbers"
+  page, Hebrew names), in both languages (see "Two languages" below),
+  `yours.rs` holds
   the user's own plans (changed copies of listed plans, and plans of their
   own) and the editor's fields, `examples.rs` the ready-made patterns behind
   the example chips.
@@ -33,10 +48,18 @@ compiled to WebAssembly; the UI is Svelte 5 + ECharts.
   that chart and the best plan's line about other deposits) is 10–15
   comparisons' work, so a Web Worker with its own copy of the core does it
   (`sweeper.ts`, `sweep.worker.ts`); the state matches each answer to the
-  request it answers.
+  request it answers. The sweep and the line about other deposits are about
+  fees alone (the yearly cost), while the table ranks after tax: the line
+  shows only when the best plan is also the cheapest in fees. How the money
+  is taken out (at once, or as a pension) is asked only while a ticked plan
+  pays a pension and everything is sold. Inflation always lowers the tax
+  (2% unless More options sets another); showing amounts in today's money
+  is a separate switch there.
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from;
   `sources.md` says where each number comes from and how unclear rows were
-  read, and `not-modeled.md` lists the fees the app leaves out.
+  read (the law's rules in `vehicles.rs` and the funds' fees too), and
+  `not-modeled.md` lists the fees and taxes the app leaves out.
+  `gemel-net.py` works the funds' fees out from the regulator's open data.
 
 Keep as much logic as possible in Rust; the web side displays what it returns.
 
@@ -60,7 +83,13 @@ quietly keep running the old core.
 - A plan's US commission tracks: the core uses the cheapest and names it.
   `trade_row` doesn't see tracks; go through `simulate`, `on_track` or
   `describe_fees_for`.
-- Each broker's `new_customer_plan` is ticked at first.
+- Each broker's `new_customer_plan` is ticked at first; of the funds, only
+  the provident fund for investment's (`compared_at_first`).
+- A fund is listed as a kind, not a company: "Average fee" from the
+  regulator's data (dated in a caveat), the cheapest and dearest company,
+  and the most allowed. A fund's plan charges only its `management`; in
+  Hebrew it isn't called a מסלול, which for a fund is an investment track
+  (מסלול השקעה).
 - A plan's `description` says what it is, who can join and on what terms,
   never its prices: the details show those under it, filtered by what the
   user buys (a test rejects percentages, cents and small amounts).
@@ -94,7 +123,8 @@ the unit tests in Node, then the browser.
 
 - `crates/core/tests/real_tariffs.rs` checks the tariffs against amounts
   worked out by hand from `policies`. A tariff change needs a case there,
-  with the arithmetic in a comment.
+  with the arithmetic in a comment; so does a change to the law's rules in
+  `vehicles.rs`.
 - `crates/core/tests/economics.rs` checks what must hold for any plan and
   any investing pattern: where every shekel goes, that no plan beats no
   fees, that raising a fee never helps, the compounding formula, the
@@ -158,6 +188,11 @@ the unit tests in Node, then the browser.
   - The Baseline plugin rejects `overscroll-behavior` (Safari lacks it on the
     page root) and, until October 2026, `:popover-open`: tips carry an `open`
     class from `tip.ts` instead.
+
+- **The core in the browser:** nothing may call it while a module loads
+  (a top-level `const x = core.f()`): the WebAssembly isn't there yet, and
+  only a browser shows it, since the unit tests load the core first. Read
+  it in `AppState`.
 
 More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
 
@@ -235,7 +270,11 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   to trade), so never say קרן נאמנות for what the app compares;
 - a US commission track (per share, per order) → שיטת חיוב, not מסלול,
   which is a plan; a joining offer → מבצע הצטרפות; custody → דמי משמרת;
-  the monthly handling fee → דמי טיפול; the conversion markup → מרווח המרה.
+  the monthly handling fee → דמי טיפול; the conversion markup → מרווח המרה;
+- a provident fund for investment → קופת גמל להשקעה; a study fund → קרן
+  השתלמות; a savings policy → פוליסת חיסכון; its fee → דמי ניהול מהצבירה, מהפקדה; a monthly pension →
+  קצבה; taking it all at once → משיכה בבת אחת; the deposit ceiling → תקרת
+  הפקדה; an index-following track → מסלול עוקב מדד.
 
 - Hebrew inside English goes in `<bdi lang="he">`. In Rust strings, join a
   phrase's words with `\u{a0}`: a phrase split across lines reads backwards.

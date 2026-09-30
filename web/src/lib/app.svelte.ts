@@ -18,6 +18,7 @@ import type {
   Security,
   SweepData,
   Swept,
+  WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
 import { shekels } from './format'
@@ -102,8 +103,13 @@ export interface Result {
   mayCostMore: string | undefined
   /** What makes sense of its numbers: "A standing order buys every month, so it isn't used here". */
   note: string | undefined
-  /** Why it has no numbers, if it doesn't offer the security there: "Nothing in Europe is offered". */
+  /** What became of a fund's tax: "No tax: your deposits are within ₪20,566 a year". */
+  taxNote: string | undefined
+  /** Why it has no numbers: "Nothing in Europe is offered", or how far the
+   * deposits are over its yearly ceiling. */
   notOffered: string | undefined
+  /** Which of those it is, for the few words the table itself says. */
+  whyNot: WhyNot | undefined
 }
 
 export type ChartView = 'value' | 'lost' | 'crossover' | 'breakdown'
@@ -112,6 +118,10 @@ const FIRST_VIEW: ChartView = 'lost'
 
 /** What happens at the end of the years: everything is sold, or kept. */
 export type AtEnd = 'sell' | 'hold'
+
+/** How the money is taken out at the end: all at once, or as a monthly
+ * pension where a plan pays one. */
+export type WayOut = 'atOnce' | 'pension'
 
 /** The chosen plans, best first, or why they couldn't be compared.
  * `largestTrade`: the biggest single order, in the exchange's currency. */
@@ -166,6 +176,9 @@ function withColor<T extends object>(plan: T, color: () => string): T & { color:
  * derived: it's recalculated by the Rust core whenever an input changes. */
 export class AppState {
   readonly brokers: BrokerInfo[] = core.brokers()
+  /** How much prices are taken to rise a year, in percent, unless the user
+   * says otherwise: the core's, since the tax is worked out with it. */
+  readonly usualInflation: number = core.usualInflationPercent()
   /** How the numbers are made, what isn't counted, and the sources. */
   readonly about = core.about()
   readonly securities: Choice<Security>[] = core.securities()
@@ -236,12 +249,20 @@ export class AppState {
   buyEveryMonths = $state(1)
   sharePrice = $state<number | null>(500)
   /** The expert inputs below are shown, and used. Off, the deposits stay the
-   * same, nothing is taken off for inflation and everything is sold at the
-   * end, whatever their fields say. Remembered. */
+   * same, prices rise as usual, amounts are shown as they will be and
+   * everything is sold at the end, whatever their fields say. Remembered. */
   moreOptions = $state(load<boolean>('more-options', false))
   depositGrowthPercent = $state<number | null>(0)
-  inflationPercent = $state<number | null>(0)
+  /** How much prices rise a year: the tax is on the gain beyond it. */
+  inflationPercent = $state<number | null>(this.usualInflation)
+  /** Whether amounts are shown in today's money, as the box is ticked. */
+  todaysMoney = $state(false)
   atEnd = $state<AtEnd>('sell')
+  /** How the money is taken out, as chosen; asked only while a ticked plan
+   * pays a pension. */
+  wayOut = $state<WayOut>('atOnce')
+  /** The saver's age today: a pension opens from an age. */
+  age = $state<number | null>(45)
   ilsPerUsd = $state<number | null>(DEFAULT_RATES.ilsPerUsd)
   ilsPerEur = $state<number | null>(DEFAULT_RATES.ilsPerEur)
   ratesStatus = $state<RatesStatus>({ kind: 'downloading' })
@@ -249,7 +270,11 @@ export class AppState {
    * broker, and all of the user's own. */
   selected = new SvelteSet<string>(
     this.plans
-      .filter((plan) => plan.key.kind === 'yours' || plan.key.plan === plan.broker!.newCustomerPlan)
+      .filter(
+        (plan) =>
+          plan.key.kind === 'yours' ||
+          (plan.broker!.comparedAtFirst && plan.key.plan === plan.broker!.newCustomerPlan),
+      )
       .map((plan) => plan.id),
   )
   /** The colors handed out, by plan id; a copy goes by its original's.
@@ -431,7 +456,21 @@ export class AppState {
   /** Whether everything is sold at the end, as the core is told. */
   sellAtEnd: boolean = $derived(!this.moreOptions || this.atEnd === 'sell')
   /** Whether the amounts shown are in today's money. */
-  inTodaysMoney: boolean = $derived(this.moreOptions && (this.inflationPercent ?? 0) !== 0)
+  inTodaysMoney: boolean = $derived(
+    this.moreOptions && this.todaysMoney && (this.inflationPercent ?? 0) !== 0,
+  )
+  /** The age from which a ticked plan can be taken as a pension, the
+   * youngest if they differ; none if no ticked plan pays one. How the money
+   * is taken out is asked only while there is one, and while it's sold. */
+  pensionFromAge: number | undefined = $derived.by(() => {
+    if (!this.sellAtEnd) return undefined
+    const ages = this.plans
+      .filter((plan) => this.selected.has(plan.id))
+      .flatMap((plan) => plan.info.pensionFromAge ?? [])
+    return ages.length > 0 ? Math.min(...ages) : undefined
+  })
+  /** Whether the money is taken as a pension, as the core is told. */
+  asPension: boolean = $derived(this.pensionFromAge !== undefined && this.wayOut === 'pension')
 
   /** Everything the core compares the plans by. */
   inputs: Inputs = $derived(this.inputsWith(this.firstDeposit, this.monthlyDeposit))
@@ -449,7 +488,10 @@ export class AppState {
       buyEveryMonths: this.buyEveryMonths,
       sharePrice: this.sharePrice,
       depositGrowthPercent: this.moreOptions ? this.depositGrowthPercent : 0,
-      inflationPercent: this.moreOptions ? this.inflationPercent : 0,
+      inflationPercent: this.moreOptions ? this.inflationPercent : this.usualInflation,
+      inTodaysMoney: this.inTodaysMoney,
+      asPension: this.asPension,
+      age: this.age,
       sellAtEnd: this.sellAtEnd,
       ilsPerUsd: this.ilsPerUsd,
       ilsPerEur: this.ilsPerEur,
@@ -556,8 +598,18 @@ export class AppState {
     // The expert inputs only when they'd change something.
     if (this.moreOptions) {
       if (this.depositGrowthPercent) shared.depositGrowthPercent = this.depositGrowthPercent
-      if (this.inflationPercent) shared.inflationPercent = this.inflationPercent
+      if (this.inflationPercent !== null && this.inflationPercent !== this.usualInflation) {
+        shared.inflationPercent = this.inflationPercent
+      }
+      if (this.inTodaysMoney) {
+        shared.inflationPercent = this.inflationPercent ?? undefined
+        shared.inTodaysMoney = true
+      }
       if (!this.sellAtEnd) shared.sellAtEnd = false
+    }
+    if (this.asPension) {
+      shared.asPension = true
+      shared.age = this.age ?? undefined
     }
     return `${location.origin}${location.pathname}#${encode(shared)}`
   }
@@ -576,10 +628,13 @@ export class AppState {
     if (shared.sharePrice !== undefined) this.sharePrice = shared.sharePrice
     if (shared.depositGrowthPercent !== undefined) this.depositGrowthPercent = shared.depositGrowthPercent
     if (shared.inflationPercent !== undefined) this.inflationPercent = shared.inflationPercent
+    if (shared.inTodaysMoney) this.todaysMoney = true
     if (shared.sellAtEnd === false) this.atEnd = 'hold'
-    if (shared.depositGrowthPercent || shared.inflationPercent || shared.sellAtEnd === false) {
+    if (shared.depositGrowthPercent || shared.inflationPercent !== undefined || shared.sellAtEnd === false) {
       this.moreOptions = true
     }
+    if (shared.asPension) this.wayOut = 'pension'
+    if (shared.age !== undefined) this.age = shared.age
     const yours = readable(shared.yours ?? [], 'a plan from the link')
     if (yours.length > 0) {
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
@@ -628,16 +683,20 @@ export class AppState {
       noFees: data.noFees,
       largestTrade: data.largestTrade,
       // Best first, and the plans without an outcome last.
-      results: data.plans.map(({ key, outcome, track, warning, mayCostMore, note, notOffered }, index) => ({
-        plan: this.plansById.get(planId(key))!,
-        outcome,
-        rank: outcome ? index + 1 : undefined,
-        track,
-        warning,
-        mayCostMore,
-        note,
-        notOffered,
-      })),
+      results: data.plans.map(
+        ({ key, outcome, track, warning, mayCostMore, note, taxNote, notOffered, whyNot }, index) => ({
+          plan: this.plansById.get(planId(key))!,
+          outcome,
+          rank: outcome ? index + 1 : undefined,
+          track,
+          warning,
+          mayCostMore,
+          note,
+          taxNote,
+          notOffered,
+          whyNot,
+        }),
+      ),
     }
   })
 

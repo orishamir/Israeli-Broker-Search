@@ -1,5 +1,15 @@
 import { formatNumber } from '../src/lib/numbers'
-import { copyOf, inputsOnPage, listed, listedPlan, planInfo, setTrade, simpleFees, trackOnPage } from './core'
+import {
+  copyOf,
+  inputsOnPage,
+  listed,
+  listedPlan,
+  planInfo,
+  setManagement,
+  setTrade,
+  simpleFees,
+  trackOnPage,
+} from './core'
 import type { PlanData } from './core'
 import { choice, expect, rows, test, type Page } from './fixtures'
 
@@ -59,6 +69,41 @@ test("✎ copies a plan to change, showing the original's fees", { tag: '@phone'
   await expect(row.locator('.mark')).toHaveClass(/yours/)
   await expect(rows(page)).toHaveCount((await inputsOnPage(page)).plans.length + 1)
 })
+
+test(
+  "a fund's copy has its manager's fee alone, and a lower one ranks above the average",
+  { tag: '@phone' },
+  async ({ page }) => {
+    const label = 'Provident fund · Average fee'
+    const { plan, copy: data, simple } = await copied(page, label)
+    await copy(page, label)
+    const dialog = page.getByRole('dialog', { name: 'Your fee' })
+    await expect(dialog).toContainText(`Copy of ${plan.name} · Provident fund for investment`)
+    // No price list to open, and no trades or conversions to price.
+    await expect(dialog.getByRole('radiogroup', { name: 'View' })).toBeHidden()
+    await expect(dialog.getByLabel('Buy or sell: price')).toBeHidden()
+    const balance = dialog.getByLabel('Management fee: of the balance, a year')
+    const fee = simple().management!
+    await expect(balance).toHaveValue(formatNumber(fee.fields.ofBalance ?? null))
+    await expect(dialog.getByLabel('Management fee: of each deposit')).toHaveValue('')
+
+    await balance.fill('0.4')
+    const changed = setManagement(data, { ...fee.fields, ofBalance: 0.4 })
+    await expect(dialog).toContainText(`${plan.name}: ${simple(changed).management!.was!.price.text}`)
+    await balance.fill('-1')
+    await expect(dialog).toContainText("Fees can't be negative")
+    await balance.fill('0.4')
+    await expect(dialog).not.toContainText("Fees can't be negative")
+
+    await dialog.getByRole('button', { name: 'Add plan' }).click()
+    await expect(dialog).toBeHidden()
+    const row = rows(page).filter({ hasText: 'Your fee' })
+    await expect(row).toContainText('Your deal · Provident fund for investment')
+    const names = await rows(page).locator('.names > span:first-child').allTextContents()
+    expect(names.indexOf('Your fee')).toBeGreaterThanOrEqual(0)
+    expect(names.indexOf('Your fee')).toBeLessThan(names.indexOf('Average fee'))
+  },
+)
 
 test('↺ goes back to the original fee; a bad fee says why and keeps the last good one', async ({ page }) => {
   const { plan, simple } = await copied(page, 'Leumi · Pepper')

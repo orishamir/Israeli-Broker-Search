@@ -5,7 +5,7 @@
 use rust_decimal_macros::dec;
 
 use crate::simulation::Scenario;
-use crate::{Exchange, Percent, Security, Text};
+use crate::{Exchange, Percent, Security, Text, Withdrawal};
 
 /// One pattern: a short name for its button, the pattern in words, and the
 /// inputs it sets.
@@ -39,6 +39,9 @@ pub fn all() -> Vec<Example> {
         buy_every_months: 1,
         share_price: dec!(500),
         sell_at_end: true,
+        inflation: Percent(dec!(0)),
+        age: 30,
+        withdrawal: Withdrawal::LumpSum,
     };
     vec![
         example(

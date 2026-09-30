@@ -27,7 +27,7 @@ test('a tapped ? explains its label until a tap elsewhere', { tag: '@touch' }, a
 })
 
 test('a clicked ? stays open until Esc', async ({ page }) => {
-  const button = page.getByRole('button', { name: 'What “Value if sold” means' })
+  const button = page.getByRole('button', { name: 'What “Left after tax” means' })
   const tip = page.getByRole('tooltip').filter({ hasText: 'after the sell fee' })
   await button.click()
   await away(page)

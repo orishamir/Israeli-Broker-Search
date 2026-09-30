@@ -20,6 +20,7 @@ export const FEE_TYPES: { key: FeeType; name: string; color: string; explanation
   { key: 'purchases', name: t.purchases, color: '#3987e5', explanation: t.purchasesTip },
   { key: 'conversions', name: t.conversions, color: '#d95926', explanation: t.conversionsTip },
   { key: 'account', name: t.account, color: '#199e70', explanation: t.accountTip },
+  { key: 'management', name: t.management, color: '#9b7bf0', explanation: t.managementTip },
   { key: 'selling', name: t.selling, color: '#c98500', explanation: t.sellingTip },
 ]
 

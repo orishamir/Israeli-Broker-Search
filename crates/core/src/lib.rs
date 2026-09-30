@@ -6,16 +6,21 @@
 //! ```text
 //! Broker                          e.g. "Bank Leumi"
 //! └── Plan                        one price list a customer can be on, e.g. "Online", "Pepper"
+//!     ├── vehicle:         Vehicle          a brokerage account, a provident fund, a savings policy
 //!     ├── trading:         Vec<TradeFee>    fee per buy or sell (first matching row wins)
 //!     ├── standing_orders: Vec<TradeFee>    cheaper fees for buying by standing order, if any
 //!     ├── custody:         Vec<CustodyFee>  fee for holding securities (first matching row wins)
-//!     └── conversion:      ConversionFee    fee for changing ₪ into foreign currency and back
+//!     ├── conversion:      ConversionFee    fee for changing ₪ into foreign currency and back
+//!     └── management:      ManagementFee    a manager's share of deposits and of the balance, if any
 //! ```
 //!
-//! The three fee types are separate because each is charged on something
+//! The fee types are separate because each is charged on something
 //! different: a trade fee on one trade, custody on everything you hold over
 //! time, conversion on an amount of money. Each type has only the fields that
 //! make sense for it, so for example a conversion can't be priced per share.
+//!
+//! Fees belong to the plan; the tax on the gain and the limits on deposits
+//! belong to its [`Vehicle`], whoever runs the money ([`vehicles`]).
 //!
 //! # Usage
 //!
@@ -38,15 +43,18 @@
 
 pub mod describe;
 pub mod examples;
+pub mod funds;
 pub mod money;
 mod percent;
 pub mod simulation;
 pub mod tariffs;
+pub mod vehicles;
 pub mod yours;
 
 pub use describe::FeeKind;
 pub use money::{Currency, ExchangeRates, Money, ils, iso, usd};
 pub use percent::Percent;
+pub use vehicles::{Vehicle, Withdrawal};
 // For `Security::iter()` and `Exchange::iter()`.
 use std::borrow::Cow;
 use std::ops::Index;
@@ -568,6 +576,10 @@ pub struct Plan {
     /// broker's other plans. Not its prices: the plan's details show those
     /// under it, only the ones that apply to what the user buys.
     pub description: Text,
+    /// What kind of account it is, which decides the tax on the gain and
+    /// how much may be deposited.
+    #[serde(default = "Vehicle::of_older_saves")]
+    pub vehicle: Vehicle,
     /// The trade fee table. The first row that covers a trade is used.
     pub trading: Vec<TradeFee>,
     /// Price options chosen when opening the account, for some trades (see
@@ -592,6 +604,10 @@ pub struct Plan {
     /// A monthly fee for keeping the account, if the plan has one.
     #[serde(default)]
     pub handling: Option<HandlingFee>,
+    /// What a manager takes for running the money, if someone does: a
+    /// provident fund's or a savings policy's only fee.
+    #[serde(default)]
+    pub management: Option<ManagementFee>,
     /// The exchanges where the broker sells fractions of a share. Empty
     /// means none: there, only whole shares are bought.
     #[serde(default)]
@@ -647,6 +663,32 @@ impl HandlingFee {
             Decimal::ZERO
         };
         (*self.per_month.amount() - taken_off).max(Decimal::ZERO)
+    }
+}
+
+/// What a manager takes for running the money (Dmei Nihul), the way
+/// provident funds and savings policies charge: a share of each deposit on
+/// its way in, and a share of what has built up, every year. Inside a fund
+/// nothing else is paid: no trade fees and no custody.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+pub struct ManagementFee {
+    /// Taken from each deposit before it's invested.
+    pub of_deposits: Percent,
+    /// A year's charge on the balance, taken a twelfth every month.
+    pub of_balance: Percent,
+}
+
+impl ManagementFee {
+    /// What's taken from `deposit` on its way in.
+    #[must_use]
+    pub fn on_deposit(&self, deposit: Decimal) -> Decimal {
+        self.of_deposits.of(deposit)
+    }
+
+    /// A month's charge on `balance`.
+    #[must_use]
+    pub fn for_month(&self, balance: Decimal) -> Decimal {
+        self.of_balance.of(balance) / Decimal::from(12)
     }
 }
 
@@ -861,6 +903,15 @@ impl Plan {
             .find(|row| row.applies_to(security, exchange))
     }
 
+    /// What a manager leaves of `deposit`: all of it where there's none.
+    #[must_use]
+    pub fn deposit_less_fee(&self, deposit: Decimal) -> Decimal {
+        deposit
+            - self
+                .management
+                .map_or(Decimal::ZERO, |fee| fee.on_deposit(deposit))
+    }
+
     /// The plan as it is on track `index`: that track's trade rows before
     /// its own, and no tracks left to choose.
     #[must_use]
@@ -975,6 +1026,11 @@ pub enum BrokerKind {
     /// Publishes only a full tariff, the most it may charge, and offers new
     /// customers less.
     InvestmentHouse,
+    /// Not one company but a kind of fund, as a whole: a provident fund for
+    /// investment, a savings policy. Its fee is agreed person by person, so
+    /// its plans are what savers pay: on average, at the cheapest and the
+    /// dearest company, and the most that's allowed.
+    Funds,
 }
 
 /// A broker or bank, and every plan it offers.
@@ -991,6 +1047,11 @@ pub struct Broker {
     /// first.
     #[serde(default)]
     pub new_customer_plan: usize,
+    /// Whether that plan is ticked when the app opens. Everyone compares
+    /// the brokers; of the funds, only the kind most like a broker's
+    /// account.
+    #[serde(default = "yes")]
+    pub compared_at_first: bool,
     /// What kind of broker it is and how its plans relate, in plain words.
     pub description: Text,
     /// The date on the tariff document the numbers came from, if it has one.
@@ -1052,6 +1113,21 @@ impl Buying {
 }
 
 // ─────────────────────────── Helpers ───────────────────────────
+
+/// Everything the app lists to compare, in the order to offer it: the
+/// brokers, then the funds. Other code refers to them, and to their plans,
+/// by position in this list.
+#[must_use]
+pub fn listed() -> Vec<Broker> {
+    let mut listed = tariffs::all();
+    listed.extend(funds::all());
+    listed
+}
+
+/// What a broker saved before `compared_at_first` was: compared.
+fn yes() -> bool {
+    true
+}
 
 /// True if `list` contains `x`, or if `list` is empty (meaning "any").
 fn empty_or_contains<T: PartialEq + Copy>(list: &[T], x: T) -> bool {

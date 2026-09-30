@@ -2,67 +2,77 @@
   import { tick } from 'svelte'
   import { flip } from 'svelte/animate'
   import type { AppState, Result } from './app.svelte'
-  import type { OutcomeData } from './core/core'
-  import { percent, shekels } from './format'
+  import type { OutcomeData, WhyNot } from './core/core'
+  import { compactPercent, percent, shekels } from './format'
   import { duration, reducedMotion } from './motion'
   import { t } from './text'
   import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
 
+  /** A plan without numbers, in the few words its row says, and what its ?
+   * is about; the core's sentence is in the tip. */
+  const whyNotWords = (whyNot: WhyNot | undefined) => {
+    if (whyNot === 'OverTheCeiling') return { cell: t.overTheCeiling, about: t.theCeiling }
+    if (whyNot === 'Locked') return { cell: t.stillLocked, about: t.theLock }
+    return { cell: t.notOfferedFor(app.purchase), about: t.notOffered }
+  }
+
   interface Column {
     /** The same in every language, for the fees column's link. */
-    key: 'yearly' | 'lost' | 'sold' | 'fees' | 'held'
+    key: 'left' | 'lost' | 'tax' | 'yearly' | 'fees' | 'held'
     title: string
     explanation: string
     /** The cell's text for an outcome. */
     text: (outcome: OutcomeData) => string
   }
 
-  /** The amounts, the ones that decide first: on a phone only the first two
-   * fit beside the plan's name, and the rest scroll into view. As the inputs
-   * have them: no "if sold" when nothing is sold, and a note when they're in
-   * today's money. */
+  /** The amounts, what the table is ranked by first: on a phone only the
+   * first two fit beside the plan's name, and the rest scroll into view. As
+   * the inputs have them: what's left after tax when everything is sold,
+   * what's held when nothing is (then there's no tax yet), and a note when
+   * they're in today's money. */
   const columns: Column[] = $derived.by(() => {
     const selling = app.sellAtEnd
     const money = app.inTodaysMoney ? t.inTodaysMoneyNote : ''
-    const columns: Column[] = [
-      {
-        key: 'yearly',
-        title: t.yearlyCost,
-        explanation: t.yearlyCostTip,
-        text: (outcome) => percent(outcome.yearlyCostPercent),
-      },
-      {
-        key: 'lost',
-        title: t.lostToFees,
-        explanation: t.lostToFeesTip(selling) + money,
-        text: (outcome) => shekels(outcome.lostToFees),
-      },
-    ]
-    if (selling) {
-      columns.push({
-        key: 'sold',
-        title: t.valueIfSold,
-        explanation: t.valueIfSoldTip + money,
-        text: (outcome) => shekels(outcome.afterSelling),
-      })
+    const held: Column = {
+      key: 'held',
+      title: t.valueHeld,
+      explanation: t.valueHeldTip + money,
+      text: (outcome) => shekels(outcome.held),
     }
-    columns.push(
-      {
-        key: 'fees',
-        title: t.feesPaid,
-        explanation: t.feesPaidTip(selling) + money,
-        text: (outcome) => shekels(outcome.fees.total),
-      },
-      {
-        key: 'held',
-        title: t.valueHeld,
-        explanation: t.valueHeldTip + money,
-        text: (outcome) => shekels(outcome.held),
-      },
-    )
-    return columns
+    const lost: Column = {
+      key: 'lost',
+      title: t.lostToFees,
+      explanation: t.lostToFeesTip(selling) + money,
+      text: (outcome) => shekels(outcome.lostToFees),
+    }
+    const yearly: Column = {
+      key: 'yearly',
+      title: t.yearlyCost,
+      explanation: t.yearlyCostTip,
+      text: (outcome) => percent(outcome.yearlyCostPercent),
+    }
+    const fees: Column = {
+      key: 'fees',
+      title: t.feesPaid,
+      explanation: t.feesPaidTip(selling) + money,
+      text: (outcome) => shekels(outcome.fees.total),
+    }
+    if (!selling) return [held, lost, yearly, fees]
+    const left: Column = {
+      key: 'left',
+      title: t.leftAfterTax,
+      explanation: t.leftAfterTaxTip + money,
+      text: (outcome) => shekels(outcome.afterTax),
+    }
+    const tax: Column = {
+      key: 'tax',
+      title: t.tax,
+      explanation: t.taxTip(compactPercent(app.inputs.inflationPercent ?? 0)) + money,
+      text: (outcome) => (outcome.tax === 0 ? t.noTax : shekels(outcome.tax)),
+    }
+    return [left, lost, tax, yearly, fees, held]
   })
 </script>
 
@@ -78,8 +88,9 @@
   </thead>
   <tbody>
     <!-- Rows glide to their new place when the ranking changes. Plans that
-         don't offer the security have no line to highlight. -->
-    {#each results as { plan, outcome, rank, warning, mayCostMore, note, notOffered } (plan.id)}
+         can't be used (the security isn't offered, the deposits are over a
+         fund's ceiling, its money is still locked) have no line to highlight. -->
+    {#each results as { plan, outcome, rank, warning, mayCostMore, note, taxNote, notOffered, whyNot } (plan.id)}
       <tr
         animate:flip={{ duration: duration(300) }}
         class:not-offered={!outcome}
@@ -101,6 +112,8 @@
               <!-- A number that may be too low: the plan stays ranked, flagged. -->
               {#if mayCostMore}<span class="warning">⚠ {mayCostMore}</span>{/if}
               {#if note}<span class="note">{note}</span>{/if}
+              <!-- A fund's tax rule decides its row: said here, not only in its caveats. -->
+              {#if taxNote}<span class="note tax-note">{taxNote}</span>{/if}
             </span>
           </div>
         </td>
@@ -130,7 +143,7 @@
           {/each}
         {:else}
           <td class="amount" colspan={columns.length}
-            >{t.notOfferedFor(app.purchase)}<Tip about={t.notOffered}>{notOffered}</Tip></td
+            >{whyNotWords(whyNot).cell}<Tip about={whyNotWords(whyNot).about}>{notOffered}</Tip></td
           >
         {/if}
       </tr>
@@ -222,6 +235,10 @@
   }
   .warning {
     color: var(--warning);
+  }
+  /* As readable as the plan's name: it's why the row's tax is what it is. */
+  .tax-note {
+    color: var(--text);
   }
   /* Long ones wrap, rather than widen the table past its card. */
   .warning,

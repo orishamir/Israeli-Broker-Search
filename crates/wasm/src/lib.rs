@@ -17,14 +17,14 @@ use broker_fees::describe::{
     self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced, Source,
 };
 use broker_fees::examples;
-use broker_fees::simulation::{self, Fees, InvalidScenario, Outcome, Scenario, Swept};
+use broker_fees::simulation::{self, Fees, InvalidScenario, NotOffered, Outcome, Scenario, Swept};
 use broker_fees::yours::{
-    Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, MarkupFields, PriceKind,
-    PriceList, SimpleFees, TradeFields,
+    Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, ManagementFields,
+    MarkupFields, PriceKind, PriceList, SimpleFees, TradeFields,
 };
 use broker_fees::{
-    Broker, Buying, Exchange, ExchangeRates, IntoEnumIterator, Lang, Money, Named, Percent, Period,
-    Plan, Security, TradeFee, ils, tariffs,
+    Broker, BrokerKind, Buying, Exchange, ExchangeRates, IntoEnumIterator, Lang, Money, Named,
+    Percent, Period, Plan, Security, TradeFee, Withdrawal, ils,
 };
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -32,8 +32,9 @@ use serde::{Deserialize, Serialize};
 use tsify::{Ts, Tsify};
 use wasm_bindgen::prelude::*;
 
+/// The brokers, then the kinds of fund.
 fn all_brokers() -> Vec<Broker> {
-    tariffs::all()
+    broker_fees::listed()
 }
 
 // ─────────────────────────── Language ───────────────────────────
@@ -155,11 +156,17 @@ pub fn fee_kinds() -> Result<Vec<Ts<FeeKindChoice>>, JsError> {
 
 // ─────────────────────────── Brokers ───────────────────────────
 
-/// A broker, as the sidebar and its details show it.
+/// A broker or a kind of fund, as the sidebar and its details show it.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct BrokerInfo {
+    /// A bank, an investment house, or a kind of fund: the sidebar lists
+    /// the funds apart.
+    pub kind: BrokerKind,
     pub name: String,
+    /// A kind of fund's Hebrew name, shown beside the English one, which
+    /// nobody in Israel calls it by.
+    pub hebrew_name: Option<String>,
     /// The English name, which saved copies of its plans name it by.
     pub english_name: String,
     /// "Leumi", beside a plan's name where plan names repeat: "Leumi · Online".
@@ -167,8 +174,14 @@ pub struct BrokerInfo {
     /// The English short name, for links, which name plans the same in
     /// every language.
     pub english_short_name: String,
-    /// Which of `plans` a new customer usually gets, compared at first.
+    /// Which of `plans` a new customer usually gets.
     pub new_customer_plan: usize,
+    /// Whether that plan is ticked when the app opens.
+    pub compared_at_first: bool,
+    /// A fund's tax rule in a line, shown under its name: "No tax on gains
+    /// after 6 years, on up to ₪20,566 deposited a year". Missing for a
+    /// broker.
+    pub tax_rule: Option<String>,
     pub description: String,
     /// What "usual" means beside the plan a new customer gets: a bank's
     /// online prices, an investment house's joining offer.
@@ -188,15 +201,23 @@ pub struct BrokerInfo {
 impl BrokerInfo {
     fn new(broker: &Broker, lang: Lang) -> Self {
         BrokerInfo {
+            kind: broker.kind,
             name: broker.name[lang].to_owned(),
+            hebrew_name: (broker.kind == BrokerKind::Funds).then(|| broker.name.he.to_string()),
             english_name: broker.name.en.to_string(),
             short_name: broker.short_name[lang].to_owned(),
             english_short_name: broker.short_name.en.to_string(),
             new_customer_plan: broker.new_customer_plan,
+            compared_at_first: broker.compared_at_first,
+            // Every plan of a broker or a fund is in the same vehicle.
+            tax_rule: broker
+                .plans
+                .first()
+                .and_then(|plan| plan.vehicle.tax_rule(lang)),
             description: broker.description[lang].to_owned(),
             usual_plan: broker.usual_plan_text(lang),
             tariff_date: broker.tariff_date_text(lang),
-            checked: Broker::checked_text(lang),
+            checked: broker.checked_on_text(lang),
             source_url: broker.source_url.clone(),
             sources: broker.sources(lang),
             plans: broker
@@ -219,6 +240,10 @@ pub struct PlanInfo {
     /// language.
     pub english_name: String,
     pub description: String,
+    /// The age from which it can be taken as a monthly pension, taxed
+    /// differently: 60 for a provident fund for investment. Missing where
+    /// there's no such way out.
+    pub pension_from_age: Option<u32>,
     /// Every row of the plan's tariff, in words.
     pub tariff: TariffInfo,
     /// The pages its numbers rest on: the tariff, then what the broker-wide
@@ -240,9 +265,17 @@ impl PlanInfo {
             name: plan.name[lang].to_owned(),
             english_name: plan.name.en.to_string(),
             description: plan.description[lang].to_owned(),
+            pension_from_age: plan.vehicle.rules().pension.map(|pension| pension.from_age),
             // Filled in by the broker, which knows its tariff and its caveats.
             sources: vec![],
             tariff: TariffInfo {
+                management: plan
+                    .management
+                    .filter(|_| plan.vehicle.invests_for_you())
+                    .map(|fee| ManagementInfo {
+                        of_balance: fee.balance_price_text(lang),
+                        of_deposits: fee.deposit_price_text(lang),
+                    }),
                 trading: trade_rows(&plan.trading),
                 tracks: plan
                     .tracks
@@ -283,6 +316,8 @@ impl PlanInfo {
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct TariffInfo {
+    /// A fund's or a policy's fee: all it charges, so the rest isn't shown.
+    pub management: Option<ManagementInfo>,
     pub trading: Vec<TariffRow>,
     /// The tracks a customer chooses one of, each with its own trade prices
     /// taking over the plan's for what they cover.
@@ -301,6 +336,14 @@ pub struct TariffInfo {
     pub markup: PriceText,
     /// The exchanges where fractions of a share are sold: "USA".
     pub fractions_on: Vec<String>,
+}
+
+/// "0.62% of the balance a year" and "none": a manager's two fees.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ManagementInfo {
+    pub of_balance: PriceText,
+    pub of_deposits: PriceText,
 }
 
 /// "1¢ a share", and the trade prices it sets.
@@ -459,10 +502,20 @@ pub struct Inputs {
     /// How much more is deposited each year than the year before: 3 means 3%.
     #[tsify(type = "number | null")]
     pub deposit_growth_percent: Option<f64>,
-    /// Inflation, to show every amount in today's shekels: 2 means 2% a year.
-    /// Zero shows the amounts as they will be.
+    /// How much prices rise a year: 2 means 2%. The tax is on the gain
+    /// beyond it.
     #[tsify(type = "number | null")]
     pub inflation_percent: Option<f64>,
+    /// Whether every amount is shown in today's shekels, with the rise in
+    /// prices taken off.
+    pub in_todays_money: bool,
+    /// Whether the money is taken as a monthly pension where a plan pays
+    /// one, rather than all at once.
+    pub as_pension: bool,
+    /// The saver's age today. Asked for only with `as_pension`: a pension
+    /// opens from an age.
+    #[tsify(type = "number | null")]
+    pub age: Option<f64>,
     /// Whether everything is sold at the end, or kept.
     pub sell_at_end: bool,
     #[tsify(type = "number | null")]
@@ -492,6 +545,7 @@ pub enum Field {
     YearlyReturn,
     SharePrice,
     Inflation,
+    Age,
     UsdRate,
     EurRate,
 }
@@ -507,6 +561,7 @@ impl Named for Field {
             Field::YearlyReturn => lang.pick("the yearly return", "התשואה השנתית"),
             Field::SharePrice => lang.pick("the share price", "מחיר המניה"),
             Field::Inflation => lang.pick("the inflation", "האינפלציה"),
+            Field::Age => lang.pick("your age", "הגיל שלכם"),
             Field::UsdRate => lang.pick("the dollar's rate", "שער הדולר"),
             Field::EurRate => lang.pick("the euro's rate", "שער האירו"),
         }
@@ -655,6 +710,13 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
         buy_every_months: inputs.buy_every_months,
         share_price,
         sell_at_end: inputs.sell_at_end,
+        inflation: inflation(inputs)?,
+        age: age(inputs)?,
+        withdrawal: if inputs.as_pension {
+            Withdrawal::Pension
+        } else {
+            Withdrawal::LumpSum
+        },
     };
     scenario.check()?;
     Ok(scenario)
@@ -667,6 +729,20 @@ fn inflation(inputs: &Inputs) -> Result<Percent, InvalidInputs> {
         return Err(InvalidInputs::Other(Problem::InflationTooLow));
     }
     Ok(Percent(inflation))
+}
+
+/// The saver's age today, in whole years. It only matters for a pension,
+/// so taking the money at once doesn't ask for it.
+fn age(inputs: &Inputs) -> Result<u32, InvalidInputs> {
+    if !inputs.as_pension {
+        return Ok(0);
+    }
+    let age = filled_in(inputs.age, Field::Age)?;
+    if age.is_sign_negative() {
+        return Err(InvalidInputs::Negative(Field::Age));
+    }
+    // Past any age, a saver is simply old enough.
+    Ok(age.floor().to_u32().unwrap_or(u32::MAX))
 }
 
 fn exchange_rates(inputs: &Inputs) -> Result<ExchangeRates, InvalidInputs> {
@@ -697,8 +773,8 @@ pub struct ComparisonData {
     /// selling everything at the end, with no fees. Some caveats matter
     /// only above an amount.
     pub largest_trade: f64,
-    /// Best first (most left after selling); plans that don't offer the
-    /// security last.
+    /// Best first (most left after selling and paying the tax); plans that
+    /// can't be used last.
     pub plans: Vec<PlanOutcomeData>,
 }
 
@@ -706,7 +782,7 @@ pub struct ComparisonData {
 #[serde(rename_all = "camelCase")]
 pub struct PlanOutcomeData {
     pub key: PlanKey,
-    /// Missing if the plan doesn't offer the security on that exchange.
+    /// Missing if the plan can't be used for the inputs.
     pub outcome: Option<OutcomeData>,
     /// The plan's track the comparison used, the cheapest, if its tracks
     /// price the security there.
@@ -721,9 +797,38 @@ pub struct PlanOutcomeData {
     /// share, the cheapest for you", "A standing order buys every month, so
     /// it isn't used here".
     pub note: Option<String>,
-    /// Why it has no numbers, if it doesn't offer the security there, in the
-    /// most general terms that are true: "Nothing in Europe is offered".
+    /// What became of a fund's tax, under its name: "No tax: your deposits
+    /// are within ₪20,566 a year". Missing for a broker's plan, when
+    /// nothing is sold, and with the outcome.
+    pub tax_note: Option<String>,
+    /// Why it has no numbers, in a sentence: it doesn't offer the security
+    /// there, in the most general terms that are true ("Nothing in Europe
+    /// is offered"), the deposits are over its yearly ceiling, and by how
+    /// much, or its money is still locked at the end.
     pub not_offered: Option<String>,
+    /// Which of those it is, for the few words the table itself says.
+    pub why_not: Option<WhyNot>,
+}
+
+/// Why a plan can't be used for the inputs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Tsify)]
+pub enum WhyNot {
+    /// It doesn't sell the security on that exchange.
+    NotSold,
+    /// A year's deposits are more than it takes.
+    OverTheCeiling,
+    /// Its money can't be taken out yet when the years are up.
+    Locked,
+}
+
+impl From<NotOffered> for WhyNot {
+    fn from(reason: NotOffered) -> Self {
+        match reason {
+            NotOffered::NoPrice => WhyNot::NotSold,
+            NotOffered::OverTheCeiling { .. } => WhyNot::OverTheCeiling,
+            NotOffered::Locked { .. } => WhyNot::Locked,
+        }
+    }
 }
 
 /// All amounts in ₪.
@@ -736,6 +841,12 @@ pub struct OutcomeData {
     pub held: f64,
     /// Received by selling everything at the end, after fees.
     pub after_selling: f64,
+    /// The tax on the gain, paid on selling: nothing while the holdings
+    /// are kept.
+    pub tax: f64,
+    /// What's left of `after_selling` after the tax: what the plans are
+    /// ranked by.
+    pub after_tax: f64,
     /// How much less is left after selling than with no fees at all: the
     /// fees paid plus the growth they'd have earned.
     pub lost_to_fees: f64,
@@ -759,6 +870,8 @@ impl OutcomeData {
             value_by_month: outcome.value_by_month.iter().copied().map(number).collect(),
             held: number(outcome.held),
             after_selling: number(outcome.after_selling),
+            tax: number(outcome.tax),
+            after_tax: number(outcome.after_tax),
             lost_to_fees: number(outcome.lost_to_fees(no_fees)),
             lost_by_month: outcome.lost_by_month(no_fees).map(number).collect(),
             fees: (&outcome.fees).into(),
@@ -779,6 +892,8 @@ pub struct FeeAmounts {
     pub conversions: f64,
     /// Keeping the account: custody and the monthly handling fee together.
     pub account: f64,
+    /// A fund's or a policy's manager's fee.
+    pub management: f64,
     pub selling: f64,
     pub total: f64,
 }
@@ -789,6 +904,7 @@ impl From<&Fees> for FeeAmounts {
             purchases: number(fees.purchases),
             conversions: number(fees.conversions),
             account: number(fees.custody + fees.handling),
+            management: number(fees.management),
             selling: number(fees.selling),
             total: number(fees.total()),
         }
@@ -811,7 +927,7 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
     let inflation = inflation(inputs)?;
     let mut comparison = simulation::compare(&plans, &scenario, &rates);
     let mut deposited = scenario.deposited();
-    if !inflation.is_zero() {
+    if inputs.in_todays_money && !inflation.is_zero() {
         comparison = comparison.in_todays_money(inflation);
         deposited = scenario.deposited_in_todays_money(inflation);
     }
@@ -835,7 +951,7 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
             .map(|compared| {
                 let plan = plans[compared.index];
                 let key = &inputs.plans[compared.index];
-                let outcome = compared.outcome.as_ref();
+                let outcome = compared.outcome.as_ref().ok();
                 let fees_warning =
                     || outcome.and_then(|outcome| outcome.warning(deposited, lang()));
                 let track = outcome.and_then(|outcome| outcome.track);
@@ -866,9 +982,13 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                             )
                             .map(str::to_owned)
                         }),
-                    not_offered: outcome
-                        .is_none()
-                        .then(|| plan.not_offered_reason(security, exchange, lang())),
+                    tax_note: outcome.and_then(|_| plan.tax_note(&scenario, lang())),
+                    not_offered: compared
+                        .outcome
+                        .as_ref()
+                        .err()
+                        .map(|&reason| plan.why_not_offered(reason, &scenario, lang())),
+                    why_not: compared.outcome.as_ref().err().copied().map(WhyNot::from),
                 }
             })
             .collect(),
@@ -893,9 +1013,11 @@ pub struct SweepData {
 #[serde(rename_all = "camelCase")]
 pub struct PlanSweepData {
     pub key: PlanKey,
-    /// The yearly cost at each amount, in percent; missing if the plan
-    /// doesn't offer the security on that exchange.
-    pub costs: Option<Vec<f64>>,
+    /// The yearly cost at each amount, in percent; missing where the plan
+    /// can't be used: it doesn't offer the security on that exchange, at
+    /// any amount, or the deposits are over its ceiling.
+    #[tsify(type = "(number | null)[]")]
+    pub costs: Vec<Option<f64>>,
 }
 
 /// Runs the chosen plans over a range of the `swept` deposit, with the other
@@ -923,7 +1045,10 @@ pub fn sweep_plans(inputs: &Inputs, swept: Swept) -> Result<SweepData, InvalidIn
             .zip(sweep.costs)
             .map(|(key, costs)| PlanSweepData {
                 key: key.clone(),
-                costs: costs.map(|costs| costs.into_iter().map(|cost| number(cost.0)).collect()),
+                costs: costs
+                    .into_iter()
+                    .map(|cost| cost.map(|cost| number(cost.0)))
+                    .collect(),
             })
             .collect(),
     })
@@ -1011,9 +1136,8 @@ pub fn around_of(inputs: &AroundInputs) -> Option<AroundData> {
             .iter()
             .map(|plan| {
                 plan.costs
-                    .as_ref()?
                     .iter()
-                    .map(|&cost| decimal(cost).map(Percent))
+                    .map(|&cost| cost.and_then(decimal).map(Percent))
                     .collect()
             })
             .collect(),
@@ -1074,6 +1198,14 @@ pub fn examples() -> Result<Vec<Ts<ExampleData>>, JsError> {
             .into_ts()?)
         })
         .collect()
+}
+
+/// How much prices are taken to rise a year unless the user says otherwise,
+/// in percent: what the inflation field starts with.
+#[wasm_bindgen(js_name = usualInflationPercent)]
+#[must_use]
+pub fn usual_inflation_percent() -> f64 {
+    number(simulation::USUAL_INFLATION.0)
 }
 
 /// The share price's currency ("$"), if the share price matters to what
@@ -1266,6 +1398,16 @@ pub fn set_custody(
     let (security, exchange, fields) =
         (security.to_rust()?, exchange.to_rust()?, fields.to_rust()?);
     changed(plan, |plan| plan.set_custody(security, exchange, &fields))
+}
+
+/// Sets a fund's or a policy's fee.
+#[wasm_bindgen(js_name = setManagement)]
+pub fn set_management(
+    plan: Ts<PlanData>,
+    fields: Ts<ManagementFields>,
+) -> Result<Ts<PlanData>, JsError> {
+    let fields = fields.to_rust()?;
+    changed(plan, |plan| plan.set_management(&fields))
 }
 
 #[wasm_bindgen(js_name = setHandling)]
@@ -1469,6 +1611,7 @@ fn decimal(value: f64) -> Option<Decimal> {
 )]
 mod tests {
     use super::*;
+    use broker_fees::{funds, tariffs};
 
     fn inputs() -> Inputs {
         Inputs {
@@ -1482,6 +1625,9 @@ mod tests {
             share_price: Some(500.0),
             deposit_growth_percent: Some(0.0),
             inflation_percent: Some(0.0),
+            in_todays_money: false,
+            as_pension: false,
+            age: None,
             sell_at_end: true,
             ils_per_usd: Some(3.7),
             ils_per_eur: Some(4.3),
@@ -1757,6 +1903,229 @@ mod tests {
                 .map(|price| price.text.as_str()),
             Some("0.16%, min $5.76, max $2,400")
         );
+    }
+
+    /// The provident fund for investment's average plan: the first of the
+    /// funds, which come after the brokers.
+    fn the_fund() -> PlanKey {
+        PlanKey::Listed {
+            broker: tariffs::all().len(),
+            plan: 0,
+        }
+    }
+
+    fn compared<'a>(comparison: &'a ComparisonData, key: &PlanKey) -> &'a PlanOutcomeData {
+        comparison
+            .plans
+            .iter()
+            .find(|plan| &plan.key == key)
+            .unwrap()
+    }
+
+    /// Taken at once, a fund pays the tax a broker does and ranks by its
+    /// fee; as a pension at 60 or more it pays none, and ranks first. The
+    /// age is asked for only with the pension.
+    #[test]
+    fn a_pension_from_60_is_not_taxed() {
+        let mut inputs = inputs();
+        inputs.inflation_percent = Some(2.0);
+        let (fund, interactive) = (the_fund(), PlanKey::Listed { broker: 4, plan: 0 });
+        inputs.plans = vec![fund.clone(), interactive.clone()];
+
+        let at_once = compare_plans(&inputs).unwrap();
+        assert_eq!(at_once.plans[0].key, interactive);
+        for plan in &at_once.plans {
+            let outcome = plan.outcome.as_ref().unwrap();
+            assert!(outcome.tax > 0.0);
+            // Each is rounded from a decimal on its own.
+            let left = outcome.after_selling - outcome.tax;
+            assert!((outcome.after_tax - left).abs() < 0.01);
+        }
+
+        inputs.as_pension = true;
+        assert_eq!(
+            compare_plans(&inputs).unwrap_err().text(Lang::En),
+            "fill in your age"
+        );
+        inputs.age = Some(-1.0);
+        assert_eq!(
+            compare_plans(&inputs).unwrap_err().text(Lang::He),
+            "אי אפשר להזין ערך שלילי בהגיל שלכם"
+        );
+        inputs.age = Some(40.0);
+        let as_pension = compare_plans(&inputs).unwrap();
+        assert_eq!(as_pension.plans[0].key, fund);
+        let outcome = |comparison: &ComparisonData, key| {
+            let plan = compared(comparison, key);
+            let outcome = plan.outcome.as_ref().unwrap();
+            (outcome.tax, outcome.after_tax, outcome.after_selling)
+        };
+        let (tax, after_tax, after_selling) = outcome(&as_pension, &fund);
+        assert_eq!(tax, 0.0);
+        assert_eq!(after_tax, after_selling);
+        // Each row says what became of its tax; a broker's has nothing to say.
+        assert_eq!(
+            compared(&as_pension, &fund).tax_note.as_deref(),
+            Some("No tax: taken as a pension from 60")
+        );
+        assert_eq!(
+            compared(&at_once, &fund).tax_note.as_deref(),
+            Some("Taxed like a broker; no tax as a pension from 60")
+        );
+        assert_eq!(compared(&as_pension, &interactive).tax_note, None);
+        // A broker pays no pension: nothing changes for it.
+        assert_eq!(
+            outcome(&as_pension, &interactive),
+            outcome(&at_once, &interactive)
+        );
+        // At 39 today, 59 at the end: too young.
+        inputs.age = Some(39.9);
+        let too_young = compare_plans(&inputs).unwrap();
+        assert_eq!(outcome(&too_young, &fund), outcome(&at_once, &fund));
+    }
+
+    /// The inflation is always used for the tax; the amounts are in today's
+    /// money only when asked.
+    #[test]
+    fn inflation_lowers_the_tax_and_todays_money_is_a_choice() {
+        let mut inputs = inputs();
+        let after_tax = |inputs: &Inputs| {
+            let comparison = compare_plans(inputs).unwrap();
+            let best = comparison.plans[0].outcome.as_ref().unwrap();
+            (best.tax, best.after_selling, comparison.deposited)
+        };
+        let (tax_without, sold_without, deposited) = after_tax(&inputs);
+        inputs.inflation_percent = Some(2.0);
+        let (tax, sold, deposited_with) = after_tax(&inputs);
+        assert!(tax < tax_without);
+        assert_eq!(sold, sold_without);
+        assert_eq!(deposited_with, deposited);
+        inputs.in_todays_money = true;
+        let (tax_today, sold_today, deposited_today) = after_tax(&inputs);
+        assert!(sold_today < sold && tax_today < tax && deposited_today < deposited);
+        assert_eq!(usual_inflation_percent(), 2.0);
+    }
+
+    /// Deposits over a fund's ceiling leave it without numbers, saying by
+    /// how much; its line in the sweep ends where they pass it.
+    #[test]
+    fn a_fund_over_its_ceiling_says_so() {
+        let mut inputs = inputs();
+        inputs.plans.push(the_fund());
+        let within = compare_plans(&inputs).unwrap();
+        let fund = compared(&within, &the_fund());
+        assert!(fund.outcome.is_some());
+        assert_eq!((fund.not_offered.as_ref(), fund.why_not), (None, None));
+        let sweep = sweep_plans(&inputs, Swept::Monthly).unwrap();
+        let costs = |key: &PlanKey| {
+            let plan = sweep.plans.iter().find(|plan| &plan.key == key).unwrap();
+            plan.costs.clone()
+        };
+        let fund_costs = costs(&the_fund());
+        assert!(fund_costs.first().unwrap().is_some());
+        assert!(fund_costs.last().unwrap().is_none());
+        assert!(costs(&inputs.plans[0]).iter().all(Option::is_some));
+
+        inputs.first_deposit = Some(100_000.0);
+        let over = compare_plans(&inputs).unwrap();
+        let fund = over.plans.last().unwrap();
+        assert_eq!(fund.key, the_fund());
+        assert!(fund.outcome.is_none());
+        assert_eq!(fund.why_not, Some(WhyNot::OverTheCeiling));
+        assert_eq!(
+            fund.not_offered.as_deref(),
+            Some(
+                "No more than ₪83,641 can be deposited in a year, and your first year's \
+                 deposits come to ₪124,000"
+            )
+        );
+        // Not selling the security isn't about a ceiling.
+        inputs.exchange = Exchange::Europe;
+        let europe = compare_plans(&inputs).unwrap();
+        let altshuler = compared(&europe, &inputs.plans[0]);
+        assert!(altshuler.not_offered.is_some());
+        assert_eq!(altshuler.why_not, Some(WhyNot::NotSold));
+        // A study fund is locked for six years.
+        inputs.years = 5;
+        inputs.plans = vec![PlanKey::Listed {
+            broker: tariffs::all().len() + 1,
+            plan: 0,
+        }];
+        let locked = &compare_plans(&inputs).unwrap().plans[0];
+        assert_eq!(locked.why_not, Some(WhyNot::Locked));
+        assert_eq!(
+            locked.not_offered.as_deref(),
+            Some(
+                "Its money can be taken out on these terms only 6 years after the first \
+                 deposit. Sooner, it's taxed as income"
+            )
+        );
+    }
+
+    /// A kind of fund is listed after the brokers, with its Hebrew name,
+    /// its manager's fee in place of a price list, and the age its pension
+    /// opens at.
+    #[test]
+    fn funds_are_listed_after_the_brokers() {
+        let listed = all_brokers();
+        let infos: Vec<BrokerInfo> = listed
+            .iter()
+            .map(|broker| BrokerInfo::new(broker, Lang::En))
+            .collect();
+        let brokers = tariffs::all().len();
+        assert_eq!(infos.len(), brokers + funds::all().len());
+        for broker in &infos[..brokers] {
+            assert_ne!(broker.kind, BrokerKind::Funds);
+            assert!(broker.compared_at_first && broker.hebrew_name.is_none());
+            for plan in &broker.plans {
+                assert!(plan.tariff.management.is_none() && plan.pension_from_age.is_none());
+            }
+        }
+        let gemel = &infos[brokers];
+        assert_eq!(gemel.kind, BrokerKind::Funds);
+        assert_eq!(gemel.name, "Provident fund for investment");
+        assert_eq!(gemel.hebrew_name.as_deref(), Some("קופת גמל להשקעה"));
+        assert_eq!(gemel.tariff_date, "Fees paid, by the data of 08/2026");
+        assert_eq!(gemel.checked, "Checked 30/09/2026");
+        assert!(gemel.compared_at_first);
+        assert_eq!(
+            gemel.tax_rule.as_deref(),
+            Some("No tax as a pension from 60; otherwise taxed like a broker")
+        );
+        assert!(
+            infos[..brokers]
+                .iter()
+                .all(|broker| broker.tax_rule.is_none())
+        );
+        let most = gemel.plans[3].tariff.management.as_ref().unwrap();
+        assert_eq!(most.of_balance.text, "1.05% of the balance a year");
+        assert_eq!(most.of_deposits.text, "4% of each deposit");
+        assert!(
+            gemel
+                .plans
+                .iter()
+                .all(|plan| plan.pension_from_age == Some(60))
+        );
+        let study = &infos[brokers + 1];
+        assert_eq!(study.hebrew_name.as_deref(), Some("קרן השתלמות"));
+        assert!(!study.compared_at_first);
+        assert!(
+            study
+                .plans
+                .iter()
+                .all(|plan| plan.pension_from_age.is_none())
+        );
+        let policy = &infos[brokers + 2];
+        assert_eq!(policy.name, "Savings policy");
+        assert!(!policy.compared_at_first);
+        assert!(
+            policy
+                .plans
+                .iter()
+                .all(|plan| plan.pension_from_age.is_none())
+        );
+        let average = policy.plans[0].tariff.management.as_ref().unwrap();
+        assert!(average.of_deposits.nothing);
     }
 
     #[test]

@@ -24,8 +24,8 @@ use crate::Exchange::{self, Europe, Tlv, Usa};
 use crate::Security::{self, Bond, Etf, IndexFund, Stock};
 use crate::{
     Broker, BrokerKind, Caveat, ConversionFee, CustodyFee, FeeKind, HandlingFee, Markup, Money,
-    Page, Percent, PercentFee, Period, Plan, Price, TariffDate, Text, Track, TradeFee, ils, iso,
-    usd,
+    Page, Percent, PercentFee, Period, Plan, Price, TariffDate, Text, Track, TradeFee, Vehicle,
+    ils, iso, usd,
 };
 
 /// Every broker the app knows, in the order to offer them.
@@ -301,6 +301,7 @@ pub fn altshuler() -> Broker {
         description: t("Altshuler's published price list. For US stocks and ETFs you choose \
                       one of three tracks when opening the account; the app uses the \
                       cheapest for your inputs.", "התעריפון שאלטשולר מפרסמת. למניות וקרנות סל בארה״ב בוחרים אחת משלוש שיטות חיוב בפתיחת החשבון; האפליקציה משתמשת בזולה ביותר לנתונים שלכם."),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             // ETFs and funds share the tariff's funds row, but ETFs have a lower minimum.
             trade(&[Etf], &[Tlv], percent(dec!(0.15), Some(ils(dec!(3.5))))),
@@ -357,6 +358,7 @@ pub fn altshuler() -> Broker {
         conversion: markup_only(Markup::UpTo(Percent(dec!(0.7)))),
         // Part 9: "periodic management fees, up to ₪80 a month".
         handling: Some(handling(dec!(80), 0)),
+        management: None,
         fractions_on: vec![],
         min_first_deposit: None,
         caveats: vec![
@@ -385,6 +387,7 @@ pub fn altshuler() -> Broker {
              end date.",
             "מבצע ההצטרפות של אלטשולר לפתיחת חשבון חדש עם ₪5,000 לפחות. אין לו תאריך סיום.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: [
             vec![
                 // The offer names continuously-traded ETFs (במסלול רציף), which
@@ -409,6 +412,7 @@ pub fn altshuler() -> Broker {
         custody: vec![],
         conversion: full_tariff.conversion.clone(),
         handling: None,
+        management: None,
         fractions_on: vec![],
         min_first_deposit: Some(ils(dec!(5000))),
         caveats: vec![
@@ -459,6 +463,7 @@ pub fn altshuler() -> Broker {
         short_name: t("Altshuler", "אלטשולר"),
         kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // New customers
+        compared_at_first: true,
         description: t("An investment house's trading platform, not a bank. Its full tariff \
                       has three tracks for US stocks and ETFs; new customers get a cheaper \
                       offer instead.", "פלטפורמת המסחר של בית השקעות, לא בנק. בתעריפון המלא שלו שלוש שיטות חיוב למניות וקרנות סל בארה״ב; לקוחות חדשים מקבלים במקום זאת מבצע זול יותר."),
@@ -555,6 +560,7 @@ pub fn leumi() -> Broker {
                       Trading through a banker at a branch costs more.",
             "המחירים הרגילים של לאומי למסחר עצמאי בלאומי טרייד, באתר או באפליקציה (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי בסניף עולה יותר.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             // Tariff 4(a)(1) excludes mutual funds, but its footnote puts
             // index-tracking funds (Keren Mechaka) and ETFs back in. Active
@@ -592,6 +598,7 @@ pub fn leumi() -> Broker {
             markup,
         },
         handling: None,
+        management: None,
         fractions_on: vec![],
         min_first_deposit: None,
         caveats: vec![],
@@ -705,6 +712,7 @@ pub fn leumi() -> Broker {
              order.",
             "אפליקציית הבנק הדיגיטלי של לאומי, עם מחירים משלה ופשוטים יותר: עמלה קבועה לכל פקודה.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             TradeFee {
                 securities: vec![IndexFund],
@@ -732,6 +740,7 @@ pub fn leumi() -> Broker {
             markup,
         },
         handling: None,
+        management: None,
         fractions_on: vec![],
         min_first_deposit: None,
         caveats: vec![
@@ -802,6 +811,7 @@ pub fn leumi() -> Broker {
         short_name: t("Leumi", "לאומי"),
         kind: BrokerKind::Bank,
         new_customer_plan: 0, // Online
+        compared_at_first: true,
         description: t(
             "One of Israel's largest banks. Its securities prices depend on how \
                       you trade (online in Leumi Trade, or at a branch), on customer groups, \
@@ -880,6 +890,7 @@ pub fn excellence() -> Broker {
              system you choose; the app uses the cheapest for your inputs.",
             "מחירי המקסימום שאקסלנס מפרסמת. עסקאות בארה״ב מתומחרות לפי מערכת המסחר שבוחרים; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![tel_aviv(&[]), outside_us.clone()],
         tracks: us_tracks(&[]),
         standing_orders: vec![],
@@ -903,6 +914,7 @@ pub fn excellence() -> Broker {
             markup: Markup::PerDollar(ils(dec!(0.02))),
         },
         handling: Some(handling(dec!(99), 0)),
+        management: None,
         fractions_on: vec![Usa],
         min_first_deposit: None,
         caveats: vec![
@@ -943,6 +955,7 @@ pub fn excellence() -> Broker {
              offer says nothing, the full tariff's price is used.",
             "מה שמוצע בדרך כלל ללקוחות חדשים, כפי שאתרי השוואה מציגים אותו; היכן שההצעה לא אומרת דבר, נלקח המחיר מהתעריפון המלא.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             trade(
                 &[Stock, Etf, IndexFund],
@@ -965,6 +978,7 @@ pub fn excellence() -> Broker {
         // "2 agorot a dollar", as its site states the cost of converting.
         conversion: markup_only(Markup::PerDollar(ils(dec!(0.02)))),
         handling: Some(handling_less_trade_fees(dec!(15), 24)),
+        management: None,
         fractions_on: vec![Usa],
         min_first_deposit: Some(ils(dec!(10000))),
         caveats: vec![
@@ -1033,6 +1047,7 @@ pub fn excellence() -> Broker {
         short_name: t("Excellence", "אקסלנס"),
         kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
+        compared_at_first: true,
         description: t(
             "The trading arm of the Phoenix investment house. It publishes only a \
                       full tariff of maximum prices; new customers are usually offered far \
@@ -1094,6 +1109,7 @@ pub fn ibi() -> Broker {
              tracks; the app uses the cheapest for your inputs.",
             "מחירי המקסימום ש-IBI מפרסמת. למניות וקרנות סל בארה״ב בוחרים אחת מארבע שיטות חיוב; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: [
             vec![
                 trade(
@@ -1157,6 +1173,7 @@ pub fn ibi() -> Broker {
         ],
         conversion: conversion.clone(),
         handling: Some(handling(dec!(50), 0)),
+        management: None,
         fractions_on: vec![Usa],
         min_first_deposit: Some(ils(dec!(15000))),
         caveats: vec![
@@ -1185,6 +1202,7 @@ pub fn ibi() -> Broker {
              offer says nothing, the full tariff's price is used.",
             "מה שמוצע בדרך כלל ללקוחות חדשים, כפי שאתרי השוואה מציגים אותו; היכן שההצעה לא אומרת דבר, נלקח המחיר מהתעריפון המלא.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: [
             vec![
                 trade(
@@ -1208,6 +1226,7 @@ pub fn ibi() -> Broker {
         custody: vec![],
         conversion,
         handling: Some(handling_less_trade_fees(dec!(15), 0)),
+        management: None,
         fractions_on: vec![Usa],
         min_first_deposit: Some(ils(dec!(15000))),
         caveats: vec![
@@ -1268,6 +1287,7 @@ pub fn ibi() -> Broker {
         short_name: t("IBI", "IBI"),
         kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
+        compared_at_first: true,
         description: t("An investment house's trading platform (IBI TRADE, with the IBI SMART \
                       app). It publishes only a full tariff of maximum prices; new customers \
                       are usually offered far less. Opening an account takes at least \
@@ -1367,6 +1387,7 @@ pub fn interactive() -> Broker {
              deposit.",
             "התעריפון היחיד של אינטראקטיב ישראל. פתיחת חשבון לא דורשת הפקדת מינימום.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             us_shares.clone(),
             trade(
@@ -1388,6 +1409,7 @@ pub fn interactive() -> Broker {
         custody: vec![],
         conversion,
         handling: None,
+        management: None,
         fractions_on: vec![Usa],
         min_first_deposit: None,
         caveats: vec![
@@ -1433,6 +1455,7 @@ pub fn interactive() -> Broker {
         short_name: t("Interactive", "אינטראקטיב"),
         kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 0, // Standard
+        compared_at_first: true,
         description: t("The Israeli introducing broker for Interactive Brokers, run by MEXEM \
                       (regulated in Cyprus, not by the Israel Securities Authority). US and \
                       European exchanges; Tel Aviv only for institutional clients.", "הברוקר המציג הישראלי של אינטראקטיב ברוקרס, בהפעלת MEXEM (בפיקוח בקפריסין, לא של רשות ניירות ערך). בורסות ארה״ב ואירופה; תל אביב ללקוחות מוסדיים בלבד."),
@@ -1511,6 +1534,7 @@ pub fn meitav() -> Broker {
              tracks; the app uses the cheapest for your inputs.",
             "מחירי המקסימום שמיטב טרייד מפרסמת. למניות בארה״ב בוחרים אחת משתי שיטות חיוב; האפליקציה משתמשת בזולה ביותר לנתונים שלכם.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: [vec![tel_aviv(&[])], abroad.clone()].concat(),
         tracks: vec![
             Track {
@@ -1550,6 +1574,7 @@ pub fn meitav() -> Broker {
             markup,
         },
         handling: Some(handling(dec!(90), 0)),
+        management: None,
         fractions_on: vec![],
         min_first_deposit: Some(ils(dec!(5000))),
         caveats: vec![
@@ -1580,6 +1605,7 @@ pub fn meitav() -> Broker {
              offer says nothing, the full tariff's price is used.",
             "מה שמוצע בדרך כלל ללקוחות חדשים, כפי שאתרי השוואה מציגים אותו; היכן שההצעה לא אומרת דבר, נלקח המחיר מהתעריפון המלא.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: [
             vec![
                 trade(&[Etf], &[Tlv], percent(dec!(0.07), Some(ils(dec!(4.65))))),
@@ -1605,6 +1631,7 @@ pub fn meitav() -> Broker {
         custody: vec![],
         conversion: markup_only(markup),
         handling: Some(handling_less_trade_fees(dec!(15), 24)),
+        management: None,
         fractions_on: vec![],
         min_first_deposit: Some(ils(dec!(5000))),
         caveats: vec![
@@ -1655,6 +1682,7 @@ pub fn meitav() -> Broker {
         short_name: t("Meitav", "מיטב"),
         kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
+        compared_at_first: true,
         description: t("The largest exchange member that isn't a bank, part of the Meitav \
                       investment house. It publishes only a full tariff of maximum prices; \
                       new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
@@ -1758,6 +1786,7 @@ pub fn mizrahi() -> Broker {
              a banker at a branch costs more.",
             "המחירים של מזרחי-טפחות למסחר עצמאי באתר או באפליקציית שוק ההון (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי בסניף עולה יותר.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             trade(
                 &[],
@@ -1792,6 +1821,7 @@ pub fn mizrahi() -> Broker {
             markup,
         },
         handling: None,
+        management: None,
         fractions_on: vec![],
         min_first_deposit: None,
         caveats: vec![
@@ -1888,6 +1918,7 @@ pub fn mizrahi() -> Broker {
         short_name: t("Mizrahi", "מזרחי"),
         kind: BrokerKind::Bank,
         new_customer_plan: 0, // Online
+        compared_at_first: true,
         description: t(
             "One of Israel's largest banks. Its securities prices depend on how you \
              trade (on its website and app, or through a banker) and on customer \
@@ -1999,6 +2030,7 @@ pub fn otsar_hahayal() -> Broker {
              tariff's appendix on direct channels). Trading through a banker costs more.",
             "המחירים של הבנק למסחר עצמאי באתר או באפליקציה (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי עולה יותר.",
         ),
+        vehicle: Vehicle::Brokerage,
         trading: vec![
             trade(&[], &[Tlv], online_tlv.clone()),
             trade(&[], &[Usa, Europe], online_abroad.clone()),
@@ -2017,6 +2049,7 @@ pub fn otsar_hahayal() -> Broker {
             markup,
         },
         handling: None,
+        management: None,
         fractions_on: vec![],
         min_first_deposit: None,
         caveats: vec![
@@ -2214,6 +2247,7 @@ pub fn otsar_hahayal() -> Broker {
         short_name: t("Otsar Hahayal", "אוצר החייל"),
         kind: BrokerKind::Bank,
         new_customer_plan: 0, // Online
+        compared_at_first: true,
         description: t(
             "The security forces' bank, part of the First International Bank \
              (הבינלאומי), which merged it in and keeps it as a brand: the tariff is the \
