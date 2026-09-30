@@ -1,5 +1,18 @@
-import { brokerName, exchangeName, listed, securityName } from './core'
-import { choice, expect, fitScreenToPage, test, type Page } from './fixtures'
+import { brokerName, exchangeName, securityName } from './core'
+import {
+  aboutPlan,
+  choice,
+  closePlans,
+  copyPlan,
+  details,
+  expect,
+  fitScreenToPage,
+  planInList,
+  test,
+  tickBrokers,
+  tickPlan,
+  type Page,
+} from './fixtures'
 import { t } from '../src/lib/text'
 
 // Runs on every device in playwright.config.ts, including the layout-only
@@ -141,17 +154,7 @@ async function checkLayout(page: Page, state: string) {
   expect(await layoutProblems(page), state).toEqual([])
 }
 
-const dialog = (page: Page) => page.getByRole('dialog')
-/** The ℹ and ✎ of the plan called `englishLabel`. */
-const about = (page: Page, englishLabel: string) =>
-  page.getByRole('button', { name: t.about(listed(englishLabel).label), exact: true })
-const pencil = (page: Page, englishLabel: string) =>
-  page.getByRole('button', { name: t.changeACopy(listed(englishLabel).label), exact: true })
-/** The plan called `englishLabel` in the sidebar. */
-const tick = (page: Page, englishLabel: string) => {
-  const { broker, plan } = listed(englishLabel)
-  return page.getByRole('list', { name: broker.name }).getByRole('checkbox', { name: plan.name })
-}
+const dialog = details
 
 // The rules themselves: each must notice the bug it's for, so a rule that
 // never fires can't pass for a clean page.
@@ -233,7 +236,7 @@ test('with more options, and on the chart by deposit', { tag: '@phone' }, async 
 })
 
 test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({ page }) => {
-  await about(page, 'Leumi · Pepper').click()
+  await aboutPlan(page, 'Leumi · Pepper')
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'plan')
   await dialog(page).getByText(t.allPrices).click()
@@ -245,13 +248,13 @@ test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({
 })
 
 test('with a plan of your own', { tag: '@phone' }, async ({ page }) => {
-  await pencil(page, 'Leumi · Pepper').click()
+  await copyPlan(page, 'Leumi · Pepper')
   await dialog(page).getByRole('button', { name: t.addPlan }).click()
   await checkLayout(page, 'your plans')
 })
 
 test('in the plan editor, in both views, with a checklist open', { tag: '@phone' }, async ({ page }) => {
-  await pencil(page, 'Leumi · Pepper').click()
+  await copyPlan(page, 'Leumi · Pepper')
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'simple')
   await choice(dialog(page), t.view, t.fullPriceList).click()
@@ -264,27 +267,29 @@ test('in the plan editor, in both views, with a checklist open', { tag: '@phone'
 
 // Second prices sit under the fee they're part of, in details and in the editor.
 test('with second prices', { tag: '@phone' }, async ({ page }) => {
-  await about(page, "Leumi · Online, 'Leumi 18+'").click()
+  await aboutPlan(page, "Leumi · Online, 'Leumi 18+'")
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'details')
   await page.keyboard.press('Escape')
 
-  await pencil(page, "Leumi · Online, 'Leumi 18+'").click()
+  await copyPlan(page, "Leumi · Online, 'Leumi 18+'")
   await checkLayout(page, 'second conversion fee')
   await dialog(page).getByRole('button', { name: t.cancel }).click()
+  await closePlans(page)
 
   await choice(page, t.security, securityName('IndexFund')).click()
   await choice(page, t.exchange, exchangeName('Tlv')).click()
-  await pencil(page, 'Leumi · Online, monthly standing order').click()
+  await copyPlan(page, 'Leumi · Online, monthly standing order')
   await checkLayout(page, 'standing order')
   await choice(dialog(page), t.view, t.fullPriceList).click()
   await checkLayout(page, 'standing order, full price list')
 })
 
 test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page }) => {
-  for (const broker of ['Altshuler Shaham Trade', 'Bank Leumi', 'Excellence Trade', 'IBI', 'Meitav Trade']) {
-    await page.getByRole('checkbox', { name: brokerName(broker), exact: true }).check()
-  }
+  await tickBrokers(
+    page,
+    ['Altshuler Shaham Trade', 'Bank Leumi', 'Excellence Trade', 'IBI', 'Meitav Trade'].map(brokerName),
+  )
   await checkLayout(page, 'every plan')
   await choice(page, t.chart, t.breakdownView).click()
   await checkLayout(page, 'every plan, breakdown')
@@ -312,19 +317,19 @@ test('pinning and switching views leave the chart where it is', { tag: '@phone' 
 // Tracks, a handling fee and a price per share plus a percentage, in details
 // and in the editor; then fractions and a conversion by standing order.
 test('with tracks and a handling fee', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('checkbox', { name: brokerName('IBI'), exact: true }).check()
-  await about(page, 'IBI · Full tariff').click()
+  await tickBrokers(page, [brokerName('IBI')])
+  await aboutPlan(page, 'IBI · Full tariff')
   await dialog(page).getByText(t.allPrices).click()
   await checkLayout(page, 'details')
   await page.keyboard.press('Escape')
 
-  await pencil(page, 'IBI · Full tariff').click()
+  await copyPlan(page, 'IBI · Full tariff')
   await checkLayout(page, 'editor')
   await choice(dialog(page), t.view, t.fullPriceList).click()
   await checkLayout(page, 'editor, full price list')
   await dialog(page).getByRole('button', { name: t.cancel }).click()
 
-  await pencil(page, 'Interactive · Standard').click()
+  await copyPlan(page, 'Interactive · Standard')
   await choice(dialog(page), t.view, t.simple).click()
   await checkLayout(page, 'fractions and conversion by standing order')
 })
@@ -336,13 +341,13 @@ test(
   'with funds: the pension, their details and editor, and a ceiling passed',
   { tag: '@phone' },
   async ({ page }) => {
-    await tick(page, 'Savings policy · Average fee').check()
+    await tickPlan(page, 'Savings policy · Average fee')
     await choice(page, t.takingTheMoneyOut, t.asAPension).click()
     await checkLayout(page, 'as a pension')
     await choice(page, t.chart, t.breakdownView).click()
     await checkLayout(page, 'breakdown with funds')
 
-    await about(page, 'Provident fund · Average fee').click()
+    await aboutPlan(page, 'Provident fund · Average fee')
     await expect(dialog(page)).toBeVisible()
     await checkLayout(page, 'fund')
     await dialog(page)
@@ -351,23 +356,30 @@ test(
     await checkLayout(page, 'kind of fund')
     await page.keyboard.press('Escape')
 
-    await pencil(page, 'Provident fund · Average fee').click()
+    await copyPlan(page, 'Provident fund · Average fee')
     await checkLayout(page, 'fund editor')
     await dialog(page).getByRole('button', { name: t.addPlan }).click()
+    await closePlans(page)
     await page.getByLabel(t.everyMonth).fill('8000')
     await expect(page.getByText(t.overTheCeiling).first()).toBeVisible()
     await checkLayout(page, 'over the ceiling')
 
     // A study fund, kept for fewer years than it's locked for.
-    await tick(page, 'Study fund · Average fee').check()
-    await about(page, 'Study fund · Average fee').click()
+    await tickPlan(page, 'Study fund · Average fee')
+    await aboutPlan(page, 'Study fund · Average fee')
     await checkLayout(page, 'study fund')
     await page.keyboard.press('Escape')
+    await closePlans(page)
     await page.locator('#years').fill('5')
     await expect(page.getByText(t.stillLocked)).toBeVisible()
     await checkLayout(page, 'locked')
   },
 )
+
+test('with the list of plans open, and a bank unfolded', { tag: '@phone' }, async ({ page }) => {
+  await planInList(page, 'Leumi · Pepper')
+  await checkLayout(page, 'list of plans')
+})
 
 test('with the about page open', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: 'איך המספרים מחושבים' }).click()
@@ -382,7 +394,7 @@ test('with the about page open', { tag: '@phone' }, async ({ page }) => {
 // the picture.
 test.describe('pictures', { tag: '@pictures' }, () => {
   test("of a plan's details", async ({ page }) => {
-    await about(page, 'Leumi · Pepper').click()
+    await aboutPlan(page, 'Leumi · Pepper')
     await expect(dialog(page)).toBeVisible()
     await dialog(page).getByText(t.allPrices).click()
     await page.mouse.move(0, 0)
@@ -398,7 +410,7 @@ test.describe('pictures', { tag: '@pictures' }, () => {
   })
 
   test('of the editor, in both views', async ({ page }) => {
-    await pencil(page, 'Leumi · Pepper').click()
+    await copyPlan(page, 'Leumi · Pepper')
     await expect(dialog(page)).toBeVisible()
     await page.mouse.move(0, 0)
     const masks = () => [

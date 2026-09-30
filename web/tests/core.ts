@@ -77,11 +77,12 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
     const field = page.locator(`#${id}`)
     return (await field.count()) ? parseNumber(await field.inputValue()) : null
   }
+  // The ticks are in the list of plans, closed or folded most of the time.
   const ticked: PlanKey[] = []
   for (const { broker, plan, key } of listedPlans) {
     const box = page
-      .getByRole('list', { name: broker.name })
-      .getByRole('checkbox', { name: plan.name, exact: true })
+      .getByRole('list', { name: broker.name, includeHidden: true })
+      .getByRole('checkbox', { name: plan.name, exact: true, includeHidden: true })
     if (await box.isChecked()) ticked.push(key)
   }
   const exchange = (await chosen(t.exchange)) as Exchange

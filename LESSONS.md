@@ -214,6 +214,16 @@ all. Read those three first.
   (`each_key_duplicate` blanked a dialog): it covers new brokers by itself.
 - `{@const}` must sit directly in a block (`{#if}`, `{#each}`…), not inside an
   element.
+- A `position: fixed` element inside a `<dialog>` is placed by the window
+  only while the dialog has no transform at rest (`translate: 0` or
+  `scale: 1` count as one): the list of plans rests at `translate: none`,
+  so the plan preview inside it lands beside the row, not offset by the
+  dialog. The dialog's own scrolling doesn't clip it either.
+- Two dialogs can be open at once: a plan's details or the editor opens
+  over the list of plans, and closing it goes back to the list. Tests name
+  the one they mean (`details` and `plansList` in `tests/fixtures.ts`),
+  and close the list before using the page behind it: a modal dialog makes
+  the rest of the page inert.
 - Text next to `{#if}` inside an element can lose its space when Prettier
   rewraps the line ("Tracks for" became "Tracksfor"): build such text in one
   expression.
@@ -503,29 +513,38 @@ was zoomed out.
 
 ## Speed
 
-`npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-09-29, on this
+`npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-09-30, on this
 machine, a production build, animations on. The phone project throttles
 the CPU 4× (about a Galaxy S24). Time to the next paint per interaction,
 by the Event Timing API; anything under about 50 ms isn't felt.
 
 | Measure                                         | phone (4×) | desktop |
 | ----------------------------------------------- | ---------: | ------: |
-| load, to the first chart (ms)                   |        751 |     210 |
-| typing a deposit (ms)                           |         48 |      32 |
-| typing the one-time deposit (ms)                |         48 |      32 |
-| switching the security (ms)                     |         56 |      24 |
-| switching the exchange (ms)                     |         64 |      24 |
-| ticking a broker's four plans (ms)              |         40 |      16 |
-| switching the chart view (ms)                   |         24 |      16 |
-| switching to the chart by deposit (ms)          |         16 |      16 |
-| frame gap while the chart by deposit draws (ms) |         33 |      17 |
-| opening a plan's details (ms)                   |         48 |      40 |
+| load, to the first chart (ms)                   |        916 |     242 |
+| typing a deposit (ms)                           |         80 |      32 |
+| typing the one-time deposit (ms)                |         56 |      32 |
+| switching the security (ms)                     |         64 |      24 |
+| switching the exchange (ms)                     |         80 |      24 |
+| opening the list of plans (ms)                  |         24 |      16 |
+| ticking a broker's four plans (ms)              |         64 |      24 |
+| switching the chart view (ms)                   |         24 |      24 |
+| switching to the chart by deposit (ms)          |         24 |      16 |
+| frame gap while the chart by deposit draws (ms) |         50 |      17 |
+| opening a plan's details (ms)                   |         56 |      40 |
 | opening a tip (ms)                              |         24 |      16 |
-| longest frame gap while the rows reorder (ms)   |         50 |      17 |
-| zooming: slider drag, or six wheel notches (ms) |         40 |      16 |
+| longest frame gap while the rows reorder (ms)   |      50–67 |      17 |
+| zooming: slider drag, or six wheel notches (ms) |         48 |      16 |
 | longest frame gap while zooming (ms)            |          – |      17 |
 | hovering across the rows (ms)                   |          – |      16 |
 | heap growth over 30 rounds of changes (MB)      |          1 |       1 |
+
+On the phone these are up from 2026-09-29 (typing 48 ms, load 751): the
+funds, two banks and the tax at the end came in between, and the default
+comparison has 9 plans. The list of plans moving into a sheet the same day
+changed nothing: measured against the commit before it on the same machine,
+each number was the same or a frame better. A frame gap moves by one frame
+(17 ms) from run to run: compare runs on a quiet machine, not with the dev
+server and a test run going.
 
 The sweep moved to a worker the same day: the chart by deposit's frame gap
 went from 150 ms to 33 on the phone, and typing the one-time deposit (a

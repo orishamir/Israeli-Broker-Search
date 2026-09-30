@@ -15,7 +15,19 @@ import {
   usualPlans,
 } from './core'
 import { t } from '../src/lib/text'
-import { away, checkbox, choice, expect, rows, test, type Page } from './fixtures'
+import {
+  away,
+  brokerTick,
+  choice,
+  expect,
+  openPlans,
+  planInList,
+  plansList,
+  rows,
+  test,
+  tickBrokers,
+  tickPlan,
+} from './fixtures'
 
 // The results table and the summary above it: what the core computes for
 // the inputs, shown right.
@@ -29,7 +41,7 @@ test(
     await choice(page, t.security, securityName('Bond')).click()
     await page.getByLabel(t.everyMonth).fill('3500')
     await page.getByLabel(t.buyEvery, { exact: true }).selectOption('3')
-    await checkbox(page, listed('Leumi · Online').broker.name).check()
+    await tickBrokers(page, [listed('Leumi · Online').broker.name])
     const expected = expectedRows(await inputsOnPage(page))
     await expect.poll(() => rowsOnPage(page)).toEqual(expected)
   },
@@ -87,7 +99,10 @@ test('under the best plan, where another plan becomes cheaper at other deposits,
 test("a plan's notes and flags are the core's: a track, a standing order, fees beyond the deposits, a number that may be too low", async ({
   page,
 }) => {
-  for (const broker of brokers()) await checkbox(page, broker.name).check()
+  await tickBrokers(
+    page,
+    brokers().map(({ name }) => name),
+  )
   await choice(page, t.security, securityName('IndexFund')).click()
   await choice(page, t.exchange, exchangeName('Tlv')).click()
   await page.getByLabel(t.buyEvery, { exact: true }).selectOption('3')
@@ -142,23 +157,23 @@ test(
     const usual = usualPlans.find(({ broker }) => broker.name === leumi.name)!
     await rowOf(page, usual.englishLabel).click()
     await expect(rowOf(page, usual.englishLabel)).toHaveClass(/pinned/)
-    await expect(checkbox(page, leumi.name)).toHaveJSProperty('indeterminate', true)
-    await checkbox(page, leumi.name).check()
+    const all = await brokerTick(page, leumi.name)
+    await expect(all).toHaveJSProperty('indeterminate', true)
+    await all.check()
     await expect(rows(page)).toHaveCount(usualPlans.length + leumi.plans.length - 1)
-    await checkbox(page, leumi.name).uncheck()
+    await all.uncheck()
     await expect(rows(page)).toHaveCount(usualPlans.length - 1)
-    // Three banks have an "Online" plan: the checkbox in Leumi's list.
-    await page
-      .getByRole('list', { name: leumi.name })
-      .getByRole('checkbox', { name: usual.plan.name, exact: true })
-      .check()
+    await (await planInList(page, usual.englishLabel)).getByRole('checkbox').check()
     await expect(rows(page)).toHaveCount(usualPlans.length)
     await expect(rowOf(page, usual.englishLabel)).not.toHaveClass(/pinned/)
   },
 )
 
 test('every plan can be compared at once', async ({ page }) => {
-  for (const broker of brokers()) await checkbox(page, broker.name).check()
+  await tickBrokers(
+    page,
+    brokers().map(({ name }) => name),
+  )
   await expect(rows(page)).toHaveCount(listedPlans.length)
   expect(await rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
   await choice(page, t.chart, t.breakdownView).click()
@@ -168,14 +183,9 @@ test('every plan can be compared at once', async ({ page }) => {
   await expect(page.locator('h4', { hasText: t.yearByYear })).toContainText(best.name)
 })
 
-test('hovering a plan in the sidebar highlights it in the table, and previews it', async ({ page }) => {
+test('hovering a plan in the list of plans highlights it in the table, and previews it', async ({ page }) => {
   const ticked = usualPlans.find(({ broker }) => broker.englishName === 'Bank Leumi')!
-  const inSidebar = (name: string) =>
-    page
-      .getByRole('list', { name: ticked.broker.name })
-      .getByRole('listitem')
-      .filter({ has: page.getByText(name, { exact: true }) })
-  await inSidebar(ticked.plan.name).hover()
+  await (await planInList(page, ticked.englishLabel)).hover()
   await expect(rowOf(page, ticked.englishLabel)).toHaveClass(/highlighted/)
   const preview = page.locator('.preview')
   await expect(preview).toContainText(t.forPurchase(purchasePhrase('Etf', 'Usa')))
@@ -185,7 +195,7 @@ test('hovering a plan in the sidebar highlights it in the table, and previews it
   await expect(preview).toBeHidden()
   // Any plan previews, ticked or not.
   const { plan } = listed('Leumi · Pepper')
-  await inSidebar(plan.name).hover()
+  await (await planInList(page, 'Leumi · Pepper')).hover()
   await expect(preview).toContainText(plan.description.slice(0, 20))
 })
 
@@ -195,10 +205,7 @@ test("a plan's preview opens left of it, moved up to fit a short window", async 
   // A 1366×768 laptop's, less the taskbar and the browser's bars: shorter
   // than two previews.
   await page.setViewportSize({ width: 1366, height: 600 })
-  const plan = page
-    .getByRole('list', { name: listed('Leumi · Online').broker.name })
-    .getByRole('listitem')
-    .first()
+  const plan = await planInList(page, 'Leumi · Online')
   // Just above the middle: a preview hanging down from it would run off the bottom.
   await plan.evaluate((row) => row.scrollIntoView({ block: 'center' }))
   await plan.hover()
@@ -213,11 +220,7 @@ test('in one column there is no room beside a plan, so hovering it previews noth
   // Half of a 1366×768 laptop screen.
   await page.setViewportSize({ width: 683, height: 768 })
   const ticked = usualPlans.find(({ broker }) => broker.englishName === 'Bank Leumi')!
-  await page
-    .getByRole('list', { name: ticked.broker.name })
-    .getByRole('listitem')
-    .filter({ has: page.getByText(ticked.plan.name, { exact: true }) })
-    .hover()
+  await (await planInList(page, ticked.englishLabel)).hover()
   await expect(rowOf(page, ticked.englishLabel)).toHaveClass(/highlighted/)
   await expect(page.locator('.preview')).toHaveCount(0)
 })
@@ -246,10 +249,6 @@ test(
 )
 
 const FUND = 'Provident fund · Average fee'
-const fundAverage = (page: Page, fund: string) => {
-  const { broker, plan } = listed(`${fund} · Average fee`)
-  return page.getByRole('list', { name: broker.name }).getByRole('checkbox', { name: plan.name })
-}
 
 test(
   'as a pension from 60 the provident fund pays no tax; how the money is taken out is asked only while it is ticked',
@@ -282,7 +281,7 @@ test(
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
 
     // No fund ticked, nothing to ask.
-    await fundAverage(page, 'Provident fund').uncheck()
+    await tickPlan(page, FUND, false)
     await expect(wayOut).toBeHidden()
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
   },
@@ -292,12 +291,12 @@ test(
   'a study fund says its tax rule and what became of its tax; kept for less than six years, that it is still locked',
   { tag: '@phone' },
   async ({ page }) => {
-    const average = fundAverage(page, 'Study fund')
     // Its rule is said under its name, before it's ticked.
+    await openPlans(page)
     await expect(
-      page.locator('aside').getByText('אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה'),
+      plansList(page).getByText('אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה'),
     ).toBeVisible()
-    await average.check()
+    await tickPlan(page, 'Study fund · Average fee')
     const row = rowOf(page, 'Study fund · Average fee')
     await expect(row).not.toHaveClass(/not-offered/)
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))

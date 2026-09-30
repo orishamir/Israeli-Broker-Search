@@ -33,7 +33,10 @@ the UI is Svelte 5 + ECharts.
   the example chips.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`.
-- `web`: the app; state lives in `src/lib/app.svelte.ts`. The page's own
+- `web`: the app; state lives in `src/lib/app.svelte.ts`. The plans to
+  compare are ticked in a list that opens over the inputs from the "What's
+  compared" card (`PlanSheet.svelte`; the whole screen on a phone), one
+  folded line per broker, then your plans. The page's own
   words are in `src/lib/text/he.ts` (typed as `en.ts`), read through
   `text.ts` (`t`). Your plans are kept in localStorage (`saved.ts`) as
   core `Plan`s the web side never looks inside (`PlanData`). The charts' options are pure functions in

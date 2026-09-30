@@ -137,11 +137,28 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const first = page.getByLabel(t.oneTimeDeposit)
   // The chart by deposit is an expert's: offered with More options only.
   const moreOptions = page.getByLabel(t.moreOptions, { exact: true })
-  const leumi = page.getByRole('checkbox', { name: brokerName('Bank Leumi'), exact: true })
+  // The plans are ticked in a list of their own, over the inputs.
+  const list = page.getByRole('dialog', { name: t.whatsCompared })
+  const openList = async () => {
+    await page.getByRole('button', { name: t.addOrRemove }).click()
+    await expect(list).toBeVisible()
+  }
+  const closeList = async () => {
+    await page.mouse.move(0, 0)
+    await page.keyboard.press('Escape')
+    await expect(list).toBeHidden()
+  }
+  /** The list, open, with Leumi's plans unfolded: not measured. */
+  const openLeumi = async () => {
+    await openList()
+    const line = list.getByRole('button', { name: brokerName('Bank Leumi'), exact: true })
+    if ((await line.getAttribute('aria-expanded')) === 'false') await line.click()
+  }
+  const leumi = list.getByRole('checkbox', { name: brokerName('Bank Leumi'), exact: true })
   // Unticking the broker unticks its usual plan too; ticking that back
   // leaves the table as it was.
   // Three banks have an "Online" plan: the checkbox in Leumi's list.
-  const online = page
+  const online = list
     .getByRole('list', { name: brokerName('Bank Leumi') })
     .getByRole('checkbox', { name: listed('Leumi · Online').plan.name, exact: true })
   const chart = page.locator('.chart')
@@ -149,12 +166,21 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
     await chart.scrollIntoViewIfNeeded()
     return (await chart.boundingBox())!
   }
+  /** Opens Pepper's details from the open list, and closes them. */
   const openDetails = async () => {
-    await page.getByRole('button', { name: t.about(listed('Leumi · Pepper').label) }).click()
-    await expect(page.getByRole('dialog')).toBeVisible()
+    const details = page.getByRole('dialog', { name: listed('Leumi · Pepper').plan.name })
+    await list.getByRole('button', { name: t.about(listed('Leumi · Pepper').label) }).click()
+    await expect(details).toBeVisible()
     await page.mouse.move(0, 0)
     await page.keyboard.press('Escape')
-    await expect(page.getByRole('dialog')).toBeHidden()
+    await expect(details).toBeHidden()
+  }
+  /** `measure`, with Leumi's plans open in the list, which closes after. */
+  const inTheList = async (measure: () => Promise<number>) => {
+    await openLeumi()
+    const time = await measure()
+    await closeList()
+    return time
   }
   const wheelZoom = async () => {
     const box = await chartBox()
@@ -179,7 +205,10 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
     for (let round = 0; round < rounds; round++) {
       await monthly.fill(String(1000 + round * 10))
       await choice(t.chart, round % 2 ? t.breakdownView : t.lostView).click()
-      await openDetails()
+      await inTheList(async () => {
+        await openDetails()
+        return 0
+      })
     }
   }
 
@@ -235,17 +264,24 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         ),
     },
     {
+      label: 'opening the list of plans (ms)',
+      budget: budgets.dialog,
+      measure: () => typical(page, thereAndBack(openList, closeList)),
+    },
+    {
       label: "ticking a broker's plans (ms)",
       budget: budgets.interaction,
       measure: () =>
-        typical(
-          page,
-          thereAndBack(
-            () => leumi.check(),
-            async () => {
-              await leumi.uncheck()
-              await online.check()
-            },
+        inTheList(() =>
+          typical(
+            page,
+            thereAndBack(
+              () => leumi.check(),
+              async () => {
+                await leumi.uncheck()
+                await online.check()
+              },
+            ),
           ),
         ),
     },
@@ -282,7 +318,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
     {
       label: "opening a plan's details (ms)",
       budget: budgets.dialog,
-      measure: () => typical(page, openDetails),
+      measure: () => inTheList(() => typical(page, openDetails)),
     },
     {
       label: 'opening a tip (ms)',

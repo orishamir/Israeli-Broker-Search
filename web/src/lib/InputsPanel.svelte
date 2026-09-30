@@ -1,6 +1,5 @@
 <script lang="ts">
   import type { AppState, AtEnd, WayOut } from './app.svelte'
-  import BrokerPicker from './BrokerPicker.svelte'
   import Choices from './Choices.svelte'
   import type { Choice } from './core/core'
   import Examples from './Examples.svelte'
@@ -8,12 +7,15 @@
   import { compactPercent, dateText } from './format'
   import { BUYING_INTERVALS } from './link'
   import NumberField from './NumberField.svelte'
+  import PlanSheet from './PlanSheet.svelte'
   import { t } from './text'
   import { en } from './text/en'
   import Tip from './Tip.svelte'
-  import YourPlans from './YourPlans.svelte'
 
   let { app }: { app: AppState } = $props()
+
+  /** Whether the list of plans to compare is open. */
+  let choosing = $state(false)
 
   const atEndChoices: Choice<AtEnd>[] = [
     { value: 'sell', name: t.sell, englishName: en.sell, explanation: t.sellTip, hebrewNames: [] },
@@ -211,29 +213,32 @@
   </div>
 </section>
 
+<!-- What's compared, in short; the list itself opens in a sheet. -->
 <section class="card">
   <div class="heading">
-    <h3>{t.brokersAndPlans}</h3>
-    <Tip about={t.brokersAndPlansShort}>
+    <h3>{t.whatsCompared}</h3>
+    <Tip about={t.whatsCompared}>
       <p>
         את אותו נייר ערך, באותה בורסה, אפשר לקנות דרך בנקים ובתי השקעות רבים. לכל אחד יש כמה מסלולים, ולכל
-        מסלול עמלות משלו: ללאומי, למשל, יש מסלול ללאומי טרייד, מסלול לקבוצת 18+ ומסלול לאפליקציית פפר. סמנו את
-        המסלולים שתרצו להשוות.
+        מסלול עמלות משלו. לצידם יש קופות ופוליסות, שמשקיעות את הכסף בשבילכם. ב״הוספה והסרה״ בוחרים מה להשוות,
+        ושם אפשר גם להוסיף מסלול משלכם.
       </p>
     </Tip>
   </div>
-  <BrokerPicker {app} />
-</section>
-
-<section class="card">
-  <div class="heading">
-    <h3>{t.fundsAndPolicies}</h3>
-    <Tip about={t.fundsAndPoliciesShort}>
-      <p>{t.fundsAndPoliciesTip}</p>
-    </Tip>
+  <p class="note">{t.tickedAtFirst}</p>
+  {#if app.compared.length > 0}
+    <ul class="compared" aria-label={t.whatsCompared}>
+      {#each app.compared as { plan, name } (plan.id)}
+        <li><span class="mark" class:yours={plan.yours} style:--plan-color={plan.color}></span>{name}</li>
+      {/each}
+    </ul>
+  {/if}
+  <div class="choose">
+    <button onclick={() => (choosing = true)}>{t.addOrRemove}</button>
+    <span class="count">{t.comparedOf(app.compared.length, app.plans.length)}</span>
   </div>
-  <BrokerPicker {app} funds />
 </section>
+<PlanSheet {app} bind:open={choosing} />
 
 <!-- Asked only while it changes something: a ticked plan pays a pension. -->
 {#if app.pensionFromAge !== undefined}
@@ -262,20 +267,6 @@
     </div>
   </section>
 {/if}
-
-<section class="card">
-  <div class="heading">
-    <h3>{t.yourPlans}</h3>
-    <Tip about={t.yourPlans}>
-      <p>
-        בנקים ובתי השקעות נותנים לא פעם הנחה בעמלות למי שמתמקח: למשל 0.06% במקום 0.07%, או מינימום נמוך יותר.
-        לחצו על ✎ ליד מסלול כדי להעתיק אותו ולשנות את העמלות למה שאתם חושבים שתוכלו לקבל, או הוסיפו מסלול שלא
-        ברשימה עם ״+ מסלול חדש״.
-      </p>
-    </Tip>
-  </div>
-  <YourPlans {app} />
-</section>
 
 <style>
   section + section {
@@ -343,6 +334,48 @@
     font-size: 0.8rem;
     line-height: 1.5;
     color: var(--weak);
+  }
+  /* The plans compared, each with its color as in the table. */
+  .compared {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .compared li {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--raised);
+    font-size: 0.8rem;
+  }
+  .mark {
+    flex: none;
+    box-sizing: border-box;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--plan-color);
+  }
+  /* Your own plans are hollow, like their dotted lines in the charts. */
+  .mark.yours {
+    border: 2px solid var(--plan-color);
+    background: none;
+  }
+  .choose {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 12px;
+  }
+  .count {
+    color: var(--weak);
+    font-size: 0.8rem;
   }
   .explained {
     margin-top: 10px;

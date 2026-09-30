@@ -1,17 +1,21 @@
 import {
+  brokers,
   compare,
   examples,
   exchangeName,
   expectedRows,
   inputsOnPage,
+  listed,
+  listedPlans,
   rowsOnPage,
   securityName,
   sharePriceSymbol,
+  usualPlans,
   type Exchange,
   type Security,
 } from './core'
 import { t } from '../src/lib/text'
-import { choice, expect, rows, test } from './fixtures'
+import { choice, expect, openPlans, planInList, plansList, rows, test } from './fixtures'
 
 // The inputs panel: fields, choices and what they show or hide.
 
@@ -103,6 +107,10 @@ test(
 // Every label, choice and number, as text: a change to any shows as a diff.
 test('the inputs, as text', async ({ page }) => {
   await expect(page.locator('aside')).toMatchAriaSnapshot({ name: 'inputs.aria.yml' })
+  // And the list of plans, every broker unfolded.
+  await openPlans(page)
+  for (const { name } of brokers()) await plansList(page).getByRole('button', { name, exact: true }).click()
+  await expect(plansList(page)).toMatchAriaSnapshot({ name: 'plans.aria.yml' })
 })
 
 test(
@@ -135,3 +143,71 @@ test(
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
   },
 )
+
+// What's compared: a card naming the plans, and the list they're ticked in.
+
+test(
+  'the list of plans opens folded; ticking there changes the list, the table and the card',
+  { tag: '@phone' },
+  async ({ page }) => {
+    const [online, pepper] = [listed('Leumi · Online'), listed('Leumi · Pepper')]
+    const leumi = online.broker
+    await openPlans(page)
+    // Every broker is one folded line, saying which of its plans are ticked.
+    for (const { name } of brokers()) {
+      const folded = plansList(page).getByRole('button', { name, exact: true })
+      await expect(folded).toHaveAttribute('aria-expanded', 'false')
+    }
+    const line = plansList(page).getByRole('button', { name: leumi.name, exact: true })
+    await expect(line).toHaveAccessibleDescription(`${online.plan.name} ${t.countOf(1, leumi.plans.length)}`)
+
+    await (await planInList(page, 'Leumi · Pepper')).getByRole('checkbox').check()
+    await expect(line).toHaveAttribute('aria-expanded', 'true')
+    await expect(line).toHaveAccessibleDescription(
+      `${online.plan.name}, ${pepper.plan.name} ${t.countOf(2, leumi.plans.length)}`,
+    )
+    // The table changes while the list is open.
+    await expect(rows(page)).toHaveCount(usualPlans.length + 1)
+    await plansList(page)
+      .getByRole('button', { name: t.doneComparing(usualPlans.length + 1) })
+      .click()
+    await expect(plansList(page)).toBeHidden()
+    await expect(page.getByRole('button', { name: t.addOrRemove })).toBeFocused()
+
+    // Two of Leumi's plans: the card names each by its label.
+    const card = page.getByRole('list', { name: t.whatsCompared }).getByRole('listitem')
+    await expect(card).toHaveCount(usualPlans.length + 1)
+    await expect(card.filter({ hasText: online.label })).toHaveCount(1)
+    await expect(card.filter({ hasText: pepper.label })).toHaveCount(1)
+    await expect(card.getByText(leumi.shortName, { exact: true })).toHaveCount(0)
+    await expect(page.getByText(t.comparedOf(usualPlans.length + 1, listedPlans.length))).toBeVisible()
+    // ✕ closes it too.
+    await openPlans(page)
+    await plansList(page).getByRole('button', { name: t.close }).click()
+    await expect(plansList(page)).toBeHidden()
+  },
+)
+
+// Beside the results, it leaves them in sight, changing as plans are ticked.
+test('on a wide screen the list covers only the inputs, and a click beside it closes it', async ({
+  page,
+}) => {
+  await openPlans(page)
+  const list = (await plansList(page).boundingBox())!
+  const inputs = (await page.locator('aside').boundingBox())!
+  const table = (await page.locator('section.table').boundingBox())!
+  // At the start of the line, the right in Hebrew, over the inputs and clear of the table.
+  expect(Math.round(list.x + list.width)).toBe(page.viewportSize()!.width)
+  expect(list.x).toBeLessThanOrEqual(inputs.x)
+  expect(table.x + table.width).toBeLessThanOrEqual(list.x)
+  await page.mouse.click(list.x - 40, list.y + list.height / 2)
+  await expect(plansList(page)).toBeHidden()
+  await expect(page.locator('tbody tr.pinned')).toHaveCount(0)
+})
+
+test('on a phone the list covers the whole screen', { tag: '@touch' }, async ({ page }) => {
+  await openPlans(page)
+  const list = (await plansList(page).boundingBox())!
+  const { width, height } = page.viewportSize()!
+  expect([list.x, list.y, Math.round(list.width), Math.round(list.height)]).toEqual([0, 0, width, height])
+})

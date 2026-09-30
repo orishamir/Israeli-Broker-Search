@@ -15,14 +15,32 @@ import {
   trackOnPage,
 } from './core'
 import type { Exchange, FeeKind, PlanData, Security } from './core'
-import { choice, expect, rows, test, type Page } from './fixtures'
+import {
+  choice,
+  closePlans,
+  copyPlan,
+  details,
+  expect,
+  openPlans,
+  planInList,
+  plansList,
+  rows,
+  test,
+  tickBrokers,
+  tickPlan,
+  type Page,
+} from './fixtures'
 import { t } from '../src/lib/text'
 
 // Your plans: copying a listed plan to change, plans of your own, and the
 // editor's two views. Expected values come from the core's editor functions.
 
-const card = (page: Page) => page.locator('section.card', { hasText: t.yourPlans })
-const editor = (page: Page) => page.getByRole('dialog')
+/** Your plans, in the list of plans, which it opens. */
+async function yourPlans(page: Page) {
+  await openPlans(page)
+  return plansList(page).locator('section', { hasText: t.yourPlans })
+}
+const editor = details
 
 /** A fee's name, as its fields are labelled: "קנייה או מכירה" in
  * "קנייה או מכירה: price". */
@@ -43,10 +61,7 @@ async function copied(page: Page, englishLabel: string) {
 }
 
 /** Opens a draft copy of a listed plan with its ✎: "Leumi · Pepper". */
-async function copy(page: Page, englishLabel: string) {
-  await page.getByRole('button', { name: t.changeACopy(listed(englishLabel).label), exact: true }).click()
-  await expect(editor(page)).toBeVisible()
-}
+const copy = copyPlan
 
 /** Copies Pepper, charges $2 an order instead of its price, and adds it. */
 async function addDeal(page: Page) {
@@ -59,7 +74,7 @@ async function addDeal(page: Page) {
 const price = (fields: { amount?: number | null }) => formatNumber(fields.amount ?? null)
 
 test("✎ copies a plan to change, showing the original's fees", { tag: '@phone' }, async ({ page }) => {
-  await expect(card(page)).toContainText(t.thinkLowerFees)
+  await expect(await yourPlans(page)).toContainText(t.thinkLowerFees)
   const { plan, broker, copy: data, inputs, simple } = await copied(page, 'Leumi · Pepper')
   await copy(page, 'Leumi · Pepper')
   const dialog = page.getByRole('dialog', { name: planInfo(data).name })
@@ -74,7 +89,7 @@ test("✎ copies a plan to change, showing the original's fees", { tag: '@phone'
 
   await dialog.getByRole('button', { name: t.addPlan }).click()
   await expect(dialog).toBeHidden()
-  await expect(card(page)).toContainText(t.copyOf(plan.name, broker.name))
+  await expect(await yourPlans(page)).toContainText(t.copyOf(plan.name, broker.name))
   const row = rows(page).filter({ hasText: planInfo(data).name })
   await expect(row).toContainText(t.yourDeal(broker.name))
   await expect(row.locator('.mark')).toHaveClass(/yours/)
@@ -141,15 +156,16 @@ test(
     await copy(page, 'Leumi · Pepper')
     await editor(page).getByRole('button', { name: t.cancel }).click()
     await expect(editor(page)).toBeHidden()
-    await expect(card(page)).toContainText(t.thinkLowerFees)
+    await expect(await yourPlans(page)).toContainText(t.thinkLowerFees)
     await expect(rows(page)).toHaveCount(before)
 
     await addDeal(page)
     const { copy: data } = await copied(page, 'Leumi · Pepper')
     const name = planInfo(data).name
+    await closePlans(page)
     await rows(page).filter({ hasText: name }).click()
     await expect(page.locator('tbody tr.pinned')).toHaveCount(1)
-    await page.getByRole('button', { name: t.change(name) }).click()
+    await (await yourPlans(page)).getByRole('button', { name: t.change(name) }).click()
     await editor(page).getByRole('button', { name: t.deletePlan }).click()
     await expect(editor(page)).toContainText(t.deleteQuestion(name))
     await editor(page).getByRole('button', { name: t.keepPlan, exact: true }).click()
@@ -158,7 +174,7 @@ test(
     await expect(editor(page)).toBeHidden()
     await expect(rows(page)).toHaveCount(before)
     await expect(page.locator('tbody tr.pinned')).toHaveCount(0)
-    await expect(card(page)).toContainText(t.thinkLowerFees)
+    await expect(await yourPlans(page)).toContainText(t.thinkLowerFees)
   },
 )
 
@@ -166,13 +182,13 @@ test('your plans and the editor view stay after a reload', async ({ page }) => {
   const { plan, broker, copy: data, inputs, simple } = await copied(page, 'Leumi · Pepper')
   const name = planInfo(data).name
   await addDeal(page)
-  await page.getByRole('button', { name: t.change(name) }).click()
+  await (await yourPlans(page)).getByRole('button', { name: t.change(name) }).click()
   await choice(editor(page), t.view, t.fullPriceList).click()
   await editor(page).getByRole('button', { name: t.done }).click()
 
   await page.reload()
   await expect(rows(page).filter({ hasText: name })).toContainText(t.yourDeal(broker.name))
-  await page.getByRole('button', { name: t.change(name) }).click()
+  await (await yourPlans(page)).getByRole('button', { name: t.change(name) }).click()
   await expect(editor(page).getByRole('radio', { name: t.fullPriceList })).toBeChecked()
   // Still $2, not the original's price.
   const trade = simple().trade!
@@ -181,13 +197,13 @@ test('your plans and the editor view stay after a reload', async ({ page }) => {
 })
 
 test('a new plan, with a broker name, then the next free name', async ({ page }) => {
-  await card(page).getByRole('button', { name: t.newPlan }).click()
+  await (await yourPlans(page)).getByRole('button', { name: t.newPlan }).click()
   const dialog = page.getByRole('dialog', { name: t.yourPlan })
   await dialog.getByPlaceholder(t.optional).fill('IBI')
   await dialog.getByLabel(`${TRADE}: price`).fill('0.1')
   await dialog.getByRole('button', { name: t.addPlan }).click()
   await expect(rows(page).filter({ hasText: t.yourPlan })).toContainText(t.brokerYourOwn('IBI'))
-  await card(page).getByRole('button', { name: t.newPlan }).click()
+  await (await yourPlans(page)).getByRole('button', { name: t.newPlan }).click()
   await expect(page.getByRole('dialog', { name: t.yourPlanNumbered(2) })).toBeVisible()
 })
 
@@ -202,7 +218,7 @@ test('a fee can be added where the original offers none', async ({ page }) => {
 })
 
 test('the full price list: rows, what they cover, and overlaps', async ({ page }) => {
-  await card(page).getByRole('button', { name: t.newPlan }).click()
+  await (await yourPlans(page)).getByRole('button', { name: t.newPlan }).click()
   const dialog = editor(page)
   await choice(dialog, t.view, t.fullPriceList).click()
 
@@ -255,20 +271,22 @@ test('the simple view shows the fees for every security and exchange', async ({ 
       await expect(dialog.getByLabel('Conversion: fee')).toHaveCount(simple().conversion ? 1 : 0)
       await dialog.getByRole('button', { name: t.cancel }).click()
       await expect(dialog).toBeHidden()
+      await closePlans(page)
     }
   }
 })
 
 test('✎ shows on hover', async ({ page }) => {
-  const { label, plan } = listed('Leumi · Pepper')
-  const pencil = page.getByRole('button', { name: t.changeACopy(label) })
+  const plan = await planInList(page, 'Leumi · Pepper')
+  const pencil = plan.getByRole('button', { name: t.changeACopy(listed('Leumi · Pepper').label) })
   await expect(pencil).toHaveCSS('opacity', '0')
-  await page.locator('aside li', { hasText: plan.name }).hover()
+  await plan.hover()
   await expect(pencil).toHaveCSS('opacity', '1')
 })
 
 test('✎ always shows on touch screens', { tag: '@touch' }, async ({ page }) => {
-  await expect(page.getByRole('button', { name: t.changeACopy(listed('Leumi · Pepper').label) })).toHaveCSS(
+  const plan = await planInList(page, 'Leumi · Pepper')
+  await expect(plan.getByRole('button', { name: t.changeACopy(listed('Leumi · Pepper').label) })).toHaveCSS(
     'opacity',
     '1',
   )
@@ -294,7 +312,7 @@ test("a copy's standing order price can be changed, in both views", async ({ pag
 
 test("a copy's second conversion fee can be changed, and the copy then ends with more", async ({ page }) => {
   const label = "Leumi · Online, 'Leumi 18+'"
-  await page.getByRole('checkbox', { name: listed(label).plan.name, exact: true }).check()
+  await tickPlan(page, label)
   const { plan, copy: data, simple } = await copied(page, label)
   const { conversion, secondConversion } = simple()
   await copy(page, label)
@@ -317,7 +335,7 @@ test("a copy's second conversion fee can be changed, and the copy then ends with
 })
 
 test('a copy is made on the track the comparison picked', async ({ page }) => {
-  await page.getByRole('checkbox', { name: listed('IBI · Full tariff').broker.name, exact: true }).check()
+  await tickBrokers(page, [listed('IBI · Full tariff').broker.name])
   const { plan, simple } = await copied(page, 'IBI · Full tariff')
   const trade = simple().trade!
   await copy(page, 'IBI · Full tariff')

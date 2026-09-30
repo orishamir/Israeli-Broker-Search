@@ -307,6 +307,21 @@ export class AppState {
     return this.colors.get(id) ?? UNTICKED_COLOR
   }
 
+  /** The ticked plans, in the list's order, as the "What's compared" card
+   * names them: each as briefly as it can be told apart. A broker goes by its
+   * short name while the plan a new customer gets is its only plan ticked
+   * ("Leumi"); otherwise a plan goes by its label ("Leumi · Pepper"), as do
+   * your own plans. */
+  compared: { plan: Plan; name: string }[] = $derived.by(() => {
+    const ticked = this.plans.filter((plan) => this.selected.has(plan.id))
+    return ticked.map((plan) => {
+      const { broker, key } = plan
+      const alone = ticked.filter((other) => other.broker === broker).length === 1
+      const usual = key.kind === 'listed' && key.plan === broker?.newCustomerPlan
+      return { plan, name: broker && alone && usual ? broker.shortName : plan.label }
+    })
+  })
+
   /** The editor's view, as last chosen. */
   editorView = $state<EditorView>(load<EditorView>('editor-view', 'simple'))
 

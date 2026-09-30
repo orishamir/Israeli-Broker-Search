@@ -10,7 +10,16 @@ import {
   purchasePhrase,
   rowOfKey,
 } from './core'
-import { away, canvasPicture, checkbox, choice, expect, recordDrawnText, test, type Page } from './fixtures'
+import {
+  away,
+  canvasPicture,
+  choice,
+  expect,
+  recordDrawnText,
+  test,
+  tickBrokers,
+  type Page,
+} from './fixtures'
 import { t } from '../src/lib/text'
 
 // The fee breakdown: comparing by one fee, and picking a plan to see year by
@@ -139,7 +148,10 @@ test('plans without a price are named, not just left out', { tag: '@phone' }, as
 // the box (see `fitName`), on this screen and in the page's font.
 test("every plan's name is drawn whole, on one line", { tag: '@phone' }, async ({ page }) => {
   const drawn = await recordDrawnText(page)
-  for (const broker of brokers()) await checkbox(page, broker.name).check()
+  await tickBrokers(
+    page,
+    brokers().map(({ name }) => name),
+  )
   const names = (await byFees(page)).map(({ label }) => label)
   await expect.poll(drawn).toEqual(expect.arrayContaining(names))
 })

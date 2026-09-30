@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { AppState, PLAN_COLORS, planId, type Details } from './app.svelte'
 import * as core from './core/core'
 import { decode, encode } from './link'
+import { t } from './text'
 
 // Fixed rates instead of today's, so nothing depends on the network or the day.
 beforeEach(() => {
@@ -64,6 +65,36 @@ test("each broker's usual plan and the provident fund's average are ticked at fi
   const left = ranked.map(({ outcome }) => outcome?.afterTax ?? -Infinity)
   expect(left).toEqual(left.toSorted((a, b) => b - a))
   expect(app.purchase).toBe('קרן סל שנקנית בארה״ב')
+})
+
+test('the card names each ticked plan as briefly as it can be told apart, in the list’s order', () => {
+  const app = start()
+  const names = () => app.compared.map(({ name }) => name)
+  const index = app.brokers.findIndex(({ englishName }) => englishName === 'Bank Leumi')
+  const leumi = app.brokers[index]
+  const plan = (at: number) => planId({ kind: 'listed', broker: index, plan: at })
+  const usual = leumi.newCustomerPlan
+  const other = leumi.plans.findIndex((_, at) => at !== usual)
+  // At first each broker's usual plan is its only one ticked: the broker's name says it.
+  expect(names()).toEqual(
+    app.brokers.filter((broker) => broker.comparedAtFirst).map(({ shortName }) => shortName),
+  )
+  // Two of its plans: each by its label.
+  app.setSelected([plan(other)], true)
+  expect(names()).toContain(`${leumi.shortName} · ${leumi.plans[usual].name}`)
+  expect(names()).toContain(`${leumi.shortName} · ${leumi.plans[other].name}`)
+  expect(names()).not.toContain(leumi.shortName)
+  // Only one again, but not the usual one: still by its label.
+  app.setSelected([plan(usual)], false)
+  expect(names()).toContain(`${leumi.shortName} · ${leumi.plans[other].name}`)
+  expect(names()).not.toContain(leumi.shortName)
+  // A plan of your own, by its name, last.
+  app.draftNewPlan()
+  app.addYourPlan(draftOf(app.details))
+  expect(names().at(-1)).toBe(t.yourPlan)
+  expect(app.compared.map(({ plan }) => plan.id)).toEqual(
+    app.plans.filter(({ id }) => app.selected.has(id)).map(({ id }) => id),
+  )
 })
 
 test('how the money is taken out is asked only while a ticked plan pays a pension, and everything is sold', () => {

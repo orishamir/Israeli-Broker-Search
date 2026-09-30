@@ -11,7 +11,20 @@ import {
   purchasePhrase,
   trackOnPage,
 } from './core'
-import { away, choice, closeDialog, expect, test, type Page } from './fixtures'
+import {
+  aboutPlan,
+  away,
+  choice,
+  closeDialog,
+  closePlans,
+  details,
+  expect,
+  openPlans,
+  plansList,
+  test,
+  tickBrokers,
+  type Page,
+} from './fixtures'
 import { t } from '../src/lib/text'
 
 // The details dialog: a plan's fees for what's bought, its caveats and its
@@ -21,13 +34,13 @@ import { t } from '../src/lib/text'
 /** Opens the details of the plan called `englishLabel`, and describes them
  * as the core does for the page's inputs. */
 async function open(page: Page, englishLabel: string) {
-  const { key, plan, label } = listed(englishLabel)
+  const { key, plan } = listed(englishLabel)
   const { inputs, purchase } = await purchaseOnPage(page)
   const fees = feesFor(key.broker, key.plan, purchase, trackOnPage(inputs, key))
-  await page.getByRole('button', { name: t.about(label) }).click()
-  const dialog = page.getByRole('dialog', { name: plan.name })
-  await expect(dialog).toBeVisible()
-  return { dialog, fees, purchase }
+  await aboutPlan(page, englishLabel)
+  const opened = page.getByRole('dialog', { name: plan.name })
+  await expect(opened).toBeVisible()
+  return { dialog: opened, fees, purchase }
 }
 
 test(
@@ -89,6 +102,7 @@ test("a plan's fees follow what's bought: nothing about conversion on Tel Aviv",
   const abroad = await open(page, 'Leumi · Pepper')
   expect(abroad.fees.fees.map(({ kind }) => kind)).toContain('Conversion')
   await closeDialog(page)
+  await closePlans(page)
   await choice(page, t.exchange, exchangeName('Tlv')).click()
   const { dialog, fees } = await open(page, 'Leumi · Pepper')
   expect(fees.fees.map(({ kind }) => kind)).not.toContain('Conversion')
@@ -105,7 +119,7 @@ test("a plan's fees follow what's bought: nothing about conversion on Tel Aviv",
 
 test('a plan with tracks names the one picked and the others', async ({ page }) => {
   const { key, broker } = listed('IBI · Full tariff')
-  await page.getByRole('checkbox', { name: broker.name, exact: true }).check()
+  await tickBrokers(page, [broker.name])
   const { dialog, fees } = await open(page, 'IBI · Full tariff')
   const track = fees.fees[0].parts.find(({ kind }) => kind === 'Track')!
   await expect(dialog.locator('dd.part', { hasText: track.label })).toContainText(track.price.text)
@@ -140,14 +154,18 @@ test(
 test("every broker's plan's details open, with all its prices", async ({ page }) => {
   // A loop over everything: near the timeout under load.
   test.slow()
-  const buttons = page.getByRole('button', { name: new RegExp(`^${t.about('.+ · ')}`) })
+  // Every plan has its ℹ in the list, folded or not.
+  await openPlans(page)
+  const buttons = plansList(page).getByRole('button', {
+    name: new RegExp(`^${t.about('.+ · ')}`),
+    includeHidden: true,
+  })
   await expect(buttons).toHaveCount(listedPlans.length)
-  for (const { label } of listedPlans.filter(({ plan }) => !plan.tariff.management)) {
-    await page.getByRole('button', { name: t.about(label), exact: true }).click()
+  for (const { englishLabel } of listedPlans.filter(({ plan }) => !plan.tariff.management)) {
+    await aboutPlan(page, englishLabel)
     await away(page)
-    const dialog = page.getByRole('dialog')
-    await dialog.getByText(t.allPrices).click()
-    await expect(dialog.locator('.tariff')).toBeVisible()
+    await details(page).getByText(t.allPrices).click()
+    await expect(details(page).locator('.tariff')).toBeVisible()
     await closeDialog(page)
   }
 })
@@ -157,15 +175,15 @@ test("every broker's plan's details open, with all its prices", async ({ page })
 test("a fund's plan's details show its fee alone, from the regulator's data", async ({ page }) => {
   const funds = listedPlans.filter(({ plan }) => plan.tariff.management)
   expect(funds.length).toBeGreaterThan(0)
-  for (const { label, plan, broker } of funds) {
-    await page.getByRole('button', { name: t.about(label), exact: true }).click()
+  for (const { englishLabel, plan, broker } of funds) {
+    await aboutPlan(page, englishLabel)
     await away(page)
-    const dialog = page.getByRole('dialog')
-    await expect(dialog.getByText(t.allPrices)).toBeHidden()
-    await expect(dialog.locator('.fees-for')).toContainText(plan.tariff.management!.ofBalance.text)
-    await expect(dialog.locator('.fees-for')).not.toContainText(t.forPurchase(purchasePhrase('Etf', 'Usa')))
-    await expect(dialog.locator('.source')).toContainText(broker.tariffDate)
-    await expect(dialog.locator('.source').getByRole('link', { name: 'נתוני רשות שוק ההון ↗' })).toBeVisible()
+    const fund = details(page)
+    await expect(fund.getByText(t.allPrices)).toBeHidden()
+    await expect(fund.locator('.fees-for')).toContainText(plan.tariff.management!.ofBalance.text)
+    await expect(fund.locator('.fees-for')).not.toContainText(t.forPurchase(purchasePhrase('Etf', 'Usa')))
+    await expect(fund.locator('.source')).toContainText(broker.tariffDate)
+    await expect(fund.locator('.source').getByRole('link', { name: 'נתוני רשות שוק ההון ↗' })).toBeVisible()
     await closeDialog(page)
   }
 })
@@ -190,7 +208,7 @@ test('the numbers are explained, from the title and from a plan', { tag: '@phone
   await closeDialog(page)
 
   const pepper = listed('Leumi · Pepper')
-  await page.getByRole('button', { name: t.about(pepper.label) }).click()
+  await aboutPlan(page, 'Leumi · Pepper')
   await page
     .getByRole('dialog', { name: pepper.plan.name })
     .getByRole('button', { name: t.howTheNumbersAreMade })

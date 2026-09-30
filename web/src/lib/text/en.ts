@@ -182,14 +182,17 @@ export const en = {
   keep: 'Keep',
   keepTip:
     "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling or as tax. For money you'll draw on slowly, or pass on.",
-  brokersAndPlans: 'Brokers and plans to compare',
-  brokersAndPlansShort: 'Brokers and plans',
-  tickedAtFirst: "Ticked at first: each broker's usual plan, the one a new customer gets.",
-  fundsAndPolicies: 'Funds and policies to compare',
-  fundsAndPoliciesShort: 'Funds and policies',
+  whatsCompared: "What's compared",
+  tickedAtFirst:
+    'Ticked at first: at each bank and investment house the plan a new customer gets, and the provident fund for investment.',
+  addOrRemove: 'Add or remove',
+  comparedOf: (count: number, total: number) => `${count} of ${total} plans`,
+  doneComparing: (count: number) => `Done · ${count} compared`,
+  countOf: (count: number, total: number) => `${count} of ${total}`,
+  banksAndHouses: 'Banks and investment houses',
+  fundsAndPolicies: 'Funds and policies',
   fundsAndPoliciesTip:
     "Instead of buying securities yourself at a broker, you can hand the money to a manager who invests it for a share of it: a fund or a policy. It's taxed by its own rules, and the table counts that. A fund's fee is agreed person by person, so each kind is listed by what its savers really pay, such as the average, beside the most it can charge.",
-  fundsTickedAtFirst: 'Ticked at first: what savers in a provident fund for investment pay on average.',
   takingTheMoneyOut: 'Taking the money out',
   takingTheMoneyOutTip: (age: number) =>
     `A provident fund for investment can be taken all at once, like selling at a broker, or from the age of ${age} as a monthly pension, which isn't taxed. A broker, a study fund and a savings policy pay no pension: for them nothing changes.`,

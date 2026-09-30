@@ -1,7 +1,7 @@
 import { expectedRows, inputsOnPage, listed, RATES, rowsOnPage, securityName, usualPlans } from './core'
 import { dateText } from '../src/lib/format'
 import { t } from '../src/lib/text'
-import { checkbox, choice, expect, rows, test } from './fixtures'
+import { choice, expect, planInList, rows, test, tickBrokers } from './fixtures'
 
 // Starting up: what the page shows once the core has loaded.
 
@@ -11,20 +11,20 @@ test(
   async ({ page }) => {
     await expect(rows(page)).toHaveCount(usualPlans.length)
     await expect(page.getByText(t.tickedAtFirst)).toBeVisible()
-    const usual = page.locator('aside li', { has: page.locator('.usual') })
-    await expect(usual).toHaveCount(usualPlans.filter(({ broker }) => broker.kind !== 'Funds').length)
-    for (const plan of await usual.all()) await expect(plan.getByRole('checkbox')).toBeChecked()
-    // "usual" isn't part of the plan's name.
-    const { plan } = usualPlans[0]
-    await expect(page.getByRole('checkbox', { name: plan.name, exact: true }).first()).toBeChecked()
-    // Of the funds, listed apart, only the provident fund's average.
-    await expect(page.getByText(t.fundsTickedAtFirst)).toBeVisible()
-    const average = (fund: string) => {
-      const { broker, plan } = listed(`${fund} · Average fee`)
-      return page.getByRole('list', { name: broker.name }).getByRole('checkbox', { name: plan.name })
+    // Each is the only plan of its broker ticked, and the usual one: named by the broker alone.
+    await expect(page.getByRole('list', { name: t.whatsCompared }).getByRole('listitem')).toHaveText(
+      usualPlans.map(({ broker }) => broker.shortName),
+    )
+    // In the list, a broker's usual plan is marked so; a fund has none.
+    for (const { englishLabel, broker } of usualPlans) {
+      const plan = await planInList(page, englishLabel)
+      await expect(plan.getByRole('checkbox')).toBeChecked()
+      await expect(plan.locator('.usual')).toHaveCount(broker.kind === 'Funds' ? 0 : 1)
     }
-    await expect(average('Provident fund')).toBeChecked()
-    await expect(average('Savings policy')).not.toBeChecked()
+    // Of the funds, listed apart, only the provident fund's average.
+    await expect(
+      (await planInList(page, 'Savings policy · Average fee')).getByRole('checkbox'),
+    ).not.toBeChecked()
   },
 )
 
@@ -44,7 +44,7 @@ test('Share copies a link that opens the same comparison', async ({ page, contex
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await choice(page, t.security, securityName('Bond')).click()
   await page.getByLabel(t.everyMonth).fill('3500')
-  await checkbox(page, listed('Leumi · Online').broker.name).check()
+  await tickBrokers(page, [listed('Leumi · Online').broker.name])
   const before = expectedRows(await inputsOnPage(page))
   await expect.poll(() => rowsOnPage(page)).toEqual(before)
 

@@ -1,5 +1,5 @@
 import { feesFor, listed, purchaseOnPage, securities, trackOnPage } from './core'
-import { away, choice, expect, test, type Page } from './fixtures'
+import { aboutPlan, away, choice, details, expect, test, type Page } from './fixtures'
 import { t } from '../src/lib/text'
 
 // The "?" tips: how they open and close, and the other names they give.
@@ -52,14 +52,14 @@ test('hovering a security explains it, with its English name and its other Hebre
 
 /** Opens Pepper's details, and finds the account fee's "?" and what the tip should say. */
 async function custodyTip(page: Page) {
-  const { key, label } = listed('Leumi · Pepper')
+  const { key } = listed('Leumi · Pepper')
   const { inputs, purchase } = await purchaseOnPage(page)
   const custody = feesFor(key.broker, key.plan, purchase, trackOnPage(inputs, key)).fees.find(
     ({ kind }) => kind === 'Account',
   )!
-  await page.getByRole('button', { name: t.about(label) }).click()
+  await aboutPlan(page, 'Leumi · Pepper')
   return {
-    button: page.getByRole('dialog').getByRole('button', { name: t.whatMeans(custody.name) }),
+    button: details(page).getByRole('button', { name: t.whatMeans(custody.name) }),
     tip: page.getByRole('tooltip').filter({ hasText: custody.explanation }),
     hebrew: custody.hebrewNames[0],
   }
