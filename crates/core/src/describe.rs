@@ -16,7 +16,7 @@ use crate::{
     Basis, Broker, BrokerKind, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange,
     ExchangeRates, HandlingFee, IntoEnumIterator, Lang, ManagementFee, Markup, Money, Named, Page,
     PercentFee, Period, Plan, Price, Security, TariffDate, Text, TradeFee, Vehicle, Withdrawal,
-    funds, ils, tariffs,
+    funds, ils, short_term, tariffs,
 };
 
 /// A price in words, and whether it's nothing, so that every view dims the
@@ -541,9 +541,20 @@ fn sort_caveats(
     let (matter, others): (Vec<&Caveat>, Vec<&Caveat>) = caveats
         .iter()
         .partition(|caveat| caveat.matters_for(buying, rates));
-    let groups = CaveatKind::iter()
+    let groups = caveat_groups(&matter, lang);
+    let others = others
+        .into_iter()
+        .map(|caveat| CaveatText::new(caveat, lang))
+        .collect();
+    (groups, others)
+}
+
+/// `caveats` grouped by kind, most serious first.
+#[must_use]
+pub fn caveat_groups(caveats: &[&Caveat], lang: Lang) -> Vec<CaveatGroup> {
+    CaveatKind::iter()
         .filter_map(|kind| {
-            let texts: Vec<CaveatText> = matter
+            let texts: Vec<CaveatText> = caveats
                 .iter()
                 .filter(|caveat| CaveatKind::from(&caveat.basis) == kind)
                 .map(|&caveat| CaveatText::new(caveat, lang))
@@ -555,12 +566,7 @@ fn sort_caveats(
                 caveats: texts,
             })
         })
-        .collect();
-    let others = others
-        .into_iter()
-        .map(|caveat| CaveatText::new(caveat, lang))
-        .collect();
-    (groups, others)
+        .collect()
 }
 
 /// One fee, named and explained, and what a plan charges for it.
@@ -2946,5 +2952,324 @@ mod tests {
             full.track_note(Security::Etf, Exchange::Usa, None, Lang::En),
             None
         );
+    }
+}
+
+// ─────────────────────────── The short term ───────────────────────────
+
+impl short_term::Kind {
+    /// "Rates given, by the data of 08/2026", "Fees, by the data of
+    /// 30/09/2026".
+    #[must_use]
+    pub fn data_of_text(&self, lang: Lang) -> String {
+        let date = match self.data_of {
+            TariffDate::Day(date) => date.format(format_description!("[day]/[month]/[year]")),
+            TariffDate::Month(date) => date.format(format_description!("[month]/[year]")),
+        }
+        .expect("a fixed format");
+        let deposits = matches!(
+            self.places.first().map(|place| place.pays),
+            Some(short_term::Pays::Fixed(_))
+        );
+        match (deposits, lang) {
+            (true, Lang::En) => format!("Rates given, by the data of {date}"),
+            (true, Lang::He) => format!("הריביות שניתנו, לפי נתוני {date}"),
+            (false, Lang::En) => format!("Fees, by the data of {date}"),
+            (false, Lang::He) => format!("דמי הניהול, לפי נתוני {date}"),
+        }
+    }
+
+    /// "Checked 01/10/2026"
+    #[must_use]
+    pub fn checked_on_text(&self, lang: Lang) -> String {
+        checked_text(self.checked, lang)
+    }
+
+    /// Where its figures come from, then every page its and its places'
+    /// caveats rest on, each once, in the order first named.
+    #[must_use]
+    pub fn sources(&self, lang: Lang) -> Vec<Source> {
+        let caveats = self
+            .caveats
+            .iter()
+            .chain(self.places.iter().flat_map(|place| &place.caveats));
+        links(
+            &each_once(
+                std::iter::once(&self.source).chain(caveats.flat_map(|caveat| &caveat.sources)),
+            ),
+            lang,
+        )
+    }
+}
+
+impl short_term::Place {
+    /// Every page its numbers rest on, each once: its kind's source, then
+    /// the pages its own caveats and its kind's rest on.
+    #[must_use]
+    pub fn sources(&self, kind: &short_term::Kind, lang: Lang) -> Vec<Source> {
+        let caveats = self.caveats.iter().chain(&kind.caveats);
+        links(
+            &each_once(
+                std::iter::once(&kind.source).chain(caveats.flat_map(|caveat| &caveat.sources)),
+            ),
+            lang,
+        )
+    }
+
+    /// What a fund pays, in a line: "The Bank of Israel's rate, less 0.169% a
+    /// year". None for a deposit, whose rate depends on the term.
+    #[must_use]
+    pub fn pays_text(&self, lang: Lang) -> Option<String> {
+        match self.pays {
+            short_term::Pays::Fixed(_) => None,
+            short_term::Pays::TheRateLess(fee) => Some(match lang {
+                Lang::En => format!("The Bank of Israel's rate, less {fee} a year"),
+                Lang::He => format!("ריבית בנק ישראל, פחות {fee} בשנה"),
+            }),
+        }
+    }
+}
+
+impl short_term::NotOffered {
+    /// Why the money can't be kept there, in full.
+    #[must_use]
+    pub fn reason(self, lang: Lang) -> String {
+        match (self, lang) {
+            (short_term::NotOffered::TakesOneSum, Lang::En) => "A fixed-rate deposit takes one sum, \
+                 not money every month: saving monthly at a bank is a savings plan \
+                 (תוכנית\u{a0}חיסכון), whose rates the Bank of Israel doesn't publish."
+                .to_owned(),
+            (short_term::NotOffered::TakesOneSum, Lang::He) => "פיקדון בריבית קבועה מקבל סכום אחד, ולא הפקדה חודשית: חיסכון חודשי בבנק הוא תוכנית חיסכון, ובנק ישראל לא מפרסם את הריביות שלה.".to_owned(),
+            (short_term::NotOffered::NoRate { term }, Lang::En) => format!(
+                "The Bank of Israel published no rate at this bank for deposits of {}: too \
+                 few were opened in the month.",
+                term.name(lang).to_lowercase()
+            ),
+            (short_term::NotOffered::NoRate { term }, Lang::He) => format!(
+                "בנק ישראל לא פרסם ריבית בבנק הזה לפיקדונות של {}: נפתחו בו מעט מדי פיקדונות כאלה בחודש.",
+                term.name(lang)
+            ),
+        }
+    }
+
+    /// The same, in a few words for a table's row.
+    #[must_use]
+    pub fn short(self, lang: Lang) -> &'static str {
+        match self {
+            short_term::NotOffered::TakesOneSum => lang.pick("Takes one sum", "מקבל סכום אחד"),
+            short_term::NotOffered::NoRate { .. } => {
+                lang.pick("No rate for this term", "אין ריבית לתקופה הזו")
+            }
+        }
+    }
+}
+
+/// The short-term calculator's page on its numbers: how they're made, what
+/// isn't counted, and where they come from.
+#[must_use]
+#[allow(clippy::too_many_lines, reason = "the page's text")]
+pub fn about_short_term(lang: Lang) -> About {
+    let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
+    let method = Section {
+        title: paragraph("How the numbers are made", "איך המספרים מחושבים"),
+        paragraphs: vec![
+            paragraph(
+                "Each place is followed month by month, and money you put in arrives at the \
+                 start of a month. A money market fund earns the Bank of Israel's rate you \
+                 expect, on average over the months, less its fee, which it takes from its \
+                 assets; each deposit grows from its month. A fixed-rate deposit pays its \
+                 bank's rate for the term your months fall in, as the Bank of Israel \
+                 published it: part of a year earns that part of the year's interest, and a \
+                 whole year's interest joins the deposit and earns interest too.",
+                "המחשבון עוקב אחרי כל אפיק חודש אחר חודש, וכל הפקדה מגיעה בתחילת חודש. קרן כספית מרוויחה את ריבית בנק ישראל שאתם מצפים לה, בממוצע על פני התקופה, פחות דמי הניהול שהיא לוקחת מהנכסים שלה; כל הפקדה צומחת מהחודש שבו הופקדה. פיקדון בריבית קבועה משלם את הריבית של הבנק לתקופה שבה נופלים החודשים שבחרתם, כפי שבנק ישראל פרסם אותה: חלק משנה מקבל את החלק היחסי מהריבית של השנה, והריבית של שנה שלמה מצטרפת לפיקדון ומקבלת גם היא ריבית.",
+            ),
+            match lang {
+                Lang::En => format!(
+                    "A deposit's interest is taxed at 15%, all of it, as any interest on money \
+                     not linked to the price index. A fund pays tax when it's sold: 25% of the \
+                     gain, with what each deposit cost first raised by how much prices rose \
+                     since it went in ({USUAL_INFLATION} a year, unless you set another under \
+                     \u{201c}More options\u{201d}), so a gain that only keeps up with prices \
+                     isn't taxed."
+                ),
+                Lang::He => format!(
+                    "על ריבית בפיקדון משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד. על קרן כספית משלמים מס כשמוכרים אותה: 25% מהרווח, כשאת מה שהפקדתם מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז כל הפקדה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה."
+                ),
+            },
+            paragraph(
+                "What a place keeps is measured against the same deposits at the Bank of \
+                 Israel's rate, with nothing kept and no tax: a fund's fee, or how much less \
+                 than the rate a bank pays. Its yearly cost states that the way a fund's fee \
+                 is stated; a bank that pays more than the rate has a cost below zero.",
+                "מה שאפיק שומר לעצמו נמדד מול אותן הפקדות בריבית בנק ישראל, בלי שום עלות ובלי מס: דמי הניהול של קרן, או כמה פחות מהריבית הבנק משלם. העלות השנתית מבטאת את זה כמו דמי ניהול של קרן; לבנק שמשלם יותר מהריבית יש עלות מתחת לאפס.",
+            ),
+            paragraph(
+                "A fund's units can be sold any business day. A deposit locks the money until \
+                 its term ends, and takes one sum: with money put in every month, no bank is \
+                 compared.",
+                "את יחידות הקרן אפשר למכור בכל יום עסקים. פיקדון נועל את הכסף עד סוף התקופה, ומקבל סכום אחד: כשמפקידים כל חודש, הבנקים לא מושווים.",
+            ),
+        ],
+        items: vec![],
+        sources: vec![],
+    };
+    let left_out = Section {
+        title: paragraph("What isn't counted", "מה לא נכלל"),
+        paragraphs: vec![paragraph(
+            "Left out, so no place looks better than it is, or because it depends on you \
+             rather than on the place:",
+            "נשאר בחוץ, כדי שאף אפיק לא ייראה טוב ממה שהוא, או כי זה תלוי בכם ולא באפיק:",
+        )],
+        items: vec![
+            item(
+                lang,
+                "Deposits at a variable rate, and the daily deposit; a bank's savings plan, its \
+                 way to save every month, whose rates aren't published.",
+                "פיקדונות בריבית משתנה, והפיקדון היומי; תוכנית חיסכון בבנק, הדרך שלו לחסוך כל חודש, שהריביות שלה לא מתפרסמות.",
+            ),
+            item(
+                lang,
+                "Taking a deposit out before its term ends, and renewing a shorter deposit on \
+                 the way.",
+                "משיכת פיקדון לפני סוף התקופה, וחידוש של פיקדון קצר יותר בדרך.",
+            ),
+            item(
+                lang,
+                "Linked and foreign-currency deposits and funds; makam, a fund's cash track \
+                 (מסלול\u{a0}כספי) and fixed-term money market funds.",
+                "פיקדונות וקרנות צמודים למדד או במטבע חוץ; מק״מ, מסלול כספי בקופת גמל, וקרנות כספיות מתחדשות.",
+            ),
+            item(
+                lang,
+                "What a fund really earns, a little more or less than the rate.",
+                "כמה קרן מרוויחה בפועל, קצת יותר או פחות מהריבית.",
+            ),
+            item(
+                lang,
+                "A trade fee on a fund at an investment house.",
+                "עמלת קנייה ומכירה על קרן בבית השקעות.",
+            ),
+            item(
+                lang,
+                "A lower tax rate on a low income, and the surtax on a high one.",
+                "שיעור מס נמוך יותר בהכנסה נמוכה, ומס יסף בהכנסה גבוהה.",
+            ),
+        ],
+        sources: vec![],
+    };
+    let mut groups: Vec<SourceGroup> = short_term::kinds()
+        .iter()
+        .map(|kind| SourceGroup {
+            title: format!("{} · {}", &kind.name[lang], kind.data_of_text(lang)),
+            sources: kind.sources(lang),
+        })
+        .collect();
+    groups.push(SourceGroup {
+        title: paragraph("The Bank of Israel's rate", "ריבית בנק ישראל"),
+        sources: links(&short_term::todays_rate_sources(), lang),
+    });
+    let checked = checked_text(short_term::deposits::checked(), lang);
+    let sources = Section {
+        title: paragraph("Sources", "מקורות"),
+        paragraphs: vec![match lang {
+            Lang::En => format!(
+                "{checked} against the Bank of Israel's figures and the funds' reports to \
+                 the Tel Aviv Stock Exchange. The banks' rates change every month and a fund's \
+                 fee at most once a year: each place's details link to what its numbers rest \
+                 on."
+            ),
+            Lang::He => format!(
+                "{checked} מול הנתונים של בנק ישראל והדיווחים של הקרנות לבורסה בתל אביב. הריביות בבנקים משתנות כל חודש, ודמי הניהול של קרן לכל היותר פעם בשנה: בפרטי כל אפיק יש קישור למה שהמספרים שלו מבוססים עליו."
+            ),
+        }],
+        items: vec![],
+        sources: groups,
+    };
+    About {
+        sections: vec![method, left_out, sources],
+    }
+}
+
+#[cfg(test)]
+mod short_term_tests {
+    use super::*;
+    use crate::Percent;
+    use rust_decimal_macros::dec;
+
+    /// The same three sections as the long term's page, so the header's
+    /// links open either; its sources grouped by kind, each kind's own page
+    /// first, then the rate's.
+    #[test]
+    fn the_short_terms_page_has_the_same_sections_and_its_own_sources() {
+        let long = about(Lang::He);
+        let short = about_short_term(Lang::He);
+        let titles = |page: &About| {
+            page.sections
+                .iter()
+                .map(|section| section.title.clone())
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(titles(&short), titles(&long));
+        let groups: Vec<&str> = short.sections[2]
+            .sources
+            .iter()
+            .map(|group| group.title.as_str())
+            .collect();
+        assert_eq!(
+            groups,
+            [
+                "קרן כספית · דמי הניהול, לפי נתוני 30/09/2026",
+                "פיקדון בריבית קבועה · הריביות שניתנו, לפי נתוני 08/2026",
+                "ריבית בנק ישראל",
+            ]
+        );
+        for kind in short_term::kinds() {
+            let sources = kind.sources(Lang::En);
+            assert_eq!(sources[0].url, kind.source.url);
+            let urls: Vec<&str> = sources.iter().map(|source| source.url.as_str()).collect();
+            let mut once = urls.clone();
+            once.dedup();
+            assert_eq!(urls.len(), once.len(), "each page once");
+        }
+        assert!(short.sections[1].items.len() >= 5);
+    }
+
+    #[test]
+    fn a_place_not_offered_says_why() {
+        let one_sum = short_term::NotOffered::TakesOneSum;
+        assert_eq!(one_sum.short(Lang::He), "מקבל סכום אחד");
+        assert!(one_sum.reason(Lang::He).contains("תוכנית חיסכון"));
+        let no_rate = short_term::NotOffered::NoRate {
+            term: short_term::Term::UpToFiveYears,
+        };
+        assert_eq!(no_rate.short(Lang::He), "אין ריבית לתקופה הזו");
+        assert!(no_rate.reason(Lang::He).contains("3 שנים עד 5 שנים"));
+        assert!(no_rate.reason(Lang::En).contains("3 to 5 years"));
+    }
+
+    #[test]
+    fn a_fund_says_what_it_pays_and_a_deposit_leaves_it_to_its_terms() {
+        let fund = short_term::Place {
+            pays: short_term::Pays::TheRateLess(Percent(dec!(0.169))),
+            ..short_term::your_deposit(Percent(dec!(3)))
+        };
+        assert_eq!(
+            fund.pays_text(Lang::He).unwrap(),
+            "ריבית בנק ישראל, פחות 0.169% בשנה"
+        );
+        assert_eq!(
+            short_term::your_deposit(Percent(dec!(3))).pays_text(Lang::He),
+            None
+        );
+    }
+
+    /// Grouped by how sure they are, the ones that may cost more first.
+    #[test]
+    fn caveats_group_by_how_sure_they_are() {
+        let published = Caveat::published(Text::same("a"));
+        let may_cost_more = Caveat::may_cost_more(Text::same("b"), Text::same("B"));
+        let groups = caveat_groups(&[&published, &may_cost_more], Lang::En);
+        let kinds: Vec<CaveatKind> = groups.iter().map(|group| group.kind).collect();
+        assert_eq!(kinds, [CaveatKind::MayCostMore, CaveatKind::Published]);
     }
 }

@@ -84,6 +84,36 @@ sources are in `sources.md`, "Tax and the vehicles".
 - **A savings policy's own average fee:** not published apart from the
   insurers' other policies; the app's is a reading.
 
+## Money for the short term
+
+What `short_term.rs` leaves out (October 2026). The sources are in
+`sources.md`, "Money for the short term".
+
+- **Saving every month at a bank:** a monthly amount goes into the funds,
+  but a fixed-rate deposit takes one sum, so with one no bank is compared. A
+  bank's savings plan (תוכנית חיסכון), its way to deposit monthly, isn't
+  compared: the Bank of Israel doesn't publish its rates.
+- **Variable-rate and daily deposits:** only fixed-rate ones. Variable
+  deposits, tied to the prime rate, and the daily deposit (פיקדון יומי,
+  0.99% on average in August) aren't compared.
+- **Taking a deposit out early:** the money is taken to stay to the end of
+  the term. Sooner, where the bank allows it, a deposit earns less or
+  nothing, by its terms.
+- **Renewing shorter deposits:** one deposit for the whole period. Rolling a
+  month's deposit over, at rates to come, isn't compared.
+- **Linked and foreign-currency deposits and funds:** shekel ones only.
+- **Makam, a fund's cash track (מסלול כספי) and fixed-term money market
+  funds (קרן כספית מתחדשת):** not yet listed.
+- **What a fund really earns:** taken as the Bank of Israel's rate less its
+  fees. Funds hold bills, short bonds, deposits and, most of them, some
+  corporate bonds, and can earn a little more or less.
+- **A trade fee on a fund at an investment house:** none is counted, as at a
+  bank. Excellence charges ₪16 a trade on managed funds; IBI trades some
+  managers' funds free.
+- **A lower tax:** 15% and 25% are the most an individual pays on interest
+  and on a capital gain; someone with a low enough income may pay less.
+  The surtax (מס יסף) on large incomes isn't counted either.
+
 ## Mizrahi-Tefahot Bank
 
 - Custody cap: ₪10,750 a quarter on each of Tel Aviv and foreign holdings.

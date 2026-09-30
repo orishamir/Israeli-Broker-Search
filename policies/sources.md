@@ -385,3 +385,94 @@ that report no fee (new ones) are left out.
   ([Hebrew Wikisource](https://he.wikisource.org/wiki/תקנות_הפיקוח_על_שירותים_פיננסיים_(קופות_גמל)_(הוצאות_ישירות_בשל_ביצוע_עסקאות)))
   cap outside managers' fees and the like at 0.25% of a fund's assets a
   year. Not counted, like an ETF's own fee.
+
+## Money for the short term
+
+Checked on 1 October 2026 (`short_term::deposits::checked`,
+`short_term::money_market::checked`). `short_term.rs` compares a sum at
+the start, and perhaps an amount at the start of every month, kept for 1 to
+60 months: in a money market fund, or at a bank on a fixed-rate deposit,
+which takes the sum alone. Everything earns about the Bank of Israel's
+rate; the comparison is what reaches the saver after what the place keeps
+and the tax.
+
+- **Today's rate, 3.25%** (`short_term::TODAYS_RATE`), since the Monetary
+  Committee's cut of 1 September 2026, the third in a row
+  ([ynet](https://www.ynet.co.il/economy/article/cdo59v3t1),
+  [Bizportal](https://www.bizportal.co.il/general/news/article/20040979)).
+  The cut before it, on 6 July, took the rate to 3.5%, so it was 3.5% all
+  August ([TheMarker](https://www.themarker.com/news/macroeconomics/2026-07-06/ty-article-live/0000019f-376f-d22f-a9ff-f77f73af0000)).
+  A fund is taken to earn the rate the saver expects on average over the
+  months, today's unless they say otherwise.
+- **Deposits:** the Bank of Israel's comparison of the banks' deposit rates
+  ([קו המשווה](https://www.boi.org.il/information/bank-paymnts/financial-education/campaigns/boi-equator/deposit/)),
+  from the Excel behind it
+  ([g060a.xls](https://www.boi.org.il/boi_files/Pikuah/g060a.xls), sheet
+  L7.6.1a): each bank's average yearly rate on the fixed-rate, unlinked
+  shekel deposits households opened with it in a month, by term, from June
+  2024. `deposit-rates.py` here prints them (`uv run --with openpyxl python
+  policies/deposit-rates.py 2026-08`), rounded to two places; the file
+  says 14 September 2026 and ends with August.
+  - Ten banks and the whole system ("מערכת", the banks' average). Otsar
+    Hahayal isn't among them.
+  - A 0 is a rate left out: the page says it publishes none for a bank's
+    segment with fewer than ten deposits in the month, or a kind of rate
+    under 5% of the month's deposits. The app shows no rate, and doesn't
+    compare that bank for that term.
+  - The terms are read as each taking the ones longer than the term before
+    it, up to its own: "עד חודש", "חודש עד 3 חודשים", "3 חודשים עד 6
+    חודשים", "6 חודשים עד שנה", "שנה עד שנתיים", "שנתיים עד 3 שנים", "3 שנים
+    עד 5 שנים". The daily and weekly terms are left out.
+  - The rates are shown as published for August, dated, and every deposit
+    is flagged as August's, before the September cut (the user's choice,
+    over moving each bank by the cut).
+  - A rate is a year's: part of a year earns that part of the year's
+    interest, and a whole year's interest joins the deposit.
+  - [Calcalist](https://www.calcalist.co.il/market/article/bytylkzgbl)
+    (13 November 2025): the Bank of Jerusalem and Mizrahi-Tefahot are the
+    only banks that open a deposit for someone without a current account
+    with them; One Zero offered 5.5% a year to those joining its premium
+    tracks. Its 6.00% for "6 months to a year" in August, with no rate for
+    any other term, is read as such an offer.
+- **Money market funds:** Maya, the Tel Aviv Stock Exchange's list of
+  mutual funds ([maya.tase.co.il](https://maya.tase.co.il/he/funds/mutual-funds)),
+  with each fund's fees as its manager reports them. `money-market-funds.py`
+  here works them out from Maya's API (the list, 30 funds a page). The
+  shekel money market funds (classified כספית שקלית, with and without
+  corporate bonds) were 44 funds holding ₪184,638 million, rates of 30
+  September 2026. The ₪213 billion the news gives
+  ([Bizportal](https://www.bizportal.co.il/mutualfunds/news/article/20041406))
+  includes the 27 funds in dollars and euros and the 2 fixed-term ones
+  (כספית מתחדשת).
+  - A fund costs its saver the management fee and the trustee's fee, both
+    taken from its assets. The distribution fee (עמלת הפצה, 0.1% or 0.35%)
+    is paid by the manager to the bank out of its fee.
+  - "Average fee": both fees, weighted by assets, 0.169%. "Cheapest fund":
+    Ayalon's Dolphin (דולפין כספית שקלית), 0% and 0.01% for the trustee,
+    under a year old, [its page](https://maya.tase.co.il/he/funds/mutual-funds/5141098)
+    showing no load (שיעור הוספה 0%). Barak's fund also charges 0.01%, but
+    loads 0.1% on buying (its purchase price is above its redemption
+    price), so it isn't the cheapest. "Dearest fund": Meitav's (מיטב
+    כספית), 0.25% and 0.01%.
+  - Custody: banks may not charge it on a money market fund or on makam, a
+    Bank of Israel rule from 1 January 2013
+    ([its announcement](https://boi.org.il/publications/pressreleases/%D7%94%D7%9E%D7%A4%D7%A7%D7%97-%D7%A2%D7%9C-%D7%94%D7%91%D7%A0%D7%A7%D7%99%D7%9D-%D7%A0%D7%95%D7%A7%D7%98-%D7%91%D7%A6%D7%A2%D7%93%D7%99%D7%9D-%D7%9C%D7%94%D7%A4%D7%97%D7%AA%D7%AA-%D7%A2%D7%9E%D7%9C%D7%95%D7%AA-%D7%A2%D7%91%D7%95%D7%A8-%D7%9E%D7%A9%D7%A7%D7%99-%D7%94%D7%91%D7%99%D7%AA-%D7%95%D7%94%D7%A2%D7%A1%D7%A7%D7%99%D7%9D-%D7%94%D7%A7%D7%98%D7%A0%D7%99%D7%9D/),
+    28 November 2012), which Leumi's and First International's price lists
+    here repeat ("לא ניתן לגבות דמי ניהול פקדון ניירות ערך עבור מילווה קצר
+    מועד או עבור קרן כספית").
+  - Trade fees: Leumi's price list leaves mutual funds out of its trade fee
+    row ("למעט קרנות נאמנות"), read as none at a bank. At an investment house
+    there can be one, not counted: Excellence's full tariff charges ₪16 a
+    trade on managed funds, and IBI trades only some managers' funds free.
+  - What a fund earns: taken as the rate less its fees. Maya's 12-month
+    returns to September 2026 for the largest funds were 4.14%–4.30% after
+    fees, while the rate came down from 4.5% (November 2025) to 3.25%.
+- **The tax:** the Income Tax Ordinance
+  ([Hebrew Wikisource](https://he.wikisource.org/wiki/פקודת_מס_הכנסה)).
+  - A deposit: section 125ג(ג)(1), interest paid on an asset not linked to
+    the index is taxed at 15% (and 125ג(א) counts a discount, as on makam,
+    as interest). All of the interest, inflation or not.
+  - A fund: section 91(ב)(1), 25% of the real capital gain, as for any
+    security; a unit of an exempt fund (קרן נאמנות פטורה) is sold under
+    it (91(ב1)(1ב)). The 15% of section 91(ב)(3) is for unlinked bonds,
+    commercial paper and loans themselves, not a fund's units.

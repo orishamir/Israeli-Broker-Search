@@ -1511,3 +1511,305 @@ fn a_funds_plans_charge_only_the_manager() {
     // Every broker is compared at first.
     assert!(tariffs::all().iter().all(|b| b.compared_at_first));
 }
+
+// ─────────────────────────── Money for the short term ───────────────────────────
+
+mod short_term_cases {
+    use broker_fees::short_term::{
+        self, Liquidity, NotOffered, Pays, Place, Scenario, Tax, Term, deposits, money_market,
+    };
+    use broker_fees::{Named, Percent};
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    /// A sum kept for `months`, at today's 3.25% rate, prices rising 2% a year.
+    fn kept(amount: Decimal, months: u32) -> Scenario {
+        Scenario {
+            first_deposit: amount,
+            monthly_deposit: Decimal::ZERO,
+            months,
+            rate: short_term::TODAYS_RATE,
+            inflation: Percent(dec!(2)),
+        }
+    }
+
+    fn bank(name: &str) -> Place {
+        deposits::kind()
+            .places
+            .into_iter()
+            .find(|place| place.name.en == name)
+            .unwrap()
+    }
+
+    fn fund(name: &str) -> Place {
+        money_market::kind()
+            .places
+            .into_iter()
+            .find(|place| place.name.en == name)
+            .unwrap()
+    }
+
+    /// The Income Tax Ordinance: interest on anything not linked to the
+    /// price index is taxed at 15% (section 125ג(ג)(1)), a security's real
+    /// gain at 25% (section 91(ב)(1)). A deposit is locked to its end; a
+    /// fund's units are sold any day. The rate is 3.25% since 1 September
+    /// 2026.
+    #[test]
+    fn the_rules_and_todays_rate_are_the_published_ones() {
+        assert_eq!(Tax::ON_INTEREST, Percent(dec!(15)));
+        assert_eq!(Tax::ON_REAL_GAIN, Percent(dec!(25)));
+        let deposit = bank("Bank Leumi").pays;
+        assert_eq!(
+            (deposit.tax(), deposit.liquidity()),
+            (Tax::OfInterest, Liquidity::AtTheEnd)
+        );
+        let fund = fund("Average fund").pays;
+        assert_eq!(
+            (fund.tax(), fund.liquidity()),
+            (Tax::OfRealGain, Liquidity::AnyDay)
+        );
+        assert_eq!(short_term::TODAYS_RATE, Percent(dec!(3.25)));
+    }
+
+    /// The Bank of Israel's figures for August 2026, as
+    /// `policies/deposit-rates.py` prints them: the average first, then the
+    /// ten banks in its order, a few rates checked by hand.
+    #[test]
+    fn the_banks_rates_are_augusts() {
+        let names: Vec<String> = deposits::kind()
+            .places
+            .iter()
+            .map(|place| place.name.en.to_string())
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "Banks' average",
+                "Bank Hapoalim",
+                "Bank Leumi",
+                "Israel Discount Bank",
+                "Mizrahi-Tefahot Bank",
+                "First International Bank",
+                "Bank Yahav",
+                "Mercantile Bank",
+                "Bank Massad",
+                "Bank of Jerusalem",
+                "One Zero",
+            ]
+        );
+        let rate = |name: &str, term| match bank(name).pays {
+            Pays::Fixed(rates) => rates.of(term),
+            Pays::TheRateLess(_) => unreachable!("a bank"),
+        };
+        assert_eq!(
+            rate("Banks' average", Term::UpToAYear),
+            Some(Percent(dec!(3.6)))
+        );
+        assert_eq!(
+            rate("Bank Yahav", Term::UpToAMonth),
+            Some(Percent(dec!(0.3)))
+        );
+        assert_eq!(
+            rate("Mercantile Bank", Term::UpToFiveYears),
+            Some(Percent(dec!(1.14)))
+        );
+        assert_eq!(rate("Bank Massad", Term::UpToFiveYears), None);
+        assert_eq!(rate("One Zero", Term::UpToAYear), Some(Percent(dec!(6))));
+        assert_eq!(rate("One Zero", Term::UpToSixMonths), None);
+    }
+
+    /// Two banks open a deposit even for someone without an account there
+    /// (Calcalist, November 2025), and One Zero's one rate is likely an
+    /// offer for new customers: each said beside it, with what it rests on.
+    #[test]
+    fn what_some_banks_say_beside_their_rates() {
+        for name in ["Mizrahi-Tefahot Bank", "Bank of Jerusalem"] {
+            let caveats = bank(name).caveats;
+            assert_eq!(caveats.len(), 1, "{name}");
+            assert!(
+                caveats[0].text.en.contains("without a current account"),
+                "{name}"
+            );
+            assert!(!caveats[0].sources.is_empty(), "{name}");
+        }
+        let one_zero = bank("One Zero").caveats;
+        assert_eq!(
+            one_zero[0]
+                .may_cost_more_summary()
+                .map(|summary| summary.en.to_string()),
+            Some("Likely an offer for new customers".to_owned())
+        );
+        assert_eq!(bank("Bank Leumi").caveats.len(), 0);
+    }
+
+    /// Ticked when the calculator opens: the funds' average and the
+    /// cheapest fund, the banks' average and the five big banks.
+    #[test]
+    fn the_averages_the_cheapest_fund_and_the_big_banks_are_ticked_at_first() {
+        let ticked: Vec<String> = short_term::kinds()
+            .into_iter()
+            .flat_map(|kind| kind.places)
+            .filter(|place| place.compared_at_first)
+            .map(|place| place.name.en.to_string())
+            .collect();
+        assert_eq!(
+            ticked,
+            [
+                "Average fund",
+                "Cheapest fund",
+                "Banks' average",
+                "Bank Hapoalim",
+                "Bank Leumi",
+                "Israel Discount Bank",
+                "Mizrahi-Tefahot Bank",
+                "First International Bank",
+            ]
+        );
+    }
+
+    /// ₪100,000 for a year at the Bank of Jerusalem's 3.87% for "6 months to
+    /// a year": ₪3,870 of interest, of which 15%, ₪580.50, is tax, leaving
+    /// ₪103,289.50. At the 3.25% rate the money would have made ₪3,250, so
+    /// the bank pays ₪620 more than the rate: it "keeps" −₪620.
+    #[test]
+    fn a_year_at_the_bank_of_jerusalem() {
+        let outcome =
+            short_term::simulate(&bank("Bank of Jerusalem"), &kept(dec!(100000), 12)).unwrap();
+        assert_eq!(outcome.earned, dec!(3870));
+        assert_eq!(outcome.tax, dec!(580.50));
+        assert_eq!(outcome.after_tax, dec!(103289.50));
+        assert_eq!(outcome.kept.round_dp(2), dec!(-620.00));
+        // After tax: 3.2895% a year.
+        assert_eq!(outcome.yearly_after_tax, Percent(dec!(3.2895)));
+    }
+
+    /// ₪100,000 for 6 months at Hapoalim's 3.53% for "3 to 6 months": half
+    /// a year's interest, 100,000 × 3.53% ÷ 2 = ₪1,765, and 15% of it,
+    /// ₪264.75, is tax: ₪101,500.25 is left.
+    #[test]
+    fn half_a_year_at_hapoalim() {
+        let outcome = short_term::simulate(&bank("Bank Hapoalim"), &kept(dec!(100000), 6)).unwrap();
+        assert_eq!(outcome.earned, dec!(1765));
+        assert_eq!(outcome.tax, dec!(264.75));
+        assert_eq!(outcome.after_tax, dec!(101500.25));
+        // Three months in, a quarter of the year's interest has built up.
+        assert_eq!(outcome.value_by_month[3], dec!(100882.5));
+    }
+
+    /// ₪50,000 for 18 months at Leumi's 3.62% for "1 to 2 years": a year
+    /// makes it 50,000 × 1.0362 = ₪51,810, and half a year more
+    /// 51,810 × 1.0181 = ₪52,747.761. The interest, ₪2,747.761, pays 15% tax,
+    /// ₪412.16415, leaving ₪52,335.59685.
+    #[test]
+    fn a_year_and_a_half_at_leumi() {
+        let outcome = short_term::simulate(&bank("Bank Leumi"), &kept(dec!(50000), 18)).unwrap();
+        assert_eq!(outcome.value_by_month[12], dec!(51810));
+        assert_eq!(outcome.earned, dec!(2747.761));
+        assert_eq!(outcome.tax, dec!(412.16415));
+        assert_eq!(outcome.after_tax, dec!(52335.59685));
+    }
+
+    /// Massad published nothing for "3 to 5 years" in August, and One Zero
+    /// only for "6 months to a year".
+    #[test]
+    fn a_term_the_bank_published_nothing_for_isnt_offered() {
+        let not_offered =
+            |name: &str, months| short_term::simulate(&bank(name), &kept(dec!(10000), months));
+        assert_eq!(
+            not_offered("Bank Massad", 48),
+            Err(NotOffered::NoRate {
+                term: Term::UpToFiveYears
+            })
+        );
+        assert_eq!(
+            not_offered("One Zero", 3),
+            Err(NotOffered::NoRate {
+                term: Term::UpToThreeMonths
+            })
+        );
+        assert!(not_offered("One Zero", 12).is_ok());
+    }
+
+    /// ₪100,000 for a year in the average money market fund, at the 3.25%
+    /// rate less its 0.169% fee: 100,000 × 1.0325 × 0.99831 = ₪103,075.5075.
+    /// Prices rose 2%, so only ₪1,075.5075 is a real gain, and 25% of it,
+    /// ₪268.876875, is tax: ₪102,806.630625 is left. The fee took
+    /// 103,250 − 103,075.5075 = ₪174.4925 of what the rate would make.
+    #[test]
+    fn a_year_in_the_average_money_market_fund() {
+        let outcome = short_term::simulate(&fund("Average fund"), &kept(dec!(100000), 12)).unwrap();
+        assert_eq!(outcome.value_by_month[12].round_dp(4), dec!(103075.5075));
+        assert_eq!(outcome.tax.round_dp(4), dec!(268.8769));
+        assert_eq!(outcome.after_tax.round_dp(2), dec!(102806.63));
+        assert_eq!(outcome.kept.round_dp(4), dec!(174.4925));
+        assert_eq!(outcome.yearly_cost, Percent(dec!(0.169)));
+    }
+
+    /// ₪5,000 at the start of every month for a year, in the cheapest fund:
+    /// the rate less its fee grows money by 1.0325 × 0.9999 = 1.03239675 a
+    /// year, 1.00266045 a month, and the deposits, each growing from its
+    /// month, end at 5,000 × (g + g² + … + g¹²) = ₪61,047.77. Raised by 2%
+    /// prices from its month, each deposit would be ₪648.03 more in all, so
+    /// of the ₪1,047.77 earned only ₪399.73 is a real gain, and 25% of it,
+    /// ₪99.93, is tax: ₪60,947.83 is left. A deposit takes one sum, so no
+    /// bank is offered.
+    #[test]
+    fn a_year_of_monthly_saving_in_the_cheapest_fund() {
+        let monthly = Scenario {
+            first_deposit: Decimal::ZERO,
+            monthly_deposit: dec!(5000),
+            ..kept(dec!(0), 12)
+        };
+        let outcome = short_term::simulate(&fund("Cheapest fund"), &monthly).unwrap();
+        assert_eq!(outcome.value_by_month[12].round_dp(2), dec!(61047.77));
+        assert_eq!(outcome.tax.round_dp(2), dec!(99.93));
+        assert_eq!(outcome.after_tax.round_dp(2), dec!(60947.83));
+        for bank in deposits::kind().places {
+            assert_eq!(
+                short_term::simulate(&bank, &monthly),
+                Err(NotOffered::TakesOneSum),
+                "{}",
+                bank.name.en
+            );
+        }
+    }
+
+    /// The funds' fees as their managers reported them on 30 September 2026
+    /// (`policies/money-market-funds.py`): 0.169% on average, Ayalon's
+    /// Dolphin 0.01%, Meitav's 0.26%, each with the trustee's fee.
+    #[test]
+    fn the_funds_fees_are_the_reported_ones() {
+        let fees: Vec<(String, Pays)> = money_market::kind()
+            .places
+            .into_iter()
+            .map(|place| (place.name.en.to_string(), place.pays))
+            .collect();
+        assert_eq!(
+            fees,
+            [
+                (
+                    "Average fund".to_owned(),
+                    Pays::TheRateLess(Percent(dec!(0.169)))
+                ),
+                (
+                    "Cheapest fund".to_owned(),
+                    Pays::TheRateLess(Percent(dec!(0.01)))
+                ),
+                (
+                    "Dearest fund".to_owned(),
+                    Pays::TheRateLess(Percent(dec!(0.26)))
+                ),
+            ]
+        );
+    }
+
+    /// The terms in the Bank of Israel's words.
+    #[test]
+    fn the_terms_are_named_as_the_bank_of_israel_names_them() {
+        let he: Vec<&str> = [Term::UpToAMonth, Term::UpToAYear, Term::UpToFiveYears]
+            .into_iter()
+            .map(|term| term.name(broker_fees::Lang::He))
+            .collect();
+        assert_eq!(he, ["עד חודש", "6 חודשים עד שנה", "3 שנים עד 5 שנים"]);
+    }
+}

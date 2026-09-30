@@ -1740,3 +1740,193 @@ proptest! {
         }
     }
 }
+
+// ─────────────────────────── Money for the short term ───────────────────────────
+
+mod short_term_economics {
+    use super::close;
+    use broker_fees::short_term::{
+        self, NotOffered, Pays, Place, Rates, Scenario, Term, compare, simulate,
+    };
+    use broker_fees::{Percent, Text};
+    use proptest::prelude::*;
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+    use strum::EnumCount;
+
+    /// What someone might keep: up to ₪5 million at the start and up to
+    /// ₪10,000 a month (at least ₪1,000 in all), for 1 to 60 months, at a
+    /// rate of −1% to 8% in quarters, with prices rising 0% to 6%.
+    fn sums() -> impl Strategy<Value = Scenario> {
+        (0..=5000u32, 0..=20u32, 1..=60u32, -4..=32i32, 0..=6u32).prop_map(
+            |(thousands, five_hundreds, months, quarters, inflation)| Scenario {
+                first_deposit: Decimal::from(thousands.max(u32::from(five_hundreds == 0)))
+                    * dec!(1000),
+                monthly_deposit: Decimal::from(five_hundreds) * dec!(500),
+                months,
+                rate: Percent(Decimal::from(quarters) * dec!(0.25)),
+                inflation: Percent(Decimal::from(inflation)),
+            },
+        )
+    }
+
+    /// The same money as one sum at the start, which a deposit can take.
+    fn one_sum(scenario: &Scenario) -> Scenario {
+        Scenario {
+            first_deposit: scenario.deposited(),
+            monthly_deposit: Decimal::ZERO,
+            ..scenario.clone()
+        }
+    }
+
+    fn place(pays: Pays) -> Place {
+        Place {
+            name: Text::same("Made up"),
+            short_name: Text::same("Made up"),
+            description: Text::same(""),
+            pays,
+            caveats: vec![],
+            compared_at_first: true,
+        }
+    }
+
+    /// A fund taking `hundredths` of a percent a year.
+    fn fund(hundredths: u32) -> Place {
+        place(Pays::TheRateLess(Percent(
+            Decimal::from(hundredths) / dec!(100),
+        )))
+    }
+
+    /// A deposit paying `rate` for every term.
+    fn deposit(rate: Percent) -> Place {
+        place(Pays::Fixed(Rates::new([Some(rate); Term::COUNT])))
+    }
+
+    fn every_listed_place() -> Vec<Place> {
+        short_term::kinds()
+            .into_iter()
+            .flat_map(|kind| kind.places)
+            .collect()
+    }
+
+    /// Every rate the Bank of Israel published is between 0% and 10% a
+    /// year, every bank has one for some term, and every fund's fee is under
+    /// 1%: a typo in the data would show here.
+    #[test]
+    fn every_listed_figure_is_plausible() {
+        for place in every_listed_place() {
+            match place.pays {
+                Pays::Fixed(rates) => {
+                    let published: Vec<Percent> =
+                        Term::iter().filter_map(|term| rates.of(term)).collect();
+                    assert!(!published.is_empty(), "{}", place.name.en);
+                    for rate in published {
+                        assert!(
+                            rate.0 > dec!(0) && rate.0 < dec!(10),
+                            "{}: {rate}",
+                            place.name.en
+                        );
+                    }
+                }
+                Pays::TheRateLess(fee) => assert!(
+                    fee.0 >= dec!(0) && fee.0 < dec!(1),
+                    "{}: {fee}",
+                    place.name.en
+                ),
+            }
+        }
+    }
+
+    use strum::IntoEnumIterator;
+
+    proptest! {
+        #![proptest_config(ProptestConfig { cases: 64, failure_persistence: None, ..ProptestConfig::default() })]
+
+        /// A fund takes its fee from what the rate makes, so in no month is
+        /// it worth more than the money at the rate.
+        #[test]
+        fn no_fund_beats_the_rate(scenario in sums(), fee in 0..=100u32) {
+            let outcome = simulate(&fund(fee), &scenario).unwrap();
+            for (month, (value, at_the_rate)) in outcome.value_by_month.iter().zip(scenario.at_the_rate()).enumerate() {
+                prop_assert!(*value <= at_the_rate + dec!(0.01), "month {month}: ₪{value} against ₪{at_the_rate}");
+            }
+            prop_assert!(outcome.kept >= dec!(-0.01));
+        }
+
+        /// A dearer fund never leaves more, and a deposit paying more never
+        /// leaves less.
+        #[test]
+        fn a_dearer_fund_or_a_poorer_deposit_never_helps(scenario in sums(), fee in 0..=100u32, rate in 0..=32u32) {
+            let left = |place: &Place, scenario: &Scenario| simulate(place, scenario).unwrap().after_tax;
+            prop_assert!(left(&fund(fee), &scenario) >= left(&fund(fee + 5), &scenario) - dec!(0.01));
+            let rate = Percent(Decimal::from(rate) * dec!(0.25));
+            let more = Percent(rate.0 + dec!(0.25));
+            let one_sum = one_sum(&scenario);
+            prop_assert!(left(&deposit(more), &one_sum) >= left(&deposit(rate), &one_sum));
+        }
+
+        /// A deposit's tax is 15% of its interest; a fund's is at most 25% of
+        /// its gain; neither is ever negative; and what's left is what it's
+        /// worth less the tax.
+        #[test]
+        fn the_tax_is_the_laws(scenario in sums(), fee in 0..=100u32, rate in 0..=32u32) {
+            let one_sum = one_sum(&scenario);
+            let deposit = simulate(&deposit(Percent(Decimal::from(rate) * dec!(0.25))), &one_sum).unwrap();
+            prop_assert_eq!(deposit.tax, deposit.earned * dec!(0.15));
+            let fund = simulate(&fund(fee), &scenario).unwrap();
+            prop_assert!(fund.tax >= Decimal::ZERO);
+            prop_assert!(fund.tax <= (fund.earned * dec!(0.25)).max(Decimal::ZERO));
+            for (outcome, scenario) in [(deposit, one_sum), (fund, scenario)] {
+                let end = *outcome.value_by_month.last().unwrap();
+                prop_assert_eq!(outcome.after_tax, end - outcome.tax);
+                prop_assert_eq!(outcome.earned, end - scenario.deposited());
+            }
+        }
+
+        /// Growing at the rate less its fee, a fund's yearly cost is its fee,
+        /// however many months it's kept.
+        #[test]
+        fn a_funds_yearly_cost_is_its_fee(scenario in sums(), fee in 0..=100u32) {
+            let outcome = simulate(&fund(fee), &scenario).unwrap();
+            let fee = Decimal::from(fee) / dec!(100);
+            prop_assert!((outcome.yearly_cost.0 - fee).abs() <= dec!(0.0002), "cost {}, fee {fee}", outcome.yearly_cost);
+        }
+
+        /// A deposit paying the rate, kept for whole years, ends where the
+        /// money at the rate does: its interest compounds once a year, and a
+        /// year at the rate is 1 + the rate.
+        #[test]
+        fn a_deposit_at_the_rate_keeps_nothing_over_whole_years(scenario in sums(), years in 1..=5u32) {
+            let scenario = Scenario { months: years * 12, ..one_sum(&scenario) };
+            let outcome = simulate(&deposit(scenario.rate), &scenario).unwrap();
+            prop_assert!(close(outcome.kept, Decimal::ZERO), "kept ₪{}", outcome.kept);
+        }
+
+        /// A fixed-rate deposit is one sum: with money put in every month,
+        /// no bank's is offered, while every fund is.
+        #[test]
+        fn a_deposit_takes_one_sum(scenario in sums()) {
+            prop_assume!(!scenario.monthly_deposit.is_zero());
+            for place in every_listed_place() {
+                let outcome = simulate(&place, &scenario);
+                match place.pays {
+                    Pays::Fixed(_) => prop_assert_eq!(outcome, Err(NotOffered::TakesOneSum), "{}", place.name.en),
+                    Pays::TheRateLess(_) => prop_assert!(outcome.is_ok(), "{}", place.name.en),
+                }
+            }
+        }
+
+        /// The comparison ranks every listed place by what's left after tax,
+        /// most first, and puts the ones that can't be used last.
+        #[test]
+        fn the_comparison_ranks_by_what_is_left(scenario in sums()) {
+            let places = every_listed_place();
+            let refs: Vec<&Place> = places.iter().collect();
+            let comparison = compare(&refs, &scenario);
+            prop_assert_eq!(comparison.places.len(), places.len());
+            let left: Vec<Option<Decimal>> = comparison.places.iter().map(|place| place.outcome.as_ref().ok().map(|o| o.after_tax)).collect();
+            prop_assert!(left.windows(2).all(|pair| pair[0] >= pair[1]), "{left:?}");
+            prop_assert_eq!(comparison.at_the_rate, scenario.at_the_rate());
+        }
+    }
+}
