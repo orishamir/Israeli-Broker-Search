@@ -37,13 +37,18 @@
       text: (outcome) => (outcome.tax === 0 ? t.noTax : shekels(outcome.tax)),
     },
   ])
+
+  /** As in the long term's table: the place's column takes a set share and
+   * the rest split what's left, so a note under a place makes its row
+   * taller rather than moving the numbers. The date is one of the rest. */
+  const width = $derived({ place: '30%', other: `${70 / (columns.length + 1)}%` })
 </script>
 
 <table>
   <thead>
     <tr>
       <th class="rank"><span class="visually-hidden">{t.rank}</span></th>
-      <th class="place">
+      <th class="place" style:width={width.place}>
         {t.place}<Tip about={t.place}>
           <p>{t.placeTip}</p>
           <!-- Each kind as the list of places explains it, for whoever starts
@@ -57,9 +62,9 @@
         </Tip>
       </th>
       {#each columns as { title, explanation } (title)}
-        <th class="amount">{title}<Tip about={title}>{explanation}</Tip></th>
+        <th class="amount" style:width={width.other}>{title}<Tip about={title}>{explanation}</Tip></th>
       {/each}
-      <th class="when">{t.whenOut}<Tip about={t.whenOut}>{t.whenOutTip}</Tip></th>
+      <th class="when" style:width={width.other}>{t.whenOut}<Tip about={t.whenOut}>{t.whenOutTip}</Tip></th>
     </tr>
   </thead>
   <tbody>

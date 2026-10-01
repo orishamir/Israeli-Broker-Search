@@ -802,7 +802,9 @@ impl Plan {
         } else {
             self.tariff_lines(buying, track, lang)
         };
-        fees.extend(self.management.map(|fee| fee.line(lang)));
+        if let Some(fee) = self.management {
+            fees.extend(fee.lines(lang));
+        }
         let caveats: Vec<&Caveat> = broker_caveats.iter().chain(&self.caveats).collect();
         let (groups, others) = sort_caveats(&caveats, buying, rates, lang);
         let mattering: Vec<&Caveat> = caveats
@@ -1353,15 +1355,13 @@ impl ManagementFee {
         }
     }
 
-    /// The fee on the balance, with the fee on deposits under it.
-    fn line(&self, lang: Lang) -> FeeLine {
-        let mut line = FeeLine::new(FeeKind::Management, self.balance_price_text(lang), lang);
-        line.parts.push(FeeLine::new(
-            FeeKind::DepositFee,
-            self.deposit_price_text(lang),
-            lang,
-        ));
-        line
+    /// The fee on the balance and the fee on deposits, each a fee of its
+    /// own: neither is part of the other.
+    fn lines(&self, lang: Lang) -> [FeeLine; 2] {
+        [
+            FeeLine::new(FeeKind::Management, self.balance_price_text(lang), lang),
+            FeeLine::new(FeeKind::DepositFee, self.deposit_price_text(lang), lang),
+        ]
     }
 }
 
@@ -1821,10 +1821,10 @@ pub fn about(lang: Lang) -> About {
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
-                 does, the inflation can be changed, and every amount can be shown in today's \
-                 shekels: each is divided by how much prices will have risen by then. Showing \
+                 does and be bought every few months rather than monthly, the inflation can be \
+                 changed, and every amount can be shown in today's shekels: each is divided by how much prices will have risen by then. Showing \
                  them so changes no ranking, only how the numbers read.",
-                "ב״אפשרויות נוספות״ אפשר לתת להפקדות לגדול כל שנה, כמו משכורת, לשנות את האינפלציה, ולהציג כל סכום בשקלים של היום, כלומר מתורגם לערך הכסף היום לפי האינפלציה. הצגה כזאת לא משנה אף דירוג, רק את אופן ההצגה של הסכומים.",
+                "ב״אפשרויות נוספות״ אפשר לתת להפקדות לגדול כל שנה, כמו משכורת, לקנות פעם בכמה חודשים במקום כל חודש, לשנות את האינפלציה, ולהציג כל סכום בשקלים של היום, כלומר מתורגם לערך הכסף היום לפי האינפלציה. הצגה כזאת לא משנה אף דירוג, רק את אופן ההצגה של הסכומים.",
             ),
             paragraph(
                 "Banks publish what they charge. Investment houses publish only a full tariff, \
@@ -2475,22 +2475,23 @@ mod tests {
                 .fees
         };
         let average = lines(0, Lang::En);
-        assert_eq!(average.len(), 1);
-        assert_eq!(average[0].kind, FeeKind::Management);
+        // The fee on deposits on a line of its own, its name beside the
+        // other's, not under it as a part.
+        let kinds: Vec<_> = average.iter().map(|line| line.kind).collect();
+        assert_eq!(kinds, [FeeKind::Management, FeeKind::DepositFee]);
+        assert!(average.iter().all(|line| line.parts.is_empty()));
         assert_eq!(average[0].price.text, "0.62% of the balance a year");
-        assert_eq!(average[0].parts.len(), 1);
-        assert_eq!(average[0].parts[0].kind, FeeKind::DepositFee);
-        assert_eq!(average[0].parts[0].price, PriceText::nothing("none"));
+        assert_eq!(average[1].price, PriceText::nothing("none"));
         // Each says where its number comes from.
         let mark = average[0].mark.as_ref().unwrap();
         assert_eq!(mark.kind, CaveatKind::Published);
-        assert!(average[0].parts[0].mark.is_some());
+        assert!(average[1].mark.is_some());
         assert_eq!(lines(0, Lang::He)[0].price.text, "0.62% מהצבירה בשנה");
 
         let most = lines(3, Lang::En);
         assert_eq!(most[0].price.text, "1.05% of the balance a year");
-        assert_eq!(most[0].parts[0].price.text, "4% of each deposit");
-        assert_eq!(lines(3, Lang::He)[0].parts[0].price.text, "4% מכל הפקדה");
+        assert_eq!(most[1].price.text, "4% of each deposit");
+        assert_eq!(lines(3, Lang::He)[1].price.text, "4% מכל הפקדה");
         let fee = fund.plans[3].management.unwrap();
         assert_eq!(
             fee.text(Lang::En),

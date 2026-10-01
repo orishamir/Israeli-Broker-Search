@@ -1180,7 +1180,6 @@ pub struct ExampleData {
     pub monthly_deposit: f64,
     pub yearly_return_percent: f64,
     pub years: u32,
-    pub buy_every_months: u32,
     /// Whether the money is taken as a monthly pension where a plan pays
     /// one, rather than all at once.
     pub as_pension: bool,
@@ -1204,7 +1203,6 @@ pub fn examples() -> Result<Vec<Ts<ExampleData>>, JsError> {
                 monthly_deposit: number(scenario.monthly_deposit),
                 yearly_return_percent: number(scenario.yearly_return.0),
                 years: scenario.years,
-                buy_every_months: scenario.buy_every_months,
                 as_pension: scenario.withdrawal == Withdrawal::Pension,
                 age: scenario.age,
             }

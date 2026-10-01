@@ -220,7 +220,11 @@
                 <span class="note"
                   >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
                 >
-                {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
+                <!-- Its line is kept when there's none, so the table below
+                     doesn't move as it comes and goes. -->
+                <span class="note warning" class:gone={!best.warning}
+                  >{best.warning ? `⚠ ${best.warning}` : '\u00a0'}</span
+                >
                 <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
               </div>
             {/if}
@@ -302,16 +306,14 @@
               <span class="note">{t.forMonths(short.months)}</span>
             </div>
             {#if shortBest?.outcome}
+              {@const flag = shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
               <div class="card stat best" style:--plan-color={shortBest.place.color}>
                 <span class="label">{t.best(shortBest.place.label)}</span>
                 <span class="value">{shekels(shortBestValue.current)}</span>
                 <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
                 <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
-                {#if shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
-                  <span class="note warning"
-                    >⚠ {shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}</span
-                  >
-                {/if}
+                <!-- Kept when there's none, as in the long term's. -->
+                <span class="note warning" class:gone={!flag}>{flag ? `⚠ ${flag}` : '\u00a0'}</span>
               </div>
             {/if}
             <div class="card stat">

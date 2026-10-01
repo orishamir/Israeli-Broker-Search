@@ -137,7 +137,7 @@ export const en = {
   tryAnExample: 'Try an example',
   moreOptions: 'More options',
   moreOptionsTip: (inflation: string) =>
-    `More inputs, for a closer picture: deposits that grow every year as a salary does, another inflation, amounts in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same, prices rising ${inflation} a year, amounts as they will be, and selling at the end.`,
+    `More inputs, for a closer picture: deposits that grow every year as a salary does, buying every few months rather than every month, another inflation, amounts in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same and are bought every month, prices rising ${inflation} a year, amounts as they will be, and selling at the end.`,
   whatYouBuy: 'What you buy',
   security: 'Security',
   tradedOn: 'Traded on',

@@ -236,13 +236,14 @@ export class AppState {
   monthlyDeposit = $state<number | null>(2_000)
   yearlyReturnPercent = $state<number | null>(10)
   years = $state(20)
-  buyEveryMonths = $state(1)
   sharePrice = $state<number | null>(500)
   /** The expert inputs below are shown, and used. Off, the deposits stay the
-   * same, prices rise as usual, amounts are shown as they will be and
-   * everything is sold at the end, whatever their fields say. Remembered. */
+   * same and are bought every month, prices rise as usual, amounts are shown
+   * as they will be and everything is sold at the end, whatever their fields
+   * say. Remembered. */
   moreOptions = $state(load<boolean>('more-options', false))
   depositGrowthPercent = $state<number | null>(0)
+  buyEveryMonths = $state(1)
   /** How much prices rise a year: the tax is on the gain beyond it. */
   inflationPercent = $state<number | null>(this.usualInflation)
   /** Whether amounts are shown in today's money, as the box is ticked. */
@@ -482,7 +483,7 @@ export class AppState {
       monthlyDeposit,
       yearlyReturnPercent: this.yearlyReturnPercent,
       years: this.years,
-      buyEveryMonths: this.buyEveryMonths,
+      buyEveryMonths: this.moreOptions ? this.buyEveryMonths : 1,
       sharePrice: this.sharePrice,
       depositGrowthPercent: this.moreOptions ? this.depositGrowthPercent : 0,
       inflationPercent: this.moreOptions ? this.inflationPercent : this.usualInflation,
@@ -574,7 +575,6 @@ export class AppState {
     this.monthlyDeposit = example.monthlyDeposit
     this.yearlyReturnPercent = example.yearlyReturnPercent
     this.years = example.years
-    this.buyEveryMonths = example.buyEveryMonths
     this.wayOut = example.asPension ? 'pension' : 'atOnce'
     this.age = example.age
   }
@@ -593,7 +593,6 @@ export class AppState {
       monthlyDeposit: this.monthlyDeposit ?? undefined,
       yearlyReturnPercent: this.yearlyReturnPercent ?? undefined,
       years: this.years,
-      buyEveryMonths: this.buyEveryMonths,
       sharePrice: this.sharePrice ?? undefined,
       plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.englishLabel),
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
@@ -601,6 +600,7 @@ export class AppState {
     // The expert inputs only when they'd change something.
     if (this.moreOptions) {
       if (this.depositGrowthPercent) shared.depositGrowthPercent = this.depositGrowthPercent
+      if (this.buyEveryMonths !== 1) shared.buyEveryMonths = this.buyEveryMonths
       if (this.inflationPercent !== null && this.inflationPercent !== this.usualInflation) {
         shared.inflationPercent = this.inflationPercent
       }
@@ -634,7 +634,13 @@ export class AppState {
     if (shared.inflationPercent !== undefined) this.inflationPercent = shared.inflationPercent
     if (shared.inTodaysMoney) this.todaysMoney = true
     if (shared.sellAtEnd === false) this.atEnd = 'hold'
-    if (shared.depositGrowthPercent || shared.inflationPercent !== undefined || shared.sellAtEnd === false) {
+    // Older links carry how often to buy even when it's every month.
+    if (
+      shared.depositGrowthPercent ||
+      (shared.buyEveryMonths ?? 1) !== 1 ||
+      shared.inflationPercent !== undefined ||
+      shared.sellAtEnd === false
+    ) {
       this.moreOptions = true
     }
     if (shared.asPension) this.wayOut = 'pension'

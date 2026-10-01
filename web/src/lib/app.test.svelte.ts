@@ -336,12 +336,14 @@ test('off, the expert inputs are not sent; on, they are, and keeping the holding
   const app = start()
   expect(app.moreOptions).toBe(false)
   app.depositGrowthPercent = 5
+  app.buyEveryMonths = 3
   app.atEnd = 'hold'
   app.inflationPercent = 3
   app.todaysMoney = true
   expect(app.usualInflation).toBe(2)
   expect(app.inputs).toMatchObject({
     depositGrowthPercent: 0,
+    buyEveryMonths: 1,
     inflationPercent: 2,
     inTodaysMoney: false,
     sellAtEnd: true,
@@ -352,6 +354,7 @@ test('off, the expert inputs are not sent; on, they are, and keeping the holding
   app.moreOptions = true
   expect(app.inputs).toMatchObject({
     depositGrowthPercent: 5,
+    buyEveryMonths: 3,
     inflationPercent: 3,
     inTodaysMoney: true,
     sellAtEnd: false,
@@ -374,6 +377,7 @@ test('an example fills every basic input, how the money is taken out too, and le
   const app = start()
   app.moreOptions = true
   app.inflationPercent = 3
+  app.buyEveryMonths = 3
   // Saving for retirement, taken as a pension from the provident fund,
   // ticked at first.
   const example = app.examples.find(({ asPension }) => asPension)!
@@ -385,10 +389,10 @@ test('an example fills every basic input, how the money is taken out too, and le
     monthlyDeposit: example.monthlyDeposit,
     yearlyReturnPercent: example.yearlyReturnPercent,
     years: example.years,
-    buyEveryMonths: example.buyEveryMonths,
     asPension: true,
     age: example.age,
     inflationPercent: 3,
+    buyEveryMonths: 3,
   })
   // Any other takes it all at once.
   app.applyExample(app.examples.find(({ asPension }) => !asPension)!)
@@ -459,6 +463,25 @@ test('a link carries the comparison: opened from one, the page shows the same, y
   expect(results(opened).map(({ plan, outcome }) => [plan.id, outcome?.afterSelling])).toEqual(
     results(app).map(({ plan, outcome }) => [plan.id, outcome?.afterSelling]),
   )
+})
+
+test('a link says how often to buy only with More options, and only when not every month', () => {
+  const app = start()
+  app.buyEveryMonths = 3
+  expect(decode(new URL(app.shareLink()).hash).buyEveryMonths).toBeUndefined()
+  app.moreOptions = true
+  const link = app.shareLink()
+  flushSync()
+  localStorage.clear()
+  const opened = start_from(link)
+  expect(opened.moreOptions).toBe(true)
+  expect(opened.inputs.buyEveryMonths).toBe(3)
+  // Older links say every month too, which opens nothing.
+  flushSync()
+  localStorage.clear()
+  const older = start_from(`http://localhost:3000/#${encode({ buyEveryMonths: 1 })}`)
+  expect(older.moreOptions).toBe(false)
+  expect(older.inputs.buyEveryMonths).toBe(1)
 })
 
 test('a link without plans keeps what is ticked; one with plans replaces it, and yours joins by id', () => {

@@ -41,6 +41,7 @@ test(
 
     await choice(page, t.security, securityName('Bond')).click()
     await page.getByLabel(t.everyMonth).fill('3500')
+    await page.getByLabel(t.moreOptions, { exact: true }).check()
     await page.getByLabel(t.buyEvery, { exact: true }).selectOption('3')
     await tickBrokers(page, [listed('Leumi · Online').broker.name])
     const expected = expectedRows(await inputsOnPage(page))
@@ -110,6 +111,7 @@ test("a plan's notes and flags are the core's: a track, a standing order, fees b
   )
   await choice(page, t.security, securityName('IndexFund')).click()
   await choice(page, t.exchange, exchangeName('Tlv')).click()
+  await page.getByLabel(t.moreOptions, { exact: true }).check()
   await page.getByLabel(t.buyEvery, { exact: true }).selectOption('3')
   await page.getByLabel(t.oneTimeDeposit).fill('0')
   await page.getByLabel(t.everyMonth).fill('50')

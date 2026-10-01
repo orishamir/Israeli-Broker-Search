@@ -74,15 +74,21 @@
     }
     return [left, lost, tax, yearly, fees, held]
   })
+
+  /** The plan's column takes a set share of the table and the amounts split
+   * the rest. Sized by what's in them, a long note under one plan widened
+   * its column and moved every number when the security or exchange
+   * changed; now the note wraps, and only its row grows taller. */
+  const width = $derived({ plan: '30%', amount: `${70 / columns.length}%` })
 </script>
 
 <table>
   <thead>
     <tr>
       <th class="rank"><span class="visually-hidden">{t.rank}</span></th>
-      <th class="plan">{t.plan}</th>
+      <th class="plan" style:width={width.plan}>{t.plan}</th>
       {#each columns as { title, explanation } (title)}
-        <th class="amount">{title}<Tip about={title}>{explanation}</Tip></th>
+        <th class="amount" style:width={width.amount}>{title}<Tip about={title}>{explanation}</Tip></th>
       {/each}
     </tr>
   </thead>

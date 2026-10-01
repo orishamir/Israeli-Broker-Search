@@ -110,7 +110,7 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
     monthlyDeposit: await number('monthly-deposit'),
     yearlyReturnPercent: await number('yearly-return'),
     years: Number(await page.locator('#years').inputValue()),
-    buyEveryMonths: Number(await page.locator('#buy-every').inputValue()),
+    buyEveryMonths: moreOptions ? Number(await page.locator('#buy-every').inputValue()) : 1,
     sharePrice: await number('share-price'),
     depositGrowthPercent: moreOptions ? await number('deposit-growth') : 0,
     inflationPercent: inflation,

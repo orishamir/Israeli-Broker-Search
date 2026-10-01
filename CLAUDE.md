@@ -78,7 +78,8 @@ the UI is Svelte 5 + ECharts.
   ticked plans by label, and your own ticked plans as data; a short-term
   link says so (`c=s`) and carries that calculator's inputs, places and
   deposits of your own instead. The expert
-  inputs (growing deposits, inflation, sell or keep) and the chart by
+  inputs (growing deposits, buying less often than monthly, inflation,
+  sell or keep) and the chart by
   deposit sit behind the "More options" switch, the last card of either
   calculator's inputs, whose fields open inside it; off, the state sends
   the core the defaults. The sweep (every plan over a range of deposits, for
@@ -230,6 +231,10 @@ the unit tests in Node, then the browser.
     past the left edge, a right-to-left page scrolls sideways to it.
 - **CSS:**
   - A grid child with a wide table needs `minmax(0, 1fr)`, or the page widens.
+  - A table sized by its contents moves every column when a note comes or
+    goes: the results tables give the name's column a set share (`width`)
+    and split the rest. A line that comes and goes in a summary card keeps
+    its space (`.gone`), or the table below jumps.
   - A chosen button must keep its width: bold wrapped the row.
   - The Baseline plugin rejects `overscroll-behavior` (Safari lacks it on the
     page root) and, until October 2026, `:popover-open`: tips carry an `open`

@@ -140,15 +140,6 @@
 
     <label for="monthly-deposit">{t.everyMonth}</label>
     <NumberField id="monthly-deposit" prefix="₪" step={100} bind:value={app.monthlyDeposit} />
-
-    <span>
-      <label for="buy-every">{t.buyEvery}</label><Tip about={t.buyEvery}>{t.buyEveryTip}</Tip>
-    </span>
-    <select id="buy-every" bind:value={app.buyEveryMonths}>
-      {#each BUYING_INTERVALS as { months } (months)}
-        <option value={months}>{t.intervals[months]}</option>
-      {/each}
-    </select>
   </div>
 </section>
 
@@ -253,6 +244,15 @@
         step={0.5}
         bind:value={app.depositGrowthPercent}
       />
+
+      <span>
+        <label for="buy-every">{t.buyEvery}</label><Tip about={t.buyEvery}>{t.buyEveryTip}</Tip>
+      </span>
+      <select id="buy-every" bind:value={app.buyEveryMonths}>
+        {#each BUYING_INTERVALS as { months } (months)}
+          <option value={months}>{t.intervals[months]}</option>
+        {/each}
+      </select>
 
       <span>
         <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.inflationTip}</Tip>

@@ -1,4 +1,12 @@
-import { brokerName, exchangeName, place, securityName, shortTermExamples } from './core'
+import {
+  brokerName,
+  exchangeName,
+  exchanges,
+  place,
+  securities,
+  securityName,
+  shortTermExamples,
+} from './core'
 import {
   aboutPlan,
   choice,
@@ -237,9 +245,42 @@ test('with every security and exchange chosen', { tag: '@phone' }, async ({ page
   }
 })
 
+// What's bought, and where, changes the notes under the plans and the
+// warning under the best one: their rows grow taller, nothing moves sideways,
+// and the table doesn't move down.
+test("the table's columns and the summary's height stay put whatever is bought, and where", async ({
+  page,
+}) => {
+  // Wide enough that no line of the summary wraps; on a narrower screen a
+  // longer one may still take two ("with a monthly deposit of more than…").
+  await page.setViewportSize({ width: 2000, height: 1000 })
+  const measure = () =>
+    page.evaluate(() => ({
+      summary: document.querySelector('.stats')!.getBoundingClientRect().height,
+      columns: [...document.querySelectorAll('.results table th')].map(
+        (th) => th.getBoundingClientRect().width,
+      ),
+    }))
+  const first = await measure()
+  for (const security of securities()) {
+    await choice(page, t.security, security.name).click()
+    for (const exchange of exchanges()) {
+      await choice(page, t.exchange, exchange.name).click()
+      const now = await measure()
+      const where = `${security.value} on ${exchange.value}`
+      expect(now.summary, where).toBeCloseTo(first.summary, 0)
+      expect(now.columns, where).toHaveLength(first.columns.length)
+      now.columns.forEach((width, column) =>
+        expect(width, `${where}, column ${column}`).toBeCloseTo(first.columns[column], 0),
+      )
+    }
+  }
+})
+
 test('with the exchange rates open, and a tip open', { tag: '@phone' }, async ({ page }) => {
   await page.getByText('$1 = ₪3.0338').click()
   await checkLayout(page, 'rates')
+  await page.getByLabel(t.moreOptions, { exact: true }).check()
   await page.getByRole('button', { name: t.whatMeans(t.buyEvery) }).click()
   expect(await layoutProblems(page), 'tip').toEqual([])
 })
