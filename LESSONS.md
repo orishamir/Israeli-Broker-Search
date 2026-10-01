@@ -361,6 +361,11 @@ all. Read those three first.
 
 ## Charts
 
+- A stacked bar's colors are checked with the dataviz skill's validator
+  over every pair (`--pairs all`), not only stack neighbors, when a part
+  can be empty: in the short term, a bank that keeps nothing puts the
+  saver's part right against the tax. Blue and violet failed there (ΔE 1.8
+  for protanopia), so the saver's part is green.
 - What a keystroke cost on a phone (4× CPU throttling) was ECharts'
   `setOption` and first frame, about 40 ms of a 55 ms task; the wasm call
   was about 3 ms and Svelte about 1 ms. Measured with the Event Timing API

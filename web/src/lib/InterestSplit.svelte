@@ -5,7 +5,7 @@
   import { chart } from './echarts.svelte'
   import { barsHeight, NAME_SIZE, NARROW_SCREEN } from './fee-breakdown'
   import { shekels } from './format'
-  import { KEPT_COLOR, splitOption, TAX_COLOR, type Split } from './interest-split'
+  import { PART_COLORS, splitOption, type Split } from './interest-split'
   import { touchScreen } from './pointer'
   import type { PlaceResult, ShortTermState } from './short-term.svelte'
   import { t } from './text'
@@ -78,6 +78,12 @@
 </script>
 
 <p class="hint">{t.rateLine(shekels(interest))}</p>
+<!-- Above the bars, as the fee breakdown's fees are: read before them. -->
+<ul class="legend">
+  <li><span class="swatch" style:background={PART_COLORS.yours}></span>{t.yoursPart}</li>
+  <li><span class="swatch" style:background={PART_COLORS.kept}></span>{t.keptPart}</li>
+  <li><span class="swatch" style:background={PART_COLORS.tax}></span>{t.taxPart}</li>
+</ul>
 <!-- As in the fee breakdown: the frame's height follows the chart's. -->
 <div class="frame" style:height="{barsHeight(splits.length, narrow.current)}px">
   <div
@@ -89,11 +95,6 @@
     aria-label={t.splitAria}
   ></div>
 </div>
-<ul class="legend">
-  <li><span class="swatch yours"></span>{t.yoursPart}</li>
-  <li><span class="swatch" style:background={KEPT_COLOR}></span>{t.keptPart}</li>
-  <li><span class="swatch" style:background={TAX_COLOR}></span>{t.taxPart}</li>
-</ul>
 
 <style>
   .hint {
@@ -112,7 +113,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px 14px;
-    margin: 6px 0 0;
+    margin: 0 0 6px;
     padding: 0;
     list-style: none;
     color: var(--weak);
@@ -127,9 +128,5 @@
     width: 10px;
     height: 10px;
     border-radius: 2px;
-  }
-  /* Each place's own color: a rainbow says "the place's". */
-  .swatch.yours {
-    background: conic-gradient(#56b4e9 0 25%, #e69f00 0 50%, #8d73f0 0 75%, #c1e319 0);
   }
 </style>

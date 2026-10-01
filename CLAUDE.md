@@ -275,6 +275,9 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
     under `prefers-reduced-motion`.
 - **Charts:**
   - time is shown as an axis, never a slider, and never in 3D;
+  - each part of a stacked bar has one color, the same in every bar; a
+    plan's or a place's own color is only beside its name (and its outline
+    when pinned);
   - the table and charts are linked, for hovering and pinning;
   - the other lines fade only a little.
 - **The dark theme only.** It should feel fast.

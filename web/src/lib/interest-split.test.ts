@@ -1,7 +1,7 @@
 import type { BarSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
 import { shekels } from './format'
-import { lengthOf, splitOption, type Split, type SplitView } from './interest-split'
+import { lengthOf, PART_COLORS, splitOption, type Split, type SplitView } from './interest-split'
 
 const fund: Split = {
   id: 'fund',
@@ -57,13 +57,24 @@ test("a place that keeps something fills the rate's interest; one that pays more
   expect(yours.markLine).toMatchObject({ data: [{ xAxis: 3250 }] })
 })
 
-test("the saver's part is in each place's color, and its amount is the total beside the bar", () => {
+test('each part has one color whatever the place, whose own color is only beside its name', () => {
+  const option = splitOption(view())
+  const parts = bars(option).slice(0, 3)
+  expect(parts.map(({ color }) => color)).toEqual([PART_COLORS.yours, PART_COLORS.kept, PART_COLORS.tax])
+  for (const { data } of parts) {
+    for (const { itemStyle } of data as { itemStyle: { color?: string } }[]) {
+      expect(itemStyle.color).toBeUndefined()
+    }
+  }
+  const names = (option.series as BarSeriesOption[]).find(({ id }) => id === 'names')!
+  expect(names.label?.rich).toMatchObject({ dot0: { color: bank.color }, dot1: { color: fund.color } })
+  const tooltip = option.tooltip as { formatter: (params: { dataIndex: number }[]) => string }
+  expect(tooltip.formatter([{ dataIndex: 0 }])).not.toContain(bank.color)
+})
+
+test("the saver's amount is the total beside the bar", () => {
   const option = splitOption(view())
   const [yours] = bars(option)
-  expect((yours.data as { itemStyle: { color: string } }[]).map(({ itemStyle }) => itemStyle.color)).toEqual([
-    '#e69f00',
-    '#56b4e9',
-  ])
   expect(yours.label).toMatchObject({ show: false })
   expect(written(option, 'totals')).toEqual([`{total|${shekels(3290)}}`, `{total|${shekels(2807)}}`])
 })

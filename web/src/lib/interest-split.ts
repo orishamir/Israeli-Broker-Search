@@ -16,10 +16,13 @@ const WEAK = '#8e95a5'
 const TEXT = '#e6e8ee'
 const GRID = 'rgba(255, 255, 255, 0.07)'
 const SURFACE = '#151820'
-/** What the place keeps, and the tax: grays, so the saver's part, in the
- * place's own color, is what stands out. */
-export const KEPT_COLOR = '#6b7285'
-export const TAX_COLOR = '#3a4050'
+/** Each part of a bar has a color of its own, whatever the place, as each
+ * fee has in the fee breakdown: a place's own color is only the dot beside
+ * its name. What the place keeps is violet, as a fund's management fee is
+ * there. Checked for color blindness pair by pair, not only neighbors (the
+ * dataviz skill's validator, `--pairs all`): where a place keeps nothing,
+ * the saver's part touches the tax. */
+export const PART_COLORS = { yours: '#199e70', kept: '#9b7bf0', tax: '#d95926' }
 
 /** One place's bar. */
 export interface Split {
@@ -65,10 +68,9 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
   const room = width - MARGIN.left - MARGIN.right - 2 * 5
   const opacity = (id: string) => (pinned.size === 0 || pinned.has(id) ? 1 : 0.6)
   const part = (
-    id: string,
+    id: keyof typeof PART_COLORS,
     name: string,
     value: (split: Split) => number,
-    color: (split: Split) => string,
     labelled = true,
   ): BarSeriesOption => ({
     id,
@@ -77,17 +79,15 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
     stack: 'interest',
     barWidth: BAR,
     barGap: BAR_GAP,
-    data: splits.map((split) => ({
-      value: value(split),
-      itemStyle: { color: color(split), opacity: opacity(split.id) },
-      label: { color: readableOn(color(split)) },
-    })),
+    data: splits.map((split) => ({ value: value(split), itemStyle: { opacity: opacity(split.id) } })),
+    color: PART_COLORS[id],
     // A thin gap between the parts of a bar.
     itemStyle: { borderColor: SURFACE, borderWidth: 1 },
     // Amounts only where they fit; the saver's part is the total beside the bar.
     label: {
       show: labelled,
       position: 'inside',
+      color: readableOn(PART_COLORS[id]),
       fontSize: 11,
       formatter: ({ value }) => (fits(value as number) ? shekels(value as number) : ''),
     },
@@ -124,9 +124,9 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
           `<div><span style="display:inline-block;width:9px;height:9px;border-radius:2px;background:${color};margin-inline-end:6px"></span>${name}: <b>${shekels(amount)}</b></div>`
         return [
           `<div style="margin-bottom:4px">${split.label}</div>`,
-          line(split.color, t.yoursPart, split.yours),
-          line(KEPT_COLOR, t.keptPart, split.kept),
-          line(TAX_COLOR, t.taxPart, split.tax),
+          line(PART_COLORS.yours, t.yoursPart, split.yours),
+          line(PART_COLORS.kept, t.keptPart, split.kept),
+          line(PART_COLORS.tax, t.taxPart, split.tax),
         ].join('')
       },
     },
@@ -195,13 +195,7 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
         },
       },
       {
-        ...part(
-          'yours',
-          t.yoursPart,
-          ({ yours }) => yours,
-          ({ color }) => color,
-          false,
-        ),
+        ...part('yours', t.yoursPart, ({ yours }) => yours, false),
         // The Bank of Israel's rate on the money.
         markLine: {
           silent: true,
@@ -211,18 +205,8 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
           label: { show: false },
         },
       },
-      part(
-        'kept',
-        t.keptPart,
-        ({ kept }) => Math.max(kept, 0),
-        () => KEPT_COLOR,
-      ),
-      part(
-        'tax',
-        t.taxPart,
-        ({ tax }) => tax,
-        () => TAX_COLOR,
-      ),
+      part('kept', t.keptPart, ({ kept }) => Math.max(kept, 0)),
+      part('tax', t.taxPart, ({ tax }) => tax),
       {
         // The rest of each row, clear, with what the saver keeps past its end.
         id: 'totals',
