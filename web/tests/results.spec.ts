@@ -1,6 +1,7 @@
 import {
   brokers,
   compare,
+  examples,
   exchangeName,
   expectedAroundLine,
   expectedRows,
@@ -66,8 +67,12 @@ test("the best plan is the table's first, with its warning when it needs a bigge
   for (const { key, warning } of warned) await expect(rowOfKey(page, key)).toContainText(`⚠ ${warning}`)
   await expect(card).toContainText(t.best((await best()).label))
   await expect(card).not.toContainText('⚠')
-  // On Tel Aviv, with nothing to start, the cheapest plans all need a deposit.
-  await page.getByRole('button', { name: 'חודשי, תל אביב' }).click()
+  // On Tel Aviv, with nothing to start (saving from a salary), the cheapest
+  // plans all need a deposit.
+  const fromSalary = examples().find(
+    ({ exchange, firstDeposit }) => exchange === 'Tlv' && firstDeposit === 0,
+  )!
+  await page.getByRole('button', { name: fromSalary.name, exact: true }).click()
   const { label, warning } = await best()
   expect(warning).toBeTruthy()
   await expect(card).toContainText(t.best(label))

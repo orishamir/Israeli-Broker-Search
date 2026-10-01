@@ -370,11 +370,13 @@ test('off, the expert inputs are not sent; on, they are, and keeping the holding
   expect(localStorage.getItem('more-options')).toBe('true')
 })
 
-test('an example fills every basic input, and leaves the expert ones', () => {
+test('an example fills every basic input, how the money is taken out too, and leaves the expert ones', () => {
   const app = start()
   app.moreOptions = true
   app.inflationPercent = 3
-  const example = app.examples.find(({ name }) => name === 'אג״ח, 5 שנים')!
+  // Saving for retirement, taken as a pension from the provident fund,
+  // ticked at first.
+  const example = app.examples.find(({ asPension }) => asPension)!
   app.applyExample(example)
   expect(app.inputs).toMatchObject({
     security: example.security,
@@ -384,8 +386,13 @@ test('an example fills every basic input, and leaves the expert ones', () => {
     yearlyReturnPercent: example.yearlyReturnPercent,
     years: example.years,
     buyEveryMonths: example.buyEveryMonths,
+    asPension: true,
+    age: example.age,
     inflationPercent: 3,
   })
+  // Any other takes it all at once.
+  app.applyExample(app.examples.find(({ asPension }) => !asPension)!)
+  expect(app.inputs.asPension).toBe(false)
   expect(app.examples.map(({ name }) => name)).toEqual(core.examples().map(({ name }) => name))
 })
 

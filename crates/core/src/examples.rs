@@ -1,6 +1,6 @@
-//! Ready-made investing patterns, to try the comparison with one click: the
-//! ways Israelis commonly invest for the long term. Each sets every input
-//! at once.
+//! Ready-made investing patterns, to try the comparison with one click:
+//! the reasons Israelis invest for the long term, each showing a different
+//! fee or rule as the one that matters. Each sets every basic input at once.
 
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
@@ -9,18 +9,19 @@ use crate::simulation::Scenario;
 use crate::{Exchange, Percent, Security, Text, Withdrawal};
 
 /// One pattern: a short name for its button, the pattern in words, and the
-/// inputs it sets.
+/// inputs it sets, how the money is taken out and the saver's age included.
 #[derive(Debug, Clone)]
 pub struct Example {
-    /// "Monthly, Tel Aviv"
+    /// "Saving from your salary"
     pub name: Text,
-    /// "₪2,000 a month into an index fund on Tel Aviv, for 20 years…"
+    /// "₪1,500 a month from your salary, from 30 to 60…"
     pub explanation: Text,
     pub scenario: Scenario,
 }
 
 /// The examples, in the order to offer them.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "the examples' data")]
 pub fn all() -> Vec<Example> {
     let example = |name: Text, explanation: Text, scenario| Example {
         name,
@@ -28,7 +29,7 @@ pub fn all() -> Vec<Example> {
         scenario,
     };
     // What the rest are variations on: the app's own defaults, buying every
-    // month and selling at the end.
+    // month and selling everything at once at the end.
     let base = Scenario {
         security: Security::Etf,
         exchange: Exchange::Usa,
@@ -46,61 +47,87 @@ pub fn all() -> Vec<Example> {
     };
     vec![
         example(
-            Text::new("Monthly, Tel Aviv", "חודשי, תל אביב"),
+            Text::new("Saving from your salary", "חיסכון מהמשכורת"),
             Text::new(
-                "₪2,000 a month into an index fund on Tel Aviv, for 20 years, expecting 10% a \
-                 year (the S&P 500's long-run average): steady saving from a salary, in shekels.",
-                "₪2,000 בחודש לקרן מחקה בתל אביב, ל-20 שנה, בציפייה ל-10% בשנה (הממוצע ארוך הטווח של S&P 500): חיסכון קבוע מהמשכורת, בשקלים.",
+                "₪1,500 a month from your salary, from 30 to 60, into an index fund that follows \
+                 the S&P 500, on Tel Aviv, expecting 10% a year (the index's long-run average). \
+                 Over 30 years, custody, charged every year on everything held, matters far more \
+                 than the fee on each purchase.",
+                "₪1,500 בחודש מהמשכורת, מגיל 30 ועד 60, לקרן מחקה על מדד S&P 500 בתל אביב, בציפייה ל-10% בשנה (הממוצע ארוך הטווח של המדד). לאורך 30 שנה, דמי המשמרת, שנגבים כל שנה מכל התיק, חשובים הרבה יותר מהעמלה על כל קנייה.",
             ),
             Scenario {
                 security: Security::IndexFund,
                 exchange: Exchange::Tlv,
-                monthly_deposit: dec!(2000),
+                monthly_deposit: dec!(1500),
+                years: 30,
                 ..base.clone()
             },
         ),
         example(
-            Text::new("Monthly, US ETF", "חודשי, קרן סל בארה\u{5f4}ב"),
+            Text::new("Saving for a child", "חיסכון לילד"),
             Text::new(
-                "₪10,000 to start, then ₪3,000 a month into an ETF in the USA, for 20 years at \
-                 10% a year: the same saving in dollars, where converting the shekels costs too.",
-                "₪10,000 להתחלה, ואז ₪3,000 בחודש לקרן סל בארה״ב, ל-20 שנה ב-10% בשנה: אותו חיסכון בדולרים, שבו גם המרת השקלים עולה כסף.",
+                "₪300 a month from a child's birth until they're 18, into an index fund on Tel \
+                 Aviv: for their studies, a flat or a wedding. With purchases this small, a \
+                 minimum fee on each, or a fixed monthly fee, takes a large share of every \
+                 deposit.",
+                "₪300 בחודש מהלידה ועד גיל 18, לקרן מחקה בתל אביב: ללימודים, לדירה או לחתונה. בקניות קטנות כאלה, עמלת מינימום על כל קנייה, או דמי טיפול קבועים בכל חודש, לוקחים חלק גדול מכל הפקדה.",
             ),
             Scenario {
-                first_deposit: dec!(10000),
+                security: Security::IndexFund,
+                exchange: Exchange::Tlv,
+                monthly_deposit: dec!(300),
+                years: 18,
+                ..base.clone()
+            },
+        ),
+        example(
+            Text::new("An inheritance", "ירושה"),
+            Text::new(
+                "₪500,000 at once, from an inheritance or a flat that was sold, into an ETF that \
+                 follows the S&P 500, in the USA, for 15 years. There's one purchase, so what's \
+                 charged for holding matters most. A provident fund for investment can't take so \
+                 much in one year.",
+                "₪500,000 בבת אחת, מירושה או ממכירת דירה, לקרן סל על מדד S&P 500 בארה״ב, ל-15 שנה. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק. לקופת גמל להשקעה אי אפשר להפקיד סכום כזה בשנה אחת.",
+            ),
+            Scenario {
+                first_deposit: dec!(500_000),
+                years: 15,
+                age: 50,
+                ..base.clone()
+            },
+        ),
+        example(
+            Text::new("Saving for retirement", "חיסכון לפרישה"),
+            Text::new(
+                "₪3,000 a month from 45 until 65, on top of the pension from work, into an ETF \
+                 that follows the S&P 500, in the USA. A provident fund for investment pays the \
+                 money out as a monthly pension free of tax, which can make up for its management \
+                 fee.",
+                "₪3,000 בחודש מגיל 45 ועד 65, בנוסף לפנסיה מהעבודה, לקרן סל על מדד S&P 500 בארה״ב. קופת גמל להשקעה משלמת את הכסף כקצבה חודשית פטורה ממס, וזה יכול לפצות על דמי הניהול שלה.",
+            ),
+            Scenario {
                 monthly_deposit: dec!(3000),
+                years: 20,
+                age: 45,
+                withdrawal: Withdrawal::Pension,
                 ..base.clone()
             },
         ),
         example(
-            Text::new("One lump sum", "סכום חד-פעמי"),
+            Text::new("After retiring", "אחרי הפרישה"),
             Text::new(
-                "₪200,000 at once into an ETF in the USA, and nothing more, for 10 years at 10% \
-                 a year: an inheritance or a bonus. One purchase, so what's charged for holding \
-                 matters most.",
-                "₪200,000 בבת אחת לקרן סל בארה״ב, ולא יותר, ל-10 שנים ב-10% בשנה: למשל ירושה או בונוס. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק.",
-            ),
-            Scenario {
-                first_deposit: dec!(200_000),
-                years: 10,
-                ..base.clone()
-            },
-        ),
-        example(
-            Text::new("Bonds, 5 years", "אג\u{5f4}ח, 5 שנים"),
-            Text::new(
-                "₪100,000 to start, then ₪1,000 a month into bonds on Tel Aviv, for 5 years at \
-                 4% a year: money that's needed before long, where a small fee is a large share \
-                 of the interest.",
-                "₪100,000 להתחלה, ואז ₪1,000 בחודש לאג״ח בתל אביב, ל-5 שנים ב-4% בשנה: כסף שתצטרכו בקרוב, שבו גם עמלה קטנה אוכלת חלק גדול מהריבית.",
+                "₪400,000 in bonds on Tel Aviv, from 67, for 10 years at 4% a year: money kept \
+                 with little risk after retiring. With a return this low, even custody of a \
+                 fraction of a percent a year takes a large share of the interest.",
+                "₪400,000 באג״ח בתל אביב, מגיל 67 ול-10 שנים, ב-4% בשנה: כסף שרוצים לשמור בלי סיכון גדול אחרי הפרישה. כשהתשואה נמוכה כל כך, גם דמי משמרת של חלקי אחוז בשנה לוקחים חלק גדול מהריבית.",
             ),
             Scenario {
                 security: Security::Bond,
                 exchange: Exchange::Tlv,
-                first_deposit: dec!(100_000),
-                monthly_deposit: dec!(1000),
+                first_deposit: dec!(400_000),
                 yearly_return: Percent(dec!(4)),
-                years: 5,
+                years: 10,
+                age: 67,
                 ..base
             },
         ),
@@ -163,6 +190,7 @@ pub fn short_term() -> Vec<ShortTermExample> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::vehicles::{GainsTax, Vehicle};
 
     #[test]
     fn every_example_can_be_simulated_and_differs_in_name() {
@@ -171,10 +199,11 @@ mod tests {
         assert_eq!(
             names,
             [
-                "Monthly, Tel Aviv",
-                "Monthly, US ETF",
-                "One lump sum",
-                "Bonds, 5 years"
+                "Saving from your salary",
+                "Saving for a child",
+                "An inheritance",
+                "Saving for retirement",
+                "After retiring"
             ]
         );
         for example in &examples {
@@ -182,6 +211,28 @@ mod tests {
             assert!(!example.explanation.is_empty());
             assert!(!example.name.he.is_empty());
         }
+    }
+
+    /// What two tips say of a provident fund for investment holds for their
+    /// inputs: the saver for retirement is old enough at the end for its
+    /// tax-free pension, and the inheritance is more than it takes in a year.
+    #[test]
+    fn the_tips_about_the_provident_fund_hold() {
+        let scenario = |name: &str| {
+            all()
+                .into_iter()
+                .find(|example| example.name.en == name)
+                .unwrap()
+                .scenario
+        };
+        let rules = Vehicle::InvestmentGemel.rules();
+        let retirement = scenario("Saving for retirement");
+        assert_eq!(
+            rules.tax_at(retirement.withdrawal, retirement.age + retirement.years),
+            GainsTax::Exempt
+        );
+        let inheritance = scenario("An inheritance");
+        assert!(inheritance.first_deposit > rules.deposit_ceiling.unwrap());
     }
 
     /// Each short-term example sets a scenario that can be worked out.

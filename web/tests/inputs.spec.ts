@@ -129,7 +129,8 @@ test(
   'an example fills the fields as the core says; More options reveals the expert fields, which count',
   { tag: '@phone' },
   async ({ page }) => {
-    const example = examples().find(({ security, years }) => security === 'Bond' && years === 5)!
+    // Saving for retirement, which also chooses a pension and the age.
+    const example = examples().find(({ asPension }) => asPension)!
     await page.getByRole('button', { name: example.name, exact: true }).click()
     expect(await inputsOnPage(page)).toMatchObject({
       security: example.security,
@@ -139,6 +140,8 @@ test(
       yearlyReturnPercent: example.yearlyReturnPercent,
       years: example.years,
       buyEveryMonths: example.buyEveryMonths,
+      asPension: true,
+      age: example.age,
     })
     const growth = page.getByLabel(t.growingBy, { exact: true })
     await expect(growth).toBeHidden()

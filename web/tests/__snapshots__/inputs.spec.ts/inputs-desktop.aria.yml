@@ -1,9 +1,10 @@
 - complementary:
   - heading "נסו דוגמה" [level=3]
-  - button "חודשי, תל אביב"
-  - button "חודשי, קרן סל בארה״ב"
-  - button "סכום חד-פעמי"
-  - button "אג״ח, 5 שנים"
+  - button "חיסכון מהמשכורת"
+  - button "חיסכון לילד"
+  - button "ירושה"
+  - button "חיסכון לפרישה"
+  - button "אחרי הפרישה"
   - heading "מה קונים" [level=3]
   - button "מה פירוש ״מה קונים״": "?"
   - radiogroup "נייר ערך":

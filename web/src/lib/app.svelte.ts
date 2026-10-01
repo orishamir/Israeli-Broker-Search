@@ -565,7 +565,8 @@ export class AppState {
    * `aroundLine` reads and writes it. */
   private lastAround: { planId: string; text: string } | undefined
 
-  /** Fills every basic input from an example. The expert inputs stay. */
+  /** Fills every basic input from an example, how the money is taken out
+   * and the age included. The expert inputs stay. */
   applyExample(example: ExampleData) {
     this.security = example.security
     this.exchange = example.exchange
@@ -574,6 +575,8 @@ export class AppState {
     this.yearlyReturnPercent = example.yearlyReturnPercent
     this.years = example.years
     this.buyEveryMonths = example.buyEveryMonths
+    this.wayOut = example.asPension ? 'pension' : 'atOnce'
+    this.age = example.age
   }
 
   /** A link to this comparison: the inputs and the ticked plans, your own
