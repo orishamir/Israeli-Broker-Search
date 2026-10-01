@@ -43,7 +43,19 @@
   <thead>
     <tr>
       <th class="rank"><span class="visually-hidden">{t.rank}</span></th>
-      <th class="place">{t.place}</th>
+      <th class="place">
+        {t.place}<Tip about={t.place}>
+          <p>{t.placeTip}</p>
+          <!-- Each kind as the list of places explains it, for whoever starts
+               from the table. -->
+          {#each short.kinds as kind (kind.name)}
+            <div class="term">
+              <strong>{kind.name}</strong>
+              <p class="weak">{kind.description}</p>
+            </div>
+          {/each}
+        </Tip>
+      </th>
       {#each columns as { title, explanation } (title)}
         <th class="amount">{title}<Tip about={title}>{explanation}</Tip></th>
       {/each}
@@ -155,7 +167,9 @@
     font-variant-numeric: tabular-nums;
     text-align: end;
   }
-  .place div {
+  /* A row's mark beside its names. Rows only: the header's tip is in a
+     .place cell too. */
+  td.place > div {
     display: flex;
     align-items: center;
     gap: 10px;
@@ -169,6 +183,17 @@
     font-size: 0.75rem;
   }
   .kind {
+    color: var(--weak);
+  }
+  /* One kind in the place column's tip, as in the long term's "What you buy". */
+  .term {
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .term p {
+    margin: 4px 0 0;
+  }
+  .weak {
     color: var(--weak);
   }
   .warning {

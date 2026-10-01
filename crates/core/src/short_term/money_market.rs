@@ -141,9 +141,9 @@ pub fn kind() -> Kind {
         t("Cheapest fund", "הקרן הזולה"),
         t(
             "The shekel money market fund that charges the least: Ayalon's Dolphin \
-             (דולפין\u{a0}כספית\u{a0}שקלית), which takes no management fee, only the \
-             trustee's 0.01%.",
-            "הקרן הכספית השקלית שגובה הכי מעט: דולפין כספית שקלית של איילון, שלא גובה דמי ניהול, רק 0.01% דמי נאמנות.",
+             (דולפין\u{a0}כספית\u{a0}שקלית). It takes no management fee, only 0.01% for the \
+             trustee who oversees the fund.",
+            "הקרן הכספית השקלית שגובה הכי מעט: דולפין כספית שקלית של איילון. היא לא גובה דמי ניהול, רק 0.01% לנאמן שמפקח על הקרן.",
         ),
         Percent(dec!(0.01)),
         true,
@@ -178,13 +178,13 @@ pub fn kind() -> Kind {
     Kind {
         name: t("Money market fund", "קרן כספית"),
         description: t(
-            "A mutual fund that keeps its money in the Bank of Israel's short-term bills \
-             (מק״מ), short government bonds and bank deposits, most of them some corporate \
-             bonds too, so it earns about the Bank of Israel's rate, less its fee. Its units \
-             are bought and sold through a bank or an investment house, any business day. The \
-             app compares the kind, not each fund: the fees are close, and the list shows the \
-             average, the cheapest and the dearest.",
-            "קרן נאמנות שמחזיקה את הכסף במק״מ של בנק ישראל, באג״ח ממשלתיות קצרות ובפיקדונות בבנקים, ורובן גם מעט אג״ח של חברות. לכן היא מרוויחה בערך את ריבית בנק ישראל, פחות דמי הניהול. קונים ומוכרים את היחידות דרך בנק או בית השקעות, בכל יום עסקים. המחשבון משווה את סוג הקרן, ולא כל קרן בנפרד: דמי הניהול קרובים, והרשימה מראה את הממוצע, את הזולה ואת היקרה.",
+            "A fund that pools many savers' money and lends it for short periods, mostly to \
+             the government and to banks, so the money in it grows at about the Bank of \
+             Israel's rate, less a small management fee. It suits money you may need soon, \
+             like an emergency fund: it can be taken out any business day without losing what \
+             it has earned. The downside: its rate is neither fixed nor guaranteed, and when \
+             the Bank of Israel cuts its rate, the fund earns less.",
+            "קרן שאוספת כסף מחוסכים רבים ומלווה אותו לזמן קצר, בעיקר למדינה ולבנקים, ולכן הכסף בה גדל בערך בריבית בנק ישראל, פחות דמי ניהול קטנים. מתאימה לכסף שאולי תצטרכו בקרוב, כמו כרית ביטחון: אפשר למשוך בכל יום עסקים בלי להפסיד את מה שהצטבר. החיסרון: הריבית לא קבועה ולא מובטחת, וכשבנק ישראל מוריד את הריבית, הקרן מרוויחה פחות.",
         ),
         data_of: DATA_OF,
         checked: checked(),

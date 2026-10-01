@@ -225,7 +225,8 @@ impl Scenario {
 pub struct Kind {
     /// "Fixed-rate deposit"
     pub name: Text,
-    /// What it is and how it works, in plain words.
+    /// What it is, what it suits and its downside, in plain words for
+    /// someone who has never used one: shown wherever the kind is explained.
     pub description: Text,
     /// When the figures are from.
     pub data_of: TariffDate,

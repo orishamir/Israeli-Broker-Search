@@ -6,6 +6,7 @@ import {
   placeRowsOnPage,
   shortTermExamples,
   shortTermInputsOnPage,
+  shortTermKinds,
   shortTermPlaces,
   termFor,
 } from './core'
@@ -126,6 +127,30 @@ test("a place's details show its rates by term, the months' term marked", async 
   const chosen = leumi.rates[termFor(12)!]
   await expect(dialog.locator('tr.chosen')).toHaveText(new RegExp(chosen.term))
   await expect(dialog.getByText(leumi.tax)).toBeVisible()
+})
+
+test("each kind is explained by the table's place column and beside its heading in the list", async ({
+  page,
+}) => {
+  await toShortTerm(page)
+  const kinds = shortTermKinds()
+  await page.getByRole('button', { name: t.whatMeans(t.place) }).hover()
+  const tip = page.getByRole('tooltip').filter({ hasText: t.placeTip })
+  for (const { name, description } of kinds) {
+    await expect(tip).toContainText(name)
+    await expect(tip).toContainText(description)
+  }
+  await away(page)
+
+  await openPlaces(page)
+  for (const { name, description } of kinds) {
+    // An open tip covers the next heading's ? until the mouse leaves it.
+    await away(page)
+    await placesList(page)
+      .getByRole('button', { name: t.whatMeans(name) })
+      .hover()
+    await expect(page.getByRole('tooltip').filter({ hasText: description })).toBeVisible()
+  }
 })
 
 test("the title's links open the short term's page on its numbers", async ({ page }) => {

@@ -336,7 +336,7 @@ export const en = {
     months === 1 ? 'a month' : months === 2 ? '2 months' : `${months} months`,
   boiRate: "Bank of Israel's rate, on average",
   boiRateTip:
-    "The rate you expect the Bank of Israel to set, on average over the months. A money market fund earns about this rate, less its fee, and follows it as it changes. A fixed-rate deposit pays its bank's rate for the whole term, whatever the Bank of Israel does, so the rate you expect decides how the funds compare with the deposits.",
+    "The rate the Bank of Israel sets, which savings rates across the economy follow. It decides it eight times a year. Type the rate you expect, on average over the months: a money market fund will earn about that, less its fee. A fixed-rate deposit isn't affected by it once opened, so the lower the rate you expect, the better the deposits do against the funds.",
   boiRateNote: (today: string) =>
     `Today it's ${today}. A fixed-rate deposit locks in its rate on the day it's opened; a money market fund changes with the Bank of Israel's rate.`,
   shortTickedAtFirst: 'Ticked at first: the averages, the cheapest fund and the five big banks.',
@@ -377,6 +377,7 @@ export const en = {
   netYearly: (rate: string) => `${rate} a year, after costs and tax`,
   canTakeOut: (when: string) => `Can be taken out: ${when.toLowerCase()}`,
   place: 'Place',
+  placeTip: 'Where the money is kept. The calculator compares these kinds:',
   netYearlyColumn: 'A year, net',
   netYearlyTip:
     'What the money earned after costs and tax, as a yearly rate: the rate at which the same deposits would come to the same sum.',
@@ -387,7 +388,7 @@ export const en = {
     `A deposit pays 15% of all its interest. A fund pays 25% of its gain beyond inflation (${inflation} a year), when it's sold.`,
   whenOut: 'When it can come out',
   whenOutTip:
-    "A fund's units can be sold any business day, and the money arrives a day or two later. A deposit locks the money until its term ends: taking it out earlier loses interest.",
+    "A money market fund can be sold any business day, and the money reaches the account within a day or two. A deposit locks the money until its term ends: taking it out earlier needs the bank's consent, and usually loses the interest.",
   tickAPlace: 'Tick at least one place to compare.',
   splitView: 'Where the interest goes',
   splitViewTip:

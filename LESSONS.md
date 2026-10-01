@@ -253,6 +253,13 @@ all. Read those three first.
   (`each_key_duplicate` blanked a dialog): it covers new brokers by itself.
 - `{@const}` must sit directly in a block (`{#if}`, `{#each}`…), not inside an
   element.
+- A tip's words are styled by the component that writes them, not by
+  `Tip.svelte`: the snippet keeps its writer's scope, so that component's
+  descendant selectors reach into the tip. `PlaceTable`'s `.place div`
+  (the row's mark beside its names) laid the "אפיק" tip's kind names out
+  beside their paragraphs, since the header cell is `.place` too; the rule
+  is `td.place > div` now. Give a header's tip content its own classes, and
+  scope cell rules to `td`.
 - A `position: fixed` element inside a `<dialog>` is placed by the window
   only while the dialog has no transform at rest (`translate: 0` or
   `scale: 1` count as one): the list of plans rests at `translate: none`,

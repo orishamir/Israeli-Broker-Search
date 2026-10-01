@@ -238,11 +238,12 @@ pub fn kind() -> Kind {
     Kind {
         name: t("Fixed-rate deposit", "פיקדון בריבית קבועה"),
         description: t(
-            "A deposit at a bank, at a fixed rate (פיקדון\u{a0}בריבית\u{a0}קבועה): the bank \
-             sets the rate when it's opened, for the whole term, and the money is locked \
-             until the term ends. The Bank of Israel publishes each bank's average rate every \
-             month, by how long the deposits are for.",
-            "פיקדון בבנק בריבית קבועה: הבנק קובע את הריבית ביום הפתיחה, לכל התקופה, והכסף נעול עד שהתקופה נגמרת. בנק ישראל מפרסם כל חודש את הריבית הממוצעת בכל בנק, לפי אורך התקופה.",
+            "You give a bank one sum for a term chosen in advance, at a rate set on the day \
+             it's opened that doesn't change. It suits money you're sure you won't need before \
+             a known date, especially when you expect the Bank of Israel to cut its rate. The \
+             downside: the money is locked until the end, and taking it out early usually \
+             loses the interest. And banks mostly pay less than the Bank of Israel's rate.",
+            "נותנים לבנק סכום אחד לתקופה שבוחרים מראש, בריבית שנקבעת ביום הפתיחה ולא משתנה. מתאים לכסף שבטוח לא תצטרכו עד תאריך ידוע, במיוחד כשמצפים שריבית בנק ישראל תרד. החיסרון: הכסף נעול עד הסוף, ויציאה מוקדמת מפסידה בדרך כלל את הריבית. ובנקים משלמים לרוב פחות מריבית בנק ישראל.",
         ),
         data_of: DATA_OF,
         checked: checked(),
