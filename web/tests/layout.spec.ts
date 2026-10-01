@@ -98,6 +98,24 @@ const layoutProblems = (page: Page) =>
       }
     }
 
+    // Cards stacked in a column keep a gap: "Taking the money out" once sat
+    // flush under "What's compared", a dialog between them in the page.
+    for (const column of new Set([...document.querySelectorAll('.card')].map((card) => card.parentElement))) {
+      const cards = [...(column?.children ?? [])].filter(
+        (card) =>
+          card.classList.contains('card') &&
+          shown(card) &&
+          !['fixed', 'sticky'].includes(getComputedStyle(card).position),
+      )
+      for (const [index, card] of cards.slice(1).entries()) {
+        const above = cards[index].getBoundingClientRect()
+        const bounds = card.getBoundingClientRect()
+        const sideBySide = bounds.top < above.bottom - 1
+        if (!sideBySide && bounds.top - above.bottom < 1)
+          problems.push(`${name(card).slice(0, 40)} touches ${name(cards[index]).slice(0, 40)}`)
+      }
+    }
+
     // An open tip stays on the screen.
     for (const popover of document.querySelectorAll('.popover.open')) {
       const bounds = popover.getBoundingClientRect()
@@ -158,9 +176,13 @@ const dialog = details
 
 // The rules themselves: each must notice the bug it's for, so a rule that
 // never fires can't pass for a clean page.
-test('the rules notice text drawn over text, text cut off, and a tip off the screen', async ({ page }) => {
+test('the rules notice text drawn over text, text cut off, a tip off the screen, and cards touching', async ({
+  page,
+}) => {
   await page.evaluate(() => {
     const card = document.querySelector('.card')!
+    const second = document.querySelectorAll<HTMLElement>('aside > .card')[1]
+    second.style.marginTop = '0'
     const over = document.createElement('p')
     over.className = 'planted'
     over.textContent = 'planted over the heading'
@@ -183,6 +205,7 @@ test('the rules notice text drawn over text, text cut off, and a tip off the scr
   ).toBeDefined()
   expect(problems.find((problem) => problem.includes('cuts its content off'))).toBeDefined()
   expect(problems.find((problem) => problem.includes('runs off the screen'))).toBeDefined()
+  expect(problems.find((problem) => problem.includes('touches'))).toBeDefined()
 })
 
 test('at the start', { tag: '@phone' }, async ({ page }) => {

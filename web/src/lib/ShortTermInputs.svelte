@@ -17,14 +17,7 @@
 </script>
 
 <section class="card">
-  <div class="heading row">
-    <h3>{t.tryAnExample}</h3>
-    <label class="switch">
-      <input type="checkbox" bind:checked={app.moreOptions} />
-      {t.moreOptions}
-    </label>
-    <Tip about={t.moreOptions}>{t.shortMoreOptionsTip(compactPercent(short.usualInflation))}</Tip>
-  </div>
+  <h3>{t.tryAnExample}</h3>
   <Examples examples={short.examples} apply={(example) => short.applyExample(example)} />
 </section>
 
@@ -54,13 +47,6 @@
       <label for="rate">{t.boiRate}</label><Tip about={t.boiRate}>{t.boiRateTip}</Tip>
     </span>
     <NumberField id="rate" suffix="%" step={0.25} bind:value={short.ratePercent} />
-
-    {#if app.moreOptions}
-      <span>
-        <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.shortInflationTip}</Tip>
-      </span>
-      <NumberField id="inflation" suffix={t.percentAYear} step={0.5} bind:value={short.inflationPercent} />
-    {/if}
   </div>
   <p class="note">{t.boiRateNote(percent(short.todaysRate))}</p>
 </section>
@@ -88,8 +74,30 @@
 </section>
 <PlaceSheet {app} bind:open={choosing} />
 
+<!-- Last, as in the long term: one switch for both calculators. -->
+<section class="card">
+  <div class="heading">
+    <h3>
+      <label class="switch">
+        <input type="checkbox" bind:checked={app.moreOptions} />
+        {t.moreOptions}
+      </label>
+    </h3>
+    <Tip about={t.moreOptions}>{t.shortMoreOptionsTip(compactPercent(short.usualInflation))}</Tip>
+  </div>
+  {#if app.moreOptions}
+    <div class="fields">
+      <span>
+        <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.shortInflationTip}</Tip>
+      </span>
+      <NumberField id="inflation" suffix={t.percentAYear} step={0.5} bind:value={short.inflationPercent} />
+    </div>
+  {/if}
+</section>
+
 <style>
-  section + section {
+  /* Not only the next one: the list's dialog sits before the last card. */
+  section ~ section {
     margin-top: 12px;
   }
   h3 {
@@ -109,18 +117,17 @@
   .heading h3 {
     margin: 0;
   }
-  /* A heading with a switch at its right. */
-  .row {
-    gap: 6px;
+  /* More options while it's off: a heading alone in its card. */
+  .heading:last-child {
+    margin-bottom: 0;
   }
-  .row h3 {
-    flex: 1;
-  }
+  /* A card whose heading is its switch: as small as the other headings, and
+     tall enough for a finger. */
   .switch {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.85rem;
+    min-height: 24px;
     cursor: pointer;
     user-select: none;
   }

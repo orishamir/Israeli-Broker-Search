@@ -260,6 +260,10 @@ all. Read those three first.
   beside their paragraphs, since the header cell is `.place` too; the rule
   is `td.place > div` now. Give a header's tip content its own classes, and
   scope cell rules to `td`.
+- Cards are spaced by `section ~ section`, not `+`: the lists' dialogs
+  (`PlanSheet`, `PlaceSheet`) sit in the page between cards, so "Taking the
+  money out" sat flush under "What's compared" until `layoutProblems`
+  got a rule for cards that touch.
 - A `position: fixed` element inside a `<dialog>` is placed by the window
   only while the dialog has no transform at rest (`translate: 0` or
   `scale: 1` count as one): the list of plans rests at `translate: none`,

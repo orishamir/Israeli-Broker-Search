@@ -45,14 +45,7 @@
 </script>
 
 <section class="card">
-  <div class="heading row">
-    <h3>{t.tryAnExample}</h3>
-    <label class="switch">
-      <input type="checkbox" bind:checked={app.moreOptions} />
-      {t.moreOptions}
-    </label>
-    <Tip about={t.moreOptions}>{t.moreOptionsTip(compactPercent(app.usualInflation))}</Tip>
-  </div>
+  <h3>{t.tryAnExample}</h3>
   <Examples examples={app.examples} apply={(example) => app.applyExample(example)} />
 </section>
 
@@ -155,18 +148,6 @@
         <option value={months}>{t.intervals[months]}</option>
       {/each}
     </select>
-
-    {#if app.moreOptions}
-      <span>
-        <label for="deposit-growth">{t.growingBy}</label><Tip about={t.growingBy}>{t.growingByTip}</Tip>
-      </span>
-      <NumberField
-        id="deposit-growth"
-        suffix={t.percentAYear}
-        step={0.5}
-        bind:value={app.depositGrowthPercent}
-      />
-    {/if}
   </div>
 </section>
 
@@ -189,26 +170,6 @@
         <label for="share-price">{t.sharePrice}</label><Tip about={t.sharePrice}>{t.sharePriceTip}</Tip>
       </span>
       <NumberField id="share-price" prefix={app.sharePriceSymbol} bind:value={app.sharePrice} />
-    {/if}
-
-    {#if app.moreOptions}
-      <span>
-        <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.inflationTip}</Tip>
-      </span>
-      <NumberField id="inflation" suffix={t.percentAYear} step={0.5} bind:value={app.inflationPercent} />
-
-      <span class="whole-row">
-        <label class="switch">
-          <input type="checkbox" bind:checked={app.todaysMoney} />
-          {t.todaysMoney}
-        </label>
-        <Tip about={t.todaysMoney}>{t.todaysMoneyTip}</Tip>
-      </span>
-
-      <span>
-        <span class="label-text">{t.atTheEnd}</span><Tip about={t.atTheEnd}>{t.atTheEndTip}</Tip>
-      </span>
-      <Choices label={t.atTheEnd} options={atEndChoices} bind:value={app.atEnd} />
     {/if}
   </div>
 </section>
@@ -268,8 +229,54 @@
   </section>
 {/if}
 
+<!-- Last: what most people leave as it is. Off, the core is sent the
+     defaults its ? names. -->
+<section class="card">
+  <div class="heading">
+    <h3>
+      <label class="switch">
+        <input type="checkbox" bind:checked={app.moreOptions} />
+        {t.moreOptions}
+      </label>
+    </h3>
+    <Tip about={t.moreOptions}>{t.moreOptionsTip(compactPercent(app.usualInflation))}</Tip>
+  </div>
+  {#if app.moreOptions}
+    <div class="fields">
+      <span class="wraps">
+        <label for="deposit-growth">{t.growingBy}</label><Tip about={t.growingBy}>{t.growingByTip}</Tip>
+      </span>
+      <NumberField
+        id="deposit-growth"
+        suffix={t.percentAYear}
+        step={0.5}
+        bind:value={app.depositGrowthPercent}
+      />
+
+      <span>
+        <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.inflationTip}</Tip>
+      </span>
+      <NumberField id="inflation" suffix={t.percentAYear} step={0.5} bind:value={app.inflationPercent} />
+
+      <span class="whole-row">
+        <label class="switch">
+          <input type="checkbox" bind:checked={app.todaysMoney} />
+          {t.todaysMoney}
+        </label>
+        <Tip about={t.todaysMoney}>{t.todaysMoneyTip}</Tip>
+      </span>
+
+      <span>
+        <span class="label-text">{t.atTheEnd}</span><Tip about={t.atTheEnd}>{t.atTheEndTip}</Tip>
+      </span>
+      <Choices label={t.atTheEnd} options={atEndChoices} bind:value={app.atEnd} />
+    </div>
+  {/if}
+</section>
+
 <style>
-  section + section {
+  /* Not only the next one: the lists' dialogs sit between some cards. */
+  section ~ section {
     margin-top: 12px;
   }
   h3 {
@@ -289,12 +296,9 @@
   .heading h3 {
     margin: 0;
   }
-  /* A heading with a switch at its right. */
-  .row {
-    gap: 6px;
-  }
-  .row h3 {
-    flex: 1;
+  /* More options while it's off: a heading alone in its card. */
+  .heading:last-child {
+    margin-bottom: 0;
   }
   .switch {
     display: flex;
@@ -303,6 +307,12 @@
     font-size: 0.85rem;
     cursor: pointer;
     user-select: none;
+  }
+  /* A card whose heading is its switch: as small as the other headings, and
+     tall enough for a finger. */
+  h3 .switch {
+    min-height: 24px;
+    font-size: inherit;
   }
   .caption {
     margin: 10px 0 6px;
@@ -321,6 +331,12 @@
   }
   .fields select {
     width: 100%;
+  }
+  /* A long label on two lines, so its column stays as narrow as in the
+     other cards and "At the end" keeps both choices on one row. */
+  .fields > .wraps {
+    max-width: 8em;
+    white-space: normal;
   }
   /* Across both columns: a switch with its ?, a note under a field. */
   .fields > .whole-row {

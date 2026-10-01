@@ -74,8 +74,9 @@ the UI is Svelte 5 + ECharts.
   link says so (`c=s`) and carries that calculator's inputs, places and
   deposits of your own instead. The expert
   inputs (growing deposits, inflation, sell or keep) and the chart by
-  deposit sit behind the "More options" switch; off, the state sends the
-  core the defaults. The sweep (every plan over a range of deposits, for
+  deposit sit behind the "More options" switch, the last card of either
+  calculator's inputs, whose fields open inside it; off, the state sends
+  the core the defaults. The sweep (every plan over a range of deposits, for
   that chart and the best plan's line about other deposits) is 10–15
   comparisons' work, so a Web Worker with its own copy of the core does it
   (`sweeper.ts`, `sweep.worker.ts`); the state matches each answer to the

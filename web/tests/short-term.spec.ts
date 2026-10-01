@@ -153,6 +153,19 @@ test("each kind is explained by the table's place column and beside its heading 
   }
 })
 
+test('More options opens the inflation in its own card, the last, and the tax follows it', async ({
+  page,
+}) => {
+  await toShortTerm(page)
+  const inflation = page.getByLabel(t.inflation, { exact: true })
+  await expect(inflation).toBeHidden()
+  await page.getByLabel(t.moreOptions, { exact: true }).check()
+  const card = page.locator('aside section.card').last()
+  await expect(card.getByLabel(t.inflation, { exact: true })).toBeVisible()
+  await inflation.fill('3')
+  await expectCoresTable(page)
+})
+
 test("the title's links open the short term's page on its numbers", async ({ page }) => {
   await toShortTerm(page)
   const about = aboutShortTerm()

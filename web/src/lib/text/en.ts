@@ -155,7 +155,7 @@ export const en = {
     number,
     string
   >,
-  growingBy: 'Growing by',
+  growingBy: 'Monthly deposit grows by',
   growingByTip:
     'How much more you deposit each month than a year earlier, as a salary grows: at 3%, ₪2,000 a month becomes ₪2,060 in the second year and about ₪3,500 in the twentieth. 0 keeps the deposits the same.',
   percentAYear: '% a year',

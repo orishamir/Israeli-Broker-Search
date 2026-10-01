@@ -131,8 +131,11 @@ test(
     const growth = page.getByLabel(t.growingBy, { exact: true })
     await expect(growth).toBeHidden()
     await page.getByLabel(t.moreOptions, { exact: true }).check()
-    await expect(growth).toBeVisible()
-    await expect(page.getByLabel(t.inflation, { exact: true })).toBeVisible()
+    // In the switch's own card, the last, where they open.
+    const card = page.locator('aside section.card').last()
+    await expect(card.getByLabel(t.moreOptions, { exact: true })).toBeChecked()
+    await expect(card.getByLabel(t.growingBy, { exact: true })).toBeVisible()
+    await expect(card.getByLabel(t.inflation, { exact: true })).toBeVisible()
     await growth.fill('3')
     const grown = await inputsOnPage(page)
     expect(grown.depositGrowthPercent).toBe(3)
