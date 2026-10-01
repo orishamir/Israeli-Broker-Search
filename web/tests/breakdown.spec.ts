@@ -4,7 +4,6 @@ import {
   compare,
   exchangeName,
   expectedRows,
-  feeKinds,
   inputsOnPage,
   listedPlans,
   purchasePhrase,
@@ -49,15 +48,13 @@ test(
     await expect(overTime(page)).toContainText(best.name)
     const bars = page.locator('.bars')
     const all = await canvasPicture(bars)
-    const custody = page
-      .getByRole('group', { name: t.compareBy })
-      .getByRole('button', { name: feeKinds().find(({ value }) => value === 'Account')!.name })
-    await custody.click()
+    const holding = page.getByRole('group', { name: t.compareBy }).getByRole('button', { name: t.holding })
+    await holding.click()
     await away(page)
-    await expect(custody).toHaveAttribute('aria-pressed', 'true')
+    await expect(holding).toHaveAttribute('aria-pressed', 'true')
     await expect.poll(() => canvasPicture(bars)).not.toBe(all)
-    await custody.click()
-    await expect(custody).toHaveAttribute('aria-pressed', 'false')
+    await holding.click()
+    await expect(holding).toHaveAttribute('aria-pressed', 'false')
   },
 )
 

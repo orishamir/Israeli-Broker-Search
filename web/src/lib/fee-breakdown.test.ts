@@ -16,13 +16,12 @@ import {
   type Focus,
 } from './fee-breakdown'
 
-const fees = (purchases: number, account: number): FeeAmounts => ({
+const fees = (purchases: number, holding: number): FeeAmounts => ({
   purchases,
   conversions: 0,
-  account,
-  management: 0,
+  holding,
   selling: 0,
-  total: purchases + account,
+  total: purchases + holding,
 })
 
 const bars: Bar[] = [
@@ -46,23 +45,22 @@ const names = (option: ReturnType<typeof barsOption>) => {
 
 test('bars are sorted by the total, or by the focused fee', () => {
   expect(byFee(bars, 'all').map(({ id }) => id)).toEqual(['b', 'a'])
-  expect(byFee(bars, 'account').map(({ id }) => id)).toEqual(['a', 'b'])
+  expect(byFee(bars, 'holding').map(({ id }) => id)).toEqual(['a', 'b'])
   expect(byFee(bars, 'purchases').map(({ id }) => id)).toEqual(['b', 'a'])
 })
 
 test('a focused fee is stacked first and keeps its color; the rest fade', () => {
   expect(stacking('all')).toBe(FEE_TYPES)
-  expect(stacking('account').map(({ key }) => key)).toEqual([
-    'account',
+  expect(stacking('holding').map(({ key }) => key)).toEqual([
+    'holding',
     'purchases',
     'conversions',
-    'management',
     'selling',
   ])
-  const account = FEE_TYPES.find(({ key }) => key === 'account')!
+  const holding = FEE_TYPES.find(({ key }) => key === 'holding')!
   const purchases = FEE_TYPES.find(({ key }) => key === 'purchases')!
-  expect(colorOf(account, 'account')).toBe(account.color)
-  expect(colorOf(purchases, 'account')).toBe(FADED)
+  expect(colorOf(holding, 'holding')).toBe(holding.color)
+  expect(colorOf(purchases, 'holding')).toBe(FADED)
   expect(colorOf(purchases, 'all')).toBe(purchases.color)
 })
 
@@ -83,7 +81,7 @@ test('the bars name each plan, marking pinned ones, with the totals at the end',
   expect(option.grid).toMatchObject({ right: MARGIN.right + measure('₪600') + TOTAL_GAP })
   // The outline, the slots for the names, a stacked series per fee, each
   // faded for unpinned plans, then the rest of the row.
-  expect(series.map(({ type }) => type)).toEqual(['custom', 'bar', 'bar', 'bar', 'bar', 'bar', 'bar', 'bar'])
+  expect(series.map(({ type }) => type)).toEqual(['custom', 'bar', ...FEE_TYPES.map(() => 'bar'), 'bar'])
   expect(series[2].data).toEqual([
     { value: 500, itemStyle: { opacity: 0.6 } },
     { value: 100, itemStyle: { opacity: 1 } },
@@ -97,8 +95,8 @@ test('every series keeps its id, so a change glides instead of drawing the bars 
   const places = FEE_TYPES.map((_, place) => `fee ${place}`)
   // By place in the stack, whichever fee is first.
   expect(ids('all')).toEqual(['outline', 'names', ...places, 'totals'])
-  expect(ids('account')).toEqual(ids('all'))
-  const overTime = overTimeOption([fees(1, 1)], 'account').series as { id: string }[]
+  expect(ids('holding')).toEqual(ids('all'))
+  const overTime = overTimeOption([fees(1, 1)], 'holding').series as { id: string }[]
   expect(overTime.map(({ id }) => id)).toEqual(places)
 })
 
@@ -124,7 +122,7 @@ test('a name too long for the box is cut, by whole characters', () => {
 })
 
 test('amounts show inside a part only where they fit', () => {
-  const formatter = (width: number, focus: 'all' | 'account') => {
+  const formatter = (width: number, focus: 'all' | 'holding') => {
     const option = barsOption({ bars, focus, pinned: new Set(), width, measure })
     const purchases = (option.series as BarSeriesOption[]).find(({ name }) => name === 'קניות')!
     return purchases.label!.formatter as (params: { value: number }) => string
@@ -134,7 +132,7 @@ test('amounts show inside a part only where they fit', () => {
   expect(formatter(800, 'all')({ value: 500 })).toBe('₪500')
   expect(formatter(800, 'all')({ value: 20 })).toBe('')
   // Faded parts show nothing.
-  expect(formatter(800, 'account')({ value: 500 })).toBe('')
+  expect(formatter(800, 'holding')({ value: 500 })).toBe('')
 })
 
 test('over time, each fee piles up from nothing to the total by the end of each year', () => {

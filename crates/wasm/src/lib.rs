@@ -896,10 +896,11 @@ impl OutcomeData {
 pub struct FeeAmounts {
     pub purchases: f64,
     pub conversions: f64,
-    /// Keeping the account: custody and the monthly handling fee together.
-    pub account: f64,
-    /// A fund's or a policy's manager's fee.
-    pub management: f64,
+    /// What's paid just for holding the money: a broker's custody and
+    /// monthly handling fee, or a fund's or a policy's management fee. One
+    /// amount, since no plan charges both, so ranking by it puts brokers and
+    /// funds side by side.
+    pub holding: f64,
     pub selling: f64,
     pub total: f64,
 }
@@ -909,8 +910,7 @@ impl From<&Fees> for FeeAmounts {
         FeeAmounts {
             purchases: number(fees.purchases),
             conversions: number(fees.conversions),
-            account: number(fees.custody + fees.handling),
-            management: number(fees.management),
+            holding: number(fees.custody + fees.handling + fees.management),
             selling: number(fees.selling),
             total: number(fees.total()),
         }
@@ -2255,8 +2255,8 @@ mod tests {
         );
         // Its fees count keeping the account: custody and the handling fee.
         let fees = &altshuler.outcome.as_ref().unwrap().fees;
-        assert!(fees.account > 0.0);
-        let parts = fees.purchases + fees.conversions + fees.account + fees.selling;
+        assert!(fees.holding > 0.0);
+        let parts = fees.purchases + fees.conversions + fees.holding + fees.selling;
         assert!((parts - fees.total).abs() < 0.01);
         // A copy made from the comparison is on that track, and so is the
         // listed plan it's compared with.
@@ -2334,6 +2334,23 @@ mod tests {
             .iter()
             .find(|plan| &plan.key == key)
             .unwrap()
+    }
+
+    /// A fund's management fee is counted where a broker's custody is, so
+    /// comparing by what holding costs puts the two side by side, rather than
+    /// the fund first at nothing.
+    #[test]
+    fn a_funds_fee_is_what_holding_costs() {
+        let mut inputs = inputs();
+        inputs.plans.push(the_fund());
+        let comparison = compare_plans(&inputs).unwrap();
+        let fees = &compared(&comparison, &the_fund())
+            .outcome
+            .as_ref()
+            .unwrap()
+            .fees;
+        assert!(fees.holding > 0.0);
+        assert!((fees.holding - fees.total).abs() < 0.01);
     }
 
     /// Taken at once, a fund pays the tax a broker does and ranks by its

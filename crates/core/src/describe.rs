@@ -293,7 +293,7 @@ impl Named for FeeKind {
             FeeKind::Trade => lang.pick("Buy or sell", "קנייה או מכירה"),
             FeeKind::Track => lang.pick("Track", "שיטת חיוב"),
             FeeKind::StandingOrder => lang.pick("Standing order", "הוראת קבע"),
-            FeeKind::Account => lang.pick("Keeping the account", "דמי ניהול חשבון"),
+            FeeKind::Account => lang.pick("Keeping the account", "דמי משמרת וטיפול"),
             FeeKind::Conversion => lang.pick("Conversion", "המרת מט\u{5f4}ח"),
             FeeKind::SecondConversion => lang.pick("Second conversion fee", "עמלת המרה שנייה"),
             FeeKind::Markup => lang.pick("Conversion markup", "מרווח המרה"),
@@ -311,7 +311,7 @@ impl FeeKind {
             FeeKind::Trade => lang.pick("buy or sell", "קנייה או מכירה"),
             FeeKind::Track => lang.pick("track picked for you", "שיטת החיוב שנבחרה עבורכם"),
             FeeKind::StandingOrder => lang.pick("by standing order", "בהוראת קבע"),
-            FeeKind::Account => lang.pick("keeping the account", "ניהול החשבון"),
+            FeeKind::Account => lang.pick("keeping the account", "משמרת וטיפול"),
             FeeKind::Conversion => lang.pick("conversion", "המרה"),
             FeeKind::SecondConversion => lang.pick("or, if less", "או, אם נמוך יותר"),
             FeeKind::Markup => lang.pick("markup", "מרווח"),
@@ -391,8 +391,15 @@ impl Explained for FeeKind {
             FeeKind::Track => &["מסלול עמלות"],
             FeeKind::StandingOrder => &["הוראת קבע"],
             // The share of the holdings, then the monthly fee as the tariffs
-            // name it: IBI and Meitav, Altshuler.
-            FeeKind::Account => &["דמי משמרת", "דמי טיפול", "דמי שימוש", "דמי ניהול תקופתיים"],
+            // name it: IBI and Meitav, Altshuler; then both, as the law and
+            // Altshuler's offer name them.
+            FeeKind::Account => &[
+                "דמי משמרת",
+                "דמי טיפול",
+                "דמי שימוש",
+                "דמי ניהול תקופתיים",
+                "דמי ניהול חשבון",
+            ],
             FeeKind::Conversion => &["עמלת המרת מט\"ח"],
             FeeKind::SecondConversion => &[],
             FeeKind::Markup => &["מרווח המרה"],
@@ -1774,7 +1781,7 @@ pub fn about(lang: Lang) -> About {
                  is sold and converted back and the tax on the gain is paid, and what's left \
                  is what the table ranks by; or, if you choose to keep holding, the table \
                  ranks by what's held, and nothing is paid for selling or in tax.",
-                "המחשבון מחשב כל מסלול חודש אחר חודש, על ההפקדות שלכם. כל הפקדה מגיעה בתחילת החודש ומחכה בשקלים עד הקנייה הבאה. בקנייה הכסף מומר (אם קונים בחו״ל) ומושקע; אם הבנק או בית ההשקעות לא מוכר שברי מניה, נקנות רק מניות שלמות. דמי ניהול החשבון (אחוז מהתיק או סכום קבוע) משולמים כל חודש מהשקלים. בסוף הכול נמכר, מומר חזרה לשקלים, ומשולם מס על הרווח; הסכום שנשאר קובע את הדירוג בטבלה. אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי התיק, בלי עמלת מכירה ובלי מס.",
+                "המחשבון מחשב כל מסלול חודש אחר חודש, על ההפקדות שלכם. כל הפקדה מגיעה בתחילת החודש ומחכה בשקלים עד הקנייה הבאה. בקנייה הכסף מומר (אם קונים בחו״ל) ומושקע; אם הבנק או בית ההשקעות לא מוכר שברי מניה, נקנות רק מניות שלמות. דמי המשמרת והטיפול (אחוז מהתיק או סכום קבוע) משולמים כל חודש מהשקלים. בסוף הכול נמכר, מומר חזרה לשקלים, ומשולם מס על הרווח; הסכום שנשאר קובע את הדירוג בטבלה. אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי התיק, בלי עמלת מכירה ובלי מס.",
             ),
             paragraph(
                 "A provident fund for investment, a study fund or a savings policy is run the \
@@ -1798,7 +1805,7 @@ pub fn about(lang: Lang) -> About {
                      measured before tax, and the tax is each plan's own."
                 ),
                 Lang::He => format!(
-                    "המס הוא מס רווחי הון: 25% מהרווח. את מה ששילמתם בכל קנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז אותה קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה. עמלות הקנייה נחשבות חלק ממחיר הקנייה. מדמי ניהול החשבון מוכר רק מה ששולם בשנה האחרונה, כי החוק מתיר לקזז אותם רק בשנה שבה מוכרים. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 פטורה ממס על הרווח, ובקרן השתלמות פטורים הרווחים על מה שהופקד עד התקרה השנתית. מה שאבד לעמלות נמדד לפני מס; המס מחושב לכל מסלול בנפרד."
+                    "המס הוא מס רווחי הון: 25% מהרווח. את מה ששילמתם בכל קנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז אותה קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה. עמלות הקנייה נחשבות חלק ממחיר הקנייה. מדמי המשמרת והטיפול מוכר רק מה ששולם בשנה האחרונה, כי החוק מתיר לקזז אותם רק בשנה שבה מוכרים. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 פטורה ממס על הרווח, ובקרן השתלמות פטורים הרווחים על מה שהופקד עד התקרה השנתית. מה שאבד לעמלות נמדד לפני מס; המס מחושב לכל מסלול בנפרד."
                 ),
             },
             paragraph(

@@ -116,11 +116,9 @@ export const en = {
   purchasesTip: 'The trade fee on every purchase.',
   conversions: 'Conversions',
   conversionsTip: "Converting shekels to the security's currency: the fee and the markup.",
-  account: 'Keeping the account',
-  accountTip: 'A share of what you hold, a fixed amount a month, or both.',
-  management: 'Management fee',
-  managementTip:
-    'What a fund or a policy takes: a share of the balance every year, and at some, a share of each deposit.',
+  holding: 'Management and custody',
+  holdingTip:
+    'What you pay just for holding the money. At a bank or an investment house: custody (a share of what you hold), a fixed amount a month, or both. At a fund or a policy: its management fee, a share of the balance and at some a share of each deposit.',
   selling: 'Selling',
   sellingTip: 'Selling everything at the end, and converting back to shekels.',
   clickAFee: 'Click',
@@ -250,6 +248,7 @@ export const en = {
   none: 'none',
   ofTheBalance: 'Of the balance',
   ofEachDeposit: 'Of each deposit',
+  account: 'Keeping the account',
   shareOfHoldings: 'As a share of what you hold',
   fixedAmount: 'As a fixed amount',
   conversion: 'Conversion',

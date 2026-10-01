@@ -347,7 +347,10 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   to trade), so never say קרן נאמנות for what the app compares;
 - a US commission track (per share, per order) → שיטת חיוב, not מסלול,
   which is a plan; a joining offer → מבצע הצטרפות; custody → דמי משמרת;
-  the monthly handling fee → דמי טיפול; the conversion markup → מרווח המרה;
+  the monthly handling fee → דמי טיפול; the two as one fee →
+  דמי משמרת וטיפול (not דמי ניהול חשבון, too near a fund's דמי ניהול),
+  and, with a fund's fee, in the fee breakdown → דמי ניהול ומשמרת; the
+  conversion markup → מרווח המרה;
 - a provident fund for investment → קופת גמל להשקעה; a study fund → קרן
   השתלמות; a savings policy → פוליסת חיסכון; its fee → דמי ניהול מהצבירה, מהפקדה; a monthly pension →
   קצבה; taking it all at once → משיכה בבת אחת; the deposit ceiling → תקרת

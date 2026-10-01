@@ -172,11 +172,18 @@
     gap: 6px;
     margin-bottom: 6px;
   }
-  /* Two by two where one row doesn't fit. */
+  /* Two by two where one row doesn't fit, each column as wide as its widest
+     name, which then doesn't wrap: halves were narrower than "דמי ניהול
+     ומשמרת" on a Galaxy S24. One column where even that doesn't fit. */
   @container (width < 440px) {
     .fees {
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: repeat(2, minmax(max-content, 1fr));
+    }
+  }
+  @container (width < 300px) {
+    .fees {
+      grid-template-columns: 1fr;
     }
   }
   .fee {
@@ -188,11 +195,12 @@
     background: transparent;
     color: var(--text);
   }
+  /* Not bold, as the choices aren't: a bolder name is wider, and would widen
+     its column. */
   .fee[aria-pressed='true'] {
     border-color: var(--fee-color);
     background: var(--fee-color);
     color: var(--on-fee-color);
-    font-weight: 600;
   }
   .label,
   .hint {
