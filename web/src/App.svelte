@@ -208,11 +208,6 @@
               <span class="value">{shekels(deposited.current)}</span>
               <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
             </div>
-            <div class="card stat">
-              <span class="label">{t.withNoFees}</span>
-              <span class="value">{shekels(noFees.current)}</span>
-              <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
-            </div>
             {#if best?.outcome}
               <div class="card stat best" style:--plan-color={best.plan.color}>
                 <span class="label">{t.best(best.plan.label)}</span>
@@ -229,6 +224,11 @@
                 <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
               </div>
             {/if}
+            <div class="card stat">
+              <span class="label">{t.withNoFees}</span>
+              <span class="value">{shekels(noFees.current)}</span>
+              <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
+            </div>
           </div>
 
           {#if app.comparison.results.length === 0}
@@ -301,11 +301,6 @@
               <span class="value">{shekels(shortDeposited.current)}</span>
               <span class="note">{t.forMonths(short.months)}</span>
             </div>
-            <div class="card stat">
-              <span class="label">{t.atTheRate}</span>
-              <span class="value">{shekels(shortAtTheRate.current)}</span>
-              <span class="note">{t.noCostsNoTax}</span>
-            </div>
             {#if shortBest?.outcome}
               <div class="card stat best" style:--plan-color={shortBest.place.color}>
                 <span class="label">{t.best(shortBest.place.label)}</span>
@@ -319,6 +314,11 @@
                 {/if}
               </div>
             {/if}
+            <div class="card stat">
+              <span class="label">{t.atTheRate}</span>
+              <span class="value">{shekels(shortAtTheRate.current)}</span>
+              <span class="note">{t.noCostsNoTax}</span>
+            </div>
           </div>
 
           {#if comparison.results.length === 0}

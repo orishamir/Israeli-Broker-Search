@@ -288,7 +288,9 @@ The page is shown in Hebrew, right to left, whatever the browser's
 language: `index.html` says so (`lang="he" dir="rtl"`), and there is no
 English interface. The English texts stay beside the Hebrew ones, in the
 core and in `en.ts`: the page shows a term's English name under its Hebrew
-one ("באנגלית"), and links and saved copies name plans in English.
+one ("באנגלית"; not an exchange's, a place known by its Hebrew name:
+`Explained::english_name`), and links and saved copies name plans in
+English.
 
 - Core: `Lang` (`En`, `He`) and `Text { en, he }` in `lib.rs`. Every
   function that makes words takes a `lang`; a fixed text is

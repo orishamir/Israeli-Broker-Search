@@ -104,6 +104,12 @@ impl Source {
 pub trait Explained: Named + Copy {
     fn explanation(self, lang: Lang) -> &'static str;
     fn hebrew_names(self) -> &'static [&'static str];
+
+    /// The English name the page shows under the Hebrew one, where it helps:
+    /// "ETF" is what many look up, while "USA" says nothing "ארה״ב" doesn't.
+    fn english_name(self) -> Option<&'static str> {
+        Some(self.name(Lang::En))
+    }
 }
 
 impl Explained for Security {
@@ -185,6 +191,11 @@ impl Explained for Exchange {
             Exchange::Tlv => &["הבורסה לניירות ערך בתל אביב"],
             Exchange::Usa | Exchange::Europe => &[],
         }
+    }
+
+    // Places, which everyone knows by their Hebrew names.
+    fn english_name(self) -> Option<&'static str> {
+        None
     }
 }
 

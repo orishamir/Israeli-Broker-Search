@@ -77,8 +77,9 @@ fn invalid(error: InvalidInputs) -> JsError {
 pub struct Choice<T> {
     pub value: T,
     pub name: String,
-    /// Its English name, shown beside the Hebrew one in Hebrew.
-    pub english_name: String,
+    /// Its English name, shown beside the Hebrew one in Hebrew; missing
+    /// where it wouldn't help (an exchange).
+    pub english_name: Option<String>,
     pub explanation: String,
     /// What Israeli brokers call it: "קרן סל".
     pub hebrew_names: Vec<String>,
@@ -89,7 +90,7 @@ impl<T: Explained> Choice<T> {
         Choice {
             value,
             name: value.name(lang).to_owned(),
-            english_name: value.name(Lang::En).to_owned(),
+            english_name: value.english_name().map(str::to_owned),
             explanation: value.explanation(lang).to_owned(),
             hebrew_names: value
                 .hebrew_names()
@@ -122,7 +123,7 @@ pub fn exchanges() -> Result<Vec<Ts<Choice<Exchange>>>, JsError> {
 pub struct FeeKindChoice {
     pub value: FeeKind,
     pub name: String,
-    pub english_name: String,
+    pub english_name: Option<String>,
     /// "by standing order", under "Buy or sell".
     pub label: String,
     pub explanation: String,
@@ -2541,7 +2542,9 @@ mod tests {
         assert_eq!(choice.name, "Index fund");
         let hebrew = Choice::new(Security::IndexFund, Lang::He);
         assert_eq!(hebrew.name, "קרן מחקה");
-        assert_eq!(hebrew.english_name, "Index fund");
+        assert_eq!(hebrew.english_name.as_deref(), Some("Index fund"));
+        // An exchange is a place, known by its Hebrew name alone.
+        assert_eq!(Choice::new(Exchange::Usa, Lang::He).english_name, None);
         assert_eq!(
             BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
             "תעריפון מ-29/06/2026"
