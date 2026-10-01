@@ -10,7 +10,7 @@
   import PlanSheet from './PlanSheet.svelte'
   import { t } from './text'
   import { en } from './text/en'
-  import { reveal } from './motion'
+  import { glideHeight, reveal } from './motion'
   import Tip from './Tip.svelte'
 
   let { app }: { app: AppState } = $props()
@@ -54,11 +54,7 @@
   <div class="heading">
     <h3>{t.whatYouBuy}</h3>
     <Tip about={t.whatYouBuy}>
-      <p>
-        קרנות סל, קרנות מחקות, אג״ח ומניות הן כולן ניירות ערך, והבנקים ובתי ההשקעות גובים על כל סוג עמלות
-        שונות. קרן סל וקרן מחקה יכולות להחזיק בדיוק את אותן חברות: ההבדל הוא איך קונים אותן, ולכן גם כמה
-        משלמים בעמלות.
-      </p>
+      <p>{t.whatYouBuyTip}</p>
       {#each app.securities as option (option.value)}
         <div class="term">
           <strong>{option.name}</strong>
@@ -70,9 +66,11 @@
   </div>
   <Choices label={t.security} options={app.securities} bind:value={app.security} />
   <!-- Always shown: the English names are the ones people don't know. -->
-  <div class="explained">
-    <HebrewNames names={security.hebrewNames} english={security.englishName} main={security.name} />
-    <p class="weak">{security.explanation}</p>
+  <div class="glides" {@attach glideHeight()}>
+    <div class="explained">
+      <HebrewNames names={security.hebrewNames} english={security.englishName} main={security.name} />
+      <p class="weak">{security.explanation}</p>
+    </div>
   </div>
 </section>
 
@@ -81,55 +79,55 @@
     <h3>{t.tradedOn}</h3>
     <Tip about={t.tradedOn}>
       <p>
-        את {security.name} אפשר לקנות בבורסות שונות: בתל אביב, או בחו״ל בדולרים או באירו.
-        {#if app.security === 'Bond'}
-          אג״ח ממשלת ישראל נסחרות בתל אביב בשקלים, ואג״ח ממשלת ארה״ב בניו יורק בדולרים.
-        {:else if app.security === 'Stock'}
-          טבע, למשל, נסחרת בתל אביב בשקלים ובניו יורק בדולרים.
-        {:else}
-          אותו S&P 500, למשל, נמכר בתל אביב כקרן סל בשקלים, ובניו יורק כקרן סל כמו VOO, בדולרים.
-        {/if}
-        הבנקים ובתי ההשקעות גובים עמלות שונות בכל בורסה, ובחו״ל חלקם גובים גם על המרת השקלים.
+        {t.tradedOnTip(
+          security.name,
+          app.security === 'Bond'
+            ? t.tradedOnBonds
+            : app.security === 'Stock'
+              ? t.tradedOnStocks
+              : t.tradedOnFunds,
+        )}
       </p>
     </Tip>
   </div>
   <Choices label={t.exchange} options={app.exchanges} bind:value={app.exchange} />
-  <div class="explained">
-    <HebrewNames names={exchange.hebrewNames} english={exchange.englishName} main={exchange.name} />
-    <p class="weak">{exchange.explanation}</p>
-  </div>
-  {#if app.exchange !== 'Tlv'}
-    <!-- Rarely changed, so folded away unless the download failed. -->
-    <details class="rates" open={app.ratesStatus.kind === 'failed'} transition:reveal>
-      <summary>
-        <!-- Left to right even in Hebrew, or the equals signs read backwards. -->
-        <bdi dir="ltr">$1 = ₪{app.ilsPerUsd ?? '?'} · €1 = ₪{app.ilsPerEur ?? '?'}</bdi>
-        <span class="weak">
-          {#if app.ratesStatus.kind === 'downloading'}
-            {t.downloadingRates}
-          {:else if app.ratesStatus.kind === 'downloaded'}
-            · {dateText(app.ratesStatus.date)}
-          {:else}
-            {t.couldntDownloadRates}
-          {/if}
-        </span>
-      </summary>
-      <div class="fields">
-        <label for="usd">$1 =</label>
-        <NumberField id="usd" prefix="₪" step={0.01} bind:value={app.ilsPerUsd} />
-        <label for="eur">€1 =</label>
-        <NumberField id="eur" prefix="₪" step={0.01} bind:value={app.ilsPerEur} />
+  <!-- The description and the rates line change together, in one glide: the
+       rates line closing on its own while the new description was taller
+       moved the cards below one way and then the other. -->
+  <div class="glides" {@attach glideHeight()}>
+    <div>
+      <div class="explained">
+        <HebrewNames names={exchange.hebrewNames} english={exchange.englishName} main={exchange.name} />
+        <p class="weak">{exchange.explanation}</p>
       </div>
-      <p class="caption">
-        {#if app.ratesStatus.kind === 'failed'}
-          {t.couldntDownloadCheck(app.ratesStatus.error)}
-        {:else}
-          שערי הבנק המרכזי האירופי, שרחוקים מהשער היציג של בנק ישראל בשבריר אחוז לכל היותר. אפשר לשנות אותם
-          כדי לנסות שערים אחרים.
-        {/if}
-      </p>
-    </details>
-  {/if}
+      {#if app.exchange !== 'Tlv'}
+        <!-- Rarely changed, so folded away unless the download failed. -->
+        <details class="rates" open={app.ratesStatus.kind === 'failed'}>
+          <summary>
+            <!-- Left to right even in Hebrew, or the equals signs read backwards. -->
+            <bdi dir="ltr">$1 = ₪{app.ilsPerUsd ?? '?'}&nbsp;· €1 = ₪{app.ilsPerEur ?? '?'}</bdi><span
+              class="weak"
+              >{#if app.ratesStatus.kind === 'downloading'}{t.downloadingRates}{:else if app.ratesStatus.kind === 'downloaded'}&nbsp;·
+                {dateText(app.ratesStatus.date)}{:else}{t.couldntDownloadRates}{/if}</span
+            >
+          </summary>
+          <div class="fields">
+            <label for="usd">$1 =</label>
+            <NumberField id="usd" prefix="₪" step={0.01} bind:value={app.ilsPerUsd} />
+            <label for="eur">€1 =</label>
+            <NumberField id="eur" prefix="₪" step={0.01} bind:value={app.ilsPerEur} />
+          </div>
+          <p class="caption">
+            {#if app.ratesStatus.kind === 'failed'}
+              {t.couldntDownloadCheck(app.ratesStatus.error)}
+            {:else}
+              {t.ratesSource}
+            {/if}
+          </p>
+        </details>
+      {/if}
+    </div>
+  </div>
 </section>
 
 <section class="card">
@@ -171,11 +169,7 @@
   <div class="heading">
     <h3>{t.whatsCompared}</h3>
     <Tip about={t.whatsCompared}>
-      <p>
-        את אותו נייר ערך, באותה בורסה, אפשר לקנות דרך בנקים ובתי השקעות רבים. לכל אחד יש כמה מסלולים, ולכל
-        מסלול עמלות משלו. לצידם יש קופות ופוליסות, שמשקיעות את הכסף בשבילכם. ב״הוספה והסרה״ בוחרים מה להשוות,
-        ושם אפשר גם להוסיף מסלול משלכם.
-      </p>
+      <p>{t.whatsComparedTip}</p>
     </Tip>
   </div>
   <p class="note">{t.tickedAtFirst}</p>
@@ -235,7 +229,7 @@
   </div>
   {#if app.moreOptions}
     <div class="fields more" transition:reveal>
-      <span class="wraps">
+      <span>
         <label for="deposit-growth">{t.growingBy}</label><Tip about={t.growingBy}>{t.growingByTip}</Tip>
       </span>
       <NumberField
@@ -305,43 +299,29 @@
   .fields.more {
     padding-top: 10px;
   }
-  .switch {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-    cursor: pointer;
-    user-select: none;
-  }
-  /* A card whose heading is its switch: as small as the other headings, and
-     tall enough for a finger. */
-  h3 .switch {
-    min-height: 24px;
-    font-size: inherit;
-  }
   .caption {
     margin: 10px 0 6px;
     font-size: 0.8rem;
     color: var(--weak);
   }
+  /* Every field one width (`--input-field`), in every card of both
+     calculators; the labels take the rest, and a long one wraps. */
   .fields {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) var(--input-field);
     gap: 8px 12px;
     align-items: center;
   }
-  .fields > label,
+  /* A label and its "?" (see `.titled` in app.css). */
   .fields > span {
-    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+  }
+  .fields > span > :global(.tip-button) {
+    translate: 0 -2px;
   }
   .fields select {
     width: 100%;
-  }
-  /* A long label on two lines, so its column stays as narrow as in the
-     other cards and "At the end" keeps both choices on one row. */
-  .fields > .wraps {
-    max-width: 8em;
-    white-space: normal;
   }
   /* Across both columns: a switch with its ?, a note under a field. */
   .fields > .whole-row {
@@ -402,6 +382,10 @@
     margin-top: 10px;
     font-size: 0.8rem;
     line-height: 1.5;
+  }
+  /* See glideHeight: its content's margins counted in its height. */
+  .glides > :global(*) {
+    display: flow-root;
   }
   .explained p {
     margin: 6px 0 0;

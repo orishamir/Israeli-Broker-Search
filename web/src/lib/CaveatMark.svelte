@@ -49,11 +49,11 @@
   button.mark:hover,
   button.mark:global([aria-expanded='true']) {
     border-color: var(--accent);
-    background: rgb(123 155 255 / 0.15);
+    background: var(--accent-tint);
     color: var(--text);
   }
   .warning {
-    border-color: color-mix(in srgb, var(--warning) 50%, transparent);
+    border-color: var(--warning-edge);
     color: var(--warning);
   }
   .warning::before {

@@ -42,7 +42,9 @@
   }
 </script>
 
-<div class="field">
+<!-- The number beside its unit: at the start after ₪ or $, at the end
+     before %, "% בשנה" or "חודשים". -->
+<div class="field" class:after={suffix && !prefix}>
   {#if prefix}<span class="unit" aria-hidden="true">{prefix}</span>{/if}
   <input
     {id}
@@ -84,8 +86,10 @@
   }
   .field:focus-within {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgb(123 155 255 / 0.25);
+    box-shadow: var(--focus-ring);
   }
+  /* Bare: the box around it is the field (the page's text fields are
+     styled in app.css, and this undoes it, focus ring included). */
   input {
     flex: 1;
     min-width: 0;
@@ -93,7 +97,11 @@
     border: none;
     outline: none;
     background: transparent;
+    box-shadow: none;
     font-variant-numeric: tabular-nums;
+  }
+  .after input {
+    text-align: end;
   }
   input::placeholder {
     color: var(--weak);

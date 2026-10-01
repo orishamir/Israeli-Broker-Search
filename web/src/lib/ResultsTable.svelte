@@ -86,9 +86,11 @@
   <thead>
     <tr>
       <th class="rank"><span class="visually-hidden">{t.rank}</span></th>
-      <th class="plan" style:width={width.plan}>{t.plan}</th>
+      <th class="plan" style:--share={width.plan}>{t.plan}</th>
       {#each columns as { title, explanation } (title)}
-        <th class="amount" style:width={width.amount}>{title}<Tip about={title}>{explanation}</Tip></th>
+        <th class="amount" style:--share={width.amount}
+          ><span class="titled">{title}<Tip about={title}>{explanation}</Tip></span></th
+        >
       {/each}
     </tr>
   </thead>
@@ -168,6 +170,11 @@
     padding: 9px 10px;
     text-align: start;
     white-space: nowrap;
+  }
+  /* Its share of the table (see `width`). */
+  th.plan,
+  th.amount {
+    width: var(--share);
   }
   th {
     border-bottom: 1px solid var(--border);
@@ -262,20 +269,75 @@
       background: var(--raised);
     }
     .names {
-      min-width: 8rem;
+      min-width: 0;
       white-space: normal;
     }
+    th,
+    td {
+      box-sizing: border-box;
+    }
+    .rank {
+      min-width: 1.5rem;
+    }
   }
-  /* A phone: tighter cells, so the plan and its first two amounts fit. */
+  /* A phone: tighter cells. */
   @container (width < 440px) {
     th,
     td {
       padding: 8px 6px;
     }
   }
+  /* While the table scrolls, the screen ends where a column ends: as many
+     columns after the plan's as fit have a set width, and the plan's column
+     takes the rest of the card, so they show whole and what's past them is
+     a swipe away. A share of the table's width (the desktop's way) cut a
+     column mid-number. Minimums, since a table wider than its box gives
+     each column the least its content needs and ignores widths. */
+  @container (width < 316px) {
+    th.plan {
+      min-width: calc(100cqi - 1.5rem - 1 * 5.6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 3) {
+      min-width: 5.6rem;
+    }
+  }
+  @container (316px <= width < 440px) {
+    th.plan {
+      min-width: calc(100cqi - 1.5rem - 2 * 5.6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 4) {
+      min-width: 5.6rem;
+    }
+  }
+  @container (440px <= width < 540px) {
+    th.plan {
+      min-width: calc(100cqi - 1.5rem - 3 * 6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 5) {
+      min-width: 6rem;
+    }
+  }
+  @container (540px <= width < 640px) {
+    th.plan {
+      min-width: calc(100cqi - 1.5rem - 4 * 6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 6) {
+      min-width: 6rem;
+    }
+  }
+  @container (640px <= width < 760px) {
+    th.plan {
+      min-width: calc(100cqi - 1.5rem - 5 * 6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 7) {
+      min-width: 6rem;
+    }
+  }
   tbody tr.not-offered {
     cursor: default;
   }
+  /* Right, not end: numbers run left to right in Hebrew too, so their last
+     digits line up on the right. */
   .amount {
     text-align: right;
     font-variant-numeric: tabular-nums;

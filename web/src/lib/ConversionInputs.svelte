@@ -9,12 +9,12 @@
   /** Conversion's fields, one per line: the listed fee, and the markup, the
    * other half of what converting costs. `full` adds the maximum. A second
    * conversion fee has no markup of its own: it shares the first's. `name`
-   * starts each field's accessible name: "Conversion: min". */
+   * starts each field's accessible name: "המרת מט״ח: מינימום". */
   let {
     fields,
     markup,
     currency,
-    name = 'Conversion',
+    name = feeKind('Conversion').name,
     full = false,
     onchange,
     onmarkupchange,
@@ -38,7 +38,7 @@
     <div class="number">
       <NumberField
         id="{id}-percent"
-        label="{name}: fee"
+        label={t.fieldOf(name, t.fee)}
         suffix="%"
         step={0.01}
         bind:value={
@@ -52,7 +52,7 @@
     <div class="number">
       <NumberField
         id="{id}-min"
-        label="{name}: min"
+        label={t.fieldOf(name, t.min)}
         prefix={currency}
         bind:value={() => fields.min ?? null, (min) => onchange({ ...fields, min: min ?? undefined })}
       />
@@ -64,7 +64,7 @@
       <div class="number">
         <NumberField
           id="{id}-max"
-          label="{name}: max"
+          label={t.fieldOf(name, t.max)}
           prefix={currency}
           bind:value={() => fields.max ?? null, (max) => onchange({ ...fields, max: max ?? undefined })}
         />
@@ -81,10 +81,10 @@
     <!-- A percentage, or shekels for every dollar (Excellence's 2 agorot). -->
     {@const perDollar = markup.perDollar !== undefined}
     <div class="control">
-      <div class="number wide">
+      <div class="number">
         <NumberField
           id="{id}-markup"
-          label="Conversion: markup"
+          label={markupKind.name}
           prefix={perDollar ? '₪' : ''}
           suffix={perDollar ? '' : '%'}
           step={0.01}
@@ -101,7 +101,7 @@
         />
       </div>
       <select
-        aria-label="Conversion: markup unit"
+        aria-label={t.fieldOf(markupKind.name, t.unit)}
         value={perDollar ? 'perDollar' : 'percent'}
         onchange={(event) =>
           onmarkupchange(

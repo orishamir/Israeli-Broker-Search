@@ -278,16 +278,26 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
 
 - **One style:**
   - one tooltip style everywhere;
-  - outlined buttons;
-  - units inside the fields;
+  - outlined buttons, as tall as a choice (33 px); text fields and menus
+    37 px; tints of the accent and warning from the tokens on `:root`;
+  - units inside the fields, beside the number (`₪ 10,000`, `10 %`);
+  - every field in either calculator's inputs one width (`--input-field`),
+    so they line up from card to card; the labels take the rest and wrap;
+  - a "?" after words that may wrap sits in a flex row with them
+    (`.titled`, the inputs' label spans): inline, a line can break before
+    it and leave it alone;
+  - while a table scrolls sideways, the screen ends on a whole column (the
+    container steps in `ResultsTable` and `PlaceTable`);
   - motion through the tokens in `app.css` (`motion.ts` for script):
     `--ease-out` for what arrives, `--ease-in` and less time for what
     leaves; presses sink a little; the results move to new numbers together
-    for `--settle` (400 ms): the charts glide, the summary's numbers roll and
-    the rows slide. A chart never cuts a glide short, follows a dragged
-    slider in shorter glides, and waits for a typed number to pause; what
-    comes and goes opens and closes (`transition:reveal`); nothing moves
-    under `prefers-reduced-motion`.
+    for `--settle` (400 ms): the charts glide, the summary's numbers roll
+    and the rows slide, and a box whose words change its height glides to
+    it (`glideHeight`: the summary, the tables, a swapped description). A
+    chart never cuts a glide short, follows a dragged slider in shorter
+    glides, and waits for a typed number to pause, as the line about other
+    deposits does (`HeldWhileTyping`); what comes and goes opens and closes
+    (`transition:reveal`); nothing moves under `prefers-reduced-motion`.
 - **Charts:**
   - time is shown as an axis, never a slider, and never in 3D;
   - each part of a stacked bar has one color, the same in every bar; a
@@ -324,7 +334,8 @@ English.
 - CSS is direction-neutral: logical properties (`margin-inline-start`,
   `text-align: start`, `inset-inline-start`), except where a physical
   measurement is used (`offsetLeft` moves the choices' highlight from the
-  left; the plan preview opens on the left; a pinned row's inset mark). A line of numbers with `=` or `·` gets `<bdi dir="ltr">`, or it
+  left; the plan preview opens on the left; a pinned row's inset mark; the
+  tables' amounts, right-aligned so their last digits line up). A line of numbers with `=` or `·` gets `<bdi dir="ltr">`, or it
   reads backwards. The charts stay left to right.
 - Every spec drives the Hebrew page, from an English browser (Playwright's
   default locale), which `tests/hebrew.spec.ts` checks still gets Hebrew.
@@ -361,8 +372,14 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   keep the money, in the short term's table → אפיק; the Bank of Israel's
   rate → ריבית בנק ישראל.
 
+- A " · " shown in Hebrew has a non-breaking space before it (`\u00a0· `,
+  `&nbsp;·` in markup), so a line may end with the dot but never start
+  with it. English labels keep a plain space: links find plans by them.
 - Hebrew inside English goes in `<bdi lang="he">`. In Rust strings, join a
   phrase's words with `\u{a0}`: a phrase split across lines reads backwards.
+  A hyphenated Hebrew word is joined with a non-breaking hyphen
+  (`חד\u{2011}פעמית`, `\u2011` in TypeScript), or a narrow line breaks it
+  at the hyphen. A prefix before a number (`מ-₪100`, `ל-12`) never breaks.
 - Label Hebrew names ("In Hebrew", "Also called"), one per line. A list of
   them on one line reads in the wrong order.
 

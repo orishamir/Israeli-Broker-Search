@@ -60,14 +60,18 @@
   li {
     padding: 8px 10px;
     border-inline-start: 3px solid var(--strong-border);
-    border-radius: 0 8px 8px 0;
+    /* Square on the stripe's side, round on the other, whichever way the
+       text runs. */
+    border-start-end-radius: 8px;
+    border-end-end-radius: 8px;
     background: var(--raised);
     color: var(--text);
     font-size: 0.9rem;
   }
   .warning li {
     border-inline-start-color: var(--warning);
-    background: rgb(242 193 78 / 0.07);
+    /* A whole box: fainter than a flag's tint. */
+    background: color-mix(in srgb, var(--warning) 7%, transparent);
   }
   .support {
     display: block;

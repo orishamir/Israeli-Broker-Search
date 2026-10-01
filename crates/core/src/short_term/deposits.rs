@@ -165,14 +165,14 @@ pub fn kind() -> Kind {
             vec![],
         ),
         bank(
-            t("Mizrahi-Tefahot Bank", "בנק מזרחי-טפחות"),
+            t("Mizrahi-Tefahot Bank", "בנק מזרחי\u{2011}טפחות"),
             t("Mizrahi", "מזרחי"),
             true,
             rates![1.74 1.87 1.47 3.46 3.5 3.44 3.12],
             open_to_anyone(
                 "Mizrahi-Tefahot opens a deposit even for someone without a current account \
                  with it, as the Bank of Jerusalem does.",
-                "מזרחי-טפחות פותח פיקדון גם למי שאין לו חשבון עו״ש אצלו, כמו בנק ירושלים.",
+                "מזרחי\u{2011}טפחות פותח פיקדון גם למי שאין לו חשבון עו״ש אצלו, כמו בנק ירושלים.",
             ),
         ),
         bank(
@@ -211,7 +211,7 @@ pub fn kind() -> Kind {
             open_to_anyone(
                 "The Bank of Jerusalem opens a deposit even for someone without a current \
                  account with it, as Mizrahi-Tefahot does.",
-                "בנק ירושלים פותח פיקדון גם למי שאין לו חשבון עו״ש אצלו, כמו מזרחי-טפחות.",
+                "בנק ירושלים פותח פיקדון גם למי שאין לו חשבון עו״ש אצלו, כמו מזרחי\u{2011}טפחות.",
             ),
         ),
         bank(

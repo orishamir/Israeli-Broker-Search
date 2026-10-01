@@ -200,6 +200,10 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
         markLine: {
           silent: true,
           symbol: 'none',
+          // Under the bars, as the grid's lines are, and seen between them:
+          // over the bars (a marker's own layer, 5), it ran through their
+          // amounts.
+          z: 1,
           data: [{ xAxis: atTheRate }],
           lineStyle: { color: TEXT, type: 'dashed', width: 1 },
           label: { show: false },

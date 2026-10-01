@@ -31,7 +31,7 @@
     <div class="number">
       <NumberField
         id="{id}-amount"
-        label="{name}: price"
+        label={t.fieldOf(name, t.price)}
         prefix={percent ? '' : currency}
         suffix={percent ? '%' : ''}
         step={percent ? 0.01 : 1}
@@ -41,7 +41,7 @@
       />
     </div>
     <select
-      aria-label="{name}: unit"
+      aria-label={t.fieldOf(name, t.unit)}
       value={fields.kind}
       onchange={(event) =>
         onchange({
@@ -62,7 +62,7 @@
       <div class="number">
         <NumberField
           id="{id}-per-share"
-          label="{name}: per share"
+          label={t.fieldOf(name, t.perShare)}
           prefix={currency}
           step={0.01}
           bind:value={
@@ -80,7 +80,7 @@
       <div class="number">
         <NumberField
           id="{id}-min"
-          label="{name}: min"
+          label={t.fieldOf(name, t.min)}
           prefix={currency}
           bind:value={() => fields.min ?? null, (min) => onchange({ ...fields, min: min ?? undefined })}
         />
@@ -92,7 +92,7 @@
         <div class="number">
           <NumberField
             id="{id}-max"
-            label="{name}: max"
+            label={t.fieldOf(name, t.max)}
             prefix={currency}
             bind:value={() => fields.max ?? null, (max) => onchange({ ...fields, max: max ?? undefined })}
           />

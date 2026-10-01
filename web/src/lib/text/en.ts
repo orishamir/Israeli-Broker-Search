@@ -18,7 +18,7 @@ export const en = {
   // The summary
   youDeposit: 'You deposit',
   overYears: (years: number, todaysMoney: boolean) =>
-    `over ${years} years${todaysMoney ? ', in today’s money' : ''}`,
+    `over ${years} year${years === 1 ? '' : 's'}${todaysMoney ? ', in today’s money' : ''}`,
   withNoFees: 'With no fees',
   ifSoldBeforeTax: 'if sold at the end, before tax',
   heldAtEnd: 'held at the end',
@@ -137,13 +137,24 @@ export const en = {
   moreOptionsTip: (inflation: string) =>
     `More inputs, for a closer picture: deposits that grow every year as a salary does, buying every few months rather than every month, another inflation, amounts in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same and are bought every month, prices rising ${inflation} a year, amounts as they will be, and selling at the end.`,
   whatYouBuy: 'What you buy',
+  whatYouBuyTip:
+    'ETFs, index funds, bonds and stocks are all securities, and banks and investment houses charge different fees for each kind. An ETF and an index fund can hold exactly the same companies: they differ in how they are bought, and so in what you pay in fees.',
   security: 'Security',
   tradedOn: 'Traded on',
+  tradedOnTip: (security: string, example: string) =>
+    `${security} can be bought on different exchanges: in Tel Aviv, or abroad in dollars or euros. ${example} Banks and investment houses charge different fees on each exchange, and abroad some also charge for converting your shekels.`,
+  tradedOnBonds:
+    "Israel's government bonds trade in Tel Aviv in shekels, and US Treasuries in New York in dollars.",
+  tradedOnStocks: 'Teva, for example, trades in Tel Aviv in shekels and in New York in dollars.',
+  tradedOnFunds:
+    'The same S&P 500, for example, is sold in Tel Aviv as an ETF in shekels, and in New York as an ETF such as VOO, in dollars.',
   exchange: 'Exchange',
   downloadingRates: "· downloading today's…",
   couldntDownloadRates: "· couldn't download today's",
   couldntDownloadCheck: (error: string) =>
     `Couldn't download today's rates (${error}). Check the rates below.`,
+  ratesSource:
+    "The European Central Bank's rates, within a fraction of a percent of the Bank of Israel's. You can change them to try other rates.",
   deposits: 'Deposits',
   everyMonth: 'Every month',
   buyEvery: 'Buy every',
@@ -180,6 +191,8 @@ export const en = {
   keepTip:
     "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling or as tax. For money you'll draw on slowly, or pass on.",
   whatsCompared: "What's compared",
+  whatsComparedTip:
+    'The same security, on the same exchange, can be bought through many banks and investment houses. Each has several plans, and each plan its own fees. Beside them are funds and policies, which invest the money for you. "Add or remove" picks what is compared, and there you can add a plan of your own.',
   tickedAtFirst:
     'Ticked at first: at each bank and investment house the plan a new customer gets, and the provident fund for investment.',
   addOrRemove: 'Add or remove',
@@ -187,6 +200,8 @@ export const en = {
   doneComparing: (count: number) => `Done · ${count} compared`,
   countOf: (count: number, total: number) => `${count} of ${total}`,
   banksAndHouses: 'Banks and investment houses',
+  banksAndHousesTip:
+    'The same security, on the same exchange, can be bought through many banks and investment houses. Each has several plans, each with its own fees: Leumi, for example, has a plan for Leumi Trade, one for its 18+ group and one for the Pepper app. Click a name to see its plans, and tick the ones to compare.',
   fundsAndPolicies: 'Funds and policies',
   fundsAndPoliciesTip:
     "Instead of buying securities yourself at a broker, you can hand the money to a manager who invests it for a share of it: a fund or a policy. It's taxed by its own rules, and the table counts that. A fund's fee is agreed person by person, so each kind is listed by what its savers really pay, such as the average, beside the most it can charge.",
@@ -209,6 +224,8 @@ export const en = {
   about: (name: string) => `About ${name}`,
   changeACopy: (label: string) => `Change a copy of ${label}'s fees`,
   yourPlans: 'Your plans',
+  yourPlansTip:
+    'Banks and investment houses often give a discount on fees to those who haggle: 0.06% instead of 0.07%, for example, or a lower minimum. Click ✎ beside a plan to copy it and change its fees to what you think you could get, or add a plan that isn\'t listed with "+ New plan".',
   thinkLowerFees:
     "Think you can get lower fees, or use a broker that isn't listed? ✎ on a plan changes a copy of it.",
   newPlan: '+ New plan',
@@ -312,6 +329,9 @@ export const en = {
   months: 'months',
   afterOpening: 'after opening',
   freeMonths: 'free months',
+  custody: 'Custody',
+  handling: 'Handling fee',
+  fieldOf: (fee: string, field: string) => `${fee}: ${field}`,
   lessTradeFees: "Less that month's trade fees",
   markupPercent: 'percent',
   markupPerDollar: 'per dollar',

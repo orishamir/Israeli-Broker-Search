@@ -28,6 +28,18 @@
   /* Good news: money that can come out any day. */
   --good: #5fd4a0;
   --error: #ff8080;
+  /* Tints, one strength each: what's chosen or hovered, a flag, good news;
+     the edge of a flag; a focused field's ring. */
+  --accent-tint: color-mix(in srgb, var(--accent) 15%, transparent);
+  --warning-tint: color-mix(in srgb, var(--warning) 15%, transparent);
+  --warning-edge: color-mix(in srgb, var(--warning) 50%, transparent);
+  --good-tint: color-mix(in srgb, var(--good) 15%, transparent);
+  --focus-ring: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  /* A field's width in either calculator's inputs, in every card, so the
+     fields line up from card to card. 55% leaves a phone's card 124 px for
+     the labels: the short ones (up to "הפקדה חד-פעמית", 122) stay on one
+     line, and only the long two wrap. */
+  --input-field: min(12rem, 55%);
   --radius: 12px;
   --raised-strong: #262b38;
   --shadow: 0 12px 40px rgb(0 0 0 / 0.5);
@@ -47,7 +59,11 @@
 body {
   margin: 0;
   /* A faint glow at the top, so the page isn't flat black. */
-  background: radial-gradient(1200px 500px at 20% -10%, rgb(123 155 255 / 0.08), transparent 70%);
+  background: radial-gradient(
+    1200px 500px at 20% -10%,
+    color-mix(in srgb, var(--accent) 8%, transparent),
+    transparent 70%
+  );
   min-height: 100dvh;
 }
 
@@ -68,9 +84,13 @@ textarea {
   font-size: max(16px, 1em);
 }
 
-input[type='number'],
+/* A text field or a dropdown; NumberField draws the same box around its
+   own bare input. `:where` weighs nothing, so a component's own style of
+   an input always wins. */
+:where(input[type='text']),
 select {
   box-sizing: border-box;
+  min-width: 0;
   padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 8px;
@@ -80,23 +100,33 @@ select {
     border-color var(--quick),
     box-shadow var(--quick);
 }
-input[type='number']:hover,
+/* As tall as a text field, which a dropdown often sits beside: its own
+   line is shorter. */
+select {
+  min-block-size: calc(1lh + 14px);
+}
+:where(input[type='text']):hover,
 select:hover {
   border-color: var(--strong-border);
 }
-input[type='number']:focus-visible,
+:where(input[type='text']):focus-visible,
 select:focus-visible {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgb(123 155 255 / 0.25);
+  box-shadow: var(--focus-ring);
+}
+:where(input[type='text'])::placeholder {
+  color: var(--weak);
 }
 input[type='range'],
 input[type='checkbox'] {
   accent-color: var(--accent);
 }
 
+/* As tall as a choice button (`.choices label`), which a button often sits
+   beside. */
 button {
-  padding: 5px 12px;
+  padding: 4px 12px;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--raised);
@@ -149,6 +179,33 @@ button:active:not(.link) {
 .control > span {
   color: var(--weak);
 }
+/* Words and their "?", side by side: words that wrap stay in their own box
+   and the "?" beside their first line. Inline, a line could break before
+   the "?" (it's an inline block) and leave it alone on the last line. */
+.titled {
+  display: inline-flex;
+  align-items: baseline;
+}
+/* Lined up by its small "?", the circle sat under the words' middle: up as
+   much as it sits inline (Tip's `vertical-align`). */
+.titled > .tip-button {
+  translate: 0 -2px;
+}
+/* A checkbox and its words, all of it a target. */
+.switch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  user-select: none;
+}
+/* A card whose heading is its switch (More options, in either calculator):
+   as small as the other headings, and tall enough for a finger. */
+h3 .switch {
+  min-height: 24px;
+  font-size: inherit;
+}
 /* A checkbox among the fields, in their column. */
 .fields > .check {
   grid-column: 2;
@@ -161,10 +218,8 @@ button:active:not(.link) {
 .control select {
   max-width: 100%;
 }
-/* Room for a placeholder, like "not published". */
-.control .number.wide {
-  flex-basis: 11rem;
-}
+/* One width for every field, so the column's far edge is straight too:
+   "לא פורסם", the longest placeholder, fits. */
 .control .number {
   flex: 0 1 9rem;
   min-width: 6rem;
@@ -371,6 +426,11 @@ button:active:not(.link) {
 }
 .icon-button.warning {
   color: var(--warning);
+}
+/* An icon button's room, kept where another line of a list has one. */
+.icon-slot {
+  flex: none;
+  width: 20px;
 }
 
 @media (prefers-reduced-motion: reduce) {

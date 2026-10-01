@@ -183,7 +183,8 @@ export class AppState {
         key: { kind: 'listed' as const, broker: brokerIndex, plan: planIndex },
         id: planId({ kind: 'listed', broker: brokerIndex, plan: planIndex }),
         subtitle: broker.name,
-        label: `${broker.shortName} · ${info.name}`,
+        // A non-breaking space: a line mustn't start with the separator.
+        label: `${broker.shortName}\u00a0· ${info.name}`,
         englishLabel: `${broker.englishShortName} · ${info.englishName}`,
       })),
     )
@@ -212,9 +213,9 @@ export class AppState {
               ? t.brokerYourOwn(brokerName)
               : t.yourOwn,
           label: original
-            ? `${original.broker!.shortName} · ${info.name}`
+            ? `${original.broker!.shortName}\u00a0· ${info.name}`
             : brokerName
-              ? `${brokerName} · ${info.name}`
+              ? `${brokerName}\u00a0· ${info.name}`
               : info.name,
           englishLabel: info.name,
           yours,

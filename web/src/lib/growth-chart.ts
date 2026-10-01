@@ -4,7 +4,7 @@
 
 import type { LineSeriesOption } from 'echarts/charts'
 import type { ChartOption } from './echarts.svelte'
-import { compactShekels, elapsed, readableOn, shekels } from './format'
+import { compactShekels, compactShekelsApart, elapsed, readableOn, shekels } from './format'
 import { endLabel, labelLayout } from './end-label'
 import { t } from './text'
 
@@ -58,7 +58,11 @@ const compactLabel = ({ value }: { value: unknown }) => compactShekels((value as
 // Pinned plans are styled through the options. A hovered plan isn't: it's
 // emphasized with ECharts' highlight action (see the component's `setup`),
 // because changing the options redraws the lines, which ends the hover.
-function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
+function lineSeries(
+  line: Line,
+  view: GrowthView,
+  endValue: (params: { value: unknown }) => string,
+): LineSeriesOption {
   const pinned = view.pinned.has(line.id)
   const faded = view.pinned.size > 0 && !pinned
   // Pinned plans, in table order: every other one gets its yearly values
@@ -97,7 +101,7 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
       borderRadius: 3,
     },
     // Its number and the value where the line leaves the view.
-    endLabel: endLabel(line, faded, compactLabel),
+    endLabel: endLabel(line, faded, endValue),
     // On a phone, where twenty labels can't fit along a line, ones that
     // would overlap are hidden, and more show as the years are zoomed into.
     labelLayout: labelLayout(!view.touch),
@@ -108,7 +112,11 @@ function lineSeries(line: Line, view: GrowthView): LineSeriesOption {
 }
 
 export function growthOption(view: GrowthView): ChartOption {
-  const series: LineSeriesOption[] = view.lines.map((line) => lineSeries(line, view))
+  // The end labels stand in one column: as many digits as tell them apart.
+  const ends = [...view.lines.map(({ values }) => values.at(-1) ?? 0), ...(view.noFees?.slice(-1) ?? [])]
+  const apart = compactShekelsApart(ends)
+  const endValue = ({ value }: { value: unknown }) => apart((value as number[])[1])
+  const series: LineSeriesOption[] = view.lines.map((line) => lineSeries(line, view, endValue))
   const months = view.months ?? false
   if (view.noFees) {
     series.unshift({
@@ -119,7 +127,7 @@ export function growthOption(view: GrowthView): ChartOption {
       color: WEAK,
       lineStyle: { type: 'dashed', width: 1.5 },
       showSymbol: false,
-      endLabel: { show: true, valueAnimation: true, formatter: compactLabel },
+      endLabel: { show: true, valueAnimation: true, formatter: endValue },
       labelLayout: { moveOverlap: 'shiftY' },
       silent: true,
     })

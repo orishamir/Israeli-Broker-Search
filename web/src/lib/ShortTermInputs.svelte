@@ -126,25 +126,20 @@
   .fields.more {
     padding-top: 10px;
   }
-  /* A card whose heading is its switch: as small as the other headings, and
-     tall enough for a finger. */
-  .switch {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    min-height: 24px;
-    cursor: pointer;
-    user-select: none;
-  }
+  /* As in the long term's inputs: every field one width. */
   .fields {
     display: grid;
-    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) var(--input-field);
     gap: 8px 12px;
     align-items: center;
   }
-  .fields > label,
+  /* A label and its "?" (see `.titled` in app.css). */
   .fields > span {
-    white-space: nowrap;
+    display: flex;
+    align-items: baseline;
+  }
+  .fields > span > :global(.tip-button) {
+    translate: 0 -2px;
   }
   .note {
     margin: 10px 0 0;

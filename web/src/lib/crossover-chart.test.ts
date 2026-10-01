@@ -38,7 +38,7 @@ test('both axes are logarithmic, and the deposit axis is named for what varies',
   expect(monthly.xAxis).toMatchObject({ type: 'log', min: 100, max: 10000, name: 'הפקדה בחודש' })
   expect(monthly.yAxis).toMatchObject({ type: 'log', name: 'עמלות בשנה' })
   const once = crossoverOption(view({ swept: 'OneTime', yours: 200_000 }))
-  expect(once.xAxis).toMatchObject({ name: 'הפקדה חד-פעמית', max: 200_000 })
+  expect(once.xAxis).toMatchObject({ name: 'הפקדה חד\u2011פעמית', max: 200_000 })
 })
 
 test("a fund's line ends where the deposits pass its ceiling", () => {

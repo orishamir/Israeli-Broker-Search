@@ -102,7 +102,7 @@ test('under the best plan, where another plan becomes cheaper at other deposits,
   // With nothing monthly, the one-time deposit is the one varied.
   await page.getByLabel(t.everyMonth).fill('0')
   const once = expectedAroundLine(await inputsOnPage(page))!
-  expect(once).toMatch(/חד-פעמית/)
+  expect(once).toMatch(/חד\u2011פעמית/)
   await expect(line).toHaveText(once)
 })
 

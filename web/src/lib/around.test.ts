@@ -21,9 +21,9 @@ test('the best plan at other deposits, in words', () => {
   )
   const once = { from: 1_000, to: 4_600_000, below: { amount: 50_000, key: altshuler }, above: undefined }
   expect(aroundWords(once, 'OneTime', labelOf)).toBe(
-    'בהפקדה חד-פעמית של פחות מ-₪50,000, אלטשולר · לקוחות חדשים זול יותר',
+    'בהפקדה חד\u2011פעמית של פחות מ-₪50,000, אלטשולר · לקוחות חדשים זול יותר',
   )
   expect(aroundWords({ ...once, below: undefined }, 'OneTime', labelOf)).toBe(
-    'הזול ביותר בעמלות בכל הפקדה חד-פעמית מ-₪1,000 עד ₪4,600,000',
+    'הזול ביותר בעמלות בכל הפקדה חד\u2011פעמית מ-₪1,000 עד ₪4,600,000',
   )
 })

@@ -46,7 +46,7 @@
   .tip-button:hover,
   .tip-button:global([aria-expanded='true']) {
     border-color: var(--accent);
-    background: rgb(123 155 255 / 0.15);
+    background: var(--accent-tint);
     color: var(--text);
   }
 </style>

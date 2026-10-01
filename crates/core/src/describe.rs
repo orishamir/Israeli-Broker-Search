@@ -155,7 +155,7 @@ impl Explained for Security {
             ],
             Security::IndexFund => &["קרן מחקה", "קרן נאמנות מחקה"],
             // Both spellings of the full name are common.
-            Security::Bond => &["אג\"ח", "איגרת חוב", "אגרת חוב"],
+            Security::Bond => &["אג״ח", "איגרת חוב", "אגרת חוב"],
             Security::Stock => &["מניה"],
         }
     }
@@ -342,7 +342,7 @@ impl Explained for FeeKind {
                  brokers charge less for these purchases: Leumi charges 0.225% instead of \
                  0.4% for an index fund bought this way. A one-time deposit and selling cost \
                  the usual fee.",
-                "הוראה לקנות אוטומטית את אותו סכום בכל חודש. יש שגובים על קניות כאלה פחות: לאומי, למשל, גובה 0.225% במקום 0.4% על קרן מחקה שנקנית כך. על הפקדה חד-פעמית ועל מכירה משלמים את העמלה הרגילה.",
+                "הוראה לקנות אוטומטית את אותו סכום בכל חודש. יש שגובים על קניות כאלה פחות: לאומי, למשל, גובה 0.225% במקום 0.4% על קרן מחקה שנקנית כך. על הפקדה חד\u{2011}פעמית ועל מכירה משלמים את העמלה הרגילה.",
             ),
             FeeKind::Account => lang.pick(
                 "What you pay for keeping the account, whether or not you trade. Some charge \
@@ -400,7 +400,7 @@ impl Explained for FeeKind {
                 "דמי ניהול תקופתיים",
                 "דמי ניהול חשבון",
             ],
-            FeeKind::Conversion => &["עמלת המרת מט\"ח"],
+            FeeKind::Conversion => &["עמלת המרת מט״ח"],
             FeeKind::SecondConversion => &[],
             FeeKind::Markup => &["מרווח המרה"],
             FeeKind::Management => &["דמי ניהול מהצבירה", "דמי ניהול מיתרה צבורה"],
@@ -479,7 +479,7 @@ impl Explained for CaveatKind {
                 "A real cost the app leaves out, and why: too small or too rare to change a \
                  long-term comparison, or a one-off, such as a ₪200 gift for opening the \
                  account.",
-                "עלות אמיתית שהמחשבון לא סופר, והסיבה: היא קטנה או נדירה מכדי לשנות השוואה לטווח ארוך, או חד-פעמית, כמו מתנה של ₪200 על פתיחת חשבון.",
+                "עלות אמיתית שהמחשבון לא סופר, והסיבה: היא קטנה או נדירה מכדי לשנות השוואה לטווח ארוך, או חד\u{2011}פעמית, כמו מתנה של ₪200 על פתיחת חשבון.",
             ),
             CaveatKind::Published => lang.pick(
                 "What the tariff or the broker's site says. Nothing is uncertain; it's worth \
@@ -1004,7 +1004,7 @@ impl Plan {
                 let min = format_money(min);
                 match lang {
                     Lang::En => format!("Needs a one-time deposit of at least {min}"),
-                    Lang::He => format!("דורש הפקדה חד-פעמית של לפחות {min}"),
+                    Lang::He => format!("דורש הפקדה חד\u{2011}פעמית של לפחות {min}"),
                 }
             })
     }
@@ -1825,7 +1825,7 @@ pub fn about(lang: Lang) -> About {
                  ₪100 to ₪32,000 a month (or, with no monthly deposit, from ₪1,000 to \
                  ₪4,600,000 at once), to show where their ranking by fees flips: a plan with \
                  minimum fees is dear for small deposits and cheap for large ones.",
-                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד-פעמית מ-₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
+                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ-₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
@@ -1914,7 +1914,7 @@ pub fn about(lang: Lang) -> About {
                 lang,
                 "Joining gifts and refunds (₪100–₪300, or a refund of early commissions): \
                  one-off, and named in each plan's details.",
-                "מתנות הצטרפות והחזרים (₪100–₪300, או החזר של העמלות הראשונות): חד-פעמיים, ומצוינים בפרטי כל מסלול.",
+                "מתנות הצטרפות והחזרים (₪100–₪300, או החזר של העמלות הראשונות): חד\u{2011}פעמיים, ומצוינים בפרטי כל מסלול.",
             ),
             item(
                 lang,
@@ -1933,7 +1933,11 @@ pub fn about(lang: Lang) -> About {
     let mut groups: Vec<SourceGroup> = crate::listed()
         .iter()
         .map(|broker| SourceGroup {
-            title: format!("{} · {}", &broker.name[lang], broker.tariff_date_text(lang)),
+            title: format!(
+                "{}\u{a0}· {}",
+                &broker.name[lang],
+                broker.tariff_date_text(lang)
+            ),
             sources: broker.sources(lang),
         })
         .collect();
@@ -3180,7 +3184,7 @@ pub fn about_short_term(lang: Lang) -> About {
     let mut groups: Vec<SourceGroup> = short_term::kinds()
         .iter()
         .map(|kind| SourceGroup {
-            title: format!("{} · {}", &kind.name[lang], kind.data_of_text(lang)),
+            title: format!("{}\u{a0}· {}", &kind.name[lang], kind.data_of_text(lang)),
             sources: kind.sources(lang),
         })
         .collect();
@@ -3238,8 +3242,8 @@ mod short_term_tests {
         assert_eq!(
             groups,
             [
-                "קרן כספית · דמי הניהול, לפי נתוני 30/09/2026",
-                "פיקדון בריבית קבועה · הריביות שניתנו, לפי נתוני 08/2026",
+                "קרן כספית\u{a0}· דמי הניהול, לפי נתוני 30/09/2026",
+                "פיקדון בריבית קבועה\u{a0}· הריביות שניתנו, לפי נתוני 08/2026",
                 "ריבית בנק ישראל",
             ]
         );

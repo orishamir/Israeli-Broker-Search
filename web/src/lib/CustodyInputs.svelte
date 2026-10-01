@@ -29,7 +29,7 @@
     <div class="number">
       <NumberField
         id="{id}-percent"
-        label="Share of holdings: rate"
+        label={t.fieldOf(t.custody, t.rate)}
         suffix="%"
         step={0.01}
         bind:value={
@@ -38,7 +38,7 @@
       />
     </div>
     <select
-      aria-label="Share of holdings: period"
+      aria-label={t.fieldOf(t.custody, t.period)}
       value={fields.per}
       onchange={(event) => onchange({ ...fields, per: event.currentTarget.value as Period })}
     >
@@ -52,7 +52,7 @@
     <div class="number">
       <NumberField
         id="{id}-min"
-        label="Share of holdings: min"
+        label={t.fieldOf(t.custody, t.min)}
         prefix={currency}
         bind:value={() => fields.min ?? null, (min) => onchange({ ...fields, min: min ?? undefined })}
       />

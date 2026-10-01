@@ -50,7 +50,7 @@ export const listedPlans = brokers().flatMap((broker, brokerIndex) =>
     plan,
     key: { kind: 'listed', broker: brokerIndex, plan: planIndex } as ListedKey,
     /** As the table and buttons name it: "לאומי · פפר". */
-    label: `${broker.shortName} · ${plan.name}`,
+    label: `${broker.shortName}\u00a0· ${plan.name}`,
     /** As tests name it, and links: "Leumi · Pepper". */
     englishLabel: `${broker.englishShortName} · ${plan.englishName}`,
     /** Ticked when the app opens: each broker's usual plan, and what

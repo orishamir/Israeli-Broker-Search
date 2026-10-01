@@ -150,9 +150,11 @@
 {/if}
 
 <h4>
-  {t.yearByYear} <span class="dot" style:background={shown.plan.color}></span>{shown.plan.label}
-  <span class="hint mouse">{t.hoverOrPin}</span>
-  <span class="hint touch">{t.tapAnotherBar}</span>
+  <!-- No space before the hint, which starts with its separator: a line
+       mustn't start with "·". -->
+  {t.yearByYear} <span class="dot" style:background={shown.plan.color}></span>{shown.plan.label}<span
+    class="hint mouse">{t.hoverOrPin}</span
+  ><span class="hint touch">{t.tapAnotherBar}</span>
 </h4>
 <div
   class="over-time"

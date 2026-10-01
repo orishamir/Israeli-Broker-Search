@@ -81,12 +81,12 @@ test('the card names each ticked plan as briefly as it can be told apart, in the
   )
   // Two of its plans: each by its label.
   app.setSelected([plan(other)], true)
-  expect(names()).toContain(`${leumi.shortName} · ${leumi.plans[usual].name}`)
-  expect(names()).toContain(`${leumi.shortName} · ${leumi.plans[other].name}`)
+  expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[usual].name}`)
+  expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[other].name}`)
   expect(names()).not.toContain(leumi.shortName)
   // Only one again, but not the usual one: still by its label.
   app.setSelected([plan(usual)], false)
-  expect(names()).toContain(`${leumi.shortName} · ${leumi.plans[other].name}`)
+  expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[other].name}`)
   expect(names()).not.toContain(leumi.shortName)
   // A plan of your own, by its name, last.
   app.draftNewPlan()
@@ -323,7 +323,7 @@ test('a copy knows its original by name, shares its color, and charges the same 
   const copy = app.plans.find(({ yours }) => yours?.id === draft.id)!
   expect(copy.original).toBe(original)
   expect(copy.color).toBe(original.color)
-  expect(copy.subtitle).toBe(`העסקה שלכם · ${original.subtitle}`)
+  expect(copy.subtitle).toBe(`העסקה שלכם\u00a0· ${original.subtitle}`)
   expect(copy.label).toBe(original.label.replace(original.info.name, `${original.info.name}, העסקה שלכם`))
   const leftAfterSelling = (id: string) =>
     results(app).find(({ plan }) => plan.id === id)!.outcome!.afterSelling

@@ -373,6 +373,29 @@ all. Read those three first.
   the events. That's what lets the options be unit-tested in Node, and
   keeps a change to pinning from touching the chart's drawing code.
 
+- A box that animates its own height must start the animation before the
+  next paint. A ResizeObserver is told after layout, so an animation
+  started there showed the new height for one frame and then jumped back
+  to glide (the layout-shift API showed 794→770→794). A MutationObserver
+  runs right after the DOM changes, before paint: `glideHeight` measures
+  there, and only keeps track in a ResizeObserver.
+- A per-frame probe (`requestAnimationFrame` + `getBoundingClientRect`)
+  runs before ResizeObservers and paint, so it can see a layout that is
+  never shown. What was painted is in the layout-shift entries
+  (`PerformanceObserver`, `type: 'layout-shift'`, each source's
+  `previousRect`/`currentRect`).
+- `grid-template-rows: subgrid` computes to `none` on a container
+  (`container-type`): containment lays it out on its own. The summary's
+  cards (`.stat`) set `container-type: normal` to share the row's lines.
+- A table wider than its box gives each column the least its content
+  needs and ignores `width`; `min-width` on the cells still holds. The
+  tables' container steps rely on it to end the screen on a whole column.
+- A line may break before an inline block (a "?" is one) even with no
+  space, and a word joiner (`&NoBreak;`) doesn't stop it in Chrome; neither
+  does `word-break: keep-all`. A flex row (`.titled`) keeps the "?" beside
+  the words. Chrome breaks before a "·" only when the words before it just
+  fill the line: a check has to try every width, not every 16 px.
+
 ## Charts
 
 - A stacked bar's colors are checked with the dataviz skill's validator
@@ -504,6 +527,11 @@ all. Read those three first.
   when another plan is: it never describes the wrong plan, and the table
   under it never jumps when the words arrive. The worker adds 4–7 MB of
   private memory (the renderer with it, and with its script blocked).
+
+- A `markLine` is drawn in its own layer (`z: 5`), over the series and
+  their labels: the short term's rate line ran through the tax amounts.
+  `z: 1` puts it under the bars, like the grid's lines. In one layer,
+  ECharts lifts labels two steps over their bar (`z2`).
 
 ## Playwright
 
@@ -712,6 +740,12 @@ chart), so click away first.
   chosen from a published mockup page with each proposal beside the current
   behaviour, opened on the phone too.
 
+- Bug hunts: keep going until the checks find nothing, and first prove
+  each check catches the bug on a page that has it (a checker that found
+  nothing at 16 px steps had never seen the narrow width where the bug
+  shows). The user: "there will be no more problems when you can't find
+  any, not when you get tired of searching for them".
+
 ## Open ends
 
 - The link preview (`web/public/og.png`) still shows "Broker fees,
@@ -725,11 +759,13 @@ chart), so click away first.
   `overscroll-behavior: contain`, is out because the Baseline plugin rejects
   the property (Safari lacks it only on the page root); a lint exception is
   the user's call.
-- At 1,600 px wide and narrower, a long line in the best plan's
-  card ("Above ₪18,000 a month, Meitav · Typical offer is cheaper") takes
-  two lines, so the summary, and the table under it, can still move by a
-  line when the security or exchange changes. At 2000 px nothing moves
-  (the layout test checks there).
+- The summary and the tables still change height when their words do (a
+  long line in the best plan's card, a row gaining a note); they now glide
+  there (`glideHeight`), and the line about other deposits waits for typing
+  to pause. While a sum is typed in the short term, the table grows and
+  shrinks with it (at ₪2 and ₪25 every deposit gets a note about its
+  minimum). Holding the tables while typing, as the charts do, is the
+  user's call.
 - A plan with tracks that isn't ticked has no picked track, so its fee list
   shows all its tracks instead of the cheapest.
 - Leumi's markup is a dated reading of its published buy/sell rates

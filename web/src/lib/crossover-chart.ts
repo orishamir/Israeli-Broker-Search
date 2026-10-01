@@ -6,7 +6,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { Swept } from './core/core'
 import type { ChartOption } from './echarts.svelte'
-import { compactPercent, compactShekels, percent, readableOn, shekels } from './format'
+import { compactPercent, compactShekels, percent, percentApart, readableOn, shekels } from './format'
 import { endLabel, labelLayout } from './end-label'
 import { t } from './text'
 
@@ -54,7 +54,11 @@ const compactLabel = ({ value }: { value: unknown }) => percent((value as number
 
 // Pinned plans are styled through the options; a hovered one is emphasized
 // with ECharts' highlight action, as in the growth chart.
-function lineSeries(line: CostLine, view: CrossoverView): LineSeriesOption {
+function lineSeries(
+  line: CostLine,
+  view: CrossoverView,
+  endValue: (params: { value: unknown }) => string,
+): LineSeriesOption {
   const pinned = view.pinned.has(line.id)
   const faded = view.pinned.size > 0 && !pinned
   return {
@@ -85,7 +89,7 @@ function lineSeries(line: CostLine, view: CrossoverView): LineSeriesOption {
       borderRadius: 3,
     },
     // Its number and the cost at the largest deposit.
-    endLabel: endLabel(line, faded, compactLabel),
+    endLabel: endLabel(line, faded, endValue),
     labelLayout: labelLayout(true),
     emphasis: { focus: 'series' },
     // Hovering or clicking the line itself, not only its points.
@@ -94,7 +98,13 @@ function lineSeries(line: CostLine, view: CrossoverView): LineSeriesOption {
 }
 
 export function crossoverOption(view: CrossoverView): ChartOption {
-  const series: LineSeriesOption[] = view.lines.map((line) => lineSeries(line, view))
+  // The end labels stand in one column: as many decimals as tell them apart.
+  const ends = view.lines.map(({ costs }) =>
+    Math.max(costs.findLast((cost) => cost !== null) ?? FLOOR, FLOOR),
+  )
+  const apart = percentApart(ends)
+  const endValue = ({ value }: { value: unknown }) => apart((value as number[])[1])
+  const series: LineSeriesOption[] = view.lines.map((line) => lineSeries(line, view, endValue))
   const first = view.amounts[0] ?? 1
   const last = view.amounts.at(-1) ?? first
   // The axis reaches the user's deposit even beyond the range tried.

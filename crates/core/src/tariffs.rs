@@ -606,11 +606,11 @@ pub fn leumi() -> Broker {
 
     // Customer group from Nispach Alef. Only the parts that differ from Online.
     let plus18 = Plan {
-        name: t("Online, 'Leumi 18+'", "אונליין, 'לאומי 18+'"),
+        name: t("Online, 'Leumi 18+'", "אונליין, ״לאומי 18+״"),
         description: t(
             "Online prices with the discounts of 'Leumi 18+', a customer group for young \
              customers. Check your eligibility with the bank.",
-            "מחירי אונליין עם ההנחות של 'לאומי 18+', קבוצת לקוחות לצעירים. בדקו את זכאותכם מול הבנק.",
+            "מחירי אונליין עם ההנחות של ״לאומי 18+״, קבוצת לקוחות לצעירים. בדקו את זכאותכם מול הבנק.",
         ),
         // The group's 0.35% on bonds beats online's 0.4%, but comes with the
         // branch's minimum and maximum (₪27, ₪7,000), and benefits don't
@@ -1728,7 +1728,7 @@ pub fn mizrahi() -> Broker {
     let rates_page = source(
         t(
             "Mizrahi-Tefahot's exchange rates",
-            "שערי החליפין של מזרחי-טפחות",
+            "שערי החליפין של מזרחי\u{2011}טפחות",
         ),
         "https://www.mizrahi-tefahot.co.il/brokerage/foreignexchange/",
     );
@@ -1736,11 +1736,11 @@ pub fn mizrahi() -> Broker {
         Caveat::reading(
             t("Mizrahi-Tefahot converts at its published transfers-and-checks rate, about \
              0.8% from the representative rate each way: a conversion markup of up to \
-             0.8%, on top of the fee.", "מזרחי-טפחות ממיר לפי שער ההעברות וההמחאות שהוא מפרסם, כ-0.8% מהשער היציג לכל כיוון: מרווח המרה של עד 0.8%, בנוסף לעמלה."),
+             0.8%, on top of the fee.", "מזרחי\u{2011}טפחות ממיר לפי שער ההעברות וההמחאות שהוא מפרסם, כ-0.8% מהשער היציג לכל כיוון: מרווח המרה של עד 0.8%, בנוסף לעמלה."),
             t("Mizrahi-Tefahot's exchange rates for 29 September 2026: it bought dollars \
              at ₪3.0462 and sold them at ₪3.0953 against a representative ₪3.0720 (0.84% \
              under and 0.76% over), and euros at ₪3.4539 and ₪3.5098 against ₪3.4857 \
-             (0.91% under and 0.69% over)", "שערי מזרחי-טפחות ל-29 בספטמבר 2026: קנה דולרים ב-₪3.0462 ומכר ב-₪3.0953 לעומת שער יציג של ₪3.0720 (0.84% מתחת ו-0.76% מעל), ואירו ב-₪3.4539 ו-₪3.5098 לעומת ₪3.4857 (0.91% מתחת ו-0.69% מעל)"),
+             (0.91% under and 0.69% over)", "שערי מזרחי\u{2011}טפחות ל-29 בספטמבר 2026: קנה דולרים ב-₪3.0462 ומכר ב-₪3.0953 לעומת שער יציג של ₪3.0720 (0.84% מתחת ו-0.76% מעל), ואירו ב-₪3.4539 ו-₪3.5098 לעומת ₪3.4857 (0.91% מתחת ו-0.69% מעל)"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])
@@ -1784,7 +1784,7 @@ pub fn mizrahi() -> Broker {
             "Mizrahi-Tefahot's prices for trading yourself on its website or in its \
              capital-market app (the tariff's appendix on direct channels). Trading through \
              a banker at a branch costs more.",
-            "המחירים של מזרחי-טפחות למסחר עצמאי באתר או באפליקציית שוק ההון (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי בסניף עולה יותר.",
+            "המחירים של מזרחי\u{2011}טפחות למסחר עצמאי באתר או באפליקציית שוק ההון (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי בסניף עולה יותר.",
         ),
         vehicle: Vehicle::Brokerage,
         trading: vec![
@@ -1914,7 +1914,7 @@ pub fn mizrahi() -> Broker {
     };
 
     Broker {
-        name: t("Mizrahi-Tefahot Bank", "בנק מזרחי-טפחות"),
+        name: t("Mizrahi-Tefahot Bank", "בנק מזרחי\u{2011}טפחות"),
         short_name: t("Mizrahi", "מזרחי"),
         kind: BrokerKind::Bank,
         new_customer_plan: 0, // Online

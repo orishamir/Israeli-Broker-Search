@@ -27,6 +27,11 @@
   }
 
   let preview = $state<Preview | null>(null)
+  const warned = (broker: (typeof brokers)[number]['broker']) =>
+    app.brokerCaveats(broker).some((group) => group.kind === 'MayCostMore')
+  // Where any line has a ⚠, every line keeps room for one, so the counts stay
+  // in one column.
+  const anyWarning = $derived(brokers.some(({ broker }) => warned(broker)))
 </script>
 
 {#each brokers as { broker, plans }, index (broker.name)}
@@ -61,12 +66,14 @@
         <svg class="chevron" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" /></svg>
       </button>
       <!-- ⚠ means one thing everywhere: a number that may be too low. -->
-      {#if app.brokerCaveats(broker).some((group) => group.kind === 'MayCostMore')}
+      {#if warned(broker)}
         <button
           class="icon-button warning"
           aria-label={t.mayCostMoreAt(broker.name)}
           onclick={() => (app.details = { kind: 'broker', broker })}>⚠</button
         >
+      {:else if anyWarning}
+        <span class="icon-slot"></span>
       {/if}
       <button
         class="icon-button"

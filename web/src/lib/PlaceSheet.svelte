@@ -43,14 +43,16 @@
   onclose={() => (short.hovered = null)}
 >
   {#each byKind as { kind, places, deposits } (kind.name)}
+    <!-- Where any line has a ⚠, every line keeps room for one, so the rates
+         stay in one column. -->
+    {@const anyWarning = places.some((place) => place.info.mayCostMore)}
     <section>
       <div class="heading">
         <h3>{kind.name}</h3>
         <Tip about={kind.name}><p>{kind.description}</p></Tip>
       </div>
       <p class="date">
-        <bdi>{kind.dataOf}</bdi>{#if deposits && term}
-          · <bdi>{t.ratesFor(term)}</bdi>{/if}
+        <bdi>{kind.dataOf}</bdi>{#if deposits && term}&nbsp;· <bdi>{t.ratesFor(term)}</bdi>{/if}
       </p>
       <!-- A flag the whole kind shares, once; a place's own is on its line. -->
       {#if kind.mayCostMore}<p class="note">⚠ {kind.mayCostMore}</p>{/if}
@@ -88,6 +90,8 @@
                 aria-label={t.mayLeaveLess(place.info.name)}
                 onclick={() => details(place)}>⚠</button
               >
+            {:else if anyWarning}
+              <span class="icon-slot"></span>
             {/if}
             <button class="icon-button" aria-label={t.about(place.info.name)} onclick={() => details(place)}
               >ℹ</button

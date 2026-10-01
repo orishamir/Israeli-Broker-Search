@@ -17,7 +17,7 @@
   .sign {
     margin-inline-start: 6px;
     padding: 0 5px;
-    border: 1px solid color-mix(in srgb, var(--warning) 50%, transparent);
+    border: 1px solid var(--warning-edge);
     border-radius: 999px;
     background: transparent;
     color: var(--warning);
@@ -29,6 +29,6 @@
   .sign:hover,
   .sign:global([aria-expanded='true']) {
     border-color: var(--warning);
-    background: color-mix(in srgb, var(--warning) 15%, transparent);
+    background: var(--warning-tint);
   }
 </style>

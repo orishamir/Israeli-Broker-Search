@@ -22,6 +22,7 @@ import type {
 import { LabelLayout } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
 import { drawAt, glideFor, settlesIn } from './glide'
+import { lastTyped } from './typing'
 import { duration, EASE_OUT, easeOut, reducedMotion, SETTLE } from './motion'
 
 echarts.use([
@@ -47,17 +48,6 @@ export type ChartOption = ComposeOption<
   | DataZoomComponentOption
   | MarkLineComponentOption
 >
-
-/** When a number was last typed into a field: a chart waits for the typing
- * to pause (see `drawAt`). A slider or a choice isn't typing: it's followed. */
-let lastTyped = -Infinity
-addEventListener(
-  'input',
-  ({ target }) => {
-    if (target instanceof HTMLInputElement && target.type === 'text') lastTyped = performance.now()
-  },
-  { capture: true },
-)
 
 /** What every chart shares, on top of ECharts' dark theme: the page's font
  * and colors, its curve for changes (no motion if the user asked for less),
@@ -162,7 +152,7 @@ export function chart(
       if (waiting === undefined) firstWaiting = now
       if (now < settled) chained = true
       waiting = next
-      const at = drawAt({ now, settled, lastTyped, firstWaiting })
+      const at = drawAt({ now, settled, lastTyped: lastTyped(), firstWaiting })
       // A timer set from an animation frame runs once that frame is
       // painted. A change before then replaces the one waiting.
       cancelDraw()

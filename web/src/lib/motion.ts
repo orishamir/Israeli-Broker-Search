@@ -1,3 +1,4 @@
+import type { Attachment } from 'svelte/attachments'
 import { slide, type TransitionConfig } from 'svelte/transition'
 import { createCubicEasingFunc } from 'zrender/lib/animation/cubicEasing.js'
 
@@ -37,3 +38,47 @@ export function reveal(
   // without a semicolon.
   return { ...opening, css: (t, u) => `${opening.css!(t, u)}; opacity: ${t}` }
 }
+
+/** For a box whose content changes size at once (one description swapped
+ * for another, a line coming or going with it): the box glides from its old
+ * height to the new one, in one motion, so what's below moves smoothly and
+ * one way, for `ms` (as long as what it opens with: 240 for a card's
+ * fields, `SETTLE` for the results). Its first child is the content, clipped while the box glides
+ * (and only then: a field's focus ring reaches past it). A part that came
+ * and went with its own transition inside it would pull the other way, so
+ * nothing in it has one. */
+export const glideHeight =
+  (ms = 240): Attachment<HTMLElement> =>
+  (box) => {
+    const content = box.firstElementChild as HTMLElement
+    const measure = () => content.getBoundingClientRect().height
+    let height = measure()
+    // The content changed: told before the page is painted again, so the
+    // glide starts on the next frame shown, from the height the box had (or
+    // where a glide under way has got to). A ResizeObserver is told after,
+    // which showed the new height for a frame first.
+    const changing = new MutationObserver(() => {
+      const next = measure()
+      if (Math.abs(next - height) < 0.5) return
+      const gliding = box.getAnimations()
+      const from = gliding.length > 0 ? box.getBoundingClientRect().height : height
+      height = next
+      for (const glide of gliding) glide.cancel()
+      if (reducedMotion || box.offsetParent === null) return
+      box.style.overflow = 'clip'
+      const glide = box.animate([{ height: `${from}px` }, { height: `${next}px` }], {
+        duration: ms,
+        easing: EASE_OUT,
+      })
+      glide.onfinish = () => box.style.removeProperty('overflow')
+    })
+    changing.observe(content, { subtree: true, childList: true, characterData: true, attributes: true })
+    // Other changes of size (a narrower window, fonts arriving) are only kept
+    // track of: nothing in the box changed.
+    const resizing = new ResizeObserver(() => (height = measure()))
+    resizing.observe(content)
+    return () => {
+      changing.disconnect()
+      resizing.disconnect()
+    }
+  }

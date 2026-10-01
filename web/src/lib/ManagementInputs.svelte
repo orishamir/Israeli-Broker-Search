@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ManagementFields } from './core/core'
   import NumberField from './NumberField.svelte'
+  import { feeKind } from './editor'
   import { t } from './text'
 
   /** A fund's or a policy's fee: a share of the balance a year, and a share
@@ -22,7 +23,7 @@
     <div class="number wide">
       <NumberField
         id="{id}-balance"
-        label="Management fee: of the balance, a year"
+        label={feeKind('Management').name}
         suffix="%"
         step={0.05}
         placeholder={t.none}
@@ -39,7 +40,7 @@
     <div class="number wide">
       <NumberField
         id="{id}-deposits"
-        label="Management fee: of each deposit"
+        label={feeKind('DepositFee').name}
         suffix="%"
         step={0.5}
         placeholder={t.none}

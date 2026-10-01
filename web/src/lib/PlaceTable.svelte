@@ -48,7 +48,7 @@
   <thead>
     <tr>
       <th class="rank"><span class="visually-hidden">{t.rank}</span></th>
-      <th class="place" style:width={width.place}>
+      <th class="place" style:--share={width.place}>
         {t.place}<Tip about={t.place}>
           <p>{t.placeTip}</p>
           <!-- Each kind as the list of places explains it, for whoever starts
@@ -62,9 +62,13 @@
         </Tip>
       </th>
       {#each columns as { title, explanation } (title)}
-        <th class="amount" style:width={width.other}>{title}<Tip about={title}>{explanation}</Tip></th>
+        <th class="amount" style:--share={width.other}
+          ><span class="titled">{title}<Tip about={title}>{explanation}</Tip></span></th
+        >
       {/each}
-      <th class="when" style:width={width.other}>{t.whenOut}<Tip about={t.whenOut}>{t.whenOutTip}</Tip></th>
+      <th class="when" style:--share={width.other}
+        ><span class="titled">{t.whenOut}<Tip about={t.whenOut}>{t.whenOutTip}</Tip></span></th
+      >
     </tr>
   </thead>
   <tbody>
@@ -85,7 +89,7 @@
             <span class="mark" class:yours={place.yours} style:--plan-color={place.color}></span>
             <span class="names">
               <span class:best={rank === 1}>{place.info.name}</span>
-              <span class="kind">{place.kindName} · {short.paysFor(place)}</span>
+              <span class="kind">{place.kindName}&nbsp;· {short.paysFor(place)}</span>
               <!-- A number that may be too good: the place stays ranked, flagged.
                    A flag its whole kind shares is said once, under the table. -->
               {#if place.info.mayCostMore}<span class="warning">⚠ {place.info.mayCostMore}</span>{/if}
@@ -122,6 +126,12 @@
     padding: 9px 10px;
     text-align: start;
     white-space: nowrap;
+  }
+  /* Its share of the table (see `width`). */
+  th.place,
+  th.amount,
+  th.when {
+    width: var(--share);
   }
   th {
     border-bottom: 1px solid var(--border);
@@ -218,19 +228,68 @@
       background: var(--raised);
     }
     .names {
-      min-width: 8rem;
+      min-width: 0;
       white-space: normal;
     }
+    th,
+    td {
+      box-sizing: border-box;
+    }
+    .rank {
+      min-width: 1.5rem;
+    }
   }
+  /* A phone: tighter cells. */
   @container (width < 440px) {
     th,
     td {
       padding: 8px 6px;
     }
   }
+  /* While the table scrolls, the screen ends where a column ends: as many
+     columns after the place's as fit have a set width, and the place's column
+     takes the rest of the card, so they show whole and what's past them is
+     a swipe away. A share of the table's width (the desktop's way) cut a
+     column mid-number. Minimums, since a table wider than its box gives
+     each column the least its content needs and ignores widths.
+     Amounts only: "When" is wider than a set width would be, and last. */
+  @container (width < 316px) {
+    th.place {
+      min-width: calc(100cqi - 1.5rem - 1 * 5.6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 3) {
+      min-width: 5.6rem;
+    }
+  }
+  @container (316px <= width < 440px) {
+    th.place {
+      min-width: calc(100cqi - 1.5rem - 2 * 5.6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 4) {
+      min-width: 5.6rem;
+    }
+  }
+  @container (440px <= width < 560px) {
+    th.place {
+      min-width: calc(100cqi - 1.5rem - 3 * 6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 5) {
+      min-width: 6rem;
+    }
+  }
+  @container (560px <= width < 760px) {
+    th.place {
+      min-width: calc(100cqi - 1.5rem - 4 * 6rem);
+    }
+    th:nth-child(n + 3):nth-child(-n + 6) {
+      min-width: 6rem;
+    }
+  }
   tbody tr.not-offered {
     cursor: default;
   }
+  /* Right, not end: numbers run left to right in Hebrew too, so their last
+     digits line up on the right. */
   .amount {
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -267,12 +326,12 @@
     display: inline-block;
     padding: 1px 8px;
     border-radius: 999px;
-    background: color-mix(in srgb, var(--warning) 13%, transparent);
+    background: var(--warning-tint);
     color: var(--warning);
     font-size: 0.75rem;
   }
   .liquidity.any-day {
-    background: color-mix(in srgb, var(--good) 14%, transparent);
+    background: var(--good-tint);
     color: var(--good);
   }
 </style>

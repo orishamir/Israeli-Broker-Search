@@ -553,7 +553,7 @@ pub enum Field {
 impl Named for Field {
     fn name(self, lang: Lang) -> &'static str {
         match self {
-            Field::FirstDeposit => lang.pick("the one-time deposit", "ההפקדה החד-פעמית"),
+            Field::FirstDeposit => lang.pick("the one-time deposit", "ההפקדה החד\u{2011}פעמית"),
             Field::MonthlyDeposit => lang.pick("the monthly deposit", "ההפקדה החודשית"),
             Field::DepositGrowth => {
                 lang.pick("the deposits' yearly growth", "הגידול השנתי של ההפקדות")

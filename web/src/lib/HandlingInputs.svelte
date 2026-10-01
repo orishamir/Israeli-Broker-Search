@@ -21,10 +21,10 @@
 <div class="fields">
   <label class="label" for="{id}-amount">{t.fee}</label>
   <div class="control">
-    <div class="number wide">
+    <div class="number">
       <NumberField
         id="{id}-amount"
-        label="Fixed amount: a month"
+        label={t.fieldOf(t.handling, t.fee)}
         prefix="₪"
         placeholder={t.none}
         bind:value={
@@ -41,7 +41,7 @@
       <div class="number">
         <NumberField
           id="{id}-free"
-          label="Fixed amount: free months"
+          label={t.fieldOf(t.handling, t.freeMonths)}
           suffix={t.months}
           bind:value={
             () => fields.freeMonths,

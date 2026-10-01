@@ -11,7 +11,7 @@
   <span class="sources">
     {label}:
     {#each sources as source, index (source.url)}
-      {index > 0 ? ' · ' : ''}<a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a>
+      {index > 0 ? '\u00a0· ' : ''}<a href={source.url} target="_blank" rel="noreferrer">{source.name} ↗</a>
     {/each}
   </span>
 {/if}

@@ -19,7 +19,8 @@
   import WarningSign from './lib/WarningSign.svelte'
   import { askSweep } from './lib/sweeper'
   import { percent, shekels } from './lib/format'
-  import { duration, easeOut, reducedMotion, reveal, SETTLE } from './lib/motion'
+  import { HeldWhileTyping } from './lib/held.svelte'
+  import { duration, easeOut, glideHeight, reducedMotion, reveal, SETTLE } from './lib/motion'
   import { t } from './lib/text'
   import { en } from './lib/text/en'
   import { Tween } from 'svelte/motion'
@@ -84,6 +85,13 @@
   /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
   const best = $derived(app.best)
+  /** The line about other deposits keeps its words while a deposit is being
+   * typed: words for 2, 25 and 250 took one line and then two, and moved the
+   * page with every keystroke. */
+  const around = new HeldWhileTyping(
+    () => app.aroundLine,
+    (a, b) => a.text === b.text && a.shown === b.shown,
+  )
 
   // The sweep runs off the page's thread; its answer comes a moment later.
   $effect(() => {
@@ -203,46 +211,63 @@
         <!-- While a field is being retyped, the last results stay, faded, so
              nothing jumps and the charts aren't drawn again from nothing. -->
         <div class="results" class:stale={app.inputError !== undefined} inert={app.inputError !== undefined}>
-          <div class="stats" bind:this={stats}>
-            <div class="card stat">
-              <span class="label">{t.youDeposit}</span>
-              <span class="value">{shekels(deposited.current)}</span>
-              <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
-            </div>
-            {#if best?.outcome}
-              <div class="card stat best" style:--plan-color={best.plan.color}>
-                <span class="label">{t.best(best.plan.label)}</span>
-                <span class="value"
-                  >{shekels(bestValue.current)}{#if best.warning}<WarningSign
-                      text={best.warning}
-                    />{/if}</span
+          <!-- Words that change length glide the summary to its new height,
+               with the results, rather than moving the table at once. -->
+          <div class="glides" {@attach glideHeight(SETTLE)}>
+            <div class="stats" bind:this={stats}>
+              <div class="card stat">
+                <span class="label">{t.youDeposit}</span>
+                <span class="value">{shekels(deposited.current)}</span>
+                <span class="notes"
+                  ><span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span></span
                 >
-                {#if app.sellAtEnd}
-                  <span class="note"
-                    >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
-                  >
-                {/if}
-                <span class="note"
-                  >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
-                >
-                <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
               </div>
-            {/if}
-            <div class="card stat">
-              <span class="label">{t.withNoFees}</span>
-              <span class="value">{shekels(noFees.current)}</span>
-              <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
+              {#if best?.outcome}
+                <div class="card stat best" style:--plan-color={best.plan.color}>
+                  <span class="label">{t.best(best.plan.label)}</span>
+                  <span class="value"
+                    >{shekels(bestValue.current)}{#if best.warning}<WarningSign
+                        text={best.warning}
+                      />{/if}</span
+                  >
+                  <span class="notes">
+                    {#if app.sellAtEnd}
+                      <span class="note"
+                        >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
+                      >
+                    {/if}
+                    <span class="note"
+                      >{t.lostAndYearly(
+                        shekels(bestLost.current),
+                        percent(best.outcome.yearlyCostPercent),
+                      )}</span
+                    >
+                    <span class="note around" class:gone={!around.current.shown}>{around.current.text}</span>
+                  </span>
+                </div>
+              {/if}
+              <div class="card stat">
+                <span class="label">{t.withNoFees}</span>
+                <span class="value">{shekels(noFees.current)}</span>
+                <span class="notes"
+                  ><span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span></span
+                >
+              </div>
             </div>
           </div>
 
           {#if app.comparison.results.length === 0}
             <p class="card empty">{t.tickABroker}</p>
           {:else}
-            <section class="card table">
-              <div class="scrolls">
-                <ResultsTable {app} results={app.comparison.results} />
-              </div>
-            </section>
+            <!-- Its height glides as the summary's does: one changing at once
+                 while the other glided moved the chart one way, then back. -->
+            <div class="glides" {@attach glideHeight(SETTLE)}>
+              <section class="card table">
+                <div class="scrolls">
+                  <ResultsTable {app} results={app.comparison.results} />
+                </div>
+              </section>
+            </div>
 
             <section class="card" id="chart">
               <div class="chart-bar">
@@ -299,42 +324,48 @@
           class:stale={short.inputError !== undefined}
           inert={short.inputError !== undefined}
         >
-          <div class="stats" bind:this={stats}>
-            <div class="card stat">
-              <span class="label">{t.youDeposit}</span>
-              <span class="value">{shekels(shortDeposited.current)}</span>
-              <span class="note">{t.forMonths(short.months)}</span>
-            </div>
-            {#if shortBest?.outcome}
-              {@const flag = shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
-              <div class="card stat best" style:--plan-color={shortBest.place.color}>
-                <span class="label">{t.best(shortBest.place.label)}</span>
-                <span class="value"
-                  >{shekels(shortBestValue.current)}{#if flag}<WarningSign text={flag} />{/if}</span
-                >
-                <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
-                <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
+          <div class="glides" {@attach glideHeight(SETTLE)}>
+            <div class="stats" bind:this={stats}>
+              <div class="card stat">
+                <span class="label">{t.youDeposit}</span>
+                <span class="value">{shekels(shortDeposited.current)}</span>
+                <span class="notes"><span class="note">{t.forMonths(short.months)}</span></span>
               </div>
-            {/if}
-            <div class="card stat">
-              <span class="label">{t.atTheRate}</span>
-              <span class="value">{shekels(shortAtTheRate.current)}</span>
-              <span class="note">{t.noCostsNoTax}</span>
+              {#if shortBest?.outcome}
+                {@const flag = shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
+                <div class="card stat best" style:--plan-color={shortBest.place.color}>
+                  <span class="label">{t.best(shortBest.place.label)}</span>
+                  <span class="value"
+                    >{shekels(shortBestValue.current)}{#if flag}<WarningSign text={flag} />{/if}</span
+                  >
+                  <span class="notes">
+                    <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
+                    <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
+                  </span>
+                </div>
+              {/if}
+              <div class="card stat">
+                <span class="label">{t.atTheRate}</span>
+                <span class="value">{shekels(shortAtTheRate.current)}</span>
+                <span class="notes"><span class="note">{t.noCostsNoTax}</span></span>
+              </div>
             </div>
           </div>
 
           {#if comparison.results.length === 0}
             <p class="card empty">{t.tickAPlace}</p>
           {:else}
-            <section class="card table">
-              <div class="scrolls">
-                <PlaceTable {short} results={comparison.results} />
-              </div>
-              <!-- A flag every place of a kind shares, once for the kind. -->
-              {#each flaggedKinds(comparison.results) as kind (kind.name)}
-                <p class="kind-flag">⚠ <bdi>{kind.name}</bdi>: <bdi>{kind.mayCostMore}</bdi></p>
-              {/each}
-            </section>
+            <div class="glides" {@attach glideHeight(SETTLE)}>
+              <section class="card table">
+                <div class="scrolls">
+                  <PlaceTable {short} results={comparison.results} />
+                </div>
+                <!-- A flag every place of a kind shares, once for the kind. -->
+                {#each flaggedKinds(comparison.results) as kind (kind.name)}
+                  <p class="kind-flag">⚠ <bdi>{kind.name}</bdi>: <bdi>{kind.mayCostMore}</bdi></p>
+                {/each}
+              </section>
+            </div>
 
             <section class="card" id="chart">
               <div class="chart-bar">
@@ -469,7 +500,6 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 12px;
   }
-  /* On phones the best plan comes first, across, with the others under it. */
   /* A narrow results column: the best plan first, across, with the others
      under it. */
   @container results (width < 520px) {
@@ -485,9 +515,16 @@
       font-size: 1.2rem;
     }
   }
+  /* Each card's label, amount and notes are rows shared by the cards side
+     by side, so the amounts line up whatever wraps above or below them.
+     Not a container, as other cards are: a container is laid out on its
+     own, and can't share its parent's rows. */
   .stat {
+    container-type: normal;
     display: grid;
-    gap: 2px;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    row-gap: 2px;
     border-top: 2px solid var(--plan-color, transparent);
     /* Another plan becoming the best. */
     transition: border-color var(--settle);
@@ -501,6 +538,11 @@
     font-weight: 650;
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.01em;
+  }
+  .notes {
+    display: grid;
+    align-content: start;
+    gap: 2px;
   }
   .stat .note {
     color: var(--weak);
@@ -570,13 +612,13 @@
     /* Not auto too: rows sliding to their new places reach past the table's
        new bottom for a moment, which showed a vertical scroll bar. */
     overflow-y: hidden;
-    /* A shadow at the left edge, where a right-to-left table ends, while
+    /* A glow at the left edge, where a right-to-left table ends, while
        there's more to scroll to: the cover moves with the content and hides
-       it at the end. */
+       it at the end. Light, not a shadow, which a dark card hid. */
     background:
       linear-gradient(to right, var(--surface) 40%, transparent) left / 40px 100% no-repeat local,
-      radial-gradient(farthest-side at 0% 50%, rgb(0 0 0 / 0.6), transparent) left / 16px 100% no-repeat
-        scroll;
+      radial-gradient(farthest-side at 0% 50%, color-mix(in srgb, var(--text) 16%, transparent), transparent)
+        left / 20px 100% no-repeat scroll;
   }
   /* ECharts shows a tooltip where the last one was before moving it beside
      the pointer, and the first one in the middle of the chart: on a phone,

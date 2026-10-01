@@ -1,5 +1,15 @@
 import { expect, test } from 'vitest'
-import { compactPercent, compactShekels, dateText, elapsed, percent, readableOn, shekels } from './format'
+import {
+  compactPercent,
+  compactShekels,
+  compactShekelsApart,
+  dateText,
+  elapsed,
+  percent,
+  percentApart,
+  readableOn,
+  shekels,
+} from './format'
 
 test('shekels are whole, with separators; compact ones fit chart labels', () => {
   expect(shekels(1_415_944.4)).toBe('₪1,415,944')
@@ -35,4 +45,20 @@ test('a yearly cost has two decimals; on an axis, two digits', () => {
   expect(compactPercent(1)).toBe('1%')
   expect(compactPercent(12.5)).toBe('13%')
   expect(compactPercent(0.4213)).toBe('0.42%')
+})
+
+test('labels side by side get the digits that tell them apart, and no more', () => {
+  // Lines ending ₪103,196, ₪102,930 and ₪103,188 all read "₪103K" at three
+  // digits, and two still read "₪103.2K" at four.
+  const short = compactShekelsApart([103_196, 102_930, 103_188])
+  expect([103_196, 102_930, 103_188].map(short)).toEqual(['₪103.20K', '₪102.93K', '₪103.19K'])
+  // Apart already at three: as compactShekels writes them.
+  const apart = compactShekelsApart([1_415_944, 889_000])
+  expect([1_415_944, 889_000].map(apart)).toEqual(['₪1.42M', '₪889K'])
+  // Equal amounts stay equal, rather than reaching for digits that can't help.
+  expect(compactShekelsApart([42_000, 42_000])(42_000)).toBe('₪42K')
+  // Yearly costs: a decimal more where "0.11%" repeats.
+  const costs = percentApart([0.112, 0.114, 0.98])
+  expect([0.112, 0.114, 0.98].map(costs)).toEqual(['0.112%', '0.114%', '0.980%'])
+  expect(percentApart([0.42, 1])(0.42)).toBe(percent(0.42))
 })

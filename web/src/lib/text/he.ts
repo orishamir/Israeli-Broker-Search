@@ -3,6 +3,10 @@
 
 import type { Text } from './en'
 
+// One and two have words of their own: שנה, שנתיים, then 3 שנים.
+const yearsText = (years: number) => (years === 1 ? 'שנה' : years === 2 ? 'שנתיים' : `${years} שנים`)
+const monthsText = (months: number) => (months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`)
+
 export const he: Text = {
   // The page
   title: 'כמה יישאר לכם בסוף',
@@ -14,30 +18,30 @@ export const he: Text = {
 
   // The summary
   youDeposit: 'ההפקדות שלכם',
-  overYears: (years, todaysMoney) => `לאורך ${years} שנים${todaysMoney ? ', בכסף של היום' : ''}`,
+  overYears: (years, todaysMoney) => `לאורך ${yearsText(years)}${todaysMoney ? ', בכסף של היום' : ''}`,
   withNoFees: 'ללא עמלות',
   ifSoldBeforeTax: 'במכירה בסוף, לפני מס',
   heldAtEnd: 'שווי התיק בסוף, בלי מכירה',
   best: (label) => `המשתלם ביותר: ${label}`,
-  lostAndYearly: (lost, yearly) => `${lost} אבדו לעמלות · ${yearly} בשנה`,
-  yearlyAndLost: (yearly, lost) => `${yearly} בשנה · ${lost} אבדו לעמלות`,
+  lostAndYearly: (lost, yearly) => `${lost} אבדו לעמלות\u00a0· ${yearly} בשנה`,
+  yearlyAndLost: (yearly, lost) => `${yearly} בשנה\u00a0· ${lost} אבדו לעמלות`,
   leftAfter: (tax) => (tax ? `נשארים אחרי מס של ${tax}` : 'נשארים, בלי מס'),
   cheapestThroughout: (from, to, swept) =>
     swept === 'Monthly'
       ? `הזול ביותר בעמלות בכל הפקדה חודשית מ-${from} עד ${to}`
-      : `הזול ביותר בעמלות בכל הפקדה חד-פעמית מ-${from} עד ${to}`,
+      : `הזול ביותר בעמלות בכל הפקדה חד\u2011פעמית מ-${from} עד ${to}`,
   cheaperBelow: (amount, plan, swept) =>
     swept === 'Monthly'
       ? `בהפקדה חודשית של פחות מ-${amount}, ${plan} זול יותר`
-      : `בהפקדה חד-פעמית של פחות מ-${amount}, ${plan} זול יותר`,
+      : `בהפקדה חד\u2011פעמית של פחות מ-${amount}, ${plan} זול יותר`,
   cheaperAbove: (amount, plan, swept) =>
     swept === 'Monthly'
       ? `בהפקדה חודשית של יותר מ-${amount}, ${plan} זול יותר`
-      : `בהפקדה חד-פעמית של יותר מ-${amount}, ${plan} זול יותר`,
+      : `בהפקדה חד\u2011פעמית של יותר מ-${amount}, ${plan} זול יותר`,
   cheaperBothWays: (below, belowPlan, above, abovePlan, swept) =>
     swept === 'Monthly'
       ? `בהפקדה חודשית של פחות מ-${below}, ${belowPlan} זול יותר; ביותר מ-${above}, ${abovePlan} זול יותר`
-      : `בהפקדה חד-פעמית של פחות מ-${below}, ${belowPlan} זול יותר; ביותר מ-${above}, ${abovePlan} זול יותר`,
+      : `בהפקדה חד\u2011פעמית של פחות מ-${below}, ${belowPlan} זול יותר; ביותר מ-${above}, ${abovePlan} זול יותר`,
   checkInputs: (error) => `בדקו את הנתונים: ${error}.`,
   tickABroker: 'סמנו לפחות מסלול אחד כדי להשוות.',
 
@@ -86,7 +90,7 @@ export const he: Text = {
     'כמה כל מסלול משלם בעמלות, לפי סוג, ואיך הן מצטברות לאורך השנים. המס לא מוצג כאן, כי הוא לא עמלה.',
   pinHintMouse: (bars) => `לחצו על שורה או על ${bars ? 'עמודה' : 'קו'} כדי לנעוץ מסלול`,
   pinHintTouch: (bars) => `הקישו על שורה או על ${bars ? 'עמודה' : 'קו'} כדי לנעוץ מסלול`,
-  zoomHintMouse: 'גלגלת: התקרבות · גרירה: הזזה · R: איפוס',
+  zoomHintMouse: 'גלגלת: התקרבות\u00a0· גרירה: הזזה\u00a0· R: איפוס',
   zoomHintTouch: 'גררו את קצות המחוון כדי להתקרב',
   unpinAll: 'שחרור הכול',
   years: 'שנים',
@@ -94,16 +98,14 @@ export const he: Text = {
   yourDeposit: 'ההפקדה שלכם',
   you: (deposit) => `אתם: ${deposit}`,
   depositAMonth: 'הפקדה בחודש',
-  oneTimeDeposit: 'הפקדה חד-פעמית',
+  oneTimeDeposit: 'הפקדה חד\u2011פעמית',
   aMonth: 'בחודש',
   aYear: 'בשנה',
   atOnce: 'בבת אחת',
   after: (years, months) => {
-    const yearsText = years === 1 ? 'שנה' : years === 2 ? 'שנתיים' : `${years} שנים`
-    const monthsText = months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`
     // A hyphen joins ו to a number only: ו-5 חודשים, but וחודש.
     const and = months > 2 ? 'ו-' : 'ו'
-    return months === 0 ? `אחרי ${yearsText}` : `אחרי ${yearsText} ${and}${monthsText}`
+    return months === 0 ? `אחרי ${yearsText(years)}` : `אחרי ${yearsText(years)} ${and}${monthsText(months)}`
   },
 
   // The fee breakdown
@@ -122,8 +124,8 @@ export const he: Text = {
   compareBy: 'השוואת המסלולים לפי',
   barsAria: 'העמלות ששילם כל מסלול לאורך כל התקופה, לפי סוג',
   yearByYear: 'שנה אחר שנה:',
-  hoverOrPin: '· העבירו את העכבר על מסלול אחר, או נעצו אותו, כדי לראות אותו',
-  tapAnotherBar: '· הקישו על עמודה של מסלול אחר כדי לראות אותו',
+  hoverOrPin: '\u00a0· העבירו את העכבר על מסלול אחר, או נעצו אותו, כדי לראות אותו',
+  tapAnotherBar: '\u00a0· הקישו על עמודה של מסלול אחר כדי לראות אותו',
   overTimeAria: (label) => `העמלות של ${label} נערמות שנה אחר שנה, לפי סוג`,
 
   // The inputs
@@ -132,12 +134,21 @@ export const he: Text = {
   moreOptionsTip: (inflation) =>
     `הגדרות נוספות, לתמונה מדויקת יותר: הפקדות שגדלות כל שנה, כמו משכורת; קנייה פעם בכמה חודשים במקום כל חודש; אינפלציה אחרת; הצגת הסכומים בכסף של היום; ומה עושים בסוף, מוכרים או ממשיכים להחזיק. כשהמתג כבוי, המחשבון מניח הפקדות קבועות וקנייה כל חודש, אינפלציה של ${inflation} בשנה, סכומים כפי שיהיו בעתיד, ומכירה של הכול בסוף.`,
   whatYouBuy: 'מה קונים',
+  whatYouBuyTip:
+    'קרנות סל, קרנות מחקות, אג״ח ומניות הן כולן ניירות ערך, והבנקים ובתי ההשקעות גובים על כל סוג עמלות שונות. קרן סל וקרן מחקה יכולות להחזיק בדיוק את אותן חברות: ההבדל הוא איך קונים אותן, ולכן גם כמה משלמים בעמלות.',
   security: 'נייר ערך',
   tradedOn: 'נסחר ב',
+  tradedOnTip: (security, example) =>
+    `את ${security} אפשר לקנות בבורסות שונות: בתל אביב, או בחו״ל בדולרים או באירו. ${example} הבנקים ובתי ההשקעות גובים עמלות שונות בכל בורסה, ובחו״ל חלקם גובים גם על המרת השקלים.`,
+  tradedOnBonds: 'אג״ח ממשלת ישראל נסחרות בתל אביב בשקלים, ואג״ח ממשלת ארה״ב בניו יורק בדולרים.',
+  tradedOnStocks: 'טבע, למשל, נסחרת בתל אביב בשקלים ובניו יורק בדולרים.',
+  tradedOnFunds: 'אותו S&P 500, למשל, נמכר בתל אביב כקרן סל בשקלים, ובניו יורק כקרן סל כמו VOO, בדולרים.',
   exchange: 'בורסה',
-  downloadingRates: '· מוריד את שערי היום…',
-  couldntDownloadRates: '· לא הצלחנו להוריד את שערי היום',
+  downloadingRates: '\u00a0· מוריד את שערי היום…',
+  couldntDownloadRates: '\u00a0· לא הצלחנו להוריד את שערי היום',
   couldntDownloadCheck: (error) => `לא הצלחנו להוריד את שערי היום (${error}). בדקו את השערים שלמטה.`,
+  ratesSource:
+    'שערי הבנק המרכזי האירופי, שרחוקים מהשער היציג של בנק ישראל בשבריר אחוז לכל היותר. אפשר לשנות אותם כדי לנסות שערים אחרים.',
   deposits: 'הפקדות',
   everyMonth: 'כל חודש',
   buyEvery: 'קנייה כל',
@@ -171,12 +182,16 @@ export const he: Text = {
   keepTip:
     'שום דבר לא נמכר: הטבלה מדרגת לפי שווי התיק בסוף, בלי עמלת מכירה ובלי מס. מתאים לכסף שתמשכו בהדרגה, או שתורישו.',
   whatsCompared: 'מה משווים',
+  whatsComparedTip:
+    'את אותו נייר ערך, באותה בורסה, אפשר לקנות דרך בנקים ובתי השקעות רבים. לכל אחד יש כמה מסלולים, ולכל מסלול עמלות משלו. לצידם יש קופות ופוליסות, שמשקיעות את הכסף בשבילכם. ב״הוספה והסרה״ בוחרים מה להשוות, ושם אפשר גם להוסיף מסלול משלכם.',
   tickedAtFirst: 'בהתחלה מסומן, בכל בנק ובית השקעות, המסלול שלקוח חדש מקבל, וקופת גמל להשקעה.',
   addOrRemove: 'הוספה והסרה',
   comparedOf: (count, total) => `${count} מתוך ${total} מסלולים`,
-  doneComparing: (count) => `סיום · ${count} בהשוואה`,
+  doneComparing: (count) => `סיום\u00a0· ${count} בהשוואה`,
   countOf: (count, total) => `${count} מתוך ${total}`,
   banksAndHouses: 'בנקים ובתי השקעות',
+  banksAndHousesTip:
+    'את אותו נייר ערך, באותה בורסה, אפשר לקנות דרך בנקים ובתי השקעות רבים. לכל אחד יש כמה מסלולים, ולכל מסלול עמלות משלו: ללאומי, למשל, יש מסלול ללאומי טרייד, מסלול לקבוצת 18+ ומסלול לאפליקציית פפר. לחצו על שם כדי לראות את המסלולים שלו, וסמנו את אלה שתרצו להשוות.',
   fundsAndPolicies: 'קופות ופוליסות',
   fundsAndPoliciesTip:
     'במקום לקנות ניירות ערך בעצמכם, אפשר להפקיד את הכסף בקופה או בפוליסה: חברה מנהלת משקיעה אותו בשבילכם וגובה דמי ניהול. יש להן כללי מס משלהן, והטבלה מביאה אותם בחשבון. דמי הניהול נקבעים לכל חוסך בנפרד, ולכן כל סוג מוצג לפי מה שהחוסכים בו משלמים בפועל, כמו הממוצע, ולצידו המקסימום.',
@@ -198,15 +213,17 @@ export const he: Text = {
   about: (name) => `על ${name}`,
   changeACopy: (label) => `שינוי עותק של העמלות של ${label}`,
   yourPlans: 'המסלולים שלכם',
+  yourPlansTip:
+    'בנקים ובתי השקעות נותנים לא פעם הנחה בעמלות למי שמתמקח: למשל 0.06% במקום 0.07%, או מינימום נמוך יותר. לחצו על ✎ ליד מסלול כדי להעתיק אותו ולשנות את העמלות למה שאתם חושבים שתוכלו לקבל, או הוסיפו מסלול שלא ברשימה עם ״+ מסלול חדש״.',
   thinkLowerFees:
     'חושבים שתוכלו לקבל עמלות נמוכות יותר, או משתמשים בבנק או בבית השקעות שלא ברשימה? לחצו על ✎ ליד מסלול כדי לשנות עותק שלו.',
   newPlan: '+ מסלול חדש',
   change: (name) => `שינוי ${name}`,
-  copyOf: (name, subtitle) => `עותק של ${name} · ${subtitle}`,
+  copyOf: (name, subtitle) => `עותק של ${name}\u00a0· ${subtitle}`,
   copyOfWord: 'עותק של',
-  yourDeal: (subtitle) => `העסקה שלכם · ${subtitle}`,
+  yourDeal: (subtitle) => `העסקה שלכם\u00a0· ${subtitle}`,
   yourOwn: 'משלכם',
-  brokerYourOwn: (broker) => `${broker} · משלכם`,
+  brokerYourOwn: (broker) => `${broker}\u00a0· משלכם`,
   yourPlan: 'המסלול שלכם',
   yourPlanNumbered: (count) => `המסלול שלכם ${count}`,
   ratesServiceAnswered: (status) => `שירות שערי החליפין החזיר שגיאה ${status}`,
@@ -251,7 +268,7 @@ export const he: Text = {
   howTheNumbersAreMade: 'איך המספרים מחושבים, ומה לא נכלל ↗',
   plans: 'מסלולים',
   previewHintYours: '✎ שינוי העמלות',
-  previewHint: 'ℹ כל הפרטים וההסתייגויות · ✎ שינוי עותק של העמלות',
+  previewHint: 'ℹ כל הפרטים וההסתייגויות\u00a0· ✎ שינוי עותק של העמלות',
 
   // The editor
   simple: 'פשוט',
@@ -285,7 +302,7 @@ export const he: Text = {
   noShareOfHoldings: 'אין דמי משמרת.',
   leastFirstDeposit: 'הפקדה ראשונית מינימלית',
   leastFirstDepositTip:
-    'הסכום הנמוך ביותר שאפשר לפתוח בו חשבון. הטבלה מזהירה כשההפקדה החד-פעמית שלכם נמוכה ממנו.',
+    'הסכום הנמוך ביותר שאפשר לפתוח בו חשבון. הטבלה מזהירה כשההפקדה החד\u2011פעמית שלכם נמוכה ממנו.',
   securities: 'ניירות ערך',
   exchanges: 'בורסות',
   noneTickedMeansAll: 'אם לא מסומן דבר, השורה חלה על הכול.',
@@ -303,6 +320,11 @@ export const he: Text = {
   months: 'חודשים',
   afterOpening: 'מהפתיחה',
   freeMonths: 'חודשים חינם',
+  // A field's name for screen readers, where its visible label ("מינימום")
+  // repeats under every fee: the fee, then the field.
+  custody: 'דמי משמרת',
+  handling: 'דמי טיפול',
+  fieldOf: (fee, field) => `${fee}: ${field}`,
   lessTradeFees: 'בקיזוז עמלות המסחר של אותו חודש',
   markupPercent: 'אחוז',
   markupPerDollar: 'לדולר',
@@ -323,7 +345,7 @@ export const he: Text = {
 
   // The short term's inputs
   forHowLong: 'לכמה זמן',
-  monthsCount: (months) => (months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`),
+  monthsCount: monthsText,
   boiRate: 'ריבית בנק ישראל, בממוצע',
   boiRateTip:
     'הריבית שבנק ישראל קובע, ושלפיה זזות הריביות על חיסכון בכל המשק. הוא מחליט עליה שמונה פעמים בשנה. כאן מקלידים את הריבית שאתם מצפים לה, בממוצע על פני התקופה: קרן כספית תרוויח בערך אותה, פחות דמי הניהול. פיקדון בריבית קבועה לא מושפע ממנה אחרי שנפתח, ולכן ככל שתצפו לריבית נמוכה יותר, הפיקדונות ייצאו טובים יותר מול הקרנות.',
@@ -395,5 +417,5 @@ export const he: Text = {
   monthsAxis: 'חודשים',
   afterMonths: (months) =>
     months === 1 ? 'אחרי חודש' : months === 2 ? 'אחרי חודשיים' : `אחרי ${months} חודשים`,
-  bestBarNote: (rate, when) => `${rate} בשנה, אחרי מס · ${when}`,
+  bestBarNote: (rate, when) => `${rate} בשנה, אחרי מס\u00a0· ${when}`,
 }

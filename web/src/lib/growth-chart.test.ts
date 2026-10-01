@@ -117,3 +117,16 @@ test('in months, the time axis counts months, and the no-fee line takes the name
     'emptyCircle',
   ])
 })
+
+test('end labels of lines that end close together still read differently', () => {
+  const close = [
+    { ...line('a'), values: [100_000, 103_196] },
+    { ...line('b'), values: [100_000, 103_188] },
+  ]
+  const [noFees, a, b] = series(growthOption(view({ lines: close, noFees: [100_000, 103_250] })))
+  const end = (one: LineSeriesOption, value: number) =>
+    (one.endLabel!.formatter as (params: { value: number[] }) => string)({ value: [1, value] })
+  expect(end(a, 103_196)).toContain('₪103.20K')
+  expect(end(b, 103_188)).toContain('₪103.19K')
+  expect(end(noFees, 103_250)).toBe('₪103.25K')
+})

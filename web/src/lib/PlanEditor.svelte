@@ -98,8 +98,7 @@
       <button class="link" onclick={() => (app.details = { kind: 'plan', plan: originalPlan })}
         >{originalPlan.info.name}</button
       >
-    {/if}
-    · {originalPlan.subtitle}
+    {/if}&nbsp;· {originalPlan.subtitle}
   {:else}
     <label class="broker">
       {t.broker}
@@ -174,25 +173,6 @@
     height: 10px;
     border: 2px solid var(--plan-color);
     border-radius: 50%;
-  }
-  input[type='text'] {
-    box-sizing: border-box;
-    min-width: 0;
-    padding: 6px 10px;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--raised);
-  }
-  input[type='text']:hover {
-    border-color: var(--strong-border);
-  }
-  input[type='text']:focus-visible {
-    outline: none;
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgb(123 155 255 / 0.25);
-  }
-  input[type='text']::placeholder {
-    color: var(--weak);
   }
   .name {
     flex: 1;

@@ -134,9 +134,8 @@
           <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
         </header>
         <p class="source">
-          <bdi>{place.kindName}</bdi>
-          {#if kind && !place.yours}
-            · <bdi>{kind.dataOf}</bdi> · <bdi>{kind.checked}</bdi> ·
+          <bdi>{place.kindName}</bdi>{#if kind && !place.yours}&nbsp;· <bdi>{kind.dataOf}</bdi>&nbsp;·
+            <bdi>{kind.checked}</bdi>&nbsp;·
             <a href={kind.source.url} target="_blank" rel="noreferrer">{kind.source.name} ↗</a>
           {/if}
         </p>
@@ -196,12 +195,10 @@
           {#if shown.kind === 'plan'}
             <button class="link" onclick={() => (app.details = { kind: 'broker', broker })}
               >{broker.name}</button
-            > ·
+            >&nbsp;·
           {/if}
-          {broker.tariffDate} · {broker.checked}
-          {#if broker.sourceUrl}
-            <!-- A broker's tariff, or for a kind of fund the regulator's data. -->
-            ·
+          {broker.tariffDate}&nbsp;· {broker.checked}{#if broker.sourceUrl}
+            <!-- A broker's tariff, or for a kind of fund the regulator's data. -->&nbsp;·
             <a href={broker.sourceUrl} target="_blank" rel="noreferrer"
               >{broker.kind === 'Funds' ? broker.sources[0]?.name : t.tariffPdf} ↗</a
             >
@@ -584,7 +581,7 @@
     background: none;
   }
   .fees tr.chosen {
-    background: color-mix(in srgb, var(--accent) 16%, transparent);
+    background: var(--accent-tint);
     font-weight: 600;
   }
 </style>

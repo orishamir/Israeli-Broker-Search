@@ -14,7 +14,7 @@
     <!-- Keyed by position: texts repeat across coverages. -->
     {#each caveats as caveat, index (index)}
       <li class:warning={caveat.kind === 'MayCostMore'}>
-        <span class="covers">{caveat.covers} <span class="kind">· {caveat.label}</span></span>
+        <span class="covers">{caveat.covers}<span class="kind">&nbsp;· {caveat.label}</span></span>
         {caveat.text}
         {#if caveat.support}<span class="support">{t.why} {caveat.support}.</span>{/if}
         <Sources sources={caveat.sources} />
@@ -34,7 +34,10 @@
   li {
     padding: 8px 10px;
     border-inline-start: 3px solid var(--strong-border);
-    border-radius: 0 8px 8px 0;
+    /* Square on the stripe's side, round on the other, whichever way the
+       text runs. */
+    border-start-end-radius: 8px;
+    border-end-end-radius: 8px;
     background: var(--raised);
     color: var(--weak);
     font-size: 0.9rem;

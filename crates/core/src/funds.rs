@@ -119,7 +119,7 @@ fn kol_zchut_fund() -> Page {
     source(
         t(
             "Kol Zchut on the provident fund for investment",
-            "כל-זכות על קופת גמל להשקעה",
+            "כל\u{2011}זכות על קופת גמל להשקעה",
         ),
         "https://www.kolzchut.org.il/he/%D7%A7%D7%95%D7%A4%D7%AA_%D7%92%D7%9E%D7%9C_%D7%9C%D7%94%D7%A9%D7%A7%D7%A2%D7%94",
     )
@@ -129,7 +129,7 @@ fn kol_zchut_fees() -> Page {
     source(
         t(
             "Kol Zchut on the fund's management fees",
-            "כל-זכות על דמי הניהול בקופת גמל להשקעה",
+            "כל\u{2011}זכות על דמי הניהול בקופת גמל להשקעה",
         ),
         "https://www.kolzchut.org.il/he/%D7%93%D7%9E%D7%99_%D7%A0%D7%99%D7%94%D7%95%D7%9C_%D7%91%D7%A7%D7%95%D7%A4%D7%AA_%D7%92%D7%9E%D7%9C_%D7%9C%D7%94%D7%A9%D7%A7%D7%A2%D7%94",
     )
@@ -137,7 +137,10 @@ fn kol_zchut_fees() -> Page {
 
 fn kol_zchut_study_fund() -> Page {
     source(
-        t("Kol Zchut on the study fund", "כל-זכות על קרן השתלמות"),
+        t(
+            "Kol Zchut on the study fund",
+            "כל\u{2011}זכות על קרן השתלמות",
+        ),
         "https://www.kolzchut.org.il/he/%D7%A7%D7%A8%D7%9F_%D7%94%D7%A9%D7%AA%D7%9C%D7%9E%D7%95%D7%AA",
     )
 }
@@ -146,7 +149,7 @@ fn kol_zchut_study_fund_self_employed() -> Page {
     source(
         t(
             "Kol Zchut on the study fund of the self-employed",
-            "כל-זכות על קרן השתלמות לעובד עצמאי",
+            "כל\u{2011}זכות על קרן השתלמות לעובד עצמאי",
         ),
         "https://www.kolzchut.org.il/he/%D7%A7%D7%A8%D7%9F_%D7%94%D7%A9%D7%AA%D7%9C%D7%9E%D7%95%D7%AA_%D7%9C%D7%A2%D7%95%D7%91%D7%93_%D7%A2%D7%A6%D7%9E%D7%90%D7%99",
     )
@@ -166,7 +169,7 @@ fn kol_zchut_pension() -> Page {
     source(
         t(
             "Kol Zchut on the tax-free pension from 60",
-            "כל-זכות על הפטור ממס בקצבה לאחר גיל 60",
+            "כל\u{2011}זכות על הפטור ממס בקצבה לאחר גיל 60",
         ),
         "https://www.kolzchut.org.il/he/%D7%A4%D7%98%D7%95%D7%A8_%D7%9E%D7%9E%D7%A1_%D7%A2%D7%9C_%D7%A8%D7%95%D7%95%D7%97%D7%99%D7%9D_%D7%91%D7%A7%D7%95%D7%A4%D7%AA_%D7%92%D7%9E%D7%9C_%D7%9C%D7%94%D7%A9%D7%A7%D7%A2%D7%94_%D7%94%D7%9E%D7%A9%D7%95%D7%9C%D7%9E%D7%AA_%D7%9B%D7%A7%D7%A6%D7%91%D7%94_%D7%9C%D7%90%D7%97%D7%A8_%D7%92%D7%99%D7%9C_60",
     )
