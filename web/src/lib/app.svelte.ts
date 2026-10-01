@@ -670,7 +670,7 @@ export class AppState {
   })
 
   /** The chosen plans, best first, or why they couldn't be compared. */
-  comparison = $derived.by((): Comparison => {
+  private latest = $derived.by((): Comparison => {
     let data: ComparisonData
     try {
       data = core.compare(this.inputs)
@@ -700,6 +700,21 @@ export class AppState {
       ),
     }
   })
+
+  /** The last comparison that worked. */
+  private lastWorked: Comparison | undefined
+
+  /** What the page shows: the comparison, or while the inputs can't be
+   * compared (a field being retyped), the last one that could, faded under
+   * why not, so the page keeps its shape. Only a page opened with bad inputs
+   * has none to show. */
+  comparison: Comparison = $derived.by(() => {
+    if ('results' in this.latest) this.lastWorked = this.latest
+    return this.lastWorked ?? this.latest
+  })
+
+  /** Why the inputs can't be compared, while they can't. */
+  inputError: string | undefined = $derived('error' in this.latest ? this.latest.error : undefined)
 
   /** The table's first plan. One that can't be opened with these deposits
    * (a minimum first deposit) is still the best: its warning is shown with

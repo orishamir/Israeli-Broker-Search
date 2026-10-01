@@ -2,7 +2,7 @@
   import { flip } from 'svelte/animate'
   import type { ShortTermOutcomeData } from './core/core'
   import { compactPercent, percent, shekels } from './format'
-  import { duration } from './motion'
+  import { duration, easeOut, SETTLE } from './motion'
   import type { PlaceResult, ShortTermState } from './short-term.svelte'
   import { t } from './text'
   import Tip from './Tip.svelte'
@@ -65,7 +65,7 @@
   <tbody>
     {#each results as { place, outcome, rank, notOffered, notOfferedReason } (place.id)}
       <tr
-        animate:flip={{ duration: duration(300) }}
+        animate:flip={{ duration: duration(SETTLE), easing: easeOut }}
         class:not-offered={!outcome}
         class:highlighted={short.highlighted.has(place.id)}
         class:pinned={short.pinned.has(place.id)}

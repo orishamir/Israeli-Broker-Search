@@ -97,8 +97,12 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
   after scrolling it into view. Real swipes need CDP
   `Input.dispatchTouchEvent` (see `breakdown.spec.ts`), because `tap()`
   can't scroll.
-- Animations are off (`reducedMotion`). Before a screenshot or Esc, call
-  `away(page)`, so no hover tip is under the pointer; `closeDialog` does.
+- Animations are off (`reducedMotion`). A test about motion itself (an end
+  label riding on its line, `chart.spec.ts`) turns them on with
+  `test.use({ reducedMotion: 'no-preference' })`, and waits until nothing is
+  drawn before acting: the lines draw themselves in after loading. Before a
+  screenshot or Esc, call `away(page)`, so no hover tip is under the
+  pointer; `closeDialog` does.
   Before a full-page picture, `fitScreenToPage`: Chromium phones otherwise
   lose touch emulation.
 - On the iPhone project a tap is a mouse click, so a hover stays behind
@@ -106,9 +110,10 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
   changes.
 - Hidden content (a closed `<details>`, a popover) still has a size, so use
   `checkVisibility`. Mobile WebKit has no mouse wheel.
-- The chart draws just after the paint that follows a change, and only while
-  its view is shown; `expect` retries cover that (`expect.poll` for a
-  canvas picture). They cover the sweep too, which a worker answers a
+- The chart draws after the paint that follows a change, only while its
+  view is shown, and while a number is typed, once the typing pauses for
+  300 ms (`glide.ts`, whose timing is unit-tested); `expect` retries cover
+  that (`expect.poll` for a canvas picture). They cover the sweep too, which a worker answers a
   moment after the inputs change; a unit test answers it itself
   (`answerSweep`).
 - The chart by deposit is offered only with More options: check it first.

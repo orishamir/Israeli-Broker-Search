@@ -185,3 +185,42 @@ test('the chart by deposit draws the plans, follows the pins, and its marker fol
   await page.getByLabel(t.everyMonth).fill('5000')
   await expect.poll(() => canvasPicture(chart)).not.toBe(pinned)
 })
+
+// ECharts doesn't move a line's end label as the line glides (it turns that
+// off), so the label jumped to where the line was going; the chart attachment
+// lets it glide along (`releaseEndLabels`). With the app's motion on.
+test.describe('with motion', () => {
+  test.use({ reducedMotion: 'no-preference' })
+
+  test("an end label rides on its line's end as the line glides", async ({ page }) => {
+    // Where the best plan's label, its row number on a badge, is drawn.
+    await page.evaluate(() => {
+      const heights: number[] = []
+      Object.assign(window, { heights })
+      const fill = CanvasRenderingContext2D.prototype.fillText
+      CanvasRenderingContext2D.prototype.fillText = function (text, x, y, ...rest) {
+        if (text === '1' && this.canvas.closest('.chart')) {
+          const { b, d, f } = this.getTransform()
+          heights.push(Math.round(b * x + d * y + f))
+        }
+        fill.call(this, text, x, y, ...rest)
+      }
+    })
+    const heights = () => page.evaluate(() => (window as unknown as { heights: number[] }).heights)
+    // Not while the lines are still drawing themselves in, when the label
+    // follows the tip of its line anyway: once nothing is drawn for a while.
+    const still = () =>
+      page.evaluate(async () => {
+        const { heights } = window as unknown as { heights: number[] }
+        const drawn = heights.length
+        await new Promise((resolve) => setTimeout(resolve, 200))
+        return heights.length === drawn
+      })
+    await expect.poll(still).toBe(true)
+    await page.evaluate(() => ((window as unknown as { heights: number[] }).heights.length = 0))
+    // The least lost to fees is lowest, the most value highest: the best
+    // plan's label crosses the chart, at a new height in each frame.
+    await choice(page, t.chart, t.valueView).click()
+    await expect.poll(async () => new Set(await heights()).size).toBeGreaterThan(5)
+  })
+})

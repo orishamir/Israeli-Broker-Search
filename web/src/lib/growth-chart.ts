@@ -119,7 +119,7 @@ export function growthOption(view: GrowthView): ChartOption {
       color: WEAK,
       lineStyle: { type: 'dashed', width: 1.5 },
       showSymbol: false,
-      endLabel: { show: true, formatter: compactLabel },
+      endLabel: { show: true, valueAnimation: true, formatter: compactLabel },
       labelLayout: { moveOverlap: 'shiftY' },
       silent: true,
     })

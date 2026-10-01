@@ -67,18 +67,19 @@
 
   /** A text's width as the chart draws it: the page's font, at the names' size. */
   const context = document.createElement('canvas').getContext('2d')!
-  context.font = `${NAME_SIZE}px ${getComputedStyle(document.documentElement).fontFamily}`
-  const measure = (text: string) => context.measureText(text).width
+  const font = getComputedStyle(document.documentElement).fontFamily
+  const measure = (text: string, bold = false) => {
+    context.font = `${bold ? 'bold ' : ''}${NAME_SIZE}px ${font}`
+    return context.measureText(text).width
+  }
 
   const bars = () => barsOption({ bars: rows, focus, pinned: app.pinned, width: barsWidth, measure })
   const overTime = () => overTimeOption(shown.outcome.feesUpToYear, focus)
 
   /** Hovering a bar or a plan's name shows it over time; clicking pins it. */
   function setup(instance: ECharts) {
-    const planAt = (event: { componentType?: string; dataIndex?: number; value?: unknown }) =>
-      event.componentType === 'yAxis'
-        ? rows.find(({ id }) => id === event.value)
-        : rows[event.dataIndex ?? -1]
+    // The names and totals ride on the bars: every part of a row has its index.
+    const planAt = (event: { dataIndex?: number }) => rows[event.dataIndex ?? -1]
     instance.on('mouseover', (event) => {
       if (!touchScreen) app.hovered = planAt(event)?.id ?? null
     })
@@ -125,14 +126,19 @@
   {/each}
 </div>
 
-<div
-  class="bars"
-  bind:clientWidth={null, setBarsWidth}
-  style:height="{barsHeight(rows.length, narrow.current)}px"
-  {@attach chart(bars, setup)}
-  role="img"
-  aria-label={t.barsAria}
-></div>
+<!-- The chart takes its new height at once as plans come and go, and glides
+     into it; the frame around it follows on the same curve, so what's below
+     moves smoothly too. -->
+<div class="frame" style:height="{barsHeight(rows.length, narrow.current)}px">
+  <div
+    class="bars"
+    bind:clientWidth={null, setBarsWidth}
+    style:height="{barsHeight(rows.length, narrow.current)}px"
+    {@attach chart(bars, setup)}
+    role="img"
+    aria-label={t.barsAria}
+  ></div>
+</div>
 
 {#if notOffered.length > 0}
   <p class="hint">
@@ -197,6 +203,10 @@
     width: 12px;
     height: 12px;
     border-radius: 3px;
+  }
+  .frame {
+    overflow: clip;
+    transition: height var(--settle);
   }
   .bars {
     width: 100%;

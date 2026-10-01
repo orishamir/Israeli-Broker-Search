@@ -5,6 +5,7 @@
   import NumberField from './NumberField.svelte'
   import PlaceSheet from './PlaceSheet.svelte'
   import { t } from './text'
+  import { reveal } from './motion'
   import Tip from './Tip.svelte'
 
   /** The short-term calculator's inputs: how much, for how long, the rate
@@ -76,7 +77,7 @@
 
 <!-- Last, as in the long term: one switch for both calculators. -->
 <section class="card">
-  <div class="heading">
+  <div class="heading more">
     <h3>
       <label class="switch">
         <input type="checkbox" bind:checked={app.moreOptions} />
@@ -86,7 +87,7 @@
     <Tip about={t.moreOptions}>{t.shortMoreOptionsTip(compactPercent(short.usualInflation))}</Tip>
   </div>
   {#if app.moreOptions}
-    <div class="fields">
+    <div class="fields more" transition:reveal>
       <span>
         <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.shortInflationTip}</Tip>
       </span>
@@ -117,9 +118,13 @@
   .heading h3 {
     margin: 0;
   }
-  /* More options while it's off: a heading alone in its card. */
-  .heading:last-child {
+  /* More options: its fields bring the space under its heading, so that
+     it opens and closes smoothly, and the heading is alone while it's off. */
+  .heading.more {
     margin-bottom: 0;
+  }
+  .fields.more {
+    padding-top: 10px;
   }
   /* A card whose heading is its switch: as small as the other headings, and
      tall enough for a finger. */

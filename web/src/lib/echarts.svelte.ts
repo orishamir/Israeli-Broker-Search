@@ -21,7 +21,8 @@ import type {
 } from 'echarts/components'
 import { LabelLayout } from 'echarts/features'
 import { CanvasRenderer } from 'echarts/renderers'
-import { reducedMotion } from './motion'
+import { drawAt, glideFor, settlesIn } from './glide'
+import { duration, EASE_OUT, easeOut, reducedMotion, SETTLE } from './motion'
 
 echarts.use([
   LineChart,
@@ -47,22 +48,26 @@ export type ChartOption = ComposeOption<
   | MarkLineComponentOption
 >
 
-/** How long a change glides, in ms. */
-const GLIDE = 180
-/** Changes closer together than this (typing, dragging a slider) snap into
- * place instead: each glide would restart on the next change, and a phone
- * spent most of every keystroke redrawing mid-glide. */
-const QUICK_SUCCESSION = 250
+/** When a number was last typed into a field: a chart waits for the typing
+ * to pause (see `drawAt`). A slider or a choice isn't typing: it's followed. */
+let lastTyped = -Infinity
+addEventListener(
+  'input',
+  ({ target }) => {
+    if (target instanceof HTMLInputElement && target.type === 'text') lastTyped = performance.now()
+  },
+  { capture: true },
+)
 
 /** What every chart shares, on top of ECharts' dark theme: the page's font
- * and colors, quick drawing (none if the user asked for less motion), and a
- * tooltip that keeps up with the pointer and stays inside the chart. */
+ * and colors, its curve for changes (no motion if the user asked for less),
+ * and a tooltip that keeps up with the pointer and stays inside the chart. */
 const BASE: ChartOption = {
   backgroundColor: 'transparent',
   textStyle: { fontFamily: getComputedStyle(document.documentElement).fontFamily },
   animation: !reducedMotion,
   animationDuration: 500,
-  animationEasingUpdate: 'cubicOut',
+  animationEasingUpdate: EASE_OUT,
   tooltip: {
     // On a phone the chart is narrower than twice the tooltip, so ECharts
     // put it past the chart's left edge: cut off by the screen, and on a
@@ -79,13 +84,35 @@ const BASE: ChartOption = {
   },
 }
 
+/** ECharts never animates a line's end label (it turns that off as it makes
+ * the label), so the label jumped to where its line was going while the line
+ * glided there. The label's own update animation keeps it on the line's end,
+ * once ECharts has its place to glide from. */
+function releaseEndLabels(instance: ECharts, firstDraw: boolean) {
+  let made = false
+  for (const root of instance.getZr().storage.getRoots()) {
+    root.traverse((element) => {
+      if (element.type !== 'ec-polyline' || !element.getTextContent()) return
+      made ||= (element as { disableLabelAnimation?: boolean }).disableLabelAnimation === true
+      Object.assign(element, { disableLabelAnimation: false })
+    })
+  }
+  // On the chart's first draw, the labels are given their places now, or the
+  // first change would move none of them. Not later: it would cut short the
+  // glides of the labels already there. A line ticked later has its label
+  // glide from its second change on.
+  if (firstDraw && made) instance.updateLabelLayout()
+}
+
 /**
  * Puts a chart on the element: `<div {@attach chart(() => option, setup)}>`.
- * The chart updates whenever state read by `option` changes, just after the
- * next paint, so that what the user typed and the table show first and the
- * chart follows a frame later. It follows the element's size. While the
- * element has no size (its view is hidden) nothing is computed or drawn, and
- * the chart is only made once it first has one.
+ * The chart updates whenever state read by `option` changes, never before
+ * the next paint, so that what the user typed and the table show first, and
+ * glides to the change on the page's curve. A change that comes mid-glide
+ * waits for it to end, and while a number is typed the chart waits for a
+ * pause (`drawAt`). It follows the element's size. While the element has no
+ * size (its view is hidden) nothing is computed or drawn, and the chart is
+ * only made once it first has one.
  * `setup` can add event handlers; what it returns is called on removal.
  */
 export function chart(
@@ -95,8 +122,14 @@ export function chart(
   return (element) => {
     let instance: ECharts | undefined
     let stopSetup: (() => void) | undefined
-    let lastChange = -Infinity
     let lastDrawn: ChartOption | undefined
+    /** The change waiting to be drawn, when the first change it replaced
+     * came, and whether one came while the chart was still gliding. */
+    let waiting: ChartOption | undefined
+    let firstWaiting = 0
+    let chained = false
+    /** When the glide in flight has all but settled. */
+    let settled = -Infinity
     let size = { width: 0, height: 0 }
     let frame = 0
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -106,13 +139,15 @@ export function chart(
      * again with nothing changed. */
     const current = $derived.by(option)
 
-    const draw = (next: ChartOption) => {
-      const now = performance.now()
-      const glide = now - lastChange < QUICK_SUCCESSION ? 0 : GLIDE
-      lastChange = now
-      lastDrawn = next
+    const draw = () => {
+      const glide = duration(glideFor(chained))
       // Replace, not merge, the series: unticked plans must disappear.
-      instance!.setOption({ ...next, animationDurationUpdate: glide }, { replaceMerge: ['series'] })
+      instance!.setOption({ ...waiting, animationDurationUpdate: glide }, { replaceMerge: ['series'] })
+      releaseEndLabels(instance!, lastDrawn === undefined)
+      lastDrawn = waiting
+      waiting = undefined
+      chained = false
+      settled = performance.now() + settlesIn(glide)
     }
     const cancelDraw = () => {
       cancelAnimationFrame(frame)
@@ -122,12 +157,17 @@ export function chart(
     $effect(() => {
       if (!shown) return
       const next = current
-      if (next === lastDrawn) return
+      if (next === lastDrawn || next === waiting) return
+      const now = performance.now()
+      if (waiting === undefined) firstWaiting = now
+      if (now < settled) chained = true
+      waiting = next
+      const at = drawAt({ now, settled, lastTyped, firstWaiting })
       // A timer set from an animation frame runs once that frame is
       // painted. A change before then replaces the one waiting.
       cancelDraw()
       frame = requestAnimationFrame(() => {
-        timer = setTimeout(() => draw(next))
+        timer = setTimeout(draw, at - performance.now())
       })
     })
 
@@ -138,6 +178,7 @@ export function chart(
         // A draw still waiting would draw what the chart was told as it was
         // hidden (the fee breakdown once drew itself 0 px wide).
         cancelDraw()
+        waiting = undefined
         return
       }
       if (!instance) {
@@ -149,8 +190,13 @@ export function chart(
           const cleanup = setup?.(instance!)
           return () => cleanup?.()
         })
-      } else if (width !== size.width || height !== size.height) {
+      } else if (width !== size.width) {
         instance.resize()
+      } else if (height !== size.height) {
+        // Only taller or shorter: a bar chart's rows came or went. Its bars
+        // glide into the new height, and on to the new rows when they're
+        // drawn, a frame later or once the typing pauses.
+        instance.resize({ animation: { duration: duration(SETTLE), easing: easeOut } })
       }
       size = { width, height }
       shown = true

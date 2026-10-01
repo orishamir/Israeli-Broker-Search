@@ -115,7 +115,7 @@ test('how the money is taken out is asked only while a ticked plan pays a pensio
   app.age = 39
   expect(outcomeOf().tax).toBe(atOnce.tax)
   app.age = null
-  expect(app.comparison).toEqual({ error: 'מלאו את הגיל שלכם' })
+  expect(app.inputError).toBe('מלאו את הגיל שלכם')
   app.age = 45
 
   // Without the fund there's no pension to ask about, and none is sent.
@@ -171,17 +171,30 @@ test('a study fund is locked for six years, and taxes only the gains on what is 
   expect(rowOf().notOffered).toContain('רק 6 שנים אחרי ההפקדה הראשונה')
 })
 
-test('bad inputs are reported in words, not thrown', () => {
+test('bad inputs are reported in words, not thrown, and the last results stay', () => {
   const app = start()
+  const before = results(app)
   app.monthlyDeposit = -5
-  expect(app.comparison).toEqual({ error: expect.stringMatching(/ערך שלילי/) })
-  expect(app.buying.largestTrade).toBeNull()
+  expect(app.inputError).toMatch(/ערך שלילי/)
+  // A field being retyped: the page keeps the last results, faded.
+  expect(results(app)).toBe(before)
   app.monthlyDeposit = 2000
   app.yearlyReturnPercent = null
-  expect(app.comparison).toEqual({ error: expect.stringMatching(/התשואה השנתית/) })
+  expect(app.inputError).toMatch(/התשואה השנתית/)
   app.yearlyReturnPercent = 10
+  expect(app.inputError).toBeUndefined()
+  expect(results(app)).not.toBe(before)
   expect(results(app).length).toBeGreaterThan(0)
   expect(app.buying.largestTrade).toBeGreaterThan(0)
+})
+
+test('a page opened with bad inputs has no results to show, only why', () => {
+  let app!: AppState
+  $effect.root(() => {
+    app = new AppState({ monthlyDeposit: -5 })
+  })
+  expect(app.comparison).toEqual({ error: expect.stringMatching(/ערך שלילי/) })
+  expect(app.buying.largestTrade).toBeNull()
 })
 
 test("a plan's rank is its row's number, counting only the plans with an outcome", () => {

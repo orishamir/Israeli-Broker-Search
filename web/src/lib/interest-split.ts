@@ -7,7 +7,7 @@
 
 import type { BarSeriesOption } from 'echarts/charts'
 import type { ChartOption } from './echarts.svelte'
-import { BAR, BAR_BELOW, fitName, GAP, MARGIN, NAME_ABOVE, NAME_LINE, NAME_SIZE } from './fee-breakdown'
+import { BAR, BAR_GAP, fitName, MARGIN, NAME_LINE, NAME_SIZE, TOTAL_GAP } from './fee-breakdown'
 import { compactShekels, readableOn, shekels } from './format'
 import { t } from './text'
 
@@ -45,8 +45,9 @@ export interface SplitView {
   pinned: ReadonlySet<string>
   /** The box's width in pixels, for fitting names and amounts. */
   width: number
-  /** A text's width in pixels, in the names' font (see `fitName`). */
-  measure: (text: string) => number
+  /** A text's width in pixels, in the names' font (see `fitName`), or in
+   * bold, the totals'. */
+  measure: (text: string, bold?: boolean) => number
 }
 
 /** A bar's length: past the line where a bank pays more than the rate. */
@@ -54,24 +55,28 @@ export const lengthOf = ({ yours, kept, tax }: Split) => yours + tax + Math.max(
 
 export function splitOption({ splits, atTheRate, pinned, width, measure }: SplitView): ChartOption {
   const largest = Math.max(atTheRate, ...splits.map(lengthOf))
-  // Roughly: the box without the totals.
-  const pixelsPerShekel = Math.max(width - 60, 0) / largest
+  const totals = splits.map(({ yours }) => shekels(yours))
+  // The totals go right of the bars.
+  const right =
+    MARGIN.right + Math.ceil(Math.max(0, ...totals.map((total) => measure(total, true)))) + TOTAL_GAP
+  const pixelsPerShekel = Math.max(width - MARGIN.left - right, 0) / largest
   const fits = (amount: number) => amount * pixelsPerShekel > 44
   // The box, less its margins and a pinned name's padding.
   const room = width - MARGIN.left - MARGIN.right - 2 * 5
   const opacity = (id: string) => (pinned.size === 0 || pinned.has(id) ? 1 : 0.6)
   const part = (
+    id: string,
     name: string,
     value: (split: Split) => number,
     color: (split: Split) => string,
     labelled = true,
   ): BarSeriesOption => ({
+    id,
     name,
     type: 'bar',
     stack: 'interest',
     barWidth: BAR,
-    // ECharts puts a gap after each slot, as a share of its height.
-    barGap: `${(GAP / NAME_LINE) * 100}%`,
+    barGap: BAR_GAP,
     data: splits.map((split) => ({
       value: value(split),
       itemStyle: { color: color(split), opacity: opacity(split.id) },
@@ -88,66 +93,24 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
     },
   })
   return {
-    grid: { ...MARGIN },
+    grid: { ...MARGIN, right },
     xAxis: {
       type: 'value',
       max: largest,
       axisLabel: { formatter: compactShekels, color: WEAK, showMaxLabel: false, hideOverlap: true },
       splitLine: { lineStyle: { color: GRID } },
     },
-    yAxis: [
-      {
-        type: 'category',
-        inverse: true,
-        // Ids, not names, which can repeat: the formatter shows the names.
-        data: splits.map(({ id }) => id),
-        axisTick: { show: false },
-        axisLine: { show: false },
-        triggerEvent: true,
-        axisLabel: {
-          // Above the bar, from where it starts (see the fee breakdown).
-          inside: true,
-          margin: 0,
-          padding: [0, 0, 2 * NAME_ABOVE, 0],
-          color: TEXT,
-          fontSize: NAME_SIZE,
-          interval: 0,
-          formatter: (_id: string, index: number) => {
-            const split = splits[index]
-            const dot = split.hollow ? '◯' : '●'
-            const style = pinned.has(split.id) ? `pinned${index}` : 'name'
-            const name = fitName(split.label, room - measure(`${dot} `), measure)
-            return `{dot${index}|${dot}} {${style}|${name}}`
-          },
-          rich: {
-            ...Object.fromEntries(
-              splits.flatMap((split, index) => [
-                [`dot${index}`, { color: split.color }],
-                [
-                  `pinned${index}`,
-                  { color: TEXT, backgroundColor: `${split.color}40`, borderRadius: 4, padding: [2, 5] },
-                ],
-              ]),
-            ),
-            name: { color: TEXT },
-          },
-        },
-      },
-      {
-        // What the saver keeps, level with its bar.
-        type: 'category',
-        inverse: true,
-        position: 'right',
-        data: splits.map(({ yours }) => shekels(yours)),
-        axisTick: { show: false },
-        axisLine: { show: false },
-        axisLabel: {
-          padding: [2 * BAR_BELOW, 0, 0, 0],
-          formatter: (total: string) => `{total|${total}}`,
-          rich: { total: { color: TEXT, fontWeight: 'bold' } },
-        },
-      },
-    ],
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      // Ids, not names, which can repeat.
+      data: splits.map(({ id }) => id),
+      axisTick: { show: false },
+      axisLine: { show: false },
+      // Each place's name and total ride on its row (see the series), so
+      // they move with it when the order changes, as in the fee breakdown.
+      axisLabel: { show: false },
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
@@ -167,15 +130,19 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
         ].join('')
       },
     },
+    // Every series has an id, as in the fee breakdown: one without is
+    // drawn again from nothing at every change.
     series: [
       {
         // Around each pinned or hovered place, from its name to its total,
         // an outline in its color, as in the fee breakdown: pinned ones are
         // drawn here, a hovered one highlighted (see the component). Clear
         // inside, but not empty, so a click anywhere on the row picks it.
+        id: 'outline',
         type: 'custom',
         tooltip: { show: false },
-        data: splits.map((_, index) => [0, index]),
+        // Named by place, so that each moves with its row.
+        data: splits.map(({ id }, index) => ({ name: id, value: [0, index] })),
         renderItem: (_params, api) => {
           const index = api.value(1) as number
           const { color, id } = splits[index]
@@ -190,15 +157,46 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
         },
       },
       {
-        // The empty slot above each bar, where its name goes.
+        // The empty slot above each bar, which carries the place's name.
+        id: 'names',
         type: 'bar',
         barWidth: NAME_LINE,
         data: splits.map(() => 0),
-        silent: true,
         tooltip: { show: false },
+        emphasis: { disabled: true },
+        label: {
+          show: true,
+          // From where the bar starts.
+          position: 'right',
+          distance: 0,
+          color: TEXT,
+          fontSize: NAME_SIZE,
+          // A dot in the place's color (hollow for your own deposits), and
+          // the name, on a tint of that color when pinned.
+          formatter: ({ dataIndex }) => {
+            const split = splits[dataIndex]
+            const dot = split.hollow ? '◯' : '●'
+            const style = pinned.has(split.id) ? `pinned${dataIndex}` : 'name'
+            const name = fitName(split.label, room - measure(`${dot} `), measure)
+            return `{dot${dataIndex}|${dot}} {${style}|${name}}`
+          },
+          rich: {
+            ...Object.fromEntries(
+              splits.flatMap((split, index) => [
+                [`dot${index}`, { color: split.color }],
+                [
+                  `pinned${index}`,
+                  { color: TEXT, backgroundColor: `${split.color}40`, borderRadius: 4, padding: [2, 5] },
+                ],
+              ]),
+            ),
+            name: { color: TEXT },
+          },
+        },
       },
       {
         ...part(
+          'yours',
           t.yoursPart,
           ({ yours }) => yours,
           ({ color }) => color,
@@ -214,15 +212,36 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
         },
       },
       part(
+        'kept',
         t.keptPart,
         ({ kept }) => Math.max(kept, 0),
         () => KEPT_COLOR,
       ),
       part(
+        'tax',
         t.taxPart,
         ({ tax }) => tax,
         () => TAX_COLOR,
       ),
+      {
+        // The rest of each row, clear, with what the saver keeps past its end.
+        id: 'totals',
+        type: 'bar',
+        stack: 'interest',
+        barWidth: BAR,
+        barGap: BAR_GAP,
+        data: splits.map((split) => largest - lengthOf(split)),
+        itemStyle: { color: 'transparent' },
+        tooltip: { show: false },
+        emphasis: { disabled: true },
+        label: {
+          show: true,
+          position: 'right',
+          distance: TOTAL_GAP,
+          formatter: ({ dataIndex }) => `{total|${totals[dataIndex]}}`,
+          rich: { total: { color: TEXT, fontWeight: 'bold' } },
+        },
+      },
     ],
   }
 }

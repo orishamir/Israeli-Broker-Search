@@ -18,11 +18,11 @@
   import ValueChart from './lib/ValueChart.svelte'
   import { askSweep } from './lib/sweeper'
   import { percent, shekels } from './lib/format'
-  import { duration, reducedMotion } from './lib/motion'
+  import { duration, easeOut, reducedMotion, reveal, SETTLE } from './lib/motion'
   import { t } from './lib/text'
   import { en } from './lib/text/en'
-  import { cubicOut } from 'svelte/easing'
   import { Tween } from 'svelte/motion'
+  import { fade } from 'svelte/transition'
 
   const allViews: Choice<ChartView>[] = [
     {
@@ -117,12 +117,13 @@
     target instanceof HTMLElement &&
     target.matches('input:not([type=checkbox], [type=radio], [type=range]), select')
 
-  /** The summary's numbers roll to their new values rather than jump. Each
-   * keeps its last value while the inputs are invalid, when the cards are
-   * hidden: otherwise they'd roll up from 0 when the cards return. */
+  /** The summary's numbers roll to their new values rather than jump, for
+   * as long as the charts glide and on the same curve. Each keeps its last
+   * value while there are no results: otherwise they'd roll up from 0 when
+   * the results return. */
   const rolling = (value: () => number | undefined) => {
     let last = 0
-    return Tween.of(() => (last = value() ?? last), { duration: duration(240), easing: cubicOut })
+    return Tween.of(() => (last = value() ?? last), { duration: duration(SETTLE), easing: easeOut })
   }
   const comparison = () => ('results' in app.comparison ? app.comparison : undefined)
   const deposited = rolling(() => comparison()?.deposited)
@@ -188,169 +189,181 @@
 
 <!-- Only the chosen calculator is on the page; the other keeps its state. -->
 {#if app.family === 'long'}
-  <div class="layout">
+  <div class="layout" in:fade={{ duration: duration(220), easing: easeOut }}>
     <aside>
       <InputsPanel {app} />
     </aside>
 
     <main>
-      {#if 'error' in app.comparison}
-        <p class="card error">{t.checkInputs(app.comparison.error)}</p>
-      {:else}
-        <div class="stats" bind:this={stats}>
-          <div class="card stat">
-            <span class="label">{t.youDeposit}</span>
-            <span class="value">{shekels(deposited.current)}</span>
-            <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
-          </div>
-          <div class="card stat">
-            <span class="label">{t.withNoFees}</span>
-            <span class="value">{shekels(noFees.current)}</span>
-            <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
-          </div>
-          {#if best?.outcome}
-            <div class="card stat best" style:--plan-color={best.plan.color}>
-              <span class="label">{t.best(best.plan.label)}</span>
-              <span class="value">{shekels(bestValue.current)}</span>
-              {#if app.sellAtEnd}
+      {#if app.inputError !== undefined}
+        <p class="card error" transition:reveal>{t.checkInputs(app.inputError)}</p>
+      {/if}
+      {#if 'results' in app.comparison}
+        <!-- While a field is being retyped, the last results stay, faded, so
+             nothing jumps and the charts aren't drawn again from nothing. -->
+        <div class="results" class:stale={app.inputError !== undefined} inert={app.inputError !== undefined}>
+          <div class="stats" bind:this={stats}>
+            <div class="card stat">
+              <span class="label">{t.youDeposit}</span>
+              <span class="value">{shekels(deposited.current)}</span>
+              <span class="note">{t.overYears(app.years, app.inTodaysMoney)}</span>
+            </div>
+            <div class="card stat">
+              <span class="label">{t.withNoFees}</span>
+              <span class="value">{shekels(noFees.current)}</span>
+              <span class="note">{app.sellAtEnd ? t.ifSoldBeforeTax : t.heldAtEnd}</span>
+            </div>
+            {#if best?.outcome}
+              <div class="card stat best" style:--plan-color={best.plan.color}>
+                <span class="label">{t.best(best.plan.label)}</span>
+                <span class="value">{shekels(bestValue.current)}</span>
+                {#if app.sellAtEnd}
+                  <span class="note"
+                    >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
+                  >
+                {/if}
                 <span class="note"
-                  >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
+                  >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
                 >
-              {/if}
-              <span class="note"
-                >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
-              >
-              {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
-              <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
-            </div>
-          {/if}
-        </div>
+                {#if best.warning}<span class="note warning">⚠ {best.warning}</span>{/if}
+                <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
+              </div>
+            {/if}
+          </div>
 
-        {#if app.comparison.results.length === 0}
-          <p class="card empty">{t.tickABroker}</p>
-        {:else}
-          <section class="card table">
-            <div class="scrolls">
-              <ResultsTable {app} results={app.comparison.results} />
-            </div>
-          </section>
+          {#if app.comparison.results.length === 0}
+            <p class="card empty">{t.tickABroker}</p>
+          {:else}
+            <section class="card table">
+              <div class="scrolls">
+                <ResultsTable {app} results={app.comparison.results} />
+              </div>
+            </section>
 
-          <section class="card" id="chart">
-            <div class="chart-bar">
-              <Choices label={t.chart} options={views} bind:value={app.chartView} wraps />
-              <!-- The hint for lines, the one for bars and the button take turns
+            <section class="card" id="chart">
+              <div class="chart-bar">
+                <Choices label={t.chart} options={views} bind:value={app.chartView} wraps />
+                <!-- The hint for lines, the one for bars and the button take turns
                  in one place that fits any of them, so pinning the first plan
                  or switching views doesn't move the chart. -->
-              <span class="pinning">
-                {#each [false, true] as bars (bars)}
-                  {@const shown = app.pinned.size === 0 && bars === !lines}
-                  <span class="hint mouse" class:gone={!shown}>{t.pinHintMouse(bars)}</span>
-                  <span class="hint touch" class:gone={!shown}>{t.pinHintTouch(bars)}</span>
-                {/each}
-                <button class:gone={app.pinned.size === 0} onclick={() => app.pinned.clear()}
-                  >{t.unpinAll}</button
-                >
-              </span>
-            </div>
-            <!-- Every view stays, so switching back is instant: a hidden one
+                <span class="pinning">
+                  {#each [false, true] as bars (bars)}
+                    {@const shown = app.pinned.size === 0 && bars === !lines}
+                    <span class="hint mouse" class:gone={!shown}>{t.pinHintMouse(bars)}</span>
+                    <span class="hint touch" class:gone={!shown}>{t.pinHintTouch(bars)}</span>
+                  {/each}
+                  <button class:gone={app.pinned.size === 0} onclick={() => app.pinned.clear()}
+                    >{t.unpinAll}</button
+                  >
+                </span>
+              </div>
+              <!-- Every view stays, so switching back is instant: a hidden one
                isn't drawn (see echarts.svelte.ts), and the shown one fades in. -->
-            <div class="view" hidden={!overYears} inert={!overYears}>
-              <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
-              <!-- Under the chart it zooms, not in the bar: the bar is then the
+              <div class="view" hidden={!overYears} inert={!overYears}>
+                <GrowthChart {app} results={app.comparison.results} noFees={app.comparison.noFees} />
+                <!-- Under the chart it zooms, not in the bar: the bar is then the
                  same in every view, and switching views doesn't move the chart. -->
-              <p class="hint zoom mouse">{t.zoomHintMouse}</p>
-              <p class="hint zoom touch">{t.zoomHintTouch}</p>
-            </div>
-            <div class="view" hidden={app.chartView !== 'crossover'} inert={app.chartView !== 'crossover'}>
-              <CrossoverChart {app} />
-            </div>
-            <div class="view" hidden={lines} inert={lines}>
-              <FeeBreakdown {app} results={app.comparison.results} />
-            </div>
-          </section>
-        {/if}
+                <p class="hint zoom mouse">{t.zoomHintMouse}</p>
+                <p class="hint zoom touch">{t.zoomHintTouch}</p>
+              </div>
+              <div class="view" hidden={app.chartView !== 'crossover'} inert={app.chartView !== 'crossover'}>
+                <CrossoverChart {app} />
+              </div>
+              <div class="view" hidden={lines} inert={lines}>
+                <FeeBreakdown {app} results={app.comparison.results} />
+              </div>
+            </section>
+          {/if}
+        </div>
       {/if}
     </main>
   </div>
 {:else}
-  <div class="layout">
+  <div class="layout" in:fade={{ duration: duration(220), easing: easeOut }}>
     <aside>
       <ShortTermInputs {app} />
     </aside>
 
     <main>
-      {#if 'error' in short.comparison}
-        <p class="card error">{t.checkInputs(short.comparison.error)}</p>
-      {:else}
+      {#if short.inputError !== undefined}
+        <p class="card error" transition:reveal>{t.checkInputs(short.inputError)}</p>
+      {/if}
+      {#if 'results' in short.comparison}
         {@const comparison = short.comparison}
-        <div class="stats" bind:this={stats}>
-          <div class="card stat">
-            <span class="label">{t.youDeposit}</span>
-            <span class="value">{shekels(shortDeposited.current)}</span>
-            <span class="note">{t.forMonths(short.months)}</span>
-          </div>
-          <div class="card stat">
-            <span class="label">{t.atTheRate}</span>
-            <span class="value">{shekels(shortAtTheRate.current)}</span>
-            <span class="note">{t.noCostsNoTax}</span>
-          </div>
-          {#if shortBest?.outcome}
-            <div class="card stat best" style:--plan-color={shortBest.place.color}>
-              <span class="label">{t.best(shortBest.place.label)}</span>
-              <span class="value">{shekels(shortBestValue.current)}</span>
-              <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
-              <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
-              {#if shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
-                <span class="note warning"
-                  >⚠ {shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}</span
-                >
-              {/if}
+        <div
+          class="results"
+          class:stale={short.inputError !== undefined}
+          inert={short.inputError !== undefined}
+        >
+          <div class="stats" bind:this={stats}>
+            <div class="card stat">
+              <span class="label">{t.youDeposit}</span>
+              <span class="value">{shekels(shortDeposited.current)}</span>
+              <span class="note">{t.forMonths(short.months)}</span>
             </div>
+            <div class="card stat">
+              <span class="label">{t.atTheRate}</span>
+              <span class="value">{shekels(shortAtTheRate.current)}</span>
+              <span class="note">{t.noCostsNoTax}</span>
+            </div>
+            {#if shortBest?.outcome}
+              <div class="card stat best" style:--plan-color={shortBest.place.color}>
+                <span class="label">{t.best(shortBest.place.label)}</span>
+                <span class="value">{shekels(shortBestValue.current)}</span>
+                <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
+                <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
+                {#if shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
+                  <span class="note warning"
+                    >⚠ {shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}</span
+                  >
+                {/if}
+              </div>
+            {/if}
+          </div>
+
+          {#if comparison.results.length === 0}
+            <p class="card empty">{t.tickAPlace}</p>
+          {:else}
+            <section class="card table">
+              <div class="scrolls">
+                <PlaceTable {short} results={comparison.results} />
+              </div>
+              <!-- A flag every place of a kind shares, once for the kind. -->
+              {#each flaggedKinds(comparison.results) as kind (kind.name)}
+                <p class="kind-flag">⚠ <bdi>{kind.name}</bdi>: <bdi>{kind.mayCostMore}</bdi></p>
+              {/each}
+            </section>
+
+            <section class="card" id="chart">
+              <div class="chart-bar">
+                <Choices label={t.chart} options={shortViews} bind:value={short.chartView} wraps />
+                <span class="pinning">
+                  {#each [false, true] as bars (bars)}
+                    {@const shown = short.pinned.size === 0 && bars === (short.chartView === 'split')}
+                    <span class="hint mouse" class:gone={!shown}>{t.placePinHintMouse(bars)}</span>
+                    <span class="hint touch" class:gone={!shown}>{t.placePinHintTouch(bars)}</span>
+                  {/each}
+                  <button class:gone={short.pinned.size === 0} onclick={() => short.pinned.clear()}
+                    >{t.unpinAll}</button
+                  >
+                </span>
+              </div>
+              <div class="view" hidden={short.chartView !== 'split'} inert={short.chartView !== 'split'}>
+                <InterestSplit
+                  {short}
+                  results={comparison.results}
+                  deposited={comparison.deposited}
+                  atTheRate={comparison.atTheRate}
+                />
+              </div>
+              <div class="view" hidden={short.chartView !== 'value'} inert={short.chartView !== 'value'}>
+                <ValueChart {short} results={comparison.results} atTheRate={comparison.atTheRate} />
+                <p class="hint zoom mouse">{t.zoomHintMouse}</p>
+                <p class="hint zoom touch">{t.zoomHintTouch}</p>
+              </div>
+            </section>
           {/if}
         </div>
-
-        {#if comparison.results.length === 0}
-          <p class="card empty">{t.tickAPlace}</p>
-        {:else}
-          <section class="card table">
-            <div class="scrolls">
-              <PlaceTable {short} results={comparison.results} />
-            </div>
-            <!-- A flag every place of a kind shares, once for the kind. -->
-            {#each flaggedKinds(comparison.results) as kind (kind.name)}
-              <p class="kind-flag">⚠ <bdi>{kind.name}</bdi>: <bdi>{kind.mayCostMore}</bdi></p>
-            {/each}
-          </section>
-
-          <section class="card" id="chart">
-            <div class="chart-bar">
-              <Choices label={t.chart} options={shortViews} bind:value={short.chartView} wraps />
-              <span class="pinning">
-                {#each [false, true] as bars (bars)}
-                  {@const shown = short.pinned.size === 0 && bars === (short.chartView === 'split')}
-                  <span class="hint mouse" class:gone={!shown}>{t.placePinHintMouse(bars)}</span>
-                  <span class="hint touch" class:gone={!shown}>{t.placePinHintTouch(bars)}</span>
-                {/each}
-                <button class:gone={short.pinned.size === 0} onclick={() => short.pinned.clear()}
-                  >{t.unpinAll}</button
-                >
-              </span>
-            </div>
-            <div class="view" hidden={short.chartView !== 'split'} inert={short.chartView !== 'split'}>
-              <InterestSplit
-                {short}
-                results={comparison.results}
-                deposited={comparison.deposited}
-                atTheRate={comparison.atTheRate}
-              />
-            </div>
-            <div class="view" hidden={short.chartView !== 'value'} inert={short.chartView !== 'value'}>
-              <ValueChart {short} results={comparison.results} atTheRate={comparison.atTheRate} />
-              <p class="hint zoom mouse">{t.zoomHintMouse}</p>
-              <p class="hint zoom touch">{t.zoomHintTouch}</p>
-            </div>
-          </section>
-        {/if}
       {/if}
     </main>
   </div>
@@ -422,12 +435,21 @@
     padding: 16px 24px 24px;
     align-items: start;
   }
-  main {
-    container: results / inline-size;
+  main,
+  .results {
     display: grid;
     /* No wider than the page: the table scrolls instead. */
     grid-template-columns: minmax(0, 1fr);
+  }
+  main {
+    container: results / inline-size;
+  }
+  .results {
     gap: 16px;
+    transition: opacity var(--quick);
+  }
+  .results.stale {
+    opacity: 0.35;
   }
   /* Until the phone layout: one column, inputs first. */
   @media (width < 800px) {
@@ -465,6 +487,8 @@
     display: grid;
     gap: 2px;
     border-top: 2px solid var(--plan-color, transparent);
+    /* Another plan becoming the best. */
+    transition: border-color var(--settle);
   }
   .stat .label {
     color: var(--weak);
@@ -509,7 +533,8 @@
       text-align: start;
       transition:
         translate 200ms var(--ease-out),
-        opacity 200ms var(--ease-out);
+        opacity 200ms var(--ease-out),
+        border-color var(--settle);
     }
     @starting-style {
       .best-bar {
@@ -612,8 +637,10 @@
       display: none;
     }
   }
+  /* Its own space below, rather than a gap in the grid, which would come
+     and go at once while the message slides in and out. */
   .error {
-    margin: 0;
+    margin: 0 0 16px;
     color: var(--error);
   }
   .empty {

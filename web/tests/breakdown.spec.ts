@@ -155,3 +155,22 @@ test("every plan's name is drawn whole, on one line", { tag: '@phone' }, async (
   const names = (await byFees(page)).map(({ label }) => label)
   await expect.poll(drawn).toEqual(expect.arrayContaining(names))
 })
+
+// The box grows and shrinks with the plans, and the chart takes its new
+// height at once, gliding into it (see the chart attachment).
+test("the bars take their box's new height as plans come and go", async ({ page }) => {
+  const bars = page.locator('.bars')
+  const height = () => bars.evaluate((box) => box.getBoundingClientRect().height)
+  const canvasFits = () =>
+    bars.evaluate(
+      (box) =>
+        box.querySelector('canvas')!.getBoundingClientRect().height === box.getBoundingClientRect().height,
+    )
+  const before = await height()
+  await tickBrokers(
+    page,
+    brokers().map(({ name }) => name),
+  )
+  await expect.poll(height).toBeGreaterThan(before)
+  await expect.poll(canvasFits).toBe(true)
+})

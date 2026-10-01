@@ -54,14 +54,26 @@ test('bad inputs show why, in the words of the core, instead of breaking', async
       return (error as Error).message
     }
   }
+  // The chart's canvas, marked, to tell whether it's made again.
+  await page
+    .locator('.chart canvas')
+    .first()
+    .evaluate((canvas) => canvas.setAttribute('data-kept', ''))
   await page.getByLabel(t.everyMonth).fill('-5')
   await expect(page.locator('.error')).toHaveText(t.checkInputs((await reason())!))
+  // A field being retyped: the last results stay, faded and out of reach,
+  // so that the page keeps its shape.
+  await expect(rows(page).first()).toBeVisible()
+  await expect(page.locator('.results')).toHaveAttribute('inert')
   await page.getByLabel(t.everyMonth).fill('2000')
   await page.getByLabel(t.yearlyReturn, { exact: true }).fill('')
   await expect(page.locator('.error')).toHaveText(t.checkInputs((await reason())!))
   await page.getByLabel(t.yearlyReturn, { exact: true }).fill('10')
   await expect(page.locator('.error')).toBeHidden()
+  await expect(page.locator('.results')).not.toHaveAttribute('inert')
   await expect(rows(page).first()).toBeVisible()
+  // Nor were the charts taken off the page, to be drawn again from nothing.
+  await expect(page.locator('.chart canvas[data-kept]')).toHaveCount(1)
 })
 
 test('amounts show thousands separators, and the arrow keys step them', async ({ page }) => {

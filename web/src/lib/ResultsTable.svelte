@@ -4,7 +4,7 @@
   import type { AppState, Result } from './app.svelte'
   import type { OutcomeData, WhyNot } from './core/core'
   import { compactPercent, percent, shekels } from './format'
-  import { duration, reducedMotion } from './motion'
+  import { duration, easeOut, reducedMotion, SETTLE } from './motion'
   import { t } from './text'
   import Tip from './Tip.svelte'
 
@@ -92,7 +92,7 @@
          fund's ceiling, its money is still locked) have no line to highlight. -->
     {#each results as { plan, outcome, rank, warning, mayCostMore, note, taxNote, notOffered, whyNot } (plan.id)}
       <tr
-        animate:flip={{ duration: duration(300) }}
+        animate:flip={{ duration: duration(SETTLE), easing: easeOut }}
         class:not-offered={!outcome}
         class:highlighted={app.highlighted.has(plan.id)}
         class:pinned={app.pinned.has(plan.id)}

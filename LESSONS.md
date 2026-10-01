@@ -324,8 +324,18 @@ all. Read those three first.
   ResizeObserver callback, once the element has a size, so `setup`'s effects
   live in an `$effect.root`. The option is a `$derived` read only while
   shown, and drawn in a timer set from an animation frame: that runs once the
-  frame is painted, so the typed digit and the table show first. Changes
-  under 250 ms apart don't glide.
+  frame is painted, so the typed digit and the table show first. When it
+  draws is `drawAt` (`glide.ts`, unit-tested): not before the glide in
+  flight has all but settled, and while a number is typed (an `input` event
+  on a text field, which a module-level listener notes), not before the
+  typing pauses for 300 ms, up to 900 ms. Until 2026-10-01 changes under
+  250 ms apart snapped instead, which the user found abrupt: typing and
+  dragging the years jumped in single frames.
+- While a field is being retyped, the results stay, faded and `inert`, under
+  the message: `comparison` keeps the last one that worked (`inputError` is
+  the message). Taking them off the page made it collapse, and the charts
+  drew themselves again from nothing on the next digit. Only a page opened
+  from a link with bad inputs has no results to show.
 - The `.choices` highlight is placed by `Choices.svelte` in CSS variables;
   `--glide` is 0 until it has been placed once, and while the buttons resize.
 - A box whose height is set from its own observed width (the breakdown's
@@ -386,6 +396,47 @@ all. Read those three first.
   beside a bar or on its total did nothing, though the outline shows the
   row as one thing. Filled with `transparent` and not silent, it takes the
   pointer for the whole row; the bars and names still get theirs.
+- The motion pass of 2026-10-01, measured frame by frame (CDP
+  `Page.startScreencast`, then the share of the chart's pixels that change
+  between frames: a glide spreads over many frames, a jump lands in one):
+  - The fee breakdown drew itself again from nothing at every change: its
+    series had no ids, and with `replaceMerge` ECharts removes every
+    series an id doesn't map ("all existing removed unless mapped by id",
+    `util/model.js`). Ids keep the old order, which is why they had been
+    left out (a focused fee must move to the start of the stack): they are
+    now the place in the stack, `fee 0` to `fee 4`.
+  - A line's update starts from the old layout's points
+    (`lineAnimationDiff`), not from where the line is drawn mid-glide, so a
+    glide cut short jumps. `drawAt` waits for it; at 85% of its time the
+    page's curve has covered 99% of the way, so the next starts then.
+  - ECharts doesn't animate a line at all when any point moves more than
+    3,000 px (`getBoundingDiff` in `LineView`): years added far past the
+    axis start beyond it, so a jump from 6 years to 35 lands at once.
+  - Axis labels move by tick value (`groupTransition`): a value on both
+    axes slides, the rest appear and vanish at once. ECharts can't fade them.
+  - A category axis's labels are its rows, while bars, matched by their
+    category's name, slide to their new rows: names jumped ahead of their
+    bars. They ride on the bars now: the names on the empty slot above each
+    bar, the totals past a clear bar that fills each row to the end.
+  - A line's end label is made with `disableLabelAnimation`, so it jumped
+    to where its line was going. Cleared (`releaseEndLabels`), its update
+    animation keeps it on the line's end, but only once ECharts has its old
+    place, and a label without one is faded in from nothing: the first
+    change after loading made every end label blink. `valueAnimation`
+    stops the fade (and counts the value up as the line draws itself in),
+    and `updateLabelLayout()` right after the first draw gives the labels
+    their places. Not after later draws: it cuts short the labels' glides.
+  - A bar chart's box changes height with its rows: ECharts resizes at
+    once, gliding (`resize({ animation })`), and a frame around the box
+    eases the page below on the same curve. Deferring the resize to the
+    draw cut off the old, taller drawing while a typed number was waited
+    for, which `layoutProblems` caught.
+  - zrender reads CSS `cubic-bezier()` strings as easing, so the charts use
+    the page's curve; `createCubicEasingFunc` gives Svelte the same function
+    (import it with `.js`: zrender's exports map passes paths through).
+  - Svelte runs an outro's easing in time order (`t = 1 - easing(progress)`),
+    so `--ease-in` reads right for what leaves. `slide`'s CSS ends without a
+    semicolon, so a property added after it needs one.
 - Pinned names were bold and wrapped differently about one render in twenty;
   with a single weight, 120 runs of 120 matched. `--repeat-each=40` shows
   whether a flake is gone.
@@ -565,35 +616,43 @@ was zoomed out.
 
 ## Speed
 
-`npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-09-30, on this
+`npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-10-01, on this
 machine, a production build, animations on. The phone project throttles
 the CPU 4× (about a Galaxy S24). Time to the next paint per interaction,
 by the Event Timing API; anything under about 50 ms isn't felt.
 
 | Measure                                         | phone (4×) | desktop |
 | ----------------------------------------------- | ---------: | ------: |
-| load, to the first chart (ms)                   |        916 |     242 |
-| typing a deposit (ms)                           |         80 |      32 |
-| typing the one-time deposit (ms)                |         56 |      32 |
-| switching the security (ms)                     |         64 |      24 |
-| switching the exchange (ms)                     |         80 |      24 |
-| switching calculators (ms)                      |         64 |      16 |
-| opening the list of plans (ms)                  |         24 |      16 |
-| ticking a broker's four plans (ms)              |         64 |      24 |
+| load, to the first chart (ms)                   |    844–919 |     259 |
+| typing a deposit (ms)                           |      56–64 |      32 |
+| typing the one-time deposit (ms)                |      48–56 |      24 |
+| switching the security (ms)                     |      88–96 |      24 |
+| switching the exchange (ms)                     |         96 |      24 |
+| switching calculators (ms)                      |         72 |      16 |
+| opening the list of plans (ms)                  |      24–32 |      16 |
+| ticking a broker's four plans (ms)              |      80–88 |      24 |
 | switching the chart view (ms)                   |         24 |      24 |
 | switching to the chart by deposit (ms)          |         24 |      16 |
 | frame gap while the chart by deposit draws (ms) |         50 |      17 |
-| opening a plan's details (ms)                   |         56 |      40 |
+| opening a plan's details (ms)                   |         40 |      40 |
 | opening a tip (ms)                              |         24 |      16 |
-| longest frame gap while the rows reorder (ms)   |      50–67 |      17 |
+| longest frame gap while the rows reorder (ms)   |         33 |      17 |
 | zooming: slider drag, or six wheel notches (ms) |         48 |      16 |
 | longest frame gap while zooming (ms)            |          – |      17 |
 | hovering across the rows (ms)                   |          – |      16 |
 | heap growth over 30 rounds of changes (MB)      |          1 |       1 |
 
-On the phone these are up from 2026-09-29 (typing 48 ms, load 751): the
-funds, two banks and the tax at the end came in between, and the default
-comparison has 9 plans. The list of plans moving into a sheet the same day
+Measured 2026-10-01, after the motion pass (glides of 400 ms that aren't cut
+short, and typing waited for): typing got faster on the phone (80 → 56–64),
+while a click right after another change got one or two frames slower
+(security 64 → 88–96, ticking 64 → 80–88). The measures click there and
+back, so the second click lands during the first change's glide, and waits
+for the chart's frame being drawn. Before, that glide lasted 180 ms or
+snapped.
+
+On 2026-09-30 the phone's numbers were up from 2026-09-29 (typing 48 ms,
+load 751): the funds, two banks and the tax at the end came in between, and
+the default comparison has 9 plans. The list of plans moving into a sheet the same day
 changed nothing: measured against the commit before it on the same machine,
 each number was the same or a frame better. A frame gap moves by one frame
 (17 ms) from run to run: compare runs on a quiet machine, not with the dev

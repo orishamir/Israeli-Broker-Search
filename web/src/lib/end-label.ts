@@ -14,6 +14,9 @@ export function endLabel(
 ): LineSeriesOption['endLabel'] {
   return {
     show: true,
+    // Counts up as the line draws itself in; and a label with no place yet
+    // to glide from (see the chart attachment) isn't faded in instead.
+    valueAnimation: true,
     formatter: (params) => `{rank|${line.rank}} ${value(params as { value: unknown })}`,
     color: faded ? undefined : line.color,
     opacity: faded ? 0.6 : 1,

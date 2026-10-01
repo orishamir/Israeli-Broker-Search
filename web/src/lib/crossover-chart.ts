@@ -109,7 +109,8 @@ export function crossoverOption(view: CrossoverView): ChartOption {
       markLine: {
         silent: true,
         symbol: 'none',
-        animation: false,
+        // Glides with the axis, but doesn't draw itself in.
+        animationDuration: 0,
         data: [{ xAxis: yours }],
         lineStyle: { type: 'dashed', color: WEAK, width: 1.5 },
         label: { formatter: t.you(depositText(yours, view.swept)), position: 'insideEndTop', color: WEAK },

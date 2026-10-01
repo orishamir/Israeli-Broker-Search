@@ -10,6 +10,7 @@
   import PlanSheet from './PlanSheet.svelte'
   import { t } from './text'
   import { en } from './text/en'
+  import { reveal } from './motion'
   import Tip from './Tip.svelte'
 
   let { app }: { app: AppState } = $props()
@@ -99,7 +100,7 @@
   </div>
   {#if app.exchange !== 'Tlv'}
     <!-- Rarely changed, so folded away unless the download failed. -->
-    <details class="rates" open={app.ratesStatus.kind === 'failed'}>
+    <details class="rates" open={app.ratesStatus.kind === 'failed'} transition:reveal>
       <summary>
         <!-- Left to right even in Hebrew, or the equals signs read backwards. -->
         <bdi dir="ltr">$1 = ₪{app.ilsPerUsd ?? '?'} · €1 = ₪{app.ilsPerEur ?? '?'}</bdi>
@@ -204,7 +205,7 @@
 <!-- Asked only while it changes something: a ticked plan pays a pension. -->
 {#if app.pensionFromAge !== undefined}
   {@const from = app.pensionFromAge}
-  <section class="card">
+  <section class="card" transition:reveal>
     <div class="heading">
       <h3>{t.takingTheMoneyOut}</h3>
       <Tip about={t.takingTheMoneyOut}>{t.takingTheMoneyOutTip(from)}</Tip>
@@ -232,7 +233,7 @@
 <!-- Last: what most people leave as it is. Off, the core is sent the
      defaults its ? names. -->
 <section class="card">
-  <div class="heading">
+  <div class="heading more">
     <h3>
       <label class="switch">
         <input type="checkbox" bind:checked={app.moreOptions} />
@@ -242,7 +243,7 @@
     <Tip about={t.moreOptions}>{t.moreOptionsTip(compactPercent(app.usualInflation))}</Tip>
   </div>
   {#if app.moreOptions}
-    <div class="fields">
+    <div class="fields more" transition:reveal>
       <span class="wraps">
         <label for="deposit-growth">{t.growingBy}</label><Tip about={t.growingBy}>{t.growingByTip}</Tip>
       </span>
@@ -296,9 +297,13 @@
   .heading h3 {
     margin: 0;
   }
-  /* More options while it's off: a heading alone in its card. */
-  .heading:last-child {
+  /* More options: its fields bring the space under its heading, so that
+     it opens and closes smoothly, and the heading is alone while it's off. */
+  .heading.more {
     margin-bottom: 0;
+  }
+  .fields.more {
+    padding-top: 10px;
   }
   .switch {
     display: flex;

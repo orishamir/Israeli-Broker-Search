@@ -46,17 +46,18 @@
 
   /** A text's width as the chart draws it: the page's font, at the names' size. */
   const context = document.createElement('canvas').getContext('2d')!
-  context.font = `${NAME_SIZE}px ${getComputedStyle(document.documentElement).fontFamily}`
-  const measure = (text: string) => context.measureText(text).width
+  const font = getComputedStyle(document.documentElement).fontFamily
+  const measure = (text: string, bold = false) => {
+    context.font = `${bold ? 'bold ' : ''}${NAME_SIZE}px ${font}`
+    return context.measureText(text).width
+  }
 
   const option = () => splitOption({ splits, atTheRate: interest, pinned: short.pinned, width, measure })
 
   /** Hovering a bar or a name highlights its row; clicking pins it. */
   function setup(instance: ECharts) {
-    const placeAt = (event: { componentType?: string; dataIndex?: number; value?: unknown }) =>
-      event.componentType === 'yAxis'
-        ? splits.find(({ id }) => id === event.value)
-        : splits[event.dataIndex ?? -1]
+    // The names and totals ride on the bars: every part of a row has its index.
+    const placeAt = (event: { dataIndex?: number }) => splits[event.dataIndex ?? -1]
     instance.on('mouseover', (event) => {
       if (!touchScreen) short.hovered = placeAt(event)?.id ?? null
     })
@@ -77,14 +78,17 @@
 </script>
 
 <p class="hint">{t.rateLine(shekels(interest))}</p>
-<div
-  class="bars"
-  bind:clientWidth={null, setWidth}
-  style:height="{barsHeight(splits.length, narrow.current)}px"
-  {@attach chart(option, setup)}
-  role="img"
-  aria-label={t.splitAria}
-></div>
+<!-- As in the fee breakdown: the frame's height follows the chart's. -->
+<div class="frame" style:height="{barsHeight(splits.length, narrow.current)}px">
+  <div
+    class="bars"
+    bind:clientWidth={null, setWidth}
+    style:height="{barsHeight(splits.length, narrow.current)}px"
+    {@attach chart(option, setup)}
+    role="img"
+    aria-label={t.splitAria}
+  ></div>
+</div>
 <ul class="legend">
   <li><span class="swatch yours"></span>{t.yoursPart}</li>
   <li><span class="swatch" style:background={KEPT_COLOR}></span>{t.keptPart}</li>
@@ -96,6 +100,10 @@
     margin: 8px 0 4px;
     color: var(--weak);
     font-size: 0.85rem;
+  }
+  .frame {
+    overflow: clip;
+    transition: height var(--settle);
   }
   .bars {
     width: 100%;

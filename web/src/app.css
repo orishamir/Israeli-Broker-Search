@@ -36,6 +36,9 @@
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --quick: 150ms var(--ease-out);
+  /* The results moving to new numbers: the charts, the summary, the rows
+     (`SETTLE` in motion.ts). */
+  --settle: 400ms var(--ease-out);
 
   color: var(--text);
   background: var(--background);

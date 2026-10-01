@@ -219,7 +219,7 @@ export class ShortTermState {
   })
 
   /** The ticked places, best first, or why they couldn't be compared. */
-  comparison: ShortTermComparison = $derived.by(() => {
+  private latest: ShortTermComparison = $derived.by(() => {
     let data: ShortTermComparisonData
     try {
       data = core.compareShortTerm(this.inputs)
@@ -239,6 +239,19 @@ export class ShortTermState {
       })),
     }
   })
+
+  /** The last comparison that worked. */
+  private lastWorked: ShortTermComparison | undefined
+
+  /** What the page shows: the comparison, or while the inputs can't be
+   * compared, the last one that could, faded under why not (see AppState). */
+  comparison: ShortTermComparison = $derived.by(() => {
+    if ('results' in this.latest) this.lastWorked = this.latest
+    return this.lastWorked ?? this.latest
+  })
+
+  /** Why the inputs can't be compared, while they can't. */
+  inputError: string | undefined = $derived('error' in this.latest ? this.latest.error : undefined)
 
   /** The table's first place. */
   best: PlaceResult | undefined = $derived(

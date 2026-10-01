@@ -65,8 +65,9 @@ export interface BarsView {
   pinned: ReadonlySet<string>
   /** The box's width in pixels, for fitting names and amounts. */
   width: number
-  /** A text's width in pixels, in the names' font (see `fitName`). */
-  measure: (text: string) => number
+  /** A text's width in pixels, in the names' font (see `fitName`), or in
+   * bold, the totals'. */
+  measure: (text: string, bold?: boolean) => number
 }
 
 /** Screens where the rows get a little more height, for a finger. Decided
@@ -79,9 +80,9 @@ export const rowHeight = (narrow: boolean) => (narrow ? 46 : 44)
 export const NAME_SIZE = 12
 
 // Each row, top to bottom: the plan's name on a line of its own, a gap, and
-// its bar. ECharts centers both a row's bar and its name in the row, so an
-// empty slot the height of the name's line goes above each bar, and the
-// name is moved up into it.
+// its bar. ECharts puts a row's bars one under the other, in its middle: an
+// empty slot the height of the name's line goes above each bar, and carries
+// the name.
 export const NAME_LINE = 15
 export const GAP = 3
 export const BAR = 16
@@ -90,6 +91,11 @@ export const BAR_BELOW = (NAME_LINE + GAP) / 2
 
 /** Around the rows: room for the axis below them. */
 export const MARGIN = { left: 4, right: 4, top: 4, bottom: 24 }
+/** Between a bar's row and its total. */
+export const TOTAL_GAP = 8
+/** ECharts puts a gap after each slot, as a share of its height. The last
+ * bar series' gap counts for all of them. */
+export const BAR_GAP = `${(GAP / NAME_LINE) * 100}%`
 /** The bars' box: a row for each plan, and the axis. */
 export const barsHeight = (rows: number, narrow: boolean) =>
   rows * rowHeight(narrow) + MARGIN.top + MARGIN.bottom
@@ -113,83 +119,34 @@ export function fitName(name: string, room: number, measure: (text: string) => n
 
 export function barsOption({ bars, focus, pinned, width, measure }: BarsView): ChartOption {
   const largest = Math.max(...bars.map(({ fees }) => fees.total))
-  // Roughly: the box without the totals.
-  const pixelsPerShekel = Math.max(width - 60, 0) / largest
+  const totals = bars.map(({ fees }) => compactShekels(fees.total))
+  // The totals go right of the bars.
+  const right =
+    MARGIN.right + Math.ceil(Math.max(0, ...totals.map((total) => measure(total, true)))) + TOTAL_GAP
+  const pixelsPerShekel = Math.max(width - MARGIN.left - right, 0) / largest
   const fits = (amount: number) => amount * pixelsPerShekel > 44
   // The box, less its margins and a pinned name's padding.
   const room = width - MARGIN.left - MARGIN.right - 2 * 5
   return {
-    grid: { ...MARGIN },
+    grid: { ...MARGIN, right },
     xAxis: {
       type: 'value',
       max: largest,
       axisLabel: { formatter: compactShekels, color: WEAK, showMaxLabel: false, hideOverlap: true },
       splitLine: { lineStyle: { color: GRID } },
     },
-    yAxis: [
-      {
-        type: 'category',
-        inverse: true,
-        // Ids, not names, which can repeat: the formatter shows the names.
-        data: bars.map(({ id }) => id),
-        axisTick: { show: false },
-        axisLine: { show: false },
-        triggerEvent: true,
-        axisLabel: {
-          // Above the bar, from where it starts: padding below the name
-          // moves it up into the slot over the bar.
-          inside: true,
-          margin: 0,
-          padding: [0, 0, 2 * NAME_ABOVE, 0],
-          color: TEXT,
-          fontSize: NAME_SIZE,
-          // Every name: ECharts skips labels it thinks would crowd.
-          interval: 0,
-          // A dot in the plan's color (hollow for your own plans), and the
-          // name, on a tint of that color when pinned.
-          formatter: (_id: string, index: number) => {
-            const bar = bars[index]
-            const dot = bar.hollow ? '◯' : '●'
-            const style = pinned.has(bar.id) ? `pinned${index}` : 'name'
-            const name = fitName(bar.label, room - measure(`${dot} `), measure)
-            return `{dot${index}|${dot}} {${style}|${name}}`
-          },
-          rich: {
-            ...Object.fromEntries(
-              bars.flatMap((bar, index) => [
-                [`dot${index}`, { color: bar.color }],
-                [
-                  `pinned${index}`,
-                  {
-                    color: TEXT,
-                    backgroundColor: `${bar.color}40`,
-                    borderRadius: 4,
-                    padding: [2, 5],
-                  },
-                ],
-              ]),
-            ),
-            name: { color: TEXT },
-          },
-        },
-      },
-      {
-        // Each plan's total, level with its bar.
-        type: 'category',
-        inverse: true,
-        position: 'right',
-        data: bars.map(({ fees }) => compactShekels(fees.total)),
-        axisTick: { show: false },
-        axisLine: { show: false },
-        axisLabel: {
-          // Padding moves only rich text, as the names are: plain text stays
-          // in the middle of the row.
-          padding: [2 * BAR_BELOW, 0, 0, 0],
-          formatter: (total: string) => `{total|${total}}`,
-          rich: { total: { color: TEXT, fontWeight: 'bold' } },
-        },
-      },
-    ],
+    yAxis: {
+      type: 'category',
+      inverse: true,
+      // Ids, not names, which can repeat.
+      data: bars.map(({ id }) => id),
+      axisTick: { show: false },
+      axisLine: { show: false },
+      // Each plan's name and total ride on its row (see the series), so
+      // they move with it when the order changes. As the axis's labels they
+      // stayed in place, and jumped ahead of the bars.
+      axisLabel: { show: false },
+    },
     tooltip: {
       trigger: 'axis',
       axisPointer: {
@@ -199,10 +156,11 @@ export function barsOption({ bars, focus, pinned, width, measure }: BarsView): C
       },
       valueFormatter: (value) => shekels(value as number),
     },
-    // No ids: ECharts would then keep each series' old position, and a
-    // focused fee wouldn't move to the start of the bars.
+    // Every series has an id: one without is drawn again from nothing at
+    // every change (see the chart attachment's `replaceMerge`).
     series: [
       {
+        id: 'outline',
         // Around each pinned or hovered plan, from its name to its total, an
         // outline in its color. Only an outline: filled colors in the bars
         // are always fees, and the plans' colors look much like the fees'.
@@ -212,7 +170,8 @@ export function barsOption({ bars, focus, pinned, width, measure }: BarsView): C
         // the row picks its plan, not only on its name or its bar.
         type: 'custom',
         tooltip: { show: false },
-        data: bars.map((_, index) => [0, index]),
+        // Named by plan, so that each moves with its row.
+        data: bars.map(({ id }, index) => ({ name: id, value: [0, index] })),
         renderItem: (_params, api) => {
           const index = api.value(1) as number
           const { color, id } = bars[index]
@@ -237,21 +196,59 @@ export function barsOption({ bars, focus, pinned, width, measure }: BarsView): C
         },
       },
       {
-        // The empty slot above each bar, where its name goes. Being the
-        // first bars, they're put first in each row, at the top.
+        // The empty slot above each bar, which carries the plan's name.
+        // Being the first bars, they're put first in each row, at the top.
+        id: 'names',
         type: 'bar',
         barWidth: NAME_LINE,
         data: bars.map(() => 0),
-        silent: true,
         tooltip: { show: false },
+        emphasis: { disabled: true },
+        label: {
+          show: true,
+          // From where the bar starts.
+          position: 'right',
+          distance: 0,
+          color: TEXT,
+          fontSize: NAME_SIZE,
+          // A dot in the plan's color (hollow for your own plans), and the
+          // name, on a tint of that color when pinned.
+          formatter: ({ dataIndex }) => {
+            const bar = bars[dataIndex]
+            const dot = bar.hollow ? '◯' : '●'
+            const style = pinned.has(bar.id) ? `pinned${dataIndex}` : 'name'
+            const name = fitName(bar.label, room - measure(`${dot} `), measure)
+            return `{dot${dataIndex}|${dot}} {${style}|${name}}`
+          },
+          rich: {
+            ...Object.fromEntries(
+              bars.flatMap((bar, index) => [
+                [`dot${index}`, { color: bar.color }],
+                [
+                  `pinned${index}`,
+                  {
+                    color: TEXT,
+                    backgroundColor: `${bar.color}40`,
+                    borderRadius: 4,
+                    padding: [2, 5],
+                  },
+                ],
+              ]),
+            ),
+            name: { color: TEXT },
+          },
+        },
       },
-      ...stacking(focus).map((type): BarSeriesOption => ({
+      ...stacking(focus).map((type, place): BarSeriesOption => ({
+        // By its place in the stack, not by fee: ECharts keeps a series with
+        // an id where it was, so a fee's own id would keep it where it was
+        // stacked when another fee is focused.
+        id: `fee ${place}`,
         name: type.name,
         type: 'bar',
         stack: 'fees',
         barWidth: BAR,
-        // ECharts puts a gap after each slot, as a share of its height.
-        barGap: `${(GAP / NAME_LINE) * 100}%`,
+        barGap: BAR_GAP,
         // Once plans are pinned, the others fade a little.
         data: bars.map(({ id, fees }) => ({
           value: fees[type.key],
@@ -270,6 +267,25 @@ export function barsOption({ bars, focus, pinned, width, measure }: BarsView): C
             fits(value as number) && colorOf(type, focus) !== FADED ? compactShekels(value as number) : '',
         },
       })),
+      {
+        // The rest of each row, clear, with the plan's total past its end.
+        id: 'totals',
+        type: 'bar',
+        stack: 'fees',
+        barWidth: BAR,
+        barGap: BAR_GAP,
+        data: bars.map(({ fees }) => largest - fees.total),
+        itemStyle: { color: 'transparent' },
+        tooltip: { show: false },
+        emphasis: { disabled: true },
+        label: {
+          show: true,
+          position: 'right',
+          distance: TOTAL_GAP,
+          formatter: ({ dataIndex }) => `{total|${totals[dataIndex]}}`,
+          rich: { total: { color: TEXT, fontWeight: 'bold' } },
+        },
+      },
     ],
   }
 }
@@ -302,7 +318,10 @@ export function overTimeOption(feesUpToYear: FeeAmounts[], focus: Focus): ChartO
       valueFormatter: (value) => shekels(value as number),
       axisPointer: { label: { formatter: ({ value }) => t.after(Number(value), 0) } },
     },
-    series: stacking(focus).map((type) => ({
+    // By place in the stack, as in the bars: another plan's fees then glide
+    // into place rather than being drawn again from nothing.
+    series: stacking(focus).map((type, place) => ({
+      id: `fee ${place}`,
       name: type.name,
       type: 'line',
       stack: 'over time',

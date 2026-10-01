@@ -68,7 +68,12 @@ the UI is Svelte 5 + ECharts.
   core `Plan`s the web side never looks inside (`PlanData`). The charts' options are pure functions in
   `growth-chart.ts`, `crossover-chart.ts` (the chart by deposit) and
   `fee-breakdown.ts`; the components only wire them to ECharts and the
-  state, so the options are unit-tested without a browser. `link.ts` puts a
+  state, so the options are unit-tested without a browser. When a chart
+  draws a change and how long it glides there is `glide.ts`; the page's
+  curves and times, for CSS and script alike, are `motion.ts`. While the
+  inputs can't be compared (a field being retyped), the page keeps the last
+  results, faded, under the message: either state's `comparison` is the one
+  shown, `inputError` why the inputs can't be compared. `link.ts` puts a
   comparison into the page's address (the Share button): the inputs, the
   ticked plans by label, and your own ticked plans as data; a short-term
   link says so (`c=s`) and carries that calculator's inputs, places and
@@ -195,9 +200,9 @@ the unit tests in Node, then the browser.
   typing. A repeated key in a keyed `{#each}` throws at runtime, unseen by
   svelte-check.
 - **ECharts:**
-  - The `chart` attachment draws just after the paint that follows a change,
-    so typing shows first, and not at all while its element has no size (a
-    hidden view). Both chart views stay mounted; a hidden one keeps its
+  - The `chart` attachment draws never before the paint that follows a
+    change, so typing shows first, and not at all while its element has no
+    size (a hidden view). Both chart views stay mounted; a hidden one keeps its
     canvas. An option must not read what hiding its view changes (its box's
     width, which goes to 0; whether its own view is chosen), or coming back
     draws it all again: keep the value it was last shown with.
@@ -205,7 +210,16 @@ the unit tests in Node, then the browser.
     is a hover and a click at once. Use `dispatchAction` (highlight).
   - On touch screens (`pointer.ts`), ignore `mouseover`, because a scrolling
     finger fires it.
-  - Series `id`s make `replaceMerge` keep the old order.
+  - Every series needs an `id`: with `replaceMerge`, one without is drawn
+    again from nothing at every change. Ids keep the old order, so where the
+    order changes (a focused fee stacked first) the id is the place, not
+    what's in it.
+  - A line's next glide starts from where the last one was going, not from
+    where the line is: a glide cut short jumps (`drawAt` waits).
+  - Labels that must move with their bars ride on the bars (series labels):
+    a category axis's labels stay in place while the bars slide. A line's
+    end label doesn't glide unless the attachment lets it
+    (`releaseEndLabels`).
   - Events carry `seriesIndex`, not `seriesId`.
   - Never let ECharts wrap or cut a label (`overflow`): zrender 6 guesses
     every letter outside ASCII to be as wide as a Chinese one, so Hebrew
@@ -251,10 +265,14 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   - one tooltip style everywhere;
   - outlined buttons;
   - units inside the fields;
-  - motion through the tokens in `app.css`: `--ease-out` for what arrives,
-    `--ease-in` and less time for what leaves; presses sink a little; a
-    change closer than 250 ms to the last one (typing) snaps instead of
-    gliding; nothing moves under `prefers-reduced-motion`.
+  - motion through the tokens in `app.css` (`motion.ts` for script):
+    `--ease-out` for what arrives, `--ease-in` and less time for what
+    leaves; presses sink a little; the results move to new numbers together
+    for `--settle` (400 ms): the charts glide, the summary's numbers roll and
+    the rows slide. A chart never cuts a glide short, follows a dragged
+    slider in shorter glides, and waits for a typed number to pause; what
+    comes and goes opens and closes (`transition:reveal`); nothing moves
+    under `prefers-reduced-motion`.
 - **Charts:**
   - time is shown as an axis, never a slider, and never in 3D;
   - the table and charts are linked, for hovering and pinning;

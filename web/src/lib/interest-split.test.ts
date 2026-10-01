@@ -35,6 +35,13 @@ const view = (changes: Partial<SplitView> = {}): SplitView => ({
 const bars = (option: ReturnType<typeof splitOption>) =>
   (option.series as BarSeriesOption[]).filter(({ stack }) => stack === 'interest')
 
+type Labelled = BarSeriesOption & { label: { formatter: (params: { dataIndex: number }) => string } }
+/** What a series writes on each row, top to bottom. */
+const written = (option: ReturnType<typeof splitOption>, id: string) => {
+  const series = (option.series as Labelled[]).find((each) => each.id === id)!
+  return (series.data as unknown[]).map((_, dataIndex) => series.label.formatter({ dataIndex }))
+}
+
 test("a place that keeps something fills the rate's interest; one that pays more passes it", () => {
   expect(lengthOf(fund)).toBe(3250)
   expect(lengthOf(bank)).toBe(3870)
@@ -58,8 +65,26 @@ test("the saver's part is in each place's color, and its amount is the total bes
     '#56b4e9',
   ])
   expect(yours.label).toMatchObject({ show: false })
-  const [, totals] = option.yAxis as { data: string[] }[]
-  expect(totals.data).toEqual([shekels(3290), shekels(2807)])
+  expect(written(option, 'totals')).toEqual([`{total|${shekels(3290)}}`, `{total|${shekels(2807)}}`])
+})
+
+test('names and totals ride on the bars, and every series keeps its id', () => {
+  const option = splitOption(view({ pinned: new Set(['fund']) }))
+  // So that a change glides rather than drawing the bars again from nothing.
+  expect((option.series as BarSeriesOption[]).map(({ id }) => id)).toEqual([
+    'outline',
+    'names',
+    'yours',
+    'kept',
+    'tax',
+    'totals',
+  ])
+  expect(written(option, 'names')).toEqual(['{dot0|●} {name|Bank}', '{dot1|●} {pinned1|Fund}'])
+  // The totals go past the rest of each row, which is clear: the bank's bar
+  // is the longest.
+  const totals = (option.series as BarSeriesOption[]).find(({ id }) => id === 'totals')!
+  expect(totals.data).toEqual([0, 3870 - 3250])
+  expect(option.yAxis).toMatchObject({ data: ['bank', 'fund'], axisLabel: { show: false } })
 })
 
 test('once a place is pinned, the others fade a little', () => {

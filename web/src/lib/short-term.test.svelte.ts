@@ -99,5 +99,5 @@ test('an empty rate of your own says which field to fill in', () => {
   const short = start()
   const yours = short.addYourDeposit()
   short.updateYourDeposit({ ...yours, ratePercent: null })
-  expect(short.comparison).toEqual({ error: 'מלאו את הריבית של הפיקדון שלכם' })
+  expect(short.inputError).toBe('מלאו את הריבית של הפיקדון שלכם')
 })
