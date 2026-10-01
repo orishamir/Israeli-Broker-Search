@@ -82,9 +82,10 @@ the UI is Svelte 5 + ECharts.
   sell or keep) and the chart by
   deposit sit behind the "More options" switch, the last card of either
   calculator's inputs, whose fields open inside it; off, the state sends
-  the core the defaults. The sweep (every plan over a range of deposits, for
-  that chart and the best plan's line about other deposits) is 10–15
-  comparisons' work, so a Web Worker with its own copy of the core does it
+  the core the defaults. The sweep (the ticked plans over a range of
+  deposits, for that chart and the best plan's line about other deposits)
+  is 16 comparisons' work (23 when it varies the one-time deposit), so a
+  Web Worker with its own copy of the core does it
   (`sweeper.ts`, `sweep.worker.ts`); the state matches each answer to the
   request it answers. The sweep and the line about other deposits are about
   fees alone (the yearly cost), while the table ranks after tax: the line
@@ -97,7 +98,10 @@ the UI is Svelte 5 + ECharts.
   `sources.md` says where each number comes from and how unclear rows were
   read (the law's rules in `vehicles.rs` and the funds' fees too), and
   `not-modeled.md` lists the fees and taxes the app leaves out.
-  `gemel-net.py` works the funds' fees out from the regulator's open data.
+  `gemel-net.py` works the funds' fees out from the regulator's open data,
+  `money-market-funds.py` the money market funds' from the stock
+  exchange's, and `deposit-rates.py` the banks' deposit rates from the
+  Bank of Israel's.
 
 Keep as much logic as possible in Rust; the web side displays what it returns.
 
@@ -140,8 +144,10 @@ quietly keep running the old core.
   `Caveat::published` (the document says so), `reading(text, support)` (an
   unclear row, and what backs the reading), `at_most` (a stand-in on the
   expensive side), `may_cost_more(text, summary)` (the cheap side: the
-  summary is flagged under the plan in the results table, and ⚠ means only
-  that, everywhere), `not_counted` (a real cost left out, and why). Every
+  summary is flagged under the plan in the results table, and of the
+  caveats only these are marked ⚠; besides, ⚠ marks a plan the inputs
+  don't fit, as a first deposit too small, and a price-list row that's
+  never used), `not_counted` (a real cost left out, and why). Every
   text, name and source name is a `Text` pair, written `t("English",
 "עברית")`: the compiler refuses a caveat with one language.
   `.about_fee(kind)` marks it beside that fee's price; `.when_above(amount)`
@@ -233,8 +239,12 @@ the unit tests in Node, then the browser.
   - A grid child with a wide table needs `minmax(0, 1fr)`, or the page widens.
   - A table sized by its contents moves every column when a note comes or
     goes: the results tables give the name's column a set share (`width`)
-    and split the rest. A line that comes and goes in a summary card keeps
-    its space (`.gone`), or the table below jumps.
+    and split the rest. A warning in the best plan's card is a ⚠ beside its
+    amount (`WarningSign`), its words in the table's row below: a line of
+    its own moved the table, and an empty line kept for it looked broken.
+  - The tables' box (`.scrolls`) scrolls sideways only: rows sliding to new
+    places reach past its bottom for a moment, which showed a vertical
+    scroll bar.
   - A chosen button must keep its width: bold wrapped the row.
   - The Baseline plugin rejects `overscroll-behavior` (Safari lacks it on the
     page root) and, until October 2026, `:popover-open`: tips carry an `open`
@@ -262,7 +272,7 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   Scrolling with a finger must never pick anything.
 - **Keep the main thing prominent.** Secondary information stays subtle:
   - the exchange rates are folded into one line;
-  - the broker and ID columns are de-emphasized.
+  - the broker's name under each plan, and the rank, are de-emphasized.
 
   Groups of inputs go in separate cards.
 

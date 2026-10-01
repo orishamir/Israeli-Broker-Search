@@ -58,8 +58,8 @@ sources are in `sources.md`, "Tax and the vehicles".
   fund for investment to ₪200,000 a saver
   ([Globes](https://www.globes.co.il/news/article.aspx?did=1001547467),
   [Bizportal](https://www.bizportal.co.il/longtermsavings/news/article/20034793)).
-  Not law: the exemption is modelled whole. Check again before the pension
-  is shown.
+  Not law: the exemption is modelled whole, and the fund's caveat says so.
+  Check again when the pension's rules change.
 - **Tax benefits on deposits:** the self-employed may deduct deposits to
   a study fund of up to 4.5% of their income, to ₪13,203 a year (2026). Not
   counted, by the user's decision; a caveat says the fund may be worth

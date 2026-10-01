@@ -77,7 +77,11 @@ test("the best plan is the table's first, with its warning when it needs a bigge
   const { label, warning } = await best()
   expect(warning).toBeTruthy()
   await expect(card).toContainText(t.best(label))
-  await expect(card).toContainText(`⚠ ${warning}`)
+  // A sign beside the amount, which says it on hover or tap: a line of its
+  // own would change the card's height and move the table.
+  const sign = card.getByRole('button', { name: `⚠ ${warning}`, exact: true })
+  await sign.hover()
+  await expect(card.getByRole('tooltip')).toHaveText(warning!)
 })
 
 // Worked out off the page's thread (sweeper.ts), so it follows the inputs a

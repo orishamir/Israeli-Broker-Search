@@ -1777,12 +1777,12 @@ pub fn about(lang: Lang) -> About {
                 "המחשבון מחשב כל מסלול חודש אחר חודש, על ההפקדות שלכם. כל הפקדה מגיעה בתחילת החודש ומחכה בשקלים עד הקנייה הבאה. בקנייה הכסף מומר (אם קונים בחו״ל) ומושקע; אם הבנק או בית ההשקעות לא מוכר שברי מניה, נקנות רק מניות שלמות. דמי ניהול החשבון (אחוז מהתיק או סכום קבוע) משולמים כל חודש מהשקלים. בסוף הכול נמכר, מומר חזרה לשקלים, ומשולם מס על הרווח; הסכום שנשאר קובע את הדירוג בטבלה. אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי התיק, בלי עמלת מכירה ובלי מס.",
             ),
             paragraph(
-                "A provident fund for investment or a savings policy is run the same way, \
-                 with a manager in the broker's place: its fee comes off each deposit and off \
+                "A provident fund for investment, a study fund or a savings policy is run the \
+                 same way, with a manager in the broker's place: its fee comes off each deposit and off \
                  the balance every month, every deposit is invested as it arrives, and \
                  nothing is paid for trades or for converting. It's taken to earn what your \
                  security does, before fees.",
-                "קופות ופוליסות מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. המחשבון מניח שהקופה מרוויחה, לפני דמי ניהול, בדיוק מה שנייר הערך שבחרתם מרוויח.",
+                "קופת גמל להשקעה, קרן השתלמות ופוליסת חיסכון מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. המחשבון מניח שהקופה מרוויחה, לפני דמי ניהול, בדיוק מה שנייר הערך שבחרתם מרוויח.",
             ),
             match lang {
                 Lang::En => format!(
@@ -1813,11 +1813,12 @@ pub fn about(lang: Lang) -> About {
                  bought every month. A plan's yearly cost states that loss the way a fund's \
                  management fee is stated: the yearly charge on your holdings that would cost \
                  you the same. Buying every three months rather than monthly leaves money \
-                 waiting, and that counts too. The chart by deposit runs every plan on other \
-                 deposits than yours, from ₪100 to ₪32,000 a month, to show where the ranking \
-                 flips: a plan with minimum fees is dear for small deposits and cheap for large \
-                 ones.",
-                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״ מחשב כל מסלול גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש, כדי להראות איפה מתחלף המסלול הזול: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
+                 waiting, and that counts too. The chart by deposit, under \u{201c}More \
+                 options\u{201d}, runs the plans you compare on other deposits than yours, from \
+                 ₪100 to ₪32,000 a month (or, with no monthly deposit, from ₪1,000 to \
+                 ₪4,600,000 at once), to show where their ranking by fees flips: a plan with \
+                 minimum fees is dear for small deposits and cheap for large ones.",
+                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד-פעמית מ-₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \

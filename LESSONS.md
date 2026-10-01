@@ -247,7 +247,7 @@ all. Read those three first.
   said once, for the kind: in the list of places under the kind's name, and
   in a line under the table. Repeated under each deposit it took 7 of 8
   rows. A place's own flag stays under its row, and the best place's card
-  shows either.
+  shows either as a ⚠ beside its amount (`WarningSign`).
 - Caveat texts repeat across coverages, so `Caveats.svelte` keys by position.
   `app.spec.ts` opens every plan's dialog and fails on any page error
   (`each_key_duplicate` blanked a dialog): it covers new brokers by itself.
@@ -287,7 +287,21 @@ all. Read those three first.
   Keep options short (about 12 characters fit the smallest phones at 16px);
   `layoutProblems` flags cut-off dropdowns.
 - Table cells are `nowrap`: a long warning widened the table past its card
-  until warnings and notes were allowed to wrap.
+  until warnings and notes were allowed to wrap. Sized by what was in it,
+  the plan's column still grew with its longest note (498 to 631 px for an
+  index fund in the USA, on a 2000 px screen), moving every number when the
+  security or exchange changed: the name's column now has a set share of
+  the table (30%) and the rest split what's left, so a note makes its row
+  taller instead.
+- A line that comes and goes in a summary card moves everything under it,
+  and an empty line kept for it looked broken to the user (2026-10-01): the
+  best plan's warning became a ⚠ beside its amount, its words in a tip and
+  under the plan in the table's first row. Measure such a change over
+  every security and exchange, at several widths, not in one screenshot.
+- `overflow-x: auto` makes `overflow-y` auto too: while the rows slid to
+  new places (`animate:flip`), they reached past the table's new bottom,
+  and its box showed a vertical scroll bar for a few frames. The box now
+  has `overflow-y: hidden`.
 - An `IntersectionObserver` fires only when a threshold is crossed: a jump
   straight past the element (`scrollIntoView`, a tap on the phone's bar with
   the best plan) crosses none, and the bar stayed. The bar also listens to
@@ -478,7 +492,8 @@ all. Read those three first.
   two plans cost about the same, so its exact place matters little.
 - The sweep costs a comparison's work at each of 16 amounts (23 for a
   one-time deposit): 26 ms on a desktop for the six usual plans abroad,
-  97 ms for all 13, and four times that on the phone profile. Shown for
+  97 ms for all 13 plans listed then, and four times that on the phone
+  profile. Shown for
   everyone, it can't run on the page's thread at every change, so a module
   worker (`new Worker(new URL(...), { type: 'module' })`, which Vite
   bundles with the wasm-bindgen glue as is) runs its own copy of the core.
@@ -496,8 +511,8 @@ all. Read those three first.
   hidden tip: click a choice through `choice(page, group, name)`.
 - Screenshots were the suite's biggest coupling: 208 baselines on 9
   devices, re-recorded (and looked at) whenever a number, a label or a
-  padding changed, since full-page pictures contain everything. Now there
-  are 10, with the data masked; layout is checked by rules, charts by
+  padding changed, since full-page pictures contain everything. They went
+  down to 10, with the data masked (18 now: see `web/tests/CLAUDE.md`); layout is checked by rules, charts by
   comparing the canvas before and after an action, and the words by the
   core's own description of them (`tests/core.ts`). The run went from 68 s
   and 264 tests to 49 s and 207, the desktop alone 10 s. Asked whether the
@@ -525,6 +540,12 @@ all. Read those three first.
   succeeds on a retry can hide a real jump: Playwright scrolls again before
   each retry. Log the page's scroll events around the click (a capture
   listener) before blaming the test; that's how the tooltip's zoom showed.
+
+- Headless Chromium draws no scroll bars (Playwright starts it hiding
+  them), so `offsetWidth - clientWidth` is 0 there even where a user sees
+  one. To catch a scroll bar, watch every frame (`requestAnimationFrame`,
+  motion on) for a box whose `overflow-y` is auto or scroll and whose
+  `scrollHeight` passes its `clientHeight`.
 
 - `getByRole('status')` also matches an `<output>` (a slider's readout):
   its implicit role is status. Find a live region by its text instead.
@@ -628,24 +649,27 @@ by the Event Timing API; anything under about 50 ms isn't felt.
 
 | Measure                                         | phone (4×) | desktop |
 | ----------------------------------------------- | ---------: | ------: |
-| load, to the first chart (ms)                   |    844–919 |     259 |
+| load, to the first chart (ms)                   |    824–919 | 239–272 |
 | typing a deposit (ms)                           |      56–64 |      32 |
 | typing the one-time deposit (ms)                |      48–56 |      24 |
 | switching the security (ms)                     |      88–96 |      24 |
-| switching the exchange (ms)                     |         96 |      24 |
-| switching calculators (ms)                      |         72 |      16 |
-| opening the list of plans (ms)                  |      24–32 |      16 |
+| switching the exchange (ms)                     |      88–96 |      24 |
+| switching calculators (ms)                      |      64–72 |      16 |
+| opening the list of plans (ms)                  |      24–40 |      16 |
 | ticking a broker's four plans (ms)              |      80–88 |      24 |
 | switching the chart view (ms)                   |         24 |      24 |
-| switching to the chart by deposit (ms)          |         24 |      16 |
-| frame gap while the chart by deposit draws (ms) |         50 |      17 |
-| opening a plan's details (ms)                   |         40 |      40 |
+| switching to the chart by deposit (ms)          |         24 |   16–24 |
+| frame gap while the chart by deposit draws (ms) |      50–67 |      17 |
+| opening a plan's details (ms)                   |         40 |   40–48 |
 | opening a tip (ms)                              |         24 |      16 |
-| longest frame gap while the rows reorder (ms)   |         33 |      17 |
-| zooming: slider drag, or six wheel notches (ms) |         48 |      16 |
+| longest frame gap while the rows reorder (ms)   |      33–50 |      17 |
+| zooming: slider drag, or six wheel notches (ms) |         48 |   16–32 |
 | longest frame gap while zooming (ms)            |          – |      17 |
 | hovering across the rows (ms)                   |          – |      16 |
 | heap growth over 30 rounds of changes (MB)      |          1 |       1 |
+
+The ranges include two runs on 2026-10-01's evening, after the tables'
+set columns and the best card's ⚠, each within a frame of the earlier ones.
 
 Measured 2026-10-01, after the motion pass (glides of 400 ms that aren't cut
 short, and typing waited for): typing got faster on the phone (80 → 56–64),
@@ -701,6 +725,11 @@ chart), so click away first.
   `overscroll-behavior: contain`, is out because the Baseline plugin rejects
   the property (Safari lacks it only on the page root); a lint exception is
   the user's call.
+- At 1,600 px wide and narrower, a long line in the best plan's
+  card ("Above ₪18,000 a month, Meitav · Typical offer is cheaper") takes
+  two lines, so the summary, and the table under it, can still move by a
+  line when the security or exchange changes. At 2000 px nothing moves
+  (the layout test checks there).
 - A plan with tracks that isn't ticked has no picked track, so its fee list
   shows all its tracks instead of the cheapest.
 - Leumi's markup is a dated reading of its published buy/sell rates

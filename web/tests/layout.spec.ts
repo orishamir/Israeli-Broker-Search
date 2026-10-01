@@ -246,8 +246,8 @@ test('with every security and exchange chosen', { tag: '@phone' }, async ({ page
 })
 
 // What's bought, and where, changes the notes under the plans and the
-// warning under the best one: their rows grow taller, nothing moves sideways,
-// and the table doesn't move down.
+// warning beside the best one's amount: their rows grow taller, nothing moves
+// sideways, and the table doesn't move down.
 test("the table's columns and the summary's height stay put whatever is bought, and where", async ({
   page,
 }) => {
@@ -275,6 +275,39 @@ test("the table's columns and the summary's height stay put whatever is bought, 
       )
     }
   }
+})
+
+test.describe('while the rows slide', () => {
+  test.use({ reducedMotion: 'no-preference' })
+
+  // Rows sliding to their new places reach past the table's bottom for a
+  // moment: that showed a vertical scroll bar in its box.
+  test('no box but the page scrolls up and down', async ({ page }) => {
+    await page.evaluate(() => {
+      const scrolled = new Set<string>()
+      Object.assign(window, { scrolled })
+      const frame = () => {
+        for (const box of document.querySelectorAll('body *')) {
+          const { overflowY } = getComputedStyle(box)
+          if (/auto|scroll/.test(overflowY) && box.scrollHeight > box.clientHeight + 1) {
+            scrolled.add(`${box.tagName.toLowerCase()}.${[...box.classList].join('.')}`)
+          }
+        }
+        requestAnimationFrame(frame)
+      }
+      requestAnimationFrame(frame)
+    })
+    for (const security of securities()) {
+      await choice(page, t.security, security.name).click()
+      for (const exchange of exchanges()) {
+        await choice(page, t.exchange, exchange.name).click()
+        // Each slide to its end before the next change.
+        await page.waitForFunction(() => document.getAnimations().length === 0)
+      }
+    }
+    const scrolled = await page.evaluate(() => [...(window as unknown as { scrolled: Set<string> }).scrolled])
+    expect(scrolled).toEqual([])
+  })
 })
 
 test('with the exchange rates open, and a tip open', { tag: '@phone' }, async ({ page }) => {

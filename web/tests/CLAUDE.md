@@ -25,7 +25,7 @@ catch the bug:
   | Changed                                                                        | Spec         |
   | ------------------------------------------------------------------------------ | ------------ |
   | InputsPanel, Examples, NumberField, Choices, PlanSheet, BrokerPicker, rates.ts | `inputs`     |
-  | ResultsTable, the stats in App.svelte, PlanPreview                             | `results`    |
+  | ResultsTable, the stats in App.svelte, WarningSign, PlanPreview                | `results`    |
   | GrowthChart, CrossoverChart, echarts.svelte.ts                                 | `chart`      |
   | FeeBreakdown                                                                   | `breakdown`  |
   | DetailsDialog, FeesForInputs, Caveat\*, Sources, the about page                | `details`    |
@@ -77,14 +77,19 @@ catch the bug:
   tip on the screen, no card flush against the one above it. A test plants
   each of those bugs and checks the rules notice, so a rule that never
   fires can't pass for a clean page. A new view, dialog or choice gets a
-  state there; a new class of layout bug gets a rule, not a screenshot. `breakdown.spec.ts` records what the chart
-  draws (`fillText`) and checks that every plan's name is drawn whole, on
-  one line: none cut to fit the screen.
+  state there; a new class of layout bug gets a rule, not a screenshot.
+  Two tests check what changing the inputs does: over every security and
+  exchange, the table's columns and the summary's height stay put; and, with
+  motion on, no box but the page scrolls up and down while the rows slide.
+  `breakdown.spec.ts` records what the chart draws (`fillText`) and checks
+  that every plan's name is drawn whole, on one line: none cut to fit the
+  screen.
 - **Pictures, 18 in all, for what rules can't see** (a color, an
-  alignment): the start page on each of the nine devices, and, on the
+  alignment): the start page on each of the nine devices; on the
   narrowest phone and the desktop only (`@pictures`), a plan's details, the
-  editor in both views, and the fee breakdown. What comes from the tariffs
-  is masked, so they change only when the page itself does; the breakdown's
+  editor in both views, and the fee breakdown; and an open tip on the
+  desktop (`tips.spec.ts`). What comes from the tariffs is masked, so they
+  change only when the page itself does; the breakdown's
   bars can't be, since the amounts are the picture, so a tariff change
   re-records those two. A growth chart is checked by comparing its canvas
   before and after (`canvasPicture`): zooming must change it and resetting
@@ -123,8 +128,10 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
 - In CI (`.github/workflows/deploy.yml`) only the desktop project runs, with
   `--ignore-snapshots`: the runner's fonts differ from the ones the pictures
   were recorded with. Phones and the performance suite are run here.
-- A full run takes about 85 s (283 tests on 9 devices), the desktop alone
-  50 s. Run it twice after timing-related changes.
+- A full run takes about 110 s (320 tests on 9 devices), the desktop alone
+  (100 of them) 25 s; the first run after `npm run wasm` can take a few
+  minutes more, while Vite starts cold. Run it twice after timing-related
+  changes.
 
 ## Performance: `npm run test:perf`
 

@@ -16,6 +16,7 @@
   import type { PlaceResult, ShortTermView } from './lib/short-term.svelte'
   import ShortTermInputs from './lib/ShortTermInputs.svelte'
   import ValueChart from './lib/ValueChart.svelte'
+  import WarningSign from './lib/WarningSign.svelte'
   import { askSweep } from './lib/sweeper'
   import { percent, shekels } from './lib/format'
   import { duration, easeOut, reducedMotion, reveal, SETTLE } from './lib/motion'
@@ -211,7 +212,11 @@
             {#if best?.outcome}
               <div class="card stat best" style:--plan-color={best.plan.color}>
                 <span class="label">{t.best(best.plan.label)}</span>
-                <span class="value">{shekels(bestValue.current)}</span>
+                <span class="value"
+                  >{shekels(bestValue.current)}{#if best.warning}<WarningSign
+                      text={best.warning}
+                    />{/if}</span
+                >
                 {#if app.sellAtEnd}
                   <span class="note"
                     >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
@@ -219,11 +224,6 @@
                 {/if}
                 <span class="note"
                   >{t.lostAndYearly(shekels(bestLost.current), percent(best.outcome.yearlyCostPercent))}</span
-                >
-                <!-- Its line is kept when there's none, so the table below
-                     doesn't move as it comes and goes. -->
-                <span class="note warning" class:gone={!best.warning}
-                  >{best.warning ? `⚠ ${best.warning}` : '\u00a0'}</span
                 >
                 <span class="note around" class:gone={!app.aroundLine.shown}>{app.aroundLine.text}</span>
               </div>
@@ -309,11 +309,11 @@
               {@const flag = shortBest.place.info.mayCostMore ?? shortBest.place.kindFlag}
               <div class="card stat best" style:--plan-color={shortBest.place.color}>
                 <span class="label">{t.best(shortBest.place.label)}</span>
-                <span class="value">{shekels(shortBestValue.current)}</span>
+                <span class="value"
+                  >{shekels(shortBestValue.current)}{#if flag}<WarningSign text={flag} />{/if}</span
+                >
                 <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
                 <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
-                <!-- Kept when there's none, as in the long term's. -->
-                <span class="note warning" class:gone={!flag}>{flag ? `⚠ ${flag}` : '\u00a0'}</span>
               </div>
             {/if}
             <div class="card stat">
@@ -506,9 +506,6 @@
     color: var(--weak);
     font-size: 0.8rem;
   }
-  .stat .warning {
-    color: var(--warning);
-  }
 
   /* The bar exists on phones only (the desktop shows the results beside the
      inputs). It slides up when it appears and is just gone when it hides. */
@@ -570,6 +567,9 @@
   }
   .scrolls {
     overflow-x: auto;
+    /* Not auto too: rows sliding to their new places reach past the table's
+       new bottom for a moment, which showed a vertical scroll bar. */
+    overflow-y: hidden;
     /* A shadow at the left edge, where a right-to-left table ends, while
        there's more to scroll to: the cover moves with the content and hides
        it at the end. */
