@@ -328,8 +328,9 @@ test('a copy knows its original by name, shares its color, and charges the same 
   const leftAfterSelling = (id: string) =>
     results(app).find(({ plan }) => plan.id === id)!.outcome!.afterSelling
   expect(leftAfterSelling(copy.id)).toBe(leftAfterSelling(original.id))
-  // The fees shown for it are its own claim: no caveats.
-  expect(app.feesFor(copy).caveats).toEqual([])
+  // The fees shown for it are its own claim: no caveats but those of the
+  // fund it holds.
+  expect(app.feesFor(copy).caveats).toEqual(app.heldProduct!.caveats)
 })
 
 test('off, the expert inputs are not sent; on, they are, and keeping the holdings drops the sale', () => {

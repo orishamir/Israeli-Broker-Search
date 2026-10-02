@@ -14,7 +14,7 @@
 use std::cell::Cell;
 
 use broker_fees::describe::{
-    self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced, Source,
+    self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced, ProductFor, Source,
 };
 use broker_fees::examples;
 use broker_fees::short_term::{self, Liquidity, Pays, Place, Term};
@@ -25,7 +25,7 @@ use broker_fees::yours::{
 };
 use broker_fees::{
     Broker, BrokerKind, Buying, Exchange, ExchangeRates, IntoEnumIterator, Lang, Money, Named,
-    Percent, Period, Plan, Security, TradeFee, Withdrawal, ils,
+    Percent, Period, Plan, Product, Security, TradeFee, Withdrawal, ils,
 };
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -378,6 +378,11 @@ pub fn brokers() -> Result<Vec<Ts<BrokerInfo>>, JsError> {
 pub struct Purchase {
     pub security: Security,
     pub exchange: Exchange,
+    /// What a broker's plans hold it through: one of
+    /// `productsFor(purchase)`, the first of them when it's missing or isn't.
+    #[serde(default)]
+    #[tsify(optional)]
+    pub product: Option<Product>,
     /// The biggest single order in the exchange's currency, from the
     /// comparison ([`ComparisonData::largest_trade`]), if it ran: some
     /// caveats matter only above an amount.
@@ -403,9 +408,14 @@ impl Purchase {
             let amount = Decimal::from_f64_retain(self.largest_trade?)?;
             Some(Money::from_decimal(amount, self.exchange.currency()))
         });
+        let products = Product::for_purchase(self.security, self.exchange);
         let buying = Buying {
             security: self.security,
             exchange: self.exchange,
+            product: self
+                .product
+                .filter(|product| products.contains(product))
+                .or(products.first().copied()),
             largest_trade,
         };
         let rates = rates.unwrap_or_else(|| {
@@ -413,6 +423,25 @@ impl Purchase {
         });
         (buying, rates)
     }
+}
+
+/// What `purchase` can be held through at a broker, the one most held first,
+/// each with what it keeps back a year and why: one for most purchases, two
+/// for an ETF in Tel Aviv, none for a share or a bond.
+#[wasm_bindgen(js_name = productsFor)]
+pub fn products_for(purchase: Ts<Purchase>) -> Result<Vec<Ts<ProductFor>>, JsError> {
+    let purchase = purchase.to_rust()?;
+    let (buying, rates) = purchase.buying();
+    Product::for_purchase(purchase.security, purchase.exchange)
+        .iter()
+        .map(|product| {
+            let buying = Buying {
+                product: Some(*product),
+                ..buying
+            };
+            Ok(product.describe_for(buying, &rates, lang()).into_ts()?)
+        })
+        .collect()
 }
 
 /// What plan `plan` of broker `broker` charges for `purchase`, in words, on
@@ -482,6 +511,12 @@ pub fn purchase_phrase(security: Ts<Security>, exchange: Ts<Exchange>) -> Result
 pub struct Inputs {
     pub security: Security,
     pub exchange: Exchange,
+    /// What a broker's plans hold the index through, one of
+    /// `productsFor(security, exchange)`; the first of them when it's
+    /// missing or isn't one of them.
+    #[serde(default)]
+    #[tsify(optional)]
+    pub product: Option<Product>,
     // The numbers are null while their field is empty.
     /// ₪
     #[tsify(type = "number | null")]
@@ -699,9 +734,14 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
     } else {
         Decimal::ZERO
     };
+    let products = Product::for_purchase(inputs.security, inputs.exchange);
     let scenario = Scenario {
         security: inputs.security,
         exchange: inputs.exchange,
+        product: inputs
+            .product
+            .filter(|product| products.contains(product))
+            .or(products.first().copied()),
         first_deposit: amount(inputs.first_deposit, Field::FirstDeposit)?,
         monthly_deposit: amount(inputs.monthly_deposit, Field::MonthlyDeposit)?,
         deposit_growth: Percent(filled_in(
@@ -825,6 +865,8 @@ pub enum WhyNot {
     OverTheCeiling,
     /// Its money can't be taken out yet when the years are up.
     Locked,
+    /// A fund's only track compared holds an index, not one share or bond.
+    NoMatchingTrack,
 }
 
 impl From<NotOffered> for WhyNot {
@@ -833,6 +875,7 @@ impl From<NotOffered> for WhyNot {
             NotOffered::NoPrice => WhyNot::NotSold,
             NotOffered::OverTheCeiling { .. } => WhyNot::OverTheCeiling,
             NotOffered::Locked { .. } => WhyNot::Locked,
+            NotOffered::NoMatchingTrack => WhyNot::NoMatchingTrack,
         }
     }
 }
@@ -901,6 +944,8 @@ pub struct FeeAmounts {
     /// amount, since no plan charges both, so ranking by it puts brokers and
     /// funds side by side.
     pub holding: f64,
+    /// What the fund that holds the index kept back on its own.
+    pub product: f64,
     pub selling: f64,
     pub total: f64,
 }
@@ -911,6 +956,7 @@ impl From<&Fees> for FeeAmounts {
             purchases: number(fees.purchases),
             conversions: number(fees.conversions),
             holding: number(fees.custody + fees.handling + fees.management),
+            product: number(fees.product),
             selling: number(fees.selling),
             total: number(fees.total()),
         }
@@ -942,6 +988,7 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
     let buying = Buying {
         security,
         exchange,
+        product: scenario.product,
         largest_trade: Some(Money::from_decimal(
             no_fees.largest_trade,
             exchange.currency(),
@@ -2031,6 +2078,7 @@ mod tests {
         Inputs {
             security: Security::Etf,
             exchange: Exchange::Usa,
+            product: None,
             first_deposit: Some(10_000.0),
             monthly_deposit: Some(2_000.0),
             yearly_return_percent: Some(10.0),
@@ -2256,8 +2304,10 @@ mod tests {
         // Its fees count keeping the account: custody and the handling fee.
         let fees = &altshuler.outcome.as_ref().unwrap().fees;
         assert!(fees.holding > 0.0);
-        let parts = fees.purchases + fees.conversions + fees.holding + fees.selling;
+        let parts = fees.purchases + fees.conversions + fees.holding + fees.product + fees.selling;
         assert!((parts - fees.total).abs() < 0.01);
+        // The US fund it holds keeps back its share too.
+        assert!(fees.product > 0.0);
         // A copy made from the comparison is on that track, and so is the
         // listed plan it's compared with.
         let copy = listed(0, 0).unwrap().copy_of(Some(track));
@@ -2338,7 +2388,8 @@ mod tests {
 
     /// A fund's management fee is counted where a broker's custody is, so
     /// comparing by what holding costs puts the two side by side, rather than
-    /// the fund first at nothing.
+    /// the fund first at nothing; what its track keeps back is apart, as a
+    /// broker's fund's is.
     #[test]
     fn a_funds_fee_is_what_holding_costs() {
         let mut inputs = inputs();
@@ -2349,8 +2400,8 @@ mod tests {
             .as_ref()
             .unwrap()
             .fees;
-        assert!(fees.holding > 0.0);
-        assert!((fees.holding - fees.total).abs() < 0.01);
+        assert!(fees.holding > 0.0 && fees.product > 0.0);
+        assert!((fees.holding + fees.product - fees.total).abs() < 0.01);
     }
 
     /// Taken at once, a fund pays the tax a broker does and ranks by its

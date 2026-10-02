@@ -113,6 +113,7 @@ fn the_cheapest_track_is_picked() {
         let scenario = Scenario {
             security: Etf,
             exchange: Usa,
+            product: None,
             first_deposit: dec!(0),
             monthly_deposit,
             deposit_growth: Percent(dec!(0)),
@@ -143,6 +144,7 @@ fn the_cheapest_track_is_picked() {
     let tel_aviv = Scenario {
         security: Etf,
         exchange: Tlv,
+        product: None,
         first_deposit: dec!(0),
         monthly_deposit: dec!(1000),
         deposit_growth: Percent(dec!(0)),
@@ -1231,6 +1233,89 @@ fn otsar_plans_have_their_own_words_and_caveats() {
     }
 }
 
+// ─────────────────────────── Products: what holding the index costs ───────────────────────────
+
+/// What `policies/index-tracking.py` found in October 2026 (`products.rs`):
+/// each kind's yearly cost is the larger of what it publishes and how far it
+/// trailed the S&P 500 with its dividends over five years.
+#[test]
+fn the_products_costs_as_measured() {
+    let yearly = |product: Product| product.costs().yearly();
+    // Index funds publish 0.26% with their most variable fee, trailed 0.15%.
+    assert_eq!(yearly(Product::IsraeliIndexFund), Percent(dec!(0.26)));
+    // ETFs publish 0.82%, trailed 0.75%.
+    assert_eq!(yearly(Product::IsraeliEtf), Percent(dec!(0.82)));
+    // iShares and Invesco in Tel Aviv publish 0.20%, trailed 0.19%.
+    assert_eq!(yearly(Product::ForeignEtfInTelAviv), Percent(dec!(0.20)));
+    // VOO: 0.03% + a quarter of 1.44% of dividends = 0.39%.
+    assert_eq!(yearly(Product::UsFund), Percent(dec!(0.39)));
+    // CSPX: 0.07% + 15% of 1.44% = 0.286%, more than the 0.28% it trailed.
+    assert_eq!(yearly(Product::IrishFund), Percent(dec!(0.286)));
+    // The funds' S&P 500 tracks trailed by this much before their fee.
+    assert_eq!(yearly(Product::StudyFundTrack), Percent(dec!(0.42)));
+    assert_eq!(yearly(Product::InvestmentGemelTrack), Percent(dec!(0.54)));
+    assert_eq!(yearly(Product::SavingsPolicyTrack), Percent(dec!(0.33)));
+}
+
+/// ₪10,000 in an Israeli ETF at a broker that charges nothing, for a year
+/// with no growth: the ETF keeps back 0.82% of it, a twelfth of a year's
+/// share each month, so ₪9,918 is left and the product took ₪82.
+#[test]
+fn a_product_keeps_back_its_yearly_cost() {
+    let scenario = Scenario {
+        security: Etf,
+        product: Some(Product::IsraeliEtf),
+        ..one_deposit(dec!(10000), 1, dec!(0), 30)
+    };
+    let outcome = simulate(&free_plan(), &scenario, &rates()).unwrap();
+    assert_eq!(outcome.after_selling.round_dp(2), dec!(9918.00));
+    assert_eq!(outcome.fees.product.round_dp(2), dec!(82.00));
+    assert_eq!(outcome.fees.total(), outcome.fees.product);
+}
+
+/// A fund holds its own S&P 500 track, whatever a broker's plans would
+/// hold: ₪10,000 in a provident fund for investment with no fee, for a year
+/// with no growth, keeps 1 − 0.54% of it, ₪9,946, while an Israeli ETF is
+/// what's bought.
+#[test]
+fn a_fund_holds_its_own_track() {
+    let no_fee = ManagementFee {
+        of_deposits: Percent(dec!(0)),
+        of_balance: Percent(dec!(0)),
+    };
+    let scenario = Scenario {
+        security: Etf,
+        product: Some(Product::IsraeliEtf),
+        ..one_deposit(dec!(10000), 1, dec!(0), 30)
+    };
+    let outcome = simulate(&fund(Vehicle::InvestmentGemel, no_fee), &scenario, &rates()).unwrap();
+    assert_eq!(outcome.after_selling.round_dp(2), dec!(9946.00));
+    assert_eq!(outcome.fees.product.round_dp(2), dec!(54.00));
+}
+
+/// ₪100,000 in a US fund at a broker that charges nothing, for ten years at
+/// 10% a year with no inflation. The fund keeps back 0.39% a year, so the
+/// holdings grow by (1.1 × 0.9961)^(1/12) a month, to ₪249,434.35. Each
+/// month, the dividends left after their tax, 1.08% a year of the holdings,
+/// are reinvested, and count as bought then: ₪17,724.29 over the ten years.
+/// The gain taxed is 249,434.35 − 100,000 − 17,724.29 = 131,710.06, a
+/// quarter of which is ₪32,927.51, leaving ₪216,506.83. Taxed on the whole
+/// gain, as if the dividends hadn't been taxed already, it would have been
+/// ₪37,358.59.
+#[test]
+fn a_us_funds_dividends_are_taxed_once() {
+    let scenario = Scenario {
+        security: Etf,
+        exchange: Usa,
+        product: Some(Product::UsFund),
+        ..one_deposit(dec!(100000), 10, dec!(10), 30)
+    };
+    let outcome = simulate(&free_plan(), &scenario, &rates()).unwrap();
+    assert_eq!(outcome.after_selling.round_dp(2), dec!(249434.35));
+    assert_eq!(outcome.tax.round_dp(2), dec!(32927.51));
+    assert_eq!(outcome.after_tax.round_dp(2), dec!(216506.83));
+}
+
 // ─────────────────────────── The law: tax and ceilings ───────────────────────────
 
 /// One deposit, kept for `years` at `yearly_return`, by a saver of `age`.
@@ -1238,6 +1323,7 @@ fn one_deposit(first_deposit: Decimal, years: u32, yearly_return: Decimal, age: 
     Scenario {
         security: IndexFund,
         exchange: Tlv,
+        product: None,
         first_deposit,
         monthly_deposit: dec!(0),
         deposit_growth: Percent(dec!(0)),
@@ -1438,15 +1524,15 @@ fn a_provident_fund_takes_no_more_than_its_ceiling() {
 
 // ─────────────────────────── Funds and policies ───────────────────────────
 
-/// What savers paid, from the regulator's data of August 2026
-/// (`policies/gemel-net.py` prints these): the provident funds for
-/// investment that anyone can join average 0.6168% of the balance and
-/// 0.0010% of deposits; Harel is the cheapest company at 0.5519%, Mor the
-/// dearest at 0.7188%. The study funds anyone can join, without the
-/// self-managed ones, average 0.6125% and take nothing from deposits; Migdal
-/// is the cheapest at 0.5281%, Mor the dearest at 0.6981%. The insurers'
-/// investment policies sold since 2004 average 0.9393%. The funds' maximums
-/// are the regulations', and the policy's the 2% the insurers state.
+/// What savers in the S&P 500 tracks paid, from the regulator's data of
+/// August 2026 (`policies/index-tracking.py` prints these): the provident
+/// funds for investment that anyone can join average 0.584% of the balance
+/// and 0.001% of deposits; Menora Mivtachim is the cheapest company at
+/// 0.520%, Mor the dearest at 0.710%. The study funds anyone can join
+/// average 0.543% and take nothing from deposits; Clal is the cheapest at
+/// 0.480%, Mor the dearest at 0.700%. The insurers' S&P 500 tracks in the
+/// policies sold since 2004 average 0.768%. The funds' maximums are the
+/// regulations', and the policy's the 2% the insurers state.
 #[test]
 fn the_funds_fees_are_the_regulators() {
     let fee = |b: Broker, name: &str| plan(b, name).management.unwrap();
@@ -1455,17 +1541,17 @@ fn the_funds_fees_are_the_regulators() {
         of_deposits: Percent(of_deposits),
     };
     let gemel = funds::investment_gemel;
-    assert_eq!(fee(gemel(), "Average fee"), of(dec!(0.62), dec!(0)));
-    assert_eq!(fee(gemel(), "Cheapest company"), of(dec!(0.55), dec!(0)));
-    assert_eq!(fee(gemel(), "Dearest company"), of(dec!(0.72), dec!(0)));
+    assert_eq!(fee(gemel(), "Average fee"), of(dec!(0.58), dec!(0)));
+    assert_eq!(fee(gemel(), "Cheapest company"), of(dec!(0.52), dec!(0)));
+    assert_eq!(fee(gemel(), "Dearest company"), of(dec!(0.71), dec!(0)));
     assert_eq!(fee(gemel(), "Legal maximum"), LARGEST_GEMEL_FEE);
     let study = funds::study_fund;
-    assert_eq!(fee(study(), "Average fee"), of(dec!(0.61), dec!(0)));
-    assert_eq!(fee(study(), "Cheapest company"), of(dec!(0.53), dec!(0)));
+    assert_eq!(fee(study(), "Average fee"), of(dec!(0.54), dec!(0)));
+    assert_eq!(fee(study(), "Cheapest company"), of(dec!(0.48), dec!(0)));
     assert_eq!(fee(study(), "Dearest company"), of(dec!(0.70), dec!(0)));
     assert_eq!(fee(study(), "Legal maximum"), LARGEST_STUDY_FUND_FEE);
     let policy = funds::savings_policy;
-    assert_eq!(fee(policy(), "Average fee"), of(dec!(0.94), dec!(0)));
+    assert_eq!(fee(policy(), "Average fee"), of(dec!(0.77), dec!(0)));
     assert_eq!(fee(policy(), "Highest fee"), of(dec!(2), dec!(0)));
 }
 
@@ -1496,10 +1582,16 @@ fn a_funds_plans_charge_only_the_manager() {
                         // Long enough for a study fund to open.
                         ..one_deposit(dec!(10000), 7, dec!(8), 30)
                     };
+                    // A fund is compared on its S&P 500 track alone.
+                    if matches!(security, Bond | Stock) {
+                        let outcome = simulate(p, &scenario, &rates());
+                        assert_eq!(outcome.unwrap_err(), NotOffered::NoMatchingTrack);
+                        continue;
+                    }
                     let outcome = simulate(p, &scenario, &rates()).unwrap();
                     assert_eq!(
                         outcome.fees.total(),
-                        outcome.fees.management,
+                        outcome.fees.management + outcome.fees.product,
                         "{} {security:?} on {exchange:?}",
                         p.name.en
                     );

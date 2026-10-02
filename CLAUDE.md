@@ -22,11 +22,20 @@ the UI is Svelte 5 + ECharts.
   deposits or their tax-free part, and how long the money is locked, the
   same whoever runs the money, while fees belong to the plan (a fund's is a
   `ManagementFee`). `funds.rs` lists the kinds of fund like brokers
-  (`BrokerKind::Funds`), by what savers pay; `listed()` is the brokers, then
-  the funds. The comparison ranks by what's left after tax
+  (`BrokerKind::Funds`), by what savers in their S&P 500 tracks pay;
+  `listed()` is the brokers, then the funds. `products.rs` holds what each
+  fund holding the index keeps back on its own (`Product`, `Costs`): the
+  return the user expects is the index's, and every plan is charged its
+  product's yearly cost, the larger of what the fund publishes and how far
+  it trailed the S&P 500 over five years (measured by
+  `policies/index-tracking.py`). A broker's plans hold the fund bought
+  (`Scenario.product`, one of `Product::for_purchase`; `None` for a share or
+  a bond, and in tests for fees alone), a fund's its own S&P 500 track
+  (`Product::track_of`). The comparison ranks by what's left after tax
   (`Outcome::after_tax`) and says why a plan can't be used (`NotOffered`:
-  the security isn't sold, a year's deposits pass a fund's ceiling, or its
-  money is still locked at the end).
+  the security isn't sold, a year's deposits pass a fund's ceiling, its
+  money is still locked at the end, or a fund's only track compared holds
+  an index, not one share or bond).
   `short_term.rs` is the short-term calculator's engine, apart from
   `simulation`: a sum, and perhaps an amount every month, kept for 1 to
   60 months, in a money market fund at the funds' reported fees
@@ -77,7 +86,10 @@ the UI is Svelte 5 + ECharts.
   comparison into the page's address (the Share button): the inputs, the
   ticked plans by label, and your own ticked plans as data; a short-term
   link says so (`c=s`) and carries that calculator's inputs, places and
-  deposits of your own instead. The expert
+  deposits of your own instead. Under the exchange, `ProductLine.svelte`
+  names the fund that holds the index and what it keeps back a year, with
+  two buttons for an ETF in Tel Aviv (Israeli or foreign) and a ⚠ for US
+  estate tax; the fee breakdown shows it as "the fund itself". The expert
   inputs (growing deposits, buying less often than monthly, inflation,
   sell or keep) and the chart by
   deposit sit behind the "More options" switch, the last card of either
@@ -96,9 +108,11 @@ the UI is Svelte 5 + ECharts.
   is a separate switch there.
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from;
   `sources.md` says where each number comes from and how unclear rows were
-  read (the law's rules in `vehicles.rs` and the funds' fees too), and
-  `not-modeled.md` lists the fees and taxes the app leaves out.
+  read (the law's rules in `vehicles.rs`, the funds' fees and the products'
+  costs too), and `not-modeled.md` lists the fees and taxes the app leaves
+  out.
   `gemel-net.py` works the funds' fees out from the regulator's open data,
+  `index-tracking.py` the products' costs and the funds' S&P 500 tracks',
   `money-market-funds.py` the money market funds' from the stock
   exchange's, and `deposit-rates.py` the banks' deposit rates from the
   Bank of Israel's.
@@ -168,7 +182,8 @@ the unit tests in Node, then the browser.
 - `crates/core/tests/real_tariffs.rs` checks the tariffs against amounts
   worked out by hand from `policies`. A tariff change needs a case there,
   with the arithmetic in a comment; so does a change to the law's rules in
-  `vehicles.rs`.
+  `vehicles.rs`, and to the products' costs in `products.rs`
+  (`the_products_costs_as_measured`).
 - `crates/core/tests/economics.rs` checks what must hold for any plan and
   any investing pattern: where every shekel goes, that no plan beats no
   fees, that raising a fee never helps, the compounding formula, the

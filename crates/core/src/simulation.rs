@@ -54,11 +54,13 @@ use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
 use serde::{Deserialize, Serialize};
 
+use crate::products::Product;
 use crate::vehicles::Withdrawal;
 use crate::{
     ConversionFee, Exchange, Holding, IntoEnumIterator, Lang, ManagementFee, Percent, Plan, Price,
     Security, Text, Trade, TradeFee, Vehicle,
 };
+use rust_decimal_macros::dec;
 
 /// What the user invests in, and how.
 #[derive(Debug, Clone)]
@@ -73,8 +75,15 @@ pub struct Scenario {
     /// salary grows: 3% turns ₪2,000 a month into ₪2,060 in the second
     /// year. Negative shrinks the deposits.
     pub deposit_growth: Percent,
-    /// A year's growth, in the security's own currency.
+    /// A year's growth, in the security's own currency: for a fund, the
+    /// index's, dividends included, before anything the fund takes.
     pub yearly_return: Percent,
+    /// What a broker's plans hold the index through: one of the funds
+    /// [`Product::for_purchase`] lists. A fund's own plans hold their index
+    /// track instead ([`Product::track_of`]). `None` for a share or a bond,
+    /// held directly, and for the index itself, free in every plan, to look
+    /// at the fees alone.
+    pub product: Option<Product>,
     pub years: u32,
     /// Deposits wait as uninvested cash until the next purchase, which happens
     /// every this many months. Buying less often means paying fewer minimum fees.
@@ -116,6 +125,9 @@ pub enum InvalidScenario {
     /// Beyond [`LARGEST_VALUE`], where the decimal arithmetic could overflow.
     #[error("the deposits would grow too large to calculate")]
     TooLarge,
+    /// The product doesn't hold what's bought, where it's bought.
+    #[error("the product isn't one that holds the security on the exchange")]
+    ProductDoesntFit,
 }
 
 impl InvalidScenario {
@@ -134,6 +146,10 @@ impl InvalidScenario {
             InvalidScenario::TooLarge => lang.pick(
                 "the deposits would grow too large to calculate",
                 "ההפקדות גדלות מהר מדי בשביל החישוב",
+            ),
+            InvalidScenario::ProductDoesntFit => lang.pick(
+                "this fund isn't bought on this exchange",
+                "הקרן הזאת לא נקנית בבורסה הזאת",
             ),
         }
     }
@@ -159,6 +175,16 @@ impl Scenario {
             prices *= monthly;
         }
         total
+    }
+
+    /// The one-time deposit in `month` (0 is the first): all of it then,
+    /// none later.
+    fn one_time_deposit_in(&self, month: u32) -> Decimal {
+        if month == 0 {
+            self.first_deposit
+        } else {
+            Decimal::ZERO
+        }
     }
 
     /// Each month's deposit, first month first: the monthly deposit, grown
@@ -226,6 +252,10 @@ impl Scenario {
     /// Checks for what [`simulate`] can't handle: losing more than
     /// everything, and amounts too large for its decimal arithmetic.
     pub fn check(&self) -> Result<(), InvalidScenario> {
+        let fits = |product| Product::for_purchase(self.security, self.exchange).contains(&product);
+        if self.product.is_some_and(|product| !fits(product)) {
+            return Err(InvalidScenario::ProductDoesntFit);
+        }
         if self.yearly_return.0 < -Decimal::ONE_HUNDRED {
             return Err(InvalidScenario::ReturnBelowMinus100);
         }
@@ -353,6 +383,9 @@ pub struct Fees {
     pub handling: Decimal,
     /// A manager's share of the deposits and of the holdings.
     pub management: Decimal,
+    /// What the product holding the index took on its own: its fees and
+    /// the tax it lost on the index's dividends ([`Product::costs`]).
+    pub product: Decimal,
     /// Selling everything at the end and converting back to shekels.
     pub selling: Decimal,
 }
@@ -365,6 +398,7 @@ impl Fees {
             + self.custody
             + self.handling
             + self.management
+            + self.product
             + self.selling
     }
 }
@@ -473,6 +507,10 @@ pub enum NotOffered {
     /// which is later than the scenario ends.
     #[error("the vehicle's money can't be taken out for {years} years")]
     Locked { years: u32 },
+    /// A fund compared only on its index track, which follows an index,
+    /// not one share or bond.
+    #[error("no track of the fund holds what's bought")]
+    NoMatchingTrack,
 }
 
 /// Runs `scenario` on `plan`, on its cheapest track if it has tracks, or
@@ -483,6 +521,10 @@ pub fn simulate(
     scenario: &Scenario,
     rates: &ExchangeRates,
 ) -> Result<Outcome, NotOffered> {
+    let a_fund = Product::track_of(plan.vehicle).is_some();
+    if a_fund && !matches!(scenario.security, Security::Etf | Security::IndexFund) {
+        return Err(NotOffered::NoMatchingTrack);
+    }
     let locked_for = plan.vehicle.rules().open_after_years;
     if let Some(years) = locked_for.filter(|&years| scenario.years < years) {
         return Err(NotOffered::Locked { years });
@@ -565,9 +607,9 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         .filter(|_| buy_every_months == 1)
         .map(|row| &row.price);
     let currency = scenario.exchange.currency();
-    let monthly_growth = monthly_growth(scenario.yearly_return);
+    let growth = Growth::monthly(plan, scenario);
     // The law never lowers a cost: when prices fall, the whole gain is taxed.
-    let rising_prices = self::monthly_growth(scenario.inflation).max(Decimal::ONE);
+    let rising_prices = monthly_growth(scenario.inflation).max(Decimal::ONE);
 
     let mut cash_ils = Decimal::ZERO; // negative while fees are owed
     let mut left = Decimal::ZERO; // converted and not yet spent, in `currency`
@@ -580,11 +622,7 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
     let mut largest_trade = Decimal::ZERO;
 
     for (month, monthly_deposit) in (0..scenario.years * 12).zip(scenario.monthly_deposits()) {
-        let one_time = if month == 0 {
-            scenario.first_deposit
-        } else {
-            Decimal::ZERO
-        };
+        let one_time = scenario.one_time_deposit_in(month);
         // A manager's share comes off first, and is part of what the
         // holdings cost: the tax counts the whole deposit as paid in.
         let deposited = monthly_deposit + one_time;
@@ -622,9 +660,13 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
             }
         }
 
-        invested *= monthly_growth;
-        share_price *= monthly_growth;
-        taxed.month_passes(monthly_growth, rising_prices, plan.management);
+        let grown = invested * growth.index;
+        invested *= growth.held;
+        share_price *= growth.held;
+        fees_this_year.product += in_ils(grown - invested, currency, rates);
+        taxed.month_passes(growth.held, rising_prices, plan.management);
+        let reinvested_ils = in_ils(invested * growth.reinvested, currency, rates);
+        taxed.add(month, reinvested_ils, Decimal::ZERO);
 
         if let Some(fee) = plan.management {
             let charge = fee.for_month(invested);
@@ -673,6 +715,39 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         tax,
         after_tax: after_selling - tax,
     })
+}
+
+/// What a month does to the holdings: the index grows, and the product
+/// that holds it takes its share of that ([`Product::costs`]) and may pay
+/// dividends out.
+struct Growth {
+    /// What the index grows by in a month.
+    index: Decimal,
+    /// What the holdings grow by, once the product has taken its share.
+    held: Decimal,
+    /// The share of the holdings bought anew each month from dividends paid
+    /// out: taxed when paid, what's reinvested is part of what the holdings
+    /// cost. Zero where they aren't paid out.
+    reinvested: Decimal,
+}
+
+impl Growth {
+    /// A broker's plans hold what's bought; a fund's, its own index track.
+    fn monthly(plan: &Plan, scenario: &Scenario) -> Self {
+        let costs = scenario
+            .product
+            .map(|bought| Product::track_of(plan.vehicle).unwrap_or(bought).costs());
+        let kept = monthly_growth(Percent(
+            -costs.map_or(Decimal::ZERO, |costs| costs.yearly().0),
+        ));
+        let paid_out = costs.and_then(|costs| costs.paid_out());
+        let index = monthly_growth(scenario.yearly_return);
+        Growth {
+            index,
+            held: index * kept,
+            reinvested: paid_out.map_or(Decimal::ZERO, |paid| paid.0 / dec!(1200)),
+        }
+    }
 }
 
 /// What the tax at the end is worked out on: the holdings whose gain is
@@ -823,6 +898,7 @@ pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> C
     // month, and the growth lost while money waits counts as lost to fees.
     let buying_monthly = Scenario {
         buy_every_months: 1,
+        product: None,
         ..scenario.clone()
     };
     let no_fees =
@@ -1345,6 +1421,7 @@ mod tests {
         Scenario {
             security: Security::Etf,
             exchange: Exchange::Tlv,
+            product: None,
             first_deposit: dec!(10000),
             monthly_deposit: dec!(1000),
             deposit_growth: Percent(dec!(0)),

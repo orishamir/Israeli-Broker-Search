@@ -9,12 +9,17 @@ with two calculators, since only what earns the same thing can be ranked.
 ETF, an index fund, a bond or a stock), where (Tel Aviv, the USA or
 Europe), how much and for how long, and the app runs every plan's price
 list over those years, month by month: purchases, currency conversions,
-custody, handling fees, and the sale and the tax at the end. Beside the
-brokers it runs the same deposits in a provident fund for investment (קופת
-גמל להשקעה), a study fund (קרן השתלמות) and a savings policy (פוליסת
-חיסכון), each by its own tax rules. It ranks the plans by what you'd have
-left after tax, shows what each fee took, and states each plan's fees as a
-yearly cost, the way a fund states its management fee (דמי ניהול).
+custody, handling fees, and the sale and the tax at the end. The return
+you expect is the S&P 500's, dividends included, and every plan also loses
+what the fund holding it keeps back on its own (its fees and the tax lost
+on dividends, or how far it trailed the index over five years, whichever
+is more): an Israeli ETF, an Israeli index fund, a foreign one listed in
+Tel Aviv, a US or an Irish one. Beside the brokers it runs the same
+deposits in the S&P 500 track of a provident fund for investment (קופת גמל
+להשקעה), a study fund (קרן השתלמות) and a savings policy (פוליסת חיסכון),
+each by its own tax rules. It ranks the plans by what you'd have left after
+tax, shows what each fee took, and states each plan's costs as a yearly
+cost, the way a fund states its management fee (דמי ניהול).
 
 Banks and investment houses (בנקים ובתי השקעות) covered: Altshuler Shaham
 Trade, Bank Leumi (including Leumi Trade and Pepper), Excellence Trade, IBI,
@@ -36,9 +41,10 @@ publishes for each bank, or at a rate you were offered.
 
 Every price comes from the broker's own tariff document or site; the documents
 are in `policies/`, and `policies/sources.md` says where each number comes
-from and how unclear rows were read. The funds' fees and the banks' deposit
-rates are worked out from open data by the scripts beside them
-(`gemel-net.py`, `money-market-funds.py`, `deposit-rates.py`).
+from and how unclear rows were read. The funds' fees, what each kind of
+fund holding the S&P 500 has kept back, and the banks' deposit rates are
+worked out from open data by the scripts beside them (`gemel-net.py`,
+`index-tracking.py`, `money-market-funds.py`, `deposit-rates.py`).
 `policies/not-modeled.md` lists the fees and taxes left out and why. Each
 calculator's "About the numbers" page explains its method and links every
 source.

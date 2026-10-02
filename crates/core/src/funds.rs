@@ -2,10 +2,14 @@
 //! app lists each kind as a whole rather than every company, since a
 //! saver's fee is agreed person by person and the companies' averages are
 //! close: its plans are what savers pay on average, at the cheapest and the
-//! dearest company, and the most that's allowed.
+//! dearest company, and the most that's allowed. Each is compared on its
+//! S&P 500 track, the one that holds what a broker's plans buy: the fees
+//! are those tracks', and so is what the track itself keeps back
+//! ([`Product::track_of`](crate::Product::track_of)).
 //!
 //! The fees are the Capital Market Authority's, as the funds report them
-//! (`policies/gemel-net.py` works them out from its open data);
+//! (`policies/index-tracking.py` works them out from its open data, and
+//! `policies/gemel-net.py` the funds' fees over every track);
 //! `policies/sources.md` says how they were read. The tax and the ceiling on
 //! deposits are the vehicle's ([`crate::vehicles`]).
 
@@ -56,9 +60,10 @@ fn fee(of_balance: Decimal, of_deposits: Decimal) -> ManagementFee {
     }
 }
 
-/// A plan of a fund or a policy: the manager's fee is all there is to pay.
-/// Nothing is charged for the trades inside it or for holding, nothing is
-/// converted by the saver, and every shekel is invested.
+/// A plan of a fund or a policy: the manager's fee is all there is to pay,
+/// besides what its track keeps back. Nothing is charged for the trades
+/// inside it or for holding, nothing is converted by the saver, and every
+/// shekel is invested.
 fn managed(
     name: Text,
     description: Text,
@@ -199,7 +204,10 @@ pub fn meitav_on_tax() -> Page {
     )
 }
 
-fn direct_expenses_regulations() -> Page {
+/// The regulations on what a fund may charge its savers for investing,
+/// besides the management fee.
+#[must_use]
+pub fn direct_expenses_regulations() -> Page {
     source(
         t(
             "The regulations on a provident fund's direct expenses (Hebrew Wikisource)",
@@ -261,37 +269,31 @@ fn menora_comparison() -> Page {
 
 // ─────────────────────────── Caveats the kinds share ───────────────────────────
 
-/// A fund's own investing costs, which no fee here includes.
-fn investing_costs_arent_counted() -> Caveat {
-    Caveat::not_counted(t(
-        "A fund's own investing costs (הוצאות\u{a0}ישירות) come out of its return, on top of \
-         the management fee: trading commissions, and outside managers' fees of up to 0.25% \
-         of its assets a year. An ETF's own yearly fee at a broker isn't counted either.",
-        "גם לקופה עצמה יש עלויות השקעה (הוצאות ישירות), שיורדות מהתשואה בנוסף לדמי הניהול: עמלות מסחר, ודמי ניהול לגופים חיצוניים של עד 0.25% מנכסי הקופה בשנה. באותו אופן, גם דמי הניהול השנתיים של קרן סל בחשבון מסחר לא נספרים.",
-    ))
-    .source(&direct_expenses_regulations())
-}
-
-/// The return is the user's own assumption, for a fund as for a security.
-fn earns_what_the_security_does(what: Text) -> Caveat {
+/// Only the track that holds what a broker's plans buy is compared.
+fn other_tracks_arent_compared(what: Text) -> Caveat {
     let Text { en, he } = what;
     Caveat::not_counted(Text::owned(
         format!(
-            "{en} is taken to earn what the security you chose earns, before fees. An \
-             investment track that follows the same index (מסלול\u{a0}עוקב\u{a0}מדד) does. A \
-             managed track earns more or less than that, and the app can't know which."
+            "{en} is compared on its S&P 500 track (מסלול\u{a0}עוקב\u{a0}מדד\u{a0}S&P\u{a0}500), \
+             which holds the same index as what's bought at a broker. Its other tracks hold \
+             other things: an equity or a general track (מניות, כללי) holds Israeli shares, \
+             and bonds, and hedges most of its dollars, so in some years it makes more than \
+             the S&P 500 and in others less. Over 2005–2025 the study funds' equity tracks \
+             made 8.5% a year in shekels, before fees, and the S&P 500 9.1%. They aren't \
+             compared: they don't earn what the index does."
         ),
         format!(
-            "המחשבון מניח ש{he} מרוויחה, לפני דמי ניהול, בדיוק מה שנייר הערך שבחרתם מרוויח. במסלול השקעה שעוקב אחרי אותו מדד זה בערך כך. מסלול מנוהל עשוי להרוויח יותר או פחות, ואין דרך לדעת מראש."
+            "{he} מושווית במסלול ה-S&P\u{a0}500 שלה (מסלול עוקב מדד S&P\u{a0}500), שמחזיק את אותו מדד שקונים בחשבון מסחר. במסלולים האחרים יש דברים אחרים: מסלול מניות או מסלול כללי מחזיק גם מניות ישראליות ואג״ח, ומגדר את רוב החשיפה לדולר, ולכן בשנים מסוימות הוא מרוויח יותר מ-S&P\u{a0}500 ובאחרות פחות. בשנים 2005–2025 הרוויחו מסלולי המניות של קרנות ההשתלמות 8.5% בשנה בשקלים, לפני דמי ניהול, ו-S&P\u{a0}500 הרוויח 9.1%. הם לא מושווים כאן, כי הם לא מרוויחים את מה שהמדד מרוויח."
         ),
     ))
+    .source(&gemel_net())
 }
 
 // ─────────────────────────── Provident fund for investment ───────────────────────────
 
 /// Kupat Gemel Le'hashkaa. Fees: Gemel Net's report for August 2026, the
-/// funds anyone can join (123 tracks of 11 companies that report a fee),
-/// each weighted by its assets.
+/// S&P 500 tracks anyone can join (11 companies that report a fee), each
+/// weighted by its assets.
 #[must_use]
 #[allow(clippy::too_many_lines, reason = "a fund's data")]
 pub fn investment_gemel() -> Broker {
@@ -314,49 +316,49 @@ pub fn investment_gemel() -> Broker {
     let average = managed(
         t("Average fee", "דמי ניהול ממוצעים"),
         t(
-            "What savers in a provident fund for investment pay on average, in the eleven \
-             companies anyone can join, each fund counted by the money it holds. Your own fee \
-             is what you agree with the company, which may give a discount: to compare with \
-             yours, change a copy of this one.",
-            "מה שחוסכים בקופת גמל להשקעה משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קופה משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
+            "What savers in a provident fund for investment's S&P 500 track pay on average, \
+             in the eleven companies anyone can join, each track counted by the money it \
+             holds. Your own fee is what you agree with the company, which may give a \
+             discount: to compare with yours, change a copy of this one.",
+            "מה שחוסכים במסלול S&P\u{a0}500 של קופת גמל להשקעה משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל מסלול משפיע על הממוצע לפי כמות הכסף שבו. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::InvestmentGemel,
-        fee(dec!(0.62), dec!(0)),
+        fee(dec!(0.58), dec!(0)),
         from_the_reports(
-            "What savers paid on average, as each fund reports it to the Capital Market \
-             Authority (data of August 2026). The figure is for a whole year, and last changed \
-             in January 2026.",
-            "מה שהחוסכים שילמו בממוצע, כפי שכל קופה מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
+            "What savers in the S&P 500 tracks paid on average, as each fund reports it to \
+             the Capital Market Authority (data of August 2026). The figure is for a whole \
+             year, and last changed in January 2026.",
+            "מה שהחוסכים במסלולי S&P\u{a0}500 שילמו בממוצע, כפי שכל קופה מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
         ),
     );
     let cheapest = managed(
         t("Cheapest company", "החברה הזולה"),
         t(
-            "The company whose savers pay the least on average: Harel, in the data of August \
-             2026.",
-            "החברה שהחוסכים שלה משלמים הכי מעט בממוצע: הראל, לפי נתוני אוגוסט 2026.",
+            "The company whose savers in its S&P 500 track pay the least on average: Menora \
+             Mivtachim, in the data of August 2026.",
+            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי מעט בממוצע: מנורה מבטחים, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::InvestmentGemel,
-        fee(dec!(0.55), dec!(0)),
+        fee(dec!(0.52), dec!(0)),
         from_the_reports(
-            "What Harel's savers paid on average, over all its investment tracks, as it \
+            "What Menora Mivtachim's savers in its S&P 500 track paid on average, as it \
              reports to the Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים של הראל שילמו בממוצע, בכל מסלולי ההשקעה שלה, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של מנורה מבטחים שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let dearest = managed(
         t("Dearest company", "החברה היקרה"),
         t(
-            "The company whose savers pay the most on average: Mor, in the data of August \
-             2026.",
-            "החברה שהחוסכים שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
+            "The company whose savers in its S&P 500 track pay the most on average: Mor, in \
+             the data of August 2026.",
+            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::InvestmentGemel,
-        fee(dec!(0.72), dec!(0)),
+        fee(dec!(0.71), dec!(0)),
         from_the_reports(
-            "What Mor's savers paid on average, over all its investment tracks, as it reports \
-             to the Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים של מור שילמו בממוצע, בכל מסלולי ההשקעה שלה, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "What Mor's savers in its S&P 500 track paid on average, as it reports to the \
+             Capital Market Authority (data of August 2026).",
+            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של מור שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let legal_maximum = managed(
@@ -412,8 +414,7 @@ pub fn investment_gemel() -> Broker {
                 "אי אפשר להפקיד יותר מ-₪83,641 בשנה קלנדרית (2026), בכל הקופות של אותו אדם יחד. התקרה מתעדכנת לפי האינפלציה בכל ינואר.",
             ))
             .source(&kol_zchut_fund()),
-            earns_what_the_security_does(t("The fund", "הקופה")),
-            investing_costs_arent_counted(),
+            other_tracks_arent_compared(t("The fund", "הקופה")),
             Caveat::not_counted(t(
                 "Moving between investment tracks, or to another company's fund, isn't taxed. \
                  At a broker, selling one security to buy another is. The app never switches, \
@@ -436,9 +437,8 @@ pub fn investment_gemel() -> Broker {
 // ─────────────────────────── Study fund ───────────────────────────
 
 /// Keren Hishtalmut, counted as a self-employed saver's. Fees: Gemel Net's
-/// report for August 2026, the funds anyone can join, without the
-/// self-managed tracks (131 tracks of 11 companies), each weighted by its
-/// assets.
+/// report for August 2026, the S&P 500 tracks anyone can join (11
+/// companies), each weighted by its assets.
 #[must_use]
 #[allow(clippy::too_many_lines, reason = "a fund's data")]
 pub fn study_fund() -> Broker {
@@ -461,49 +461,49 @@ pub fn study_fund() -> Broker {
     let average = managed(
         t("Average fee", "דמי ניהול ממוצעים"),
         t(
-            "What savers in a study fund pay on average, in the eleven companies anyone can \
-             join, each fund counted by the money it holds. Your own fee is what you agree \
-             with the company, which may give a discount: to compare with yours, change a \
-             copy of this one.",
-            "מה שחוסכים בקרן השתלמות משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קרן משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
+            "What savers in a study fund's S&P 500 track pay on average, in the eleven \
+             companies anyone can join, each track counted by the money it holds. Your own fee \
+             is what you agree with the company, which may give a discount: to compare with \
+             yours, change a copy of this one.",
+            "מה שחוסכים במסלול S&P\u{a0}500 של קרן השתלמות משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל מסלול משפיע על הממוצע לפי כמות הכסף שבו. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::StudyFund,
-        fee(dec!(0.61), dec!(0)),
+        fee(dec!(0.54), dec!(0)),
         from_the_reports(
-            "What savers paid on average, as each fund reports it to the Capital Market \
-             Authority (data of August 2026). The figure is for a whole year, and last changed \
-             in January 2026. Self-managed funds (ניהול\u{a0}אישי) aren't counted.",
-            "מה שהחוסכים שילמו בממוצע, כפי שכל קרן מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026. קרנות בניהול אישי לא נספרות.",
+            "What savers in the S&P 500 tracks paid on average, as each fund reports it to \
+             the Capital Market Authority (data of August 2026). The figure is for a whole \
+             year, and last changed in January 2026.",
+            "מה שהחוסכים במסלולי S&P\u{a0}500 שילמו בממוצע, כפי שכל קרן מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
         ),
     );
     let cheapest = managed(
         t("Cheapest company", "החברה הזולה"),
         t(
-            "The company whose savers pay the least on average: Migdal, in the data of August \
-             2026.",
-            "החברה שהחוסכים שלה משלמים הכי מעט בממוצע: מגדל, לפי נתוני אוגוסט 2026.",
+            "The company whose savers in its S&P 500 track pay the least on average: Clal, in \
+             the data of August 2026.",
+            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי מעט בממוצע: כלל, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::StudyFund,
-        fee(dec!(0.53), dec!(0)),
+        fee(dec!(0.48), dec!(0)),
         from_the_reports(
-            "What Migdal's savers paid on average, over all its investment tracks, as it \
-             reports to the Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים של מגדל שילמו בממוצע, בכל מסלולי ההשקעה שלה, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "What Clal's savers in its S&P 500 track paid on average, as it reports to the \
+             Capital Market Authority (data of August 2026).",
+            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של כלל שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let dearest = managed(
         t("Dearest company", "החברה היקרה"),
         t(
-            "The company whose savers pay the most on average: Mor, in the data of August \
-             2026.",
-            "החברה שהחוסכים שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
+            "The company whose savers in its S&P 500 track pay the most on average: Mor, in \
+             the data of August 2026.",
+            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::StudyFund,
         fee(dec!(0.70), dec!(0)),
         from_the_reports(
-            "What Mor's savers paid on average, over all its investment tracks, as it reports \
-             to the Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים של מור שילמו בממוצע, בכל מסלולי ההשקעה שלה, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "What Mor's savers in its S&P 500 track paid on average, as it reports to the \
+             Capital Market Authority (data of August 2026).",
+            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של מור שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let legal_maximum = managed(
@@ -565,8 +565,7 @@ pub fn study_fund() -> Broker {
                 "שכיר לא יכול לפתוח קרן לבד. המעסיק מפקיד עד 7.5% מהשכר והעובד עד 2.5%, עד ₪18,854 בשנה יחד (2026). חלק המעסיק הוא כסף שחשבון מסחר לא היה מקבל, והוא לא נספר.",
             ))
             .source(&kol_zchut_study_fund()),
-            earns_what_the_security_does(t("The fund", "הקרן")),
-            investing_costs_arent_counted(),
+            other_tracks_arent_compared(t("The fund", "הקרן")),
         ],
         plans: vec![average, cheapest, dearest, legal_maximum],
     }
@@ -576,8 +575,8 @@ pub fn study_fund() -> Broker {
 
 /// Polisat Hisachon. The regulator reports the insurers' investment
 /// policies together, savings policies and managers' insurance alike, so
-/// the average is a reading: Bituach Net's report for August 2026, policies
-/// sold since 2004 (168 tracks of 8 insurers), weighted by assets.
+/// the average is a reading: Bituach Net's report for August 2026, the S&P
+/// 500 tracks of policies sold since 2004 (8 insurers), weighted by assets.
 #[must_use]
 #[allow(clippy::too_many_lines, reason = "a fund's data")]
 pub fn savings_policy() -> Broker {
@@ -588,21 +587,21 @@ pub fn savings_policy() -> Broker {
     let average = managed(
         t("Average fee", "דמי ניהול ממוצעים"),
         t(
-            "What the insurers' investment policies take on average. Savings policies aren't \
+            "What the insurers' S&P 500 tracks take on average. Savings policies aren't \
              reported apart from the insurers' other policies, so this is the nearest \
              published figure: see the note beside the fee.",
-            "מה שפוליסות ההשקעה של חברות הביטוח גובות בממוצע. פוליסות חיסכון לא מדווחות בנפרד משאר הפוליסות של חברות הביטוח, ולכן זה הנתון הקרוב ביותר שמתפרסם: ראו את ההערה ליד דמי הניהול.",
+            "מה שמסלולי S&P\u{a0}500 של חברות הביטוח גובים בממוצע. פוליסות חיסכון לא מדווחות בנפרד משאר הפוליסות של חברות הביטוח, ולכן זה הנתון הקרוב ביותר שמתפרסם: ראו את ההערה ליד דמי הניהול.",
         ),
         Vehicle::SavingsPolicy,
-        fee(dec!(0.94), dec!(0)),
+        fee(dec!(0.77), dec!(0)),
         vec![
             Caveat::reading(
                 t(
-                    "The average of all the insurers' investment policies sold since 2004, by \
-                     the Capital Market Authority's data of August 2026. They include \
+                    "The average of the insurers' S&P 500 tracks in the policies sold since \
+                     2004, by the Capital Market Authority's data of August 2026. They include \
                      managers' insurance (ביטוח\u{a0}מנהלים), a pension product, and savings \
                      policies aren't reported apart.",
-                    "הממוצע של כל פוליסות ההשקעה של חברות הביטוח שנמכרו מאז 2004, לפי נתוני רשות שוק ההון לאוגוסט 2026. הן כוללות ביטוח מנהלים, שהוא מוצר פנסיוני, ופוליסות חיסכון לא מדווחות בנפרד.",
+                    "הממוצע של מסלולי S&P\u{a0}500 של חברות הביטוח, בפוליסות שנמכרו מאז 2004, לפי נתוני רשות שוק ההון לאוגוסט 2026. הן כוללות ביטוח מנהלים, שהוא מוצר פנסיוני, ופוליסות חיסכון לא מדווחות בנפרד.",
                 ),
                 t(
                     "a savings policy is invested in the same tracks, and no figure of its \
@@ -614,9 +613,9 @@ pub fn savings_policy() -> Broker {
             .source(&bituach_net),
             Caveat::reading(
                 t(
-                    "Those policies also take 1.77% of deposits on average, where they report \
-                     it. None is counted for a savings policy.",
-                    "הפוליסות האלה גובות בממוצע גם 1.77% מההפקדות, במקומות שבהם זה מדווח. בפוליסת חיסכון זה לא נספר.",
+                    "Those tracks also take 1.6% of deposits on average, where they report it. \
+                     None is counted for a savings policy.",
+                    "המסלולים האלה גובים בממוצע גם 1.6% מההפקדות, במקומות שבהם זה מדווח. בפוליסת חיסכון זה לא נספר.",
                 ),
                 t(
                     "Menora Mivtachim describes the fee on the balance as a savings policy's \
@@ -678,7 +677,7 @@ pub fn savings_policy() -> Broker {
                 "כשמושכים את הכסף משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר, בכל גיל ובכל צורת משיכה: אין קצבה פטורה ממס.",
             ))
             .source(&bizportal),
-            earns_what_the_security_does(t("The policy", "הפוליסה")),
+            other_tracks_arent_compared(t("The policy", "הפוליסה")),
             Caveat::not_counted(t(
                 "Moving between investment tracks isn't taxed. At a broker, selling one \
                  security to buy another is. The app never switches, so this isn't counted.",

@@ -53,9 +53,9 @@ export const en = {
   leftAfterTax: 'Left after tax',
   leftAfterTaxTip:
     'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
-  yearlyCost: 'Yearly fees',
+  yearlyCost: 'Yearly cost',
   yearlyCostTip:
-    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
+    'What everything taken comes to as a yearly charge on your holdings, the way a fund states its management fee: the fees of the bank, the investment house or the fund, and what the fund holding the index keeps back. Paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
   lostToFees: 'Lost to fees',
   lostToFeesTip: (selling: boolean) =>
     `How much less you end up with${selling ? ', after selling and before tax,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
@@ -119,6 +119,9 @@ export const en = {
   holding: 'Management and custody',
   holdingTip:
     'What you pay just for holding the money. At a bank or an investment house: custody (a share of what you hold), a fixed amount a month, or both. At a fund or a policy: its management fee, a share of the balance and at some a share of each deposit.',
+  theFundItself: 'The fund itself',
+  theFundItselfTip:
+    'What the fund holding the index keeps back on its own: its fees, and the tax lost on the index’s dividends. The same fund costs the same at every bank and investment house.',
   selling: 'Selling',
   sellingTip: 'Selling everything at the end, and converting back to shekels.',
   clickAFee: 'Click',
@@ -138,7 +141,7 @@ export const en = {
     `More inputs, for a closer picture: deposits that grow every year as a salary does, buying every few months rather than every month, another inflation, amounts in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same and are bought every month, prices rising ${inflation} a year, amounts as they will be, and selling at the end.`,
   whatYouBuy: 'What you buy',
   whatYouBuyTip:
-    'ETFs, index funds, bonds and stocks are all securities, and banks and investment houses charge different fees for each kind. An ETF and an index fund can hold exactly the same companies: they differ in how they are bought, and so in what you pay in fees.',
+    'ETFs, index funds, bonds and stocks are all securities, and banks and investment houses charge different fees for each kind. An ETF and an index fund can hold exactly the same companies: they differ in how they are bought, and so in what you pay in fees, and in what the fund itself keeps back.',
   security: 'Security',
   tradedOn: 'Traded on',
   tradedOnTip: (security: string, example: string) =>
@@ -146,6 +149,9 @@ export const en = {
   tradedOnBonds:
     "Israel's government bonds trade in Tel Aviv in shekels, and US Treasuries in New York in dollars.",
   tradedOnStocks: 'Teva, for example, trades in Tel Aviv in shekels and in New York in dollars.',
+  theFundYouBuy: 'The fund you buy',
+  theFundYouBuyTip:
+    'Every fund keeps back part of what the index earns before it reaches you: its fees, the tax taken from the index’s dividends that nobody gives back, and whatever else made it trail the index. The calculator counts the larger of what the fund publishes and how far it trailed the index over five years, so no fund is shown cheaper than it has been. The same fund costs the same at every bank and investment house, but the funds differ.',
   tradedOnFunds:
     'The same S&P 500, for example, is sold in Tel Aviv as an ETF in shekels, and in New York as an ETF such as VOO, in dollars.',
   exchange: 'Exchange',
@@ -169,9 +175,12 @@ export const en = {
     'How much more you deposit each month than a year earlier, as a salary grows: at 3%, ₪2,000 a month becomes ₪2,060 in the second year and about ₪3,500 in the twentieth. 0 keeps the deposits the same.',
   percentAYear: '% a year',
   expectations: 'Expectations',
+  indexReturn: 'Index return a year',
+  indexReturnTip:
+    'How much the index grows a year on average, with its dividends, before anything is taken: the S&P 500 has averaged about 10%. Each plan then loses its own costs: the fund’s, the bank’s or the investment house’s, and the tax.',
   yearlyReturn: 'Yearly return',
   yearlyReturnTip:
-    'How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%; a bond grows by its interest, say 4%.',
+    'How much the security grows a year, in its own currency, its interest or dividends included: a bond grows by about its interest, say 4%; a share by its price and its dividends.',
   sharePrice: 'Share price',
   sharePriceTip:
     "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return.",

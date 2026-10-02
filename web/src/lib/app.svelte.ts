@@ -14,6 +14,8 @@ import type {
   PlanData,
   PlanInfo,
   PlanKey,
+  Product,
+  ProductFor,
   Purchase,
   Security,
   SweepData,
@@ -232,6 +234,10 @@ export class AppState {
 
   security = $state<Security>('Etf')
   exchange = $state<Exchange>('Usa')
+  /** The fund that holds the index, as chosen where a purchase has a choice
+   * (an ETF in Tel Aviv: Israeli or foreign). Kept while other purchases are
+   * shown; the core holds those through the first of theirs. */
+  product = $state<Product>('IsraeliEtf')
   // Numbers are null while their field is empty.
   firstDeposit = $state<number | null>(10_000)
   monthlyDeposit = $state<number | null>(2_000)
@@ -480,6 +486,7 @@ export class AppState {
     return {
       security: this.security,
       exchange: this.exchange,
+      product: this.product,
       firstDeposit,
       monthlyDeposit,
       yearlyReturnPercent: this.yearlyReturnPercent,
@@ -598,6 +605,8 @@ export class AppState {
       plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.englishLabel),
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
     }
+    // The fund only where it was chosen.
+    if (this.products.length > 1) shared.product = this.heldProduct?.product
     // The expert inputs only when they'd change something.
     if (this.moreOptions) {
       if (this.depositGrowthPercent) shared.depositGrowthPercent = this.depositGrowthPercent
@@ -625,6 +634,7 @@ export class AppState {
     if (shared.family !== undefined) this.family = shared.family
     if (shared.security !== undefined) this.security = shared.security
     if (shared.exchange !== undefined) this.exchange = shared.exchange
+    if (shared.product !== undefined) this.product = shared.product
     if (shared.firstDeposit !== undefined) this.firstDeposit = shared.firstDeposit
     if (shared.monthlyDeposit !== undefined) this.monthlyDeposit = shared.monthlyDeposit
     if (shared.yearlyReturnPercent !== undefined) this.yearlyReturnPercent = shared.yearlyReturnPercent
@@ -756,10 +766,21 @@ export class AppState {
   buying: Purchase = $derived({
     security: this.security,
     exchange: this.exchange,
+    product: this.product,
     largestTrade: 'error' in this.comparison ? null : this.comparison.largestTrade,
     ilsPerUsd: this.ilsPerUsd,
     ilsPerEur: this.ilsPerEur,
   })
+
+  /** What the purchase can be held through, each with what it keeps back a
+   * year: one for most purchases, two for an ETF in Tel Aviv, none for a
+   * share or a bond. */
+  products: ProductFor[] = $derived(core.productsFor(this.buying))
+
+  /** The one that holds the index: the chosen one where it's among them. */
+  heldProduct: ProductFor | undefined = $derived(
+    this.products.find(({ product }) => product === this.product) ?? this.products[0],
+  )
 
   /** `shared`: what the page's address says, if it was opened from a link. */
   constructor(shared: Shared = {}) {

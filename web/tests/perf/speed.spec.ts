@@ -339,8 +339,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       budget: budgets.tip,
       measure: () =>
         typical(page, async () => {
-          await page.getByRole('button', { name: t.whatMeans(t.yearlyReturn) }).click()
-          await expect(page.getByRole('tooltip').filter({ hasText: 'S&P 500' })).toBeVisible()
+          await page.getByRole('button', { name: t.whatMeans(t.indexReturn) }).click()
+          await expect(page.getByRole('tooltip').filter({ hasText: t.indexReturnTip })).toBeVisible()
           await page.keyboard.press('Escape')
         }),
     },

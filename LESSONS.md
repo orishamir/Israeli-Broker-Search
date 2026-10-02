@@ -99,6 +99,38 @@ all. Read those three first.
   Hebrew Wikisource has the Income Tax Ordinance and the fund regulations
   as plain pages, and Kol Zchut the yearly ceilings.
 
+## Researching what a fund keeps back
+
+- **Measure against the index with gross dividends, in shekels at the
+  Bank of Israel's rate.** Yahoo's `^SP500TR` (and `^GSPC` for the
+  dividends) answers a plain request for daily closes; the Bank of Israel's
+  rates come from `edge.boi.org.il/FusionEdgeServer/sdmx/v2/data/dataflow/
+  BOI.STATISTICS/EXR/1.0/RER_USD_ILS?format=csv`, which answers `curl`
+  where boi.org.il doesn't. Against the net (30%) index every fund that
+  swaps looks better than the index.
+- **Maya's fund history** is a POST to
+  `maya.tase.co.il/api/v1/funds/mutual/{id}/history` with
+  `{"period":4,"fromDate":"…T00:00:00","toDate":"…","pageNumber":n}`, 30
+  days a page; a day's price is dated by the New York close it's from. A
+  fund's page (`GET …/mutual/{id}`) has its fixed, variable and trustee's
+  fees.
+- **The exchange's history of an ETF** is a POST to
+  `api.tase.co.il/api/security/historyeod` with
+  `{"dFrom","dTo","oId","pageNum","pType":"8","TotalRec":1,"lang":"0"}`
+  (and the Referer `https://market.tase.co.il/`): 30 days a page, prices in
+  agorot, a day without trading has no prices. Chain each day's close over
+  its base price, which carries splits. An ETF closes while New York
+  trades, so a single day's comparison is off by up to a day's move: average
+  the price-to-index ratio over a month at each end. Funder's ETF pages
+  (`funder.co.il/etf/{id}`) list the three fees as plain HTML.
+- **Tel Aviv's holidays** can leave a September with a handful of pricing
+  days: don't ask a month for ten.
+- **Gemel Net's returns are before the management fee**, and its older
+  reports (resources `91c849ed-…` for 1999–2022, `2016d770-…` for 2023;
+  Bituach Net `584e6b69-…`, `672090ba-…`) name and classify a track
+  differently: find a track by its number from the latest report. The
+  regulator reports a month late.
+
 ## Researching the short term's figures
 
 - **The Bank of Israel's deposit rates** are in an Excel behind its

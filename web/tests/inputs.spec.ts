@@ -7,6 +7,7 @@ import {
   inputsOnPage,
   listed,
   listedPlans,
+  productsOnPage,
   rowsOnPage,
   securityName,
   sharePriceSymbol,
@@ -24,6 +25,44 @@ test('Tel Aviv needs no exchange rates or share price', { tag: '@phone' }, async
   await expect(page.getByText('$1 = ₪')).toBeHidden()
   await expect(page.getByLabel(t.sharePrice)).toBeHidden()
   await expect(rows(page).first()).toBeVisible()
+})
+
+test('an ETF in Tel Aviv is held through one of two funds, and the choice changes every row', async ({
+  page,
+}) => {
+  await choice(page, t.exchange, exchangeName('Tlv')).click()
+  const funds = page.getByRole('radiogroup', { name: t.theFundYouBuy })
+  const [israeli, foreign] = await productsOnPage(page)
+  await expect(funds.getByRole('radio')).toHaveCount(2)
+  await expect(funds.getByRole('radio', { checked: true })).toHaveAttribute('value', israeli.product)
+  const line = page.locator('.product .held')
+  await expect(line).toContainText(`${israeli.name}\u00a0· ${israeli.price.text}`)
+  const before = await rowsOnPage(page)
+  await choice(page, t.theFundYouBuy, `${foreign.choiceName}\u00a0· ${foreign.price.text}`).click()
+  await expect(line).toContainText(`${foreign.name}\u00a0· ${foreign.price.text}`)
+  // Every bank's and investment house's row holds the cheaper fund now.
+  await expect.poll(async () => rowsOnPage(page)).not.toEqual(before)
+  expect(await rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
+})
+
+test('elsewhere the fund is one line, warning of US estate tax only for large holdings', async ({ page }) => {
+  // An ETF in the US, at the defaults: hundreds of thousands of dollars by the end.
+  await expect(page.getByRole('radiogroup', { name: t.theFundYouBuy })).toBeHidden()
+  const [us] = await productsOnPage(page)
+  const line = page.locator('.product .held')
+  await expect(line).toContainText(`${us.name}\u00a0· ${us.price.text}`)
+  expect(us.warning).toBeTruthy()
+  await expect(line.getByRole('button', { name: `⚠ ${us.warning}` })).toBeVisible()
+  // ₪100 a month for a year never comes near $60,000.
+  await page.getByLabel(t.oneTimeDeposit).fill('0')
+  await page.getByLabel(t.everyMonth).fill('100')
+  await page.locator('#years').fill('1')
+  await expect(line.getByRole('button', { name: /^⚠/ })).toBeHidden()
+  expect((await productsOnPage(page))[0].warning).toBeUndefined()
+  // A share is held directly, and earns its own return.
+  await choice(page, t.security, securityName('Stock')).click()
+  await expect(page.locator('.product')).toBeHidden()
+  await expect(page.getByLabel(t.yearlyReturn, { exact: true })).toBeVisible()
 })
 
 test('the share price is asked for only where the core says it matters', async ({ page }) => {
@@ -66,9 +105,9 @@ test('bad inputs show why, in the words of the core, instead of breaking', async
   await expect(rows(page).first()).toBeVisible()
   await expect(page.locator('.results')).toHaveAttribute('inert')
   await page.getByLabel(t.everyMonth).fill('2000')
-  await page.getByLabel(t.yearlyReturn, { exact: true }).fill('')
+  await page.getByLabel(t.indexReturn, { exact: true }).fill('')
   await expect(page.locator('.error')).toHaveText(t.checkInputs((await reason())!))
-  await page.getByLabel(t.yearlyReturn, { exact: true }).fill('10')
+  await page.getByLabel(t.indexReturn, { exact: true }).fill('10')
   await expect(page.locator('.error')).toBeHidden()
   await expect(page.locator('.results')).not.toHaveAttribute('inert')
   await expect(rows(page).first()).toBeVisible()

@@ -243,6 +243,13 @@ test('with every security and exchange chosen', { tag: '@phone' }, async ({ page
       await checkLayout(page, `${group}: ${await choice.textContent()}`)
     }
   }
+  // An ETF in Tel Aviv, with each of its two funds.
+  await page.getByRole('radiogroup', { name: t.security }).locator('label').first().click()
+  await page.getByRole('radiogroup', { name: t.exchange }).locator('label').first().click()
+  for (const fund of await page.getByRole('radiogroup', { name: t.theFundYouBuy }).locator('label').all()) {
+    await fund.click()
+    await checkLayout(page, `${t.theFundYouBuy}: ${await fund.textContent()}`)
+  }
 })
 
 // What's bought, and where, changes the notes under the plans and the
