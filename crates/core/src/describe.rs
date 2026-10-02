@@ -15,8 +15,8 @@ use crate::simulation::{NotOffered, Outcome, Scenario, USUAL_INFLATION};
 use crate::{
     Basis, Broker, BrokerKind, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange,
     ExchangeRates, HandlingFee, IntoEnumIterator, Lang, ManagementFee, Markup, Money, Named, Page,
-    PercentFee, Period, Plan, Price, Product, Security, TariffDate, Text, TradeFee, Vehicle,
-    Withdrawal, funds, ils, short_term, tariffs,
+    PercentFee, Period, Plan, Price, Security, TariffDate, Text, TradeFee, Vehicle, Withdrawal,
+    funds, ils, short_term, tariffs,
 };
 
 /// A price in words, and whether it's nothing, so that every view dims the
@@ -161,165 +161,6 @@ impl Explained for Security {
     }
 }
 
-impl Named for Product {
-    fn name(self, lang: Lang) -> &'static str {
-        match self {
-            Product::IsraeliIndexFund => lang.pick("Israeli index fund", "קרן מחקה ישראלית"),
-            Product::IsraeliEtf => lang.pick("Israeli ETF", "קרן סל ישראלית"),
-            Product::ForeignEtfInTelAviv => {
-                lang.pick("Foreign ETF listed here", "קרן סל זרה שנסחרת כאן")
-            }
-            Product::UsFund => lang.pick("US fund, like VOO", "קרן אמריקאית, כמו VOO"),
-            Product::IrishFund => lang.pick("Irish fund, like CSPX", "קרן אירית, כמו CSPX"),
-            Product::StudyFundTrack
-            | Product::InvestmentGemelTrack
-            | Product::SavingsPolicyTrack => {
-                lang.pick("Its S&P 500 track", "מסלול ה-S&P\u{a0}500 שלה")
-            }
-        }
-    }
-}
-
-impl Explained for Product {
-    fn explanation(self, lang: Lang) -> &'static str {
-        match self {
-            Product::IsraeliIndexFund => lang.pick(
-                "An S&P 500 fund that an Israeli company runs, bought from it and sold back once \
-                 a day. Most charge no fixed fee, and take up to 0.1%–0.3% only when they beat \
-                 the index after the US tax on its dividends. They follow it by futures and \
-                 swaps rather than holding the shares, so no tax is taken from the dividends.",
-                "קרן על S&P\u{a0}500 שמנהלת חברה ישראלית, שקונים ממנה ומוכרים לה בחזרה פעם ביום. רובן לא גובות דמי ניהול קבועים, ולוקחות 0.1%–0.3% רק כשהן מכות את המדד אחרי המס האמריקאי על הדיבידנדים. הן עוקבות אחרי המדד בחוזים ולא מחזיקות את המניות, ולכן לא נלקח מס מהדיבידנדים.",
-            ),
-            Product::IsraeliEtf => lang.pick(
-                "An S&P 500 fund that an Israeli company runs, traded on the Tel Aviv exchange \
-                 like a share. The big ones charge 0.6%–0.8% a year, and up to 0.3% more when \
-                 they beat the index after the US tax on its dividends: far more than an index \
-                 fund on the same index, though trading it can cost less.",
-                "קרן על S&P\u{a0}500 שמנהלת חברה ישראלית, ונסחרת בבורסה בתל אביב כמו מניה. הגדולות גובות 0.6%–0.8% בשנה, ועוד עד 0.3% כשהן מכות את המדד אחרי המס האמריקאי על הדיבידנדים: הרבה יותר מקרן מחקה על אותו מדד, גם אם המסחר בה יכול לעלות פחות.",
-            ),
-            Product::ForeignEtfInTelAviv => lang.pick(
-                "An Irish S&P 500 fund, iShares' or Invesco's, that's also listed in Tel Aviv and \
-                 bought there in shekels. They charge 0.05%–0.07% a year. iShares holds the \
-                 shares, so the US keeps 15% of their dividends; Invesco follows the index by \
-                 swaps.",
-                "קרן אירית על S&P\u{a0}500, של iShares או של Invesco, שנסחרת גם בבורסה בתל אביב וקונים אותה שם בשקלים. הן גובות 0.05%–0.07% בשנה. iShares מחזיקה את המניות עצמן, ולכן ארה״ב מנכה 15% מהדיבידנדים שלהן; Invesco עוקבת אחרי המדד בחוזי החלף (סוואפ).",
-            ),
-            Product::UsFund => lang.pick(
-                "A US fund on the S&P 500, such as VOO, which charges 0.03% a year. It pays its \
-                 dividends out, and the US keeps a quarter of them as tax; what's left is \
-                 reinvested. Holding more than $60,000 in US securities exposes your heirs to \
-                 US estate tax.",
-                "קרן אמריקאית על S&P\u{a0}500, כמו VOO, שגובה 0.03% בשנה. היא מחלקת את הדיבידנדים, וארה״ב מנכה מהם רבע כמס; מה שנשאר מושקע מחדש. מי שמחזיק יותר מ-$60,000 בניירות ערך אמריקאיים חושף את יורשיו למס עיזבון אמריקאי.",
-            ),
-            Product::IrishFund => lang.pick(
-                "An Irish fund on the S&P 500, such as CSPX, bought in Europe. It charges 0.07% a \
-                 year and keeps its dividends, after the US has kept 15% of them, so nothing is \
-                 taxed before you sell. It isn't a US security, so no US estate tax.",
-                "קרן אירית על S&P\u{a0}500, כמו CSPX, שקונים באירופה. היא גובה 0.07% בשנה וצוברת את הדיבידנדים, אחרי שארה״ב מנכה 15% מהם, ולכן אין מס עד המכירה. היא לא נייר ערך אמריקאי, ולכן אין עליה מס עיזבון אמריקאי.",
-            ),
-            Product::StudyFundTrack
-            | Product::InvestmentGemelTrack
-            | Product::SavingsPolicyTrack => lang.pick(
-                "The fund's investment track that follows the S&P 500 (מסלול\u{a0}עוקב\u{a0}מדד). \
-                 What it pays to trade, the tax it loses on dividends, and its direct expenses \
-                 come out of its return, besides the management fee.",
-                "מסלול ההשקעה של הקופה שעוקב אחרי מדד S&P\u{a0}500. עמלות המסחר שלו, המס שהוא מפסיד על דיבידנדים וההוצאות הישירות שלו יורדים מהתשואה, בנוסף לדמי הניהול.",
-            ),
-        }
-    }
-
-    fn hebrew_names(self) -> &'static [&'static str] {
-        match self {
-            Product::IsraeliIndexFund => &["קרן מחקה", "קרן נאמנות מחקה"],
-            Product::IsraeliEtf => &["קרן סל", "תעודת סל"],
-            Product::ForeignEtfInTelAviv => &["קרן סל זרה", "קרן חוץ נסחרת"],
-            Product::UsFund => &["קרן סל אמריקאית"],
-            Product::IrishFund => &["קרן סל אירית", "קרן UCITS"],
-            Product::StudyFundTrack
-            | Product::InvestmentGemelTrack
-            | Product::SavingsPolicyTrack => &["מסלול עוקב מדד S&P 500"],
-        }
-    }
-
-    fn english_name(self) -> Option<&'static str> {
-        None
-    }
-}
-
-/// A product as the inputs show it: its name, what it keeps back a year,
-/// and why, for a purchase.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase")]
-#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
-pub struct ProductFor {
-    pub product: Product,
-    pub name: String,
-    /// Its name among the purchase's choices: "Israeli".
-    pub choice_name: String,
-    /// "0.39% a year"
-    pub price: PriceText,
-    pub explanation: String,
-    pub hebrew_names: Vec<String>,
-    /// The caveats that matter to the purchase, grouped by kind.
-    pub caveats: Vec<CaveatGroup>,
-    /// What may make holding it cost more, if anything does at the
-    /// purchase's amounts: "US estate tax above $60,000".
-    pub warning: Option<String>,
-}
-
-impl Product {
-    /// Its name among the choices for one purchase, where there are several:
-    /// "Israeli", "Foreign".
-    #[must_use]
-    pub fn choice_name(self, lang: Lang) -> &'static str {
-        match self {
-            Product::IsraeliEtf => lang.pick("Israeli", "ישראלית"),
-            Product::ForeignEtfInTelAviv => lang.pick("Foreign", "זרה"),
-            _ => self.name(lang),
-        }
-    }
-
-    /// The product as the inputs show it, for `buying`.
-    #[must_use]
-    pub fn describe_for(self, buying: Buying, rates: &ExchangeRates, lang: Lang) -> ProductFor {
-        let caveats = self.caveats();
-        let caveats: Vec<&Caveat> = caveats.iter().collect();
-        let warning = caveats
-            .iter()
-            .filter(|caveat| caveat.matters_for(buying, rates))
-            .find_map(|caveat| caveat.may_cost_more_summary())
-            .map(|summary| summary[lang].to_owned());
-        ProductFor {
-            product: self,
-            name: self.name(lang).to_owned(),
-            choice_name: self.choice_name(lang).to_owned(),
-            price: self.price_text(lang),
-            explanation: self.explanation(lang).to_owned(),
-            hebrew_names: self
-                .hebrew_names()
-                .iter()
-                .map(|&name| name.to_owned())
-                .collect(),
-            caveats: sort_caveats(&caveats, buying, rates, lang).0,
-            warning,
-        }
-    }
-
-    /// What it keeps back a year: "0.39% a year".
-    #[must_use]
-    pub fn price_text(self, lang: Lang) -> PriceText {
-        let cost = self.costs().yearly();
-        PriceText {
-            text: match lang {
-                Lang::En => format!("{cost} a year"),
-                Lang::He => format!("{cost} בשנה"),
-            },
-            nothing: false,
-            reason: None,
-        }
-    }
-}
-
 impl Explained for Exchange {
     fn explanation(self, lang: Lang) -> &'static str {
         match self {
@@ -444,9 +285,6 @@ pub enum FeeKind {
     Management,
     /// Its share of each deposit.
     DepositFee,
-    /// What the fund that holds the index keeps back on its own
-    /// ([`Product::costs`]).
-    Product,
 }
 
 impl Named for FeeKind {
@@ -461,7 +299,6 @@ impl Named for FeeKind {
             FeeKind::Markup => lang.pick("Conversion markup", "מרווח המרה"),
             FeeKind::Management => lang.pick("Management fee", "דמי ניהול מהצבירה"),
             FeeKind::DepositFee => lang.pick("Fee on deposits", "דמי ניהול מהפקדה"),
-            FeeKind::Product => lang.pick("The fund itself", "הקרן עצמה"),
         }
     }
 }
@@ -480,7 +317,6 @@ impl FeeKind {
             FeeKind::Markup => lang.pick("markup", "מרווח"),
             FeeKind::Management => lang.pick("management fee", "דמי ניהול מהצבירה"),
             FeeKind::DepositFee => lang.pick("from deposits", "מההפקדות"),
-            FeeKind::Product => lang.pick("the fund itself", "הקרן עצמה"),
         }
     }
 }
@@ -546,15 +382,6 @@ impl Explained for FeeKind {
                  ₪2,000 deposit is invested. Few funds take one.",
                 "אחוז מכל הפקדה, שנגבה לפני שהיא מושקעת: ב-4%, מושקעים ₪1,920 מתוך הפקדה של ₪2,000. מעט קופות גובות אותם.",
             ),
-            FeeKind::Product => lang.pick(
-                "What the fund that holds the index keeps back on its own, before anything \
-                 reaches you: its management fee, the tax taken from the index's dividends \
-                 that nobody gives back, and whatever else made it trail the index. It comes \
-                 out of its price, so there's never a bill. The same fund costs the same at \
-                 every bank and investment house, but the funds differ: an Israeli ETF on the \
-                 S&P 500 has cost about 0.8% a year, an Israeli index fund about 0.25%.",
-                "מה שהקרן שמחזיקה את המדד משאירה לעצמה, עוד לפני שמשהו מגיע אליכם: דמי הניהול שלה, המס שנלקח מהדיבידנדים של המדד ולא מוחזר, וכל מה שגרם לה לפגר אחרי המדד. זה יורד מהמחיר שלה, כך שלא מקבלים על זה חשבון. אותה קרן עולה אותו דבר בכל בנק ובית השקעות, אבל הקרנות שונות זו מזו: קרן סל ישראלית על S&P\u{a0}500 עלתה כ-0.8% בשנה, וקרן מחקה ישראלית כ-0.25%.",
-            ),
         }
     }
 
@@ -578,7 +405,6 @@ impl Explained for FeeKind {
             FeeKind::Markup => &["מרווח המרה"],
             FeeKind::Management => &["דמי ניהול מהצבירה", "דמי ניהול מיתרה צבורה"],
             FeeKind::DepositFee => &["דמי ניהול מהפקדה", "דמי ניהול מהפקדות"],
-            FeeKind::Product => &["דמי ניהול של הקרן", "פער עקיבה"],
         }
     }
 }
@@ -936,23 +762,6 @@ impl Plan {
                     ),
                 };
             }
-            NotOffered::NoMatchingTrack => {
-                let one = match (scenario.security, lang) {
-                    (Security::Bond, Lang::En) => "one bond",
-                    (Security::Bond, Lang::He) => "אג\u{5f4}ח אחת",
-                    (_, Lang::En) => "one share",
-                    (_, Lang::He) => "מניה אחת",
-                };
-                return match lang {
-                    Lang::En => format!(
-                        "A fund is compared only on its S&P 500 track, which holds the whole \
-                         index, not {one}"
-                    ),
-                    Lang::He => format!(
-                        "קופה מושווית רק במסלול ה-S&P\u{a0}500 שלה, שמחזיק את כל המדד ולא {one}"
-                    ),
-                };
-            }
             NotOffered::OverTheCeiling { year } => year,
         };
         let whole = |amount: Decimal| format_money(ils(amount.round()));
@@ -1003,20 +812,7 @@ impl Plan {
         if let Some(fee) = self.management {
             fees.extend(fee.lines(lang));
         }
-        let product = Product::track_of(self.vehicle).or(buying.product);
-        if let Some(product) = product {
-            fees.push(FeeLine::new(
-                FeeKind::Product,
-                product.price_text(lang),
-                lang,
-            ));
-        }
-        let product_caveats = product.map_or_else(Vec::new, Product::caveats);
-        let caveats: Vec<&Caveat> = broker_caveats
-            .iter()
-            .chain(&self.caveats)
-            .chain(&product_caveats)
-            .collect();
+        let caveats: Vec<&Caveat> = broker_caveats.iter().chain(&self.caveats).collect();
         let (groups, others) = sort_caveats(&caveats, buying, rates, lang);
         let mattering: Vec<&Caveat> = caveats
             .iter()
@@ -1991,10 +1787,9 @@ pub fn about(lang: Lang) -> About {
                 "A provident fund for investment, a study fund or a savings policy is run the \
                  same way, with a manager in the broker's place: its fee comes off each deposit and off \
                  the balance every month, every deposit is invested as it arrives, and \
-                 nothing is paid for trades or for converting. It's compared on its S&P 500 \
-                 track, the one that holds the index a broker's plans buy; its other tracks \
-                 hold other things, and earn something else.",
-                "קופת גמל להשקעה, קרן השתלמות ופוליסת חיסכון מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. הקופה מושווית במסלול ה-S&P\u{a0}500 שלה, שמחזיק את המדד שקונים בחשבון מסחר; במסלולים האחרים שלה יש דברים אחרים, והם מרוויחים משהו אחר.",
+                 nothing is paid for trades or for converting. It's taken to earn what your \
+                 security does, before fees.",
+                "קופת גמל להשקעה, קרן השתלמות ופוליסת חיסכון מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. המחשבון מניח שהקופה מרוויחה, לפני דמי ניהול, בדיוק מה שנייר הערך שבחרתם מרוויח.",
             ),
             match lang {
                 Lang::En => format!(
@@ -2014,20 +1809,15 @@ pub fn about(lang: Lang) -> About {
                 ),
             },
             paragraph(
-                "The return you expect is the index's: the S&P 500's with its dividends, in \
-                 its own currency, before anything is taken. Every plan then loses what the \
-                 fund holding the index keeps back on its own, which the same fund does at \
-                 every bank and investment house: its fees and the tax lost on the index's \
-                 dividends, or how far it trailed the index over the last five years, \
-                 whichever is more. A fund's S&P 500 track is measured the same way. Today's \
-                 exchange rates stay as they are, and money waiting for a purchase earns \
-                 nothing. A plan with several price tracks costs what its cheapest does for \
-                 your inputs, and the track is named.",
-                "התשואה שאתם מצפים לה היא של המדד: מדד S&P\u{a0}500 כולל הדיבידנדים, במטבע שלו, לפני שמשהו יורד ממנו. מכל מסלול יורד אחר כך מה שהקרן שמחזיקה את המדד משאירה לעצמה, ואותה קרן עולה אותו דבר בכל בנק ובית השקעות: דמי הניהול שלה והמס שהיא מפסידה על הדיבידנדים של המדד, או כמה היא פיגרה אחרי המדד בחמש השנים האחרונות, הגבוה מבין השניים. מסלול ה-S&P\u{a0}500 של קופה נמדד באותה דרך. המחשבון מניח ששערי החליפין נשארים כמו היום, וכסף שמחכה לקנייה לא מרוויח דבר. במסלול עם כמה שיטות חיוב, המחשבון בוחר את הזולה ביותר עבורכם ומציין אותה בשם המסלול.",
+                "The return is the security's own, in its own currency; today's exchange rates \
+                 stay as they are, and money waiting for a purchase earns nothing. A plan with \
+                 several price tracks costs what its cheapest does for your inputs, and the \
+                 track is named.",
+                "התשואה היא של נייר הערך עצמו, במטבע שלו. המחשבון מניח ששערי החליפין נשארים כמו היום, וכסף שמחכה לקנייה לא מרוויח דבר. במסלול עם כמה שיטות חיוב, המחשבון בוחר את הזולה ביותר עבורכם ומציין אותה בשם המסלול.",
             ),
             paragraph(
-                "What's lost to fees is measured against the same deposits in the index itself, \
-                 with no costs at all, bought every month. A plan's yearly cost states that loss the way a fund's \
+                "What's lost to fees is measured against the same deposits with no fees at all, \
+                 bought every month. A plan's yearly cost states that loss the way a fund's \
                  management fee is stated: the yearly charge on your holdings that would cost \
                  you the same. Buying every three months rather than monthly leaves money \
                  waiting, and that counts too. The chart by deposit, under \u{201c}More \
@@ -2035,7 +1825,7 @@ pub fn about(lang: Lang) -> About {
                  ₪100 to ₪32,000 a month (or, with no monthly deposit, from ₪1,000 to \
                  ₪4,600,000 at once), to show where their ranking by fees flips: a plan with \
                  minimum fees is dear for small deposits and cheap for large ones.",
-                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות במדד עצמו, בלי שום עלות, בקנייה כל חודש. ״עלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ-₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
+                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ-₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
@@ -2078,20 +1868,10 @@ pub fn about(lang: Lang) -> About {
         items: vec![
             item(
                 lang,
-                "Tax on what a share or a bond pays along the way: a quarter of a share's \
-                 dividends, and 15% or a quarter of a bond's interest, each time it's paid at \
-                 a broker, though never inside a fund. The return is taken as total return, \
-                 so for a share or a bond it isn't counted; for a fund it is, in what the fund \
-                 itself keeps back.",
-                "מס על מה שמניה או אג״ח משלמות במהלך השנים: 25% מהדיבידנדים של מניה, ו-15% או 25% מהריבית של אג״ח, בכל תשלום בחשבון מסחר, אבל אף פעם לא בתוך קופה. המחשבון מניח תשואה כוללת, ולכן במניה ובאג״ח המס הזה לא נספר; בקרן הוא נספר, במה שהקרן עצמה משאירה לעצמה.",
-            ),
-            item(
-                lang,
-                "Funds on other indices: every ETF and index fund is taken to hold the S&P \
-                 500, the only index whose funds were measured. A fund on the TA-125 costs \
-                 something else, and a fund that hedges the dollar (מנוטרלת\u{a0}מט״ח) \
-                 earns something else, so neither is compared.",
-                "קרנות על מדדים אחרים: המחשבון מניח שכל קרן סל וקרן מחקה מחזיקות את מדד S&P\u{a0}500, המדד היחיד שהקרנות עליו נמדדו. קרן על ת״א 125 עולה משהו אחר, וקרן מנוטרלת מט״ח מרוויחה משהו אחר, ולכן אף אחת מהן לא מושווית.",
+                "Tax on dividends along the way: a quarter of each payment at a broker, for \
+                 a security that pays them out, and less inside a fund or an ETF that keeps \
+                 them. The return is taken as total return, so it isn't counted.",
+                "מס על דיבידנדים במהלך השנים: 25% מכל דיבידנד בחשבון מסחר, כשנייר הערך מחלק דיבידנדים, ופחות בתוך קופה או בקרן סל שצוברת אותם. המחשבון מניח תשואה כוללת (כולל הדיבידנדים), ולכן המס הזה לא נספר.",
             ),
             item(
                 lang,
@@ -2252,13 +2032,8 @@ mod tests {
         ExchangeRates::new(dec!(3.7), dec!(4.625)).unwrap()
     }
 
-    /// A purchase whatever the amounts, through no product: a plan's own
-    /// fees alone.
     fn buying(security: Security, exchange: Exchange) -> Buying {
-        Buying {
-            product: None,
-            ..Buying::any_amount(security, exchange)
-        }
+        Buying::any_amount(security, exchange)
     }
 
     fn pepper() -> (Broker, Plan) {
@@ -2378,7 +2153,6 @@ mod tests {
             let buying = Buying {
                 security,
                 exchange,
-                product: None,
                 largest_trade,
             };
             leumi
@@ -2427,7 +2201,6 @@ mod tests {
         let buying = Buying {
             security: Security::Etf,
             exchange: Exchange::Usa,
-            product: None,
             largest_trade: Some(usd(dec!(1000))),
         };
         let fees = leumi.describe_fees_for(&pepper, buying, None, &rates(), Lang::En);
@@ -2465,7 +2238,6 @@ mod tests {
             let buying = Buying {
                 security: Security::Etf,
                 exchange,
-                product: None,
                 largest_trade,
             };
             leumi.may_cost_more(&pepper, buying, &rates(), Lang::En)
@@ -2706,44 +2478,6 @@ mod tests {
 
     /// A fund charges its manager's fee and nothing else, whatever is
     /// bought: no trade, account or conversion lines.
-    /// A broker's plan holds what's bought: its fees end with what that fund
-    /// keeps back, marked by where the number comes from.
-    #[test]
-    fn a_plans_fees_end_with_the_fund_it_holds() {
-        let interactive = tariffs::interactive();
-        let held = |dollars| Buying {
-            largest_trade: Some(usd(dollars)),
-            ..Buying::any_amount(Security::Etf, Exchange::Usa)
-        };
-        let fees = interactive.describe_fees_for(
-            &interactive.plans[0],
-            held(dec!(1000)),
-            None,
-            &rates(),
-            Lang::En,
-        );
-        let last = fees.fees.last().unwrap();
-        assert_eq!(
-            (last.kind, last.name.as_str()),
-            (FeeKind::Product, "The fund itself")
-        );
-        assert_eq!(last.price.text, "0.39% a year");
-        assert_eq!(last.mark.as_ref().unwrap().kind, CaveatKind::Published);
-        // The US estate tax matters only to holdings from $60,000.
-        let warning = |dollars| {
-            Product::UsFund
-                .describe_for(held(dollars), &rates(), Lang::En)
-                .warning
-        };
-        assert_eq!(warning(dec!(59999)), None);
-        assert_eq!(
-            warning(dec!(60000)).as_deref(),
-            Some("US estate tax above $60,000")
-        );
-        assert_eq!(Product::UsFund.choice_name(Lang::En), "US fund, like VOO");
-        assert_eq!(Product::IsraeliEtf.choice_name(Lang::He), "ישראלית");
-    }
-
     #[test]
     fn a_fund_charges_only_its_managers_fee() {
         let fund = funds::investment_gemel();
@@ -2754,22 +2488,17 @@ mod tests {
         };
         let average = lines(0, Lang::En);
         // The fee on deposits on a line of its own, its name beside the
-        // other's, not under it as a part; then what its S&P 500 track keeps
-        // back, whatever's bought at a broker.
+        // other's, not under it as a part.
         let kinds: Vec<_> = average.iter().map(|line| line.kind).collect();
-        assert_eq!(
-            kinds,
-            [FeeKind::Management, FeeKind::DepositFee, FeeKind::Product]
-        );
-        assert_eq!(average[2].price.text, "0.54% a year");
+        assert_eq!(kinds, [FeeKind::Management, FeeKind::DepositFee]);
         assert!(average.iter().all(|line| line.parts.is_empty()));
-        assert_eq!(average[0].price.text, "0.58% of the balance a year");
+        assert_eq!(average[0].price.text, "0.62% of the balance a year");
         assert_eq!(average[1].price, PriceText::nothing("none"));
         // Each says where its number comes from.
         let mark = average[0].mark.as_ref().unwrap();
         assert_eq!(mark.kind, CaveatKind::Published);
         assert!(average[1].mark.is_some());
-        assert_eq!(lines(0, Lang::He)[0].price.text, "0.58% מהצבירה בשנה");
+        assert_eq!(lines(0, Lang::He)[0].price.text, "0.62% מהצבירה בשנה");
 
         let most = lines(3, Lang::En);
         assert_eq!(most[0].price.text, "1.05% of the balance a year");
@@ -2803,7 +2532,6 @@ mod tests {
         let at_once = Scenario {
             security: Security::Etf,
             exchange: Exchange::Europe,
-            product: None,
             first_deposit: dec!(100000),
             monthly_deposit: dec!(0),
             deposit_growth: crate::Percent(dec!(0)),
@@ -2907,7 +2635,6 @@ mod tests {
         let monthly = |monthly_deposit, age, withdrawal| Scenario {
             security: Security::Etf,
             exchange: Exchange::Usa,
-            product: None,
             first_deposit: dec!(0),
             monthly_deposit,
             deposit_growth: Percent(dec!(0)),

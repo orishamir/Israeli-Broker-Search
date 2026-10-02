@@ -8,7 +8,6 @@
   import { BUYING_INTERVALS } from './link'
   import NumberField from './NumberField.svelte'
   import PlanSheet from './PlanSheet.svelte'
-  import ProductLine from './ProductLine.svelte'
   import { t } from './text'
   import { en } from './text/en'
   import { glideHeight, reveal } from './motion'
@@ -127,7 +126,6 @@
           </p>
         </details>
       {/if}
-      <ProductLine {app} />
     </div>
   </div>
 </section>
@@ -147,14 +145,7 @@
   <h3>{t.expectations}</h3>
   <div class="fields">
     <span>
-      <!-- A fund holds an index; a share or a bond earns its own return. -->
-      {#if app.heldProduct}
-        <label for="yearly-return">{t.indexReturn}</label><Tip about={t.indexReturn}>{t.indexReturnTip}</Tip>
-      {:else}
-        <label for="yearly-return">{t.yearlyReturn}</label><Tip about={t.yearlyReturn}
-          >{t.yearlyReturnTip}</Tip
-        >
-      {/if}
+      <label for="yearly-return">{t.yearlyReturn}</label><Tip about={t.yearlyReturn}>{t.yearlyReturnTip}</Tip>
     </span>
     <NumberField id="yearly-return" suffix="%" step={0.5} bind:value={app.yearlyReturnPercent} />
 

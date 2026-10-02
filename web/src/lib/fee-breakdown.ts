@@ -21,7 +21,6 @@ export const FEE_TYPES: { key: FeeType; name: string; color: string; explanation
   { key: 'conversions', name: t.conversions, color: '#d95926', explanation: t.conversionsTip },
   // Violet, as what a place keeps is in the short term's chart.
   { key: 'holding', name: t.holding, color: '#9b7bf0', explanation: t.holdingTip },
-  { key: 'product', name: t.theFundItself, color: '#1f9e8f', explanation: t.theFundItselfTip },
   { key: 'selling', name: t.selling, color: '#c98500', explanation: t.sellingTip },
 ]
 

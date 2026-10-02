@@ -5,7 +5,7 @@
 
 use broker_fees::simulation::{Scenario, compare, simulate};
 use broker_fees::{
-    Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Product, Security, Withdrawal, tariffs,
+    Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Security, Withdrawal, tariffs,
 };
 use rust_decimal_macros::dec;
 
@@ -22,7 +22,6 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
     Scenario {
         security,
         exchange,
-        product: Product::for_purchase(security, exchange).first().copied(),
         first_deposit: dec!(10000),
         monthly_deposit: dec!(2000),
         deposit_growth: Percent(dec!(0)),

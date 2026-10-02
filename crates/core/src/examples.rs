@@ -6,7 +6,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use crate::simulation::Scenario;
-use crate::{Exchange, Percent, Product, Security, Text, Withdrawal};
+use crate::{Exchange, Percent, Security, Text, Withdrawal};
 
 /// One pattern: a short name for its button, the pattern in words, and the
 /// inputs it sets, how the money is taken out and the saver's age included.
@@ -33,7 +33,6 @@ pub fn all() -> Vec<Example> {
     let base = Scenario {
         security: Security::Etf,
         exchange: Exchange::Usa,
-        product: Some(Product::UsFund),
         first_deposit: dec!(0),
         monthly_deposit: dec!(0),
         deposit_growth: Percent(dec!(0)),
@@ -59,7 +58,6 @@ pub fn all() -> Vec<Example> {
             Scenario {
                 security: Security::IndexFund,
                 exchange: Exchange::Tlv,
-                product: Some(Product::IsraeliIndexFund),
                 monthly_deposit: dec!(1500),
                 years: 30,
                 ..base.clone()
@@ -77,7 +75,6 @@ pub fn all() -> Vec<Example> {
             Scenario {
                 security: Security::IndexFund,
                 exchange: Exchange::Tlv,
-                product: Some(Product::IsraeliIndexFund),
                 monthly_deposit: dec!(300),
                 years: 18,
                 ..base.clone()
@@ -127,7 +124,6 @@ pub fn all() -> Vec<Example> {
             Scenario {
                 security: Security::Bond,
                 exchange: Exchange::Tlv,
-                product: None,
                 first_deposit: dec!(400_000),
                 yearly_return: Percent(dec!(4)),
                 years: 10,

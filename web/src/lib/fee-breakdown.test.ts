@@ -20,7 +20,6 @@ const fees = (purchases: number, holding: number): FeeAmounts => ({
   purchases,
   conversions: 0,
   holding,
-  product: 0,
   selling: 0,
   total: purchases + holding,
 })
@@ -56,7 +55,6 @@ test('a focused fee is stacked first and keeps its color; the rest fade', () => 
     'holding',
     'purchases',
     'conversions',
-    'product',
     'selling',
   ])
   const holding = FEE_TYPES.find(({ key }) => key === 'holding')!

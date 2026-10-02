@@ -46,7 +46,6 @@ pub mod examples;
 pub mod funds;
 pub mod money;
 mod percent;
-pub mod products;
 pub mod short_term;
 pub mod simulation;
 pub mod tariffs;
@@ -56,7 +55,6 @@ pub mod yours;
 pub use describe::FeeKind;
 pub use money::{Currency, ExchangeRates, Money, ils, iso, usd};
 pub use percent::Percent;
-pub use products::Product;
 pub use vehicles::{Vehicle, Withdrawal};
 // For `Security::iter()` and `Exchange::iter()`.
 use std::borrow::Cow;
@@ -1098,23 +1096,18 @@ pub struct Holding {
 pub struct Buying {
     pub security: Security,
     pub exchange: Exchange,
-    /// What a broker's plans hold it through, one of
-    /// [`Product::for_purchase`]; `None` for a share or a bond.
-    pub product: Option<Product>,
     /// The biggest single order or conversion, in the exchange's currency,
     /// if known: some caveats matter only above an amount.
     pub largest_trade: Option<Money>,
 }
 
 impl Buying {
-    /// `security` on `exchange`, through the product most held there,
-    /// whatever the amounts.
+    /// `security` on `exchange`, whatever the amounts.
     #[must_use]
     pub fn any_amount(security: Security, exchange: Exchange) -> Self {
         Buying {
             security,
             exchange,
-            product: Product::for_purchase(security, exchange).first().copied(),
             largest_trade: None,
         }
     }

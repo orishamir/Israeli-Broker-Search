@@ -1564,11 +1564,11 @@ mod tests {
         assert_eq!(
             unchanged.fields,
             ManagementFields {
-                of_balance: Some(Amount(dec!(0.58))),
+                of_balance: Some(Amount(dec!(0.62))),
                 of_deposits: None,
             }
         );
-        assert_eq!(unchanged.price.text, "0.58% of the balance a year");
+        assert_eq!(unchanged.price.text, "0.62% of the balance a year");
         assert_eq!(unchanged.was, None);
 
         let fields = ManagementFields {
@@ -1584,7 +1584,7 @@ mod tests {
         );
         assert_eq!(
             changed.was.unwrap().price.text,
-            "0.58% of the balance a year"
+            "0.62% of the balance a year"
         );
 
         let negative = ManagementFields {

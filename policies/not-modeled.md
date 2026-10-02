@@ -9,9 +9,8 @@ Amounts are the tariff's maximums unless marked as an offer.
 - **Third-party fees on US trades:** SEC fee, FINRA TAF, ECN, ORF, charged on
   top of the commission (Altshuler, IBI, Meitav, Excellence, Interactive).
 - **Dividend and interest handling:** Altshuler 0.3% of the payment, Meitav
-  0.3%; Excellence charges for dividend reinvestment "as agreed". A US
-  fund's dividends are reinvested at no cost; a share's or a bond's aren't
-  simulated (the return is taken as total return).
+  0.3%; Excellence charges for dividend reinvestment "as agreed". Dividends
+  themselves aren't simulated (the return is taken as total return).
 - **Real-time data and advanced trading systems:** up to ₪3,000 a month
   (IBI, Meitav, Excellence, Altshuler); Interactive charges for live US quotes.
 - **Joining gifts and refunds** (one-off):
@@ -34,11 +33,9 @@ Amounts are the tariff's maximums unless marked as an offer.
 What `vehicles.rs` and the tax at the end leave out (September 2026). The
 sources are in `sources.md`, "Tax and the vehicles".
 
-- **Tax on what a share or a bond pays along the way:** 25% of a share's
-  dividends, 15% or 25% of a bond's interest, at each payment at a broker,
-  never inside a fund. For a fund it's counted, in what the fund keeps back
-  (`products.rs`); for a share or a bond held directly, the return is taken
-  as total return, so it isn't. On a 4% bond it would be about 1% a year.
+- **Tax on dividends along the way:** 25% of each payment at a broker, for a
+  security that pays out; less inside a fund or an accumulating ETF. On the
+  S&P 500 it's about 0.3% a year. The return is taken as total return.
 - **Unlinked shekel bonds:** taxed at 15% of the whole gain (section
   91(b)(3)), not 25% of the real one. The app doesn't know which bond is
   bought, so every security is taxed as 25% of the real gain.
@@ -52,13 +49,10 @@ sources are in `sources.md`, "Tax and the vehicles".
   vehicle that taxes the gain.
 - **Custody and the monthly fee as deductions:** see `sources.md`.
 - **Losses set against other gains, and withdrawing in parts.**
-- **Products other than the S&P 500's:** every ETF and index fund is
-  taken to hold the S&P 500, the only index measured (`products.rs`). An
-  Israeli ETF on the TA-125 costs less than one on the S&P 500, and a bond
-  fund other things again. Currency-hedged funds (מנוטרלות מט״ח) aren't
-  compared: their return in shekels isn't the index's.
-- **Reinvesting a US fund's dividends:** they're bought with the next
-  purchase at no cost of their own.
+- **What the investment itself charges:** an ETF's or fund's own yearly fee
+  at a broker, and a provident fund's direct expenses (הוצאות ישירות, up to
+  0.25% a year on managed tracks, close to nothing on index ones). Both are
+  left out, on both sides.
 - **A proposed cap on the pension exemption:** in June 2026 a Finance
   Ministry committee recommended limiting the tax-free gains of a provident
   fund for investment to ₪200,000 a saver
@@ -85,10 +79,8 @@ sources are in `sources.md`, "Tax and the vehicles".
 - **Each company's own fee:** the funds are listed by kind, at what savers
   pay on average and at the cheapest and dearest company (`sources.md`,
   "Funds and policies"). Self-managed funds (ניהול אישי, IRA) aren't listed.
-- **A fund's other tracks:** each fund is compared on its S&P 500 track
-  alone, against an S&P 500 fund at a broker, and isn't compared with a
-  share or a bond. A managed track (equity, general) holds Israeli shares and
-  bonds and hedges the dollar, so it earns something else.
+- **A managed track's own return:** a fund is taken to earn what the chosen
+  security does before fees, which only an index-following track does.
 - **A savings policy's own average fee:** not published apart from the
   insurers' other policies; the app's is a reading.
 

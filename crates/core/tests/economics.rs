@@ -29,7 +29,6 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
     Scenario {
         security,
         exchange,
-        product: None,
         first_deposit: dec!(10000),
         monthly_deposit: dec!(2000),
         deposit_growth: Percent(dec!(0)),
@@ -87,12 +86,6 @@ fn usual_plans() -> Vec<(String, Plan)> {
 
 fn every_purchase() -> impl Iterator<Item = (Security, Exchange)> {
     Security::iter().flat_map(|security| Exchange::iter().map(move |exchange| (security, exchange)))
-}
-
-/// Whether `security` holds an index, as a fund's track does: a fund is
-/// compared on nothing else.
-fn an_index(security: Security) -> bool {
-    matches!(security, Security::Etf | Security::IndexFund)
 }
 
 /// Equal to within a millionth of a shekel: converting through a rate and
@@ -675,8 +668,6 @@ fn scenarios() -> impl Strategy<Value = Scenario> {
         0..=6u32,
         18..=70u32,
         prop::sample::select(vec![Withdrawal::LumpSum, Withdrawal::Pension]),
-        // The index itself, free, or one of the products that hold it there.
-        0..=2usize,
     )
         .prop_map(
             |(
@@ -691,16 +682,10 @@ fn scenarios() -> impl Strategy<Value = Scenario> {
                 inflation,
                 age,
                 withdrawal,
-                product,
             )| {
-                let products = Product::for_purchase(security, exchange);
-                let product = product
-                    .checked_sub(1)
-                    .and_then(|index| products.get(index).or(products.first()).copied());
                 Scenario {
                     security,
                     exchange,
-                    product,
                     first_deposit: Decimal::from(first) * dec!(1000),
                     monthly_deposit: Decimal::from(monthly) * dec!(100),
                     deposit_growth: Percent(Decimal::ZERO),
@@ -779,73 +764,6 @@ proptest! {
     }
 }
 
-// ─────────────────────────── Products ───────────────────────────
-
-proptest! {
-    #![proptest_config(ProptestConfig { cases: 48, failure_persistence: None, ..ProptestConfig::default() })]
-
-    /// Holding the index through a product never leaves more than holding
-    /// it free: a product only takes. Nor after tax, where the product
-    /// keeps its dividends; a US fund's are taxed when paid, and what's
-    /// reinvested is cost raised with prices from then, which where the
-    /// return barely beats inflation and a broker's custody eats the gain
-    /// can save a few shekels more than the early tax costs. Shares cost ₪5,
-    /// so that buying a whole one a month sooner doesn't count.
-    #[test]
-    fn a_product_never_leaves_more_than_the_index(scenario in scenarios()) {
-        let scenario = Scenario { share_price: dec!(5), ..scenario };
-        let bare = Scenario { product: None, ..scenario.clone() };
-        let pays_out = scenario
-            .product
-            .is_some_and(|product| product.costs().dividends_paid_out_taxed.is_some());
-        let (_, held) = outcomes(&scenario);
-        let (_, free) = outcomes(&bare);
-        for (name, outcome) in &held {
-            let (_, without) = free.iter().find(|(other, _)| other == name).unwrap();
-            let tolerance = dec!(0.000001);
-            prop_assert!(outcome.after_selling <= without.after_selling + tolerance, "{}: ₪{} with the product, ₪{} without", name, outcome.after_selling, without.after_selling);
-            if !pays_out {
-                prop_assert!(outcome.after_tax <= without.after_tax + tolerance, "{}: ₪{} after tax with the product, ₪{} without", name, outcome.after_tax, without.after_tax);
-            }
-        }
-    }
-
-    /// Of the two products an ETF in Tel Aviv can be, the dearer leaves less
-    /// at every broker, and a fund, holding its own track, is the same
-    /// whichever is bought.
-    #[test]
-    fn a_dearer_product_leaves_less(scenario in scenarios()) {
-        let bought = |product| Scenario {
-            security: Security::Etf,
-            exchange: Exchange::Tlv,
-            product: Some(product),
-            ..scenario.clone()
-        };
-        let [dear, cheap] = [Product::IsraeliEtf, Product::ForeignEtfInTelAviv];
-        prop_assert!(dear.costs().yearly() > cheap.costs().yearly());
-        let (_, dearer) = outcomes(&bought(dear));
-        let (_, cheaper) = outcomes(&bought(cheap));
-        for (name, dear) in &dearer {
-            // Ranked differently: paired by name.
-            let (_, cheap) = cheaper.iter().find(|(other, _)| other == name).unwrap();
-            if Product::track_of(listed_plan(name).vehicle).is_some() {
-                prop_assert_eq!(dear.after_tax, cheap.after_tax, "{}", name);
-            } else {
-                prop_assert!(dear.after_selling < cheap.after_selling, "{}", name);
-            }
-        }
-    }
-}
-
-/// The listed plan named `name`, as [`listed_plans`] names it.
-fn listed_plan(name: &str) -> Plan {
-    listed_plans()
-        .into_iter()
-        .find(|(listed, _)| listed == name)
-        .map(|(_, plan)| plan)
-        .unwrap()
-}
-
 // ─────────────────────────── A manager's fees ───────────────────────────
 
 /// A fee on the balance alone is the yearly cost itself, which is defined
@@ -854,7 +772,7 @@ fn listed_plan(name: &str) -> Plan {
 #[test]
 fn a_fee_on_the_balance_is_the_yearly_cost() {
     let plan = managed(Vehicle::SavingsPolicy, dec!(0), dec!(1));
-    for (security, exchange) in every_purchase().filter(|&(security, _)| an_index(security)) {
+    for (security, exchange) in every_purchase() {
         let outcome = simulate(&plan, &defaults(security, exchange), &rates()).unwrap();
         assert_eq!(
             outcome.yearly_cost.0.round_dp(3),
@@ -1145,9 +1063,7 @@ proptest! {
     /// monthly fee) isn't part of what the holdings cost, and comes off the
     /// proceeds only in the year of the sale: the earlier years' is taxed
     /// with the gain. A manager's fees and the fees on each order are cost.
-    /// A study fund, where part of the gain is tax-free, never pays more,
-    /// nor does a fund at a broker that pays its dividends out: they were
-    /// taxed when paid, and what was reinvested is cost.
+    /// A study fund, where part of the gain is tax-free, never pays more.
     #[test]
     fn the_tax_is_a_quarter_of_what_came_out_beyond_what_went_in(scenario in scenarios()) {
         let scenario = Scenario {
@@ -1155,14 +1071,9 @@ proptest! {
             withdrawal: Withdrawal::LumpSum,
             ..scenario
         };
-        let paid_out = scenario
-            .product
-            .is_some_and(|product| product.costs().dividends_paid_out_taxed.is_some());
         let partly_free: Vec<String> = listed_plans()
             .into_iter()
-            .filter(|(_, plan)| {
-                partly_tax_free(plan) || (paid_out && Product::track_of(plan.vehicle).is_none())
-            })
+            .filter(|(_, plan)| partly_tax_free(plan))
             .map(|(name, _)| name)
             .collect();
         for (name, outcome) in outcomes(&scenario).1 {
@@ -1271,7 +1182,6 @@ fn assert_yearly_cost_holds(
     let as_a_fund_fee = Scenario {
         yearly_return: Percent(lowered * Decimal::ONE_HUNDRED),
         buy_every_months: 1,
-        product: None,
         ..scenario.clone()
     };
     let same = simulate(&free_plan(), &as_a_fund_fee, &rates()).unwrap();

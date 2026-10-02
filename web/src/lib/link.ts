@@ -5,7 +5,7 @@
 
 import type { Family, YourPlan } from './app.svelte'
 import * as core from './core/core'
-import type { Exchange, Product, Security } from './core/core'
+import type { Exchange, Security } from './core/core'
 import { looksLikeYourDeposit, type YourDeposit } from './short-term.svelte'
 
 /** What a link carries. Every field is optional: a link from another
@@ -18,8 +18,6 @@ export interface Shared {
   short?: SharedShort
   security?: Security
   exchange?: Exchange
-  /** The fund chosen, where the purchase has a choice (an ETF in Tel Aviv). */
-  product?: Product
   firstDeposit?: number
   monthlyDeposit?: number
   yearlyReturnPercent?: number
@@ -82,7 +80,6 @@ const TODAYS_MONEY_AT = 'i'
 const INFLATION = 'f'
 const HOLD = 'h'
 const PENSION = 'k'
-const FUND = 'fund'
 const PLAN = 'plan'
 const YOURS = 'yours'
 // The short-term calculator's link says so, and its months; the amounts and
@@ -106,7 +103,6 @@ export function encode(shared: Shared): string {
   }
   if (shared.sellAtEnd === false) params.set(HOLD, '1')
   if (shared.asPension) params.set(PENSION, '1')
-  if (shared.product) params.set(FUND, shared.product)
   for (const plan of shared.plans ?? []) params.append(PLAN, plan)
   if (shared.yours?.length) params.set(YOURS, toBase64Url(JSON.stringify(shared.yours)))
   return params.toString()
@@ -180,20 +176,6 @@ export function decode(hash: string): Shared {
   shared.exchange = among(
     KEYS.exchange,
     core.exchanges().map(({ value }) => value),
-  )
-  // A fund the core knows; one the purchase doesn't offer is passed over.
-  shared.product = among(
-    FUND,
-    core
-      .securities()
-      .flatMap(({ value: security }) =>
-        core
-          .exchanges()
-          .flatMap(({ value: exchange }) =>
-            core.productsFor({ security, exchange, largestTrade: null, ilsPerUsd: null, ilsPerEur: null }),
-          ),
-      )
-      .map(({ product }) => product),
   )
   shared.firstDeposit = number(KEYS.firstDeposit, (value) => value >= 0)
   shared.monthlyDeposit = number(KEYS.monthlyDeposit, (value) => value >= 0)

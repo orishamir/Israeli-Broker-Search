@@ -4,10 +4,9 @@ import { t } from '../src/lib/text'
 
 // The "?" tips: how they open and close, and the other names they give.
 
-// An ETF holds an index: the field is its return.
 const yearlyReturn = (page: Page) => ({
-  button: page.getByRole('button', { name: t.whatMeans(t.indexReturn) }),
-  tip: page.getByRole('tooltip').filter({ hasText: t.indexReturnTip }),
+  button: page.getByRole('button', { name: t.whatMeans(t.yearlyReturn) }),
+  tip: page.getByRole('tooltip').filter({ hasText: t.yearlyReturnTip }),
 })
 
 test('a ? explains its label on hover, until the mouse leaves', async ({ page }) => {

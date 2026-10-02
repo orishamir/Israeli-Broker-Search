@@ -53,13 +53,6 @@ test('what is left out stays out, and selling at the end is the default that is 
   expect(decode(encode({ years: 20 }))).toEqual({ years: 20 })
 })
 
-test('the fund chosen for an ETF in Tel Aviv travels too, and an unknown one is dropped', () => {
-  const foreign: Shared = { security: 'Etf', exchange: 'Tlv', product: 'ForeignEtfInTelAviv' }
-  expect(encode(foreign)).toBe('s=Etf&x=Tlv&fund=ForeignEtfInTelAviv')
-  expect(decode(encode(foreign))).toEqual(foreign)
-  expect(decode('s=Etf&x=Tlv&fund=Gold')).toEqual({ security: 'Etf', exchange: 'Tlv' })
-})
-
 test('nonsense is dropped, field by field', () => {
   const decoded = decode('s=Gold&x=Usa&d=-5&m=abc&y=200&b=5&p=0&g=1e999&yours=notbase64&plan=Anything')
   expect(decoded).toEqual({ exchange: 'Usa', plans: ['Anything'] })

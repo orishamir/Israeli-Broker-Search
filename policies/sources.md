@@ -341,124 +341,50 @@ How the rules were read:
 
 ## Funds and policies
 
-Checked on 30 September 2026 (`funds::checked`); the fees moved to the S&P
-500 tracks on 2 October 2026. `funds.rs` lists each kind of fund as a
-whole, not each company: a saver's fee is agreed person by person, and the
-companies' averages are within 0.2% of each other.
-
-Each kind is compared on its S&P 500 track (מסלול עוקב מדד S&P 500), the one
-that holds the index a broker's plans buy, so its fees are those tracks'.
-Its other tracks hold other things: an equity or a general track also holds
-Israeli shares and bonds and hedges most of its dollars. Over the calendar
-years 2005–2025, in shekels and before fees, the study funds' equity tracks
-beat the S&P 500 in 9 years and the general tracks in 8 (2025: 23% and 15%
-against 3%), but made 8.5% and 6.2% a year against its 9.1% over the
-whole stretch, and 10.6% and 6.7% against 12.5% over 2016–2025. They aren't
-compared.
+Checked on 30 September 2026 (`funds::checked`). `funds.rs` lists each kind
+of fund as a whole, not each company: a saver's fee is agreed person by
+person, and the companies' averages are within 0.2% of each other.
 
 The fees are the Capital Market Authority's, from the monthly reports of
 the funds and insurers, as its open data gives them (data.gov.il, the
 datasets `gemelnet` and `insurance`, shown on
 [Gemel Net](https://gemelnet.cma.gov.il/) and
-[Bituach Net](https://bituachnet.cma.gov.il/)).
-`index-tracking.py` here prints the S&P 500 tracks' fees, and `gemel-net.py`
-the fees over every track. Each track's average fee is weighted by the money
-in it, tracks that report no fee (new ones) are left out, and so are the
-funds of one employer's or one sector's workers. The numbers below are for
-the report of August 2026.
+[Bituach Net](https://bituachnet.cma.gov.il/)). `gemel-net.py` here works
+them out; run it for the report of August 2026 (`202608`) to get the numbers
+below. Each track's average fee is weighted by the money in it, and tracks
+that report no fee (new ones) are left out.
 
-- **Provident fund for investment:** the S&P 500 tracks of 11 companies,
-  0.584% of the balance and 0.001% of deposits ("Average fee", 0.58% and
-  nothing on deposits). By company, Menora Mivtachim is the cheapest at
-  0.520% ("Cheapest company", 0.52%) and Mor the dearest at 0.710%
-  ("Dearest company", 0.71%). "Legal maximum" is the regulations' (above).
-  Over every track it was 0.6168% (Harel 0.5519%, Mor 0.7188%).
-- **Study fund:** the S&P 500 tracks of 11 companies, 0.543% of the balance
-  and nothing from deposits ("Average fee", 0.54%); Clal the cheapest at
-  0.480% (0.48%), Mor the dearest at 0.700% (0.70%). Over every track
-  without the self-managed ones it was 0.6125%.
+- **Provident fund for investment:** the tracks classified קופת גמל להשקעה
+  and open to everyone (כלל האוכלוסיה), 123 tracks of 11 companies, ₪99
+  billion. All together 0.6168% of the balance and 0.0010% of deposits:
+  "Average fee" is 0.62% and nothing on deposits. By company, Harel is the
+  cheapest at 0.5519% ("Cheapest company", 0.55%) and Mor the dearest at
+  0.7188% ("Dearest company", 0.72%). The funds of one employer's or one
+  sector's workers (teachers, the electric company) charge less and aren't
+  open to others. "Legal maximum" is the regulations' (above).
+- **Study fund:** the tracks classified קרנות השתלמות and open to
+  everyone, without the self-managed ones (names with ניהול אישי or IRA,
+  whose savers pay a broker's trade fees on top): 131 tracks of 11
+  companies. All together 0.6125% of the balance and nothing from deposits
+  ("Average fee", 0.61%); Migdal the cheapest at 0.5281% (0.53%), Mor the
+  dearest at 0.6981% (0.70%).
 - **The figure is a yearly one:** it changed in January 2025 and January
   2026 for nearly every fund and in no other month, so it's taken as what
   savers paid over the year before. The app says "data of August 2026" and
   that it last changed in January.
 - **Savings policy:** Bituach Net reports the insurers' investment policies
-  together, as "policies sold since 2004". Their S&P 500 tracks (8
-  insurers) take 0.768% of the balance and 1.596% of deposits where they
-  report it. They include managers' insurance (ביטוח מנהלים), a pension
-  product with a fee on deposits; savings policies aren't reported apart.
-  "Average fee" is that 0.77% with nothing on deposits, shown as our
+  together, as "policies sold since 2004": 168 tracks of 8 insurers, ₪351
+  billion, 0.9393% of the balance, and 1.7663% of deposits in the 141 that
+  report a fee on deposits. They include managers' insurance (ביטוח מנהלים),
+  a pension product with a fee on deposits; savings policies aren't reported
+  apart. "Average fee" is that 0.94% with nothing on deposits, shown as our
   reading, since Menora Mivtachim calls the fee on the balance a savings
   policy's only cost. "Highest fee" is the 2% of the balance that Menora and
   Bizportal give as the most; the regulation behind it wasn't read.
-- **What a track's own investing costs** is counted besides the fee: see
-  "Products" below.
-
-## Products: what holding the index costs
-
-Measured on 2 October 2026 by `index-tracking.py`, for `products.rs`. The
-return the user expects is the S&P 500's with its dividends, and every plan
-loses what the fund holding the index keeps back on its own: the larger of
-what the fund publishes (its fees, the most its variable fee can be, its
-trustee's, and the share of the index's dividends that tax takes from it by
-how it holds the index) and how far it trailed the index over the five
-years to the end of September 2026. A kind is its funds' average, each
-weighted by the money in it. Rounded to the hundredth of a percent.
-
-- **The index:** Yahoo's S&P 500 Total Return (`^SP500TR`, gross dividends)
-  and price index (`^GSPC`), in shekels at the Bank of Israel's
-  representative rate (its SDMX service, `RER_USD_ILS`). It made 12.60% a
-  year in shekels over the five years; the dividends, the total return's
-  lead over the price index, 1.44% a year.
-- **Israeli index funds (קרנות מחקות):** the eight unhedged S&P 500 index
-  funds in shekels on [Maya](https://maya.tase.co.il/he/funds/mutual-funds),
-  their fees from each fund's page there and their daily prices from its
-  history. Fixed fees with the trustee's 0.02%–0.42%, variable fees up to
-  0.1%–0.3%: 0.260% by the money in each. Trailed: Kesem 0.16, Harel −0.02,
-  MTF 0.16, Tachlit 0.39, IBI 0.16, Mor 0.84 (Yelin and Altshuler are
-  younger than three years): 0.149%. Counted: 0.26%. They follow the index
-  by futures and swaps, and kept its dividends whole
-  ([TheMarker](https://www.supermarker.themarker.com/Investments/EtfAndIndexTrackingFunds.aspx)).
-- **Israeli ETFs (קרנות סל):** the six unhedged S&P 500 ETFs in Tel Aviv,
-  Kesem 1146471, Tachlit 1144385, Harel 1149020, MTF 1150333, Mor 1165810
-  and IBI 1148162. Fees from [Funder](https://www.funder.co.il/etf/1146471)
-  (0.1%–0.8% fixed, up to 0.3% variable, trustees up to 0.03%): 0.820% by
-  the money each holds in Tel Aviv (the exchange's market value). Prices
-  from the exchange's history (`historyeod`); an ETF closes while New York
-  trades, so its price is compared with the index averaged over the first
-  and the last month rather than on one day. Trailed 0.38–1.01, 0.750% by
-  money. Counted: 0.82%.
-  [Calcalist](https://www.calcalist.co.il/market/article/r140625p1g)
-  (January 2025) reports the big ones at 0.6%–0.8% against 0.07%–0.09% for
-  the foreign ones listed here.
-- **Foreign ETFs listed in Tel Aviv:** iShares Core S&P 500 UCITS (1159250,
-  Irish, holds the shares: 0.07% and 15% of the dividends, 0.286%) and
-  Invesco S&P 500 UCITS (1183441, Irish, by swaps: 0.05%): 0.197% by money.
-  Trailed iShares 0.33, Invesco −0.04 since 2022: 0.193%. Counted: 0.20%.
-- **A US fund (VOO):** 0.03% a year ([Vanguard](https://investor.vanguard.com/investment-products/etfs/profile/voo)),
-  and it pays its dividends out: the US keeps 25% of them by its treaty with
-  Israel ([the IRS's treaty tables](https://www.irs.gov/individuals/international-taxpayers/tax-treaty-tables)),
-  and Israel's own 25% is set against it
-  ([Bizportal](https://www.bizportal.co.il/guides/news/article/20038373)).
-  0.03% + 25% × 1.44% = 0.39%. The rest is reinvested and counts as bought
-  then, which lowers the tax at the end. Not measured: an Israeli's return
-  on it is its total return less that tax. Holding more than $60,000 of US
-  securities at death exposes the heirs to US estate tax
-  ([IRS](https://www.irs.gov/individuals/international-taxpayers/some-nonresidents-with-us-assets-must-file-estate-tax-returns)):
-  a warning from that amount, at the end's holdings.
-- **An Irish fund in Europe (CSPX):** 0.07% and 15% of the dividends,
-  0.286% ([iShares](https://www.ishares.com/uk/individual/en/products/253743/ishares-sp-500-b-ucits-etf-acc-fund));
-  in London, in dollars, it trailed by 0.28%. Counted: 0.286%. An index fund
-  bought abroad is counted like the ETF there.
-- **The funds' S&P 500 tracks:** Gemel Net's and Bituach Net's monthly
-  returns, before the management fee
-  ([Analyst](https://www.analyst.co.il/yield-comparison-calculator/)), over
-  the five years to August 2026, the regulator's last report (or since a
-  track began, if that's three years or more), against the index at month
-  ends. Trailed by money: study funds 0.415% (Phoenix 0.16, Harel 0.30,
-  Clal 0.49, Migdal 0.20, Meitav 0.35, Menora 0.63, Mor 1.26, Analyst
-  1.57), provident funds for investment 0.544%, savings policies 0.331%.
-  Counted besides the fee: 0.42%, 0.54% and 0.33%. Older reports name the
-  tracks differently, so they're found by number.
+- **What a fund's own investing costs:** the regulations on direct expenses
+  ([Hebrew Wikisource](https://he.wikisource.org/wiki/תקנות_הפיקוח_על_שירותים_פיננסיים_(קופות_גמל)_(הוצאות_ישירות_בשל_ביצוע_עסקאות)))
+  cap outside managers' fees and the like at 0.25% of a fund's assets a
+  year. Not counted, like an ETF's own fee.
 
 ## Money for the short term
 

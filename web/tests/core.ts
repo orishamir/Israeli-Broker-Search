@@ -17,7 +17,6 @@ import {
   compareShortTerm,
   exchanges,
   initSync,
-  productsFor,
   securities,
   setLang,
   shortTermKinds,
@@ -27,7 +26,6 @@ import {
 import type {
   Exchange,
   Inputs,
-  Product,
   PlaceKey,
   PlanKey,
   Security,
@@ -98,10 +96,6 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
     if (await box.isChecked()) ticked.push(key)
   }
   const exchange = (await chosen(t.exchange)) as Exchange
-  // The fund is a choice only where there are two; the core takes the first
-  // where there's one.
-  const products = page.getByRole('radiogroup', { name: t.theFundYouBuy })
-  const product = (await products.count()) ? ((await chosen(t.theFundYouBuy)) as Product) : undefined
   // The expert fields are on the page only under "More options"; off, the
   // app takes the defaults.
   const moreOptions = await page.getByLabel(t.moreOptions, { exact: true }).isChecked()
@@ -112,7 +106,6 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
   return {
     security: (await chosen(t.security)) as Security,
     exchange,
-    product,
     firstDeposit: await number('first-deposit'),
     monthlyDeposit: await number('monthly-deposit'),
     yearlyReturnPercent: await number('yearly-return'),
@@ -200,14 +193,8 @@ export async function purchaseOnPage(page: Page) {
   } catch {
     // Invalid inputs: no comparison, so the biggest order is unknown.
   }
-  const { security, exchange, product, ilsPerUsd, ilsPerEur } = inputs
-  return { inputs, purchase: { security, exchange, product, largestTrade, ilsPerUsd, ilsPerEur } }
-}
-
-/** What the purchase on the page can be held through, as the core lists
- * it: the fund line's names, prices and warning. */
-export async function productsOnPage(page: Page) {
-  return productsFor((await purchaseOnPage(page)).purchase)
+  const { security, exchange, ilsPerUsd, ilsPerEur } = inputs
+  return { inputs, purchase: { security, exchange, largestTrade, ilsPerUsd, ilsPerEur } }
 }
 
 /** The track the comparison on the page picked for a plan, if it's compared

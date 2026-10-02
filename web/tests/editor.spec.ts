@@ -326,18 +326,16 @@ test("a copy's second conversion fee can be changed, and the copy then ends with
     price(conversion!.fields.percent !== undefined ? { amount: conversion!.fields.percent } : {}),
   )
   await expect(second).toHaveValue(price({ amount: secondConversion!.fields.percent }))
-  // Below the group's 0.1%, so the sale at the end converts for less: the
-  // monthly purchases pay the minimum either way.
-  await second.fill('0.05')
+  await second.fill('0.12')
   await expect(dialog).toContainText(`${plan.name}: ${secondConversion!.price.text}`)
   await dialog.getByRole('button', { name: t.addPlan }).click()
   // The copy converts for less than the original, so it's left with more
-  // (the first amount: what's left after tax).
-  const leftAfterTax = async (name: string) => {
+  // (the third amount: yearly cost, lost to fees, value if sold).
+  const valueIfSold = async (name: string) => {
     const row = rows(page).filter({ has: page.getByText(name, { exact: true }) })
-    return Number((await row.locator('td.amount').first().textContent())!.replace(/\D/g, ''))
+    return Number((await row.locator('td.amount').nth(2).textContent())!.replace(/\D/g, ''))
   }
-  expect(await leftAfterTax(planInfo(data).name)).toBeGreaterThan(await leftAfterTax(plan.name))
+  expect(await valueIfSold(planInfo(data).name)).toBeGreaterThan(await valueIfSold(plan.name))
 })
 
 test('a copy is made on the track the comparison picked', async ({ page }) => {
