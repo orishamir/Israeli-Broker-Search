@@ -668,7 +668,7 @@ pub enum InvalidInputs {
     /// Numbers the simulation can't handle: "the yearly return can't be below −100%".
     #[error(transparent)]
     Scenario(#[from] InvalidScenario),
-    /// The same for the short term: "the money can be kept for 1 to 60 months".
+    /// The same for the short term: "the money can be kept for 1 to 600 months".
     #[error(transparent)]
     ShortTerm(#[from] short_term::InvalidScenario),
 }
@@ -1878,7 +1878,7 @@ impl PlaceInfo {
                     rate: rates.of(term).map(|rate| number(rate.0)),
                 })
                 .collect(),
-            Pays::TheRateLess(_) => vec![],
+            Pays::TheRateLess(_) | Pays::GovernmentBond(_) => vec![],
         };
         let caveats: Vec<&broker_fees::Caveat> =
             place.caveats.iter().chain(&kind.caveats).collect();
@@ -1890,7 +1890,7 @@ impl PlaceInfo {
             pays: place.pays_text(lang),
             fee_percent: match place.pays {
                 Pays::TheRateLess(fee) => Some(number(fee.0)),
-                Pays::Fixed(_) => None,
+                Pays::Fixed(_) | Pays::GovernmentBond(_) => None,
             },
             rates,
             tax: place.pays.tax().name(lang).to_owned(),
@@ -2108,9 +2108,7 @@ pub fn compare_places(inputs: &ShortTermInputs) -> Result<ShortTermComparisonDat
         deposited: number(scenario.deposited()),
         at_the_rate: comparison.at_the_rate.iter().copied().map(number).collect(),
         term: Term::for_months(scenario.months)
-            .expect("a checked scenario")
-            .name(lang)
-            .to_owned(),
+            .map_or_else(String::new, |term| term.name(lang).to_owned()),
         places: comparison
             .places
             .into_iter()
@@ -2203,7 +2201,8 @@ pub fn term_for(months: u32) -> Option<usize> {
 #[wasm_bindgen(js_name = shortTermLongest)]
 #[must_use]
 pub fn short_term_longest() -> u32 {
-    short_term::LONGEST
+    // The page still offers deposits' range; longer horizons are for the guide.
+    short_term::DEPOSITS_LONGEST
 }
 
 fn number(value: Decimal) -> f64 {
@@ -2919,7 +2918,7 @@ mod tests {
         );
         assert_eq!(
             wrong(|inputs| inputs.months = 0).text(Lang::He),
-            "אפשר לחסוך לתקופה של חודש עד 60 חודשים"
+            "אפשר לחסוך לתקופה של חודש עד 600 חודשים"
         );
     }
 

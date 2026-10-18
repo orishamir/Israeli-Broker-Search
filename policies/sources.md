@@ -522,7 +522,7 @@ that report no fee (new ones) are left out.
 Checked on 1 October 2026 (`short_term::deposits::checked`,
 `short_term::money_market::checked`). `short_term.rs` compares a sum at
 the start, and perhaps an amount at the start of every month, kept for 1 to
-60 months: in a money market fund, or at a bank on a fixed-rate deposit,
+60 months (deposits; the fund and bonds go further: see below): in a money market fund, or at a bank on a fixed-rate deposit,
 which takes the sum alone. Everything earns about the Bank of Israel's
 rate; the comparison is what reaches the saver after what the place keeps
 and the tax.
@@ -661,3 +661,69 @@ and the tax.
   The plan's claim that the 20-year worst is positive in dollars holds. A
   10-year stretch did end lower in about 1 of 20 starts, which the guide
   must not round to "never".
+## Government bonds and the yield curve
+
+Checked on 19 October 2026 (`short_term::government_bonds::checked`); the
+yields are the monthly average of September 2026.
+
+- **The yields:** the Bank of Israel's zero-coupon curve, the SDMX dataflow
+  `BOI.STATISTICS/ZCM` ("ציפיות לאינפלציה ועקום 0",
+  [data, CSV](https://edge.boi.org.il/FusionEdgeServer/sdmx/v2/data/dataflow/BOI.STATISTICS/ZCM/1.0?format=csv&lastNObservations=1);
+  unlike boi.org.il it answers `curl`). `yield-curve.py` prints the block
+  in `government_bonds.rs` (`python3 -I policies/yield-curve.py --write`):
+  nominal `ZC_TSB_ZND_{01,02,03,04,05,07,10,15}Y_MA` (NOMINAL_REAL=N) and
+  real `ZC_TSB_ZRD_{01,02,03,04,05,07,10,15}Y_MA` (R), all
+  DATA_TYPE=ZC_YTM, MODEL_TYPE=M_T, rounded to two places. September 2026:
+  nominal 3.19% (1 year), 3.72% (5), 4.29% (15); real 1.59%, 1.78%, 2.26%.
+  The real curve also has a 20-year point (2.38%); the app stops at 15,
+  where the nominal curve does. Between points a straight line; under a
+  year (makam) and over 15 years not offered.
+- **A check on the two curves:** the five-year real yield (1.78%) and the
+  Bank of Israel's five-year expected inflation (1.90%, series
+  `EXP_EXB_ZD_5Y_MA`) come to the nominal 3.72%.
+- **The names:** a bond is named for the kind and the month and year it is
+  repaid, "ממשלתי שקלי 0347" (repaid 31 March 2047) and "ממשלתי צמוד 0536"
+  (repaid 30 May 2036); TheMarker abbreviates some to "ממשל שקלית" and
+  "ממשל צמודה"
+  ([0347](https://finance.themarker.com/bond/1140193),
+  [0536](https://finance.themarker.com/bond/1097708)). The model takes a
+  bond repaid when the wait ends; whether one exists on the day has to be
+  looked up on the exchange's list.
+- **The tax:** a bond not linked to the index is taxed at 15% of the whole
+  gain, section 91(ב)(3) (as in `not-modeled.md` for the long term); a
+  linked one at 25% of the real gain, section 91(ב)(1)
+  ([Bizportal on the tax on interest](https://www.bizportal.co.il/general/news/article/104576):
+  15% on the whole nominal interest of an unlinked asset, 25% on the real
+  gain of a linked one).
+- **The fees:** the broker's own for bonds on Tel Aviv, run through
+  `simulation::simulate` (`Security::Bond`, `Exchange::Tlv`) for the plan a
+  new customer usually gets at each bank and investment house
+  (`new_customer_plan`), the cheapest one named in the result. Other
+  plans are left out: Top Trade is for ages 18 to 30, the club for the
+  security forces' families. In September 2026 that is Excellence's
+  (0.06% of the order, at least ₪3, no custody, no handling fee).
+- **Redemption (needs the user's word):** the plan of record takes a
+  repayment at maturity as free (`REDEMPTION_IS_FREE`). The price lists
+  don't say so: Altshuler, Excellence, Meitav, IBI, Leumi and Mizrahi name
+  "קניה, מכירה ופדיון" in the row for trades, which reads as the same fee
+  for a redemption. Only Otsar Hahayal's club says "bond redemption free",
+  and IBI charges $70 for a foreign bond. The kind carries a `may_cost_more`
+  caveat saying so.
+- **Monthly money:** each month's deposit buys a bond repaid at the end, at
+  the yield for the wait left (a year's when less is left); the fees are
+  worked out for one yearly return that ends with the same money before
+  fees. Buying every month at a plan with a high minimum (Leumi's ₪26)
+  costs a lot; the model doesn't buy less often.
+
+## CPI-linked deposits
+
+Looked for on 19 October 2026 for `short_term/linked_deposits.rs`; not
+built. The Bank of Israel's `g060a.xls` has none (REDESIGN.md 4.4). Of the
+big banks only Leumi's page of deposit rates
+([leumi.co.il](https://www.leumi.co.il/savings/Payments-saving-month)) lists
+linked savings: "חסכון צמוד למדד לשנה" and "תשלומים צמוד מדד 15 שנים", both
+at 1.00% a year over the index, with its "as of" date a template that
+never filled in. No other bank's page gave a rate with a date, and the
+comparison sites' (TheMarker's Supermarker) pages load their tables by
+script. Fewer than three banks with dates, so the kind isn't added; see
+`not-modeled.md`.

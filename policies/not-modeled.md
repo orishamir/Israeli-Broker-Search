@@ -272,3 +272,30 @@ What `short_term.rs` leaves out (October 2026). The sources are in
   are not banks and their tariffs have no branch column (they list a Full tariff and offers), so they have no branch plan.
 - **Leumi's standing order through a banker**: priced as an ordinary order
   (see `sources.md`, "Branch tariffs").
+
+## Government bonds and CPI-linked deposits
+
+What `short_term/government_bonds.rs` leaves out (October 2026). The
+sources are in `sources.md`, "Government bonds and the yield curve".
+
+- **CPI-linked deposits (פיקדון צמוד מדד):** not modelled. The Bank of
+  Israel publishes none (its Excel has fixed and variable unlinked
+  deposits only), and the banks' own pages gave a dated rate for one bank
+  at most (Leumi, 1.00% over the index, undated). The CPI-linked
+  government bond covers the need: the same protection from prices, at a
+  published real yield.
+- **Reinvesting the coupons:** a bond pays interest along the way; the
+  model has it reinvested at the bond's own yield. In reality it is
+  reinvested at the day's rates.
+- **The bond's price before it is repaid:** sold early, the price moves
+  with interest rates. The model holds to the end, so the sum is known.
+- **The curve changing:** each monthly deposit is taken to buy at today's
+  curve. Later deposits will meet other yields.
+- **Makam and bonds under a year or over 15 years:** not compared; the
+  Bank of Israel's curve starts at one year and ends at fifteen here.
+- **The exact bond:** a bond repaid on the day the saver's wait ends is
+  taken to exist; the series' dates are on the stock exchange's list.
+- **The price of a redemption:** counted as free; see `sources.md`.
+- **Deposits past five years:** the Bank of Israel publishes no rates, so
+  a deposit isn't offered for them (`NotOffered::TooLong`); the money
+  market fund goes to 50 years at the rate the saver expects less its fee.

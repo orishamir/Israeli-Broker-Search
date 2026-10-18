@@ -4,9 +4,11 @@
 //! and when the money can come out. The long term, where money rides a
 //! market, is [`crate::simulation`].
 //!
-//! Two kinds of place are compared: a bank's fixed-rate deposit
+//! Three kinds of place are compared: a bank's fixed-rate deposit
 //! ([`deposits`]), at the rates the Bank of Israel publishes for each bank,
-//! and a money market fund ([`money_market`]), at the fees the funds report.
+//! a money market fund ([`money_market`]), at the fees the funds report, and
+//! a government bond held to maturity ([`government_bonds`]), at the Bank of
+//! Israel's yield curve, in the cheapest broker's account.
 //! `policies/sources.md` says where each number comes from, and
 //! `policies/not-modeled.md` what's left out.
 
@@ -18,8 +20,10 @@ use strum::{EnumCount, IntoEnumIterator};
 use time::Date;
 
 use crate::{Caveat, Lang, Named, Page, Percent, TariffDate, Text};
+use government_bonds::Linkage;
 
 pub mod deposits;
+pub mod government_bonds;
 pub mod money_market;
 
 /// The Bank of Israel's rate when the numbers were checked, since 1
@@ -54,9 +58,14 @@ pub fn todays_rate_sources() -> Vec<Page> {
     ]
 }
 
-/// The longest the money can be kept, in months: the Bank of Israel
+/// The longest the money can be kept, in months: the app's longest horizon,
+/// 50 years. Only the money market fund goes that far; a place that can't
+/// say [`NotOffered`].
+pub const MOST_MONTHS: u32 = 600;
+
+/// The longest a deposit can be kept, in months: the Bank of Israel
 /// publishes deposit rates for terms of up to five years.
-pub const LONGEST: u32 = 60;
+pub const DEPOSITS_LONGEST: u32 = 60;
 
 /// The most that can be kept, in ₪: far more than anyone keeps on deposit,
 /// and far enough below the largest `Decimal` that growing it can't
@@ -66,7 +75,11 @@ const LARGEST_AMOUNT: Decimal = dec!(1_000_000_000_000);
 /// Every kind of place the app compares, in the order to offer them.
 #[must_use]
 pub fn kinds() -> Vec<Kind> {
-    vec![money_market::kind(), deposits::kind()]
+    vec![
+        money_market::kind(),
+        deposits::kind(),
+        government_bonds::kind(),
+    ]
 }
 
 // ─────────────────────────── The saver's inputs ───────────────────────────
@@ -80,7 +93,7 @@ pub struct Scenario {
     /// ₪, put in at the start of every month, the first too. A fixed-rate
     /// deposit takes none: it's one sum.
     pub monthly_deposit: Decimal,
-    /// How long it's kept, from 1 to [`LONGEST`] months.
+    /// How long it's kept, from 1 to [`MOST_MONTHS`] months.
     pub months: u32,
     /// The Bank of Israel's rate, on average over the months, as the saver
     /// expects it: what a money market fund earns before its fee. A
@@ -99,7 +112,7 @@ pub enum InvalidScenario {
     NegativeAmount,
     #[error("the amounts are too large to work with")]
     TooLarge,
-    #[error("the months must be from 1 to {LONGEST}")]
+    #[error("the months must be from 1 to {MOST_MONTHS}")]
     Months,
     #[error("the rate and inflation can't be −100% or less")]
     RateBelowMinus100,
@@ -123,8 +136,8 @@ impl InvalidScenario {
                 "הסכומים גדולים מדי בשביל החישוב",
             ),
             InvalidScenario::Months => lang.pick(
-                "the money can be kept for 1 to 60 months",
-                "אפשר לחסוך לתקופה של חודש עד 60 חודשים",
+                "the money can be kept for 1 to 600 months",
+                "אפשר לחסוך לתקופה של חודש עד 600 חודשים",
             ),
             InvalidScenario::RateBelowMinus100 => lang.pick(
                 "the rate and inflation can't be −100% or less",
@@ -145,7 +158,7 @@ impl Scenario {
         if self.first_deposit < Decimal::ZERO || self.monthly_deposit < Decimal::ZERO {
             return Err(InvalidScenario::NegativeAmount);
         }
-        if !(1..=LONGEST).contains(&self.months) {
+        if !(1..=MOST_MONTHS).contains(&self.months) {
             return Err(InvalidScenario::Months);
         }
         let deposited = self
@@ -287,6 +300,9 @@ pub enum Pays {
     /// A money market fund: the Bank of Israel's rate as it goes, less the
     /// fund's yearly fee.
     TheRateLess(Percent),
+    /// A government bond held to maturity: the Bank of Israel's yield for the
+    /// wait, in the cheapest broker's account.
+    GovernmentBond(Linkage),
 }
 
 impl Pays {
@@ -294,8 +310,8 @@ impl Pays {
     #[must_use]
     pub fn tax(self) -> Tax {
         match self {
-            Pays::Fixed(_) => Tax::OfInterest,
-            Pays::TheRateLess(_) => Tax::OfRealGain,
+            Pays::Fixed(_) | Pays::GovernmentBond(Linkage::Unlinked) => Tax::OfInterest,
+            Pays::TheRateLess(_) | Pays::GovernmentBond(Linkage::CpiLinked) => Tax::OfRealGain,
         }
     }
 
@@ -304,7 +320,7 @@ impl Pays {
     pub fn liquidity(self) -> Liquidity {
         match self {
             Pays::Fixed(_) => Liquidity::AtTheEnd,
-            Pays::TheRateLess(_) => Liquidity::AnyDay,
+            Pays::TheRateLess(_) | Pays::GovernmentBond(_) => Liquidity::AnyDay,
         }
     }
 }
@@ -334,7 +350,7 @@ impl Term {
             Term::UpToAYear => 12,
             Term::UpToTwoYears => 24,
             Term::UpToThreeYears => 36,
-            Term::UpToFiveYears => LONGEST,
+            Term::UpToFiveYears => DEPOSITS_LONGEST,
         }
     }
 
@@ -426,7 +442,8 @@ impl Named for Tax {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Liquidity {
-    /// Any business day: a fund's units are sold at the day's price.
+    /// Any business day: a fund's units or a bond are sold at the day's
+    /// price (a bond's moves with interest rates until it is repaid).
     AnyDay,
     /// At the end of the term: a fixed-rate deposit is locked until then.
     AtTheEnd,
@@ -464,6 +481,15 @@ pub struct Outcome {
     pub yearly_cost: Percent,
     /// What the money earned after tax, as a rate a year.
     pub yearly_after_tax: Percent,
+    /// The account the bonds were bought in, where the place needs one.
+    pub via: Option<Via>,
+}
+
+/// The broker and plan whose fees a place's outcome counts.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Via {
+    pub broker: Text,
+    pub plan: Text,
 }
 
 /// Why a place can't be used for a scenario.
@@ -478,6 +504,19 @@ pub enum NotOffered {
     /// opened in the month.
     #[error("no rate was published for deposits of this term")]
     NoRate { term: Term },
+    /// Deposits longer than five years: the Bank of Israel publishes no
+    /// rates for them.
+    #[error("no deposit rates are published for terms over five years")]
+    TooLong,
+    /// A government bond's curve starts at one year.
+    #[error("the yield curve starts at one year")]
+    BondTooShort,
+    /// ... and ends at fifteen.
+    #[error("the yield curve ends at fifteen years")]
+    BondTooLong,
+    /// No plan of any broker can buy bonds with this first deposit.
+    #[error("no broker's plan opens with this first deposit")]
+    NoBrokerPlan,
 }
 
 /// Keeps `scenario`'s money in `place`, or says why it can't be kept there.
@@ -490,20 +529,26 @@ pub enum NotOffered {
 ///
 /// # Panics
 ///
-/// If the scenario's months are past [`LONGEST`]: check it first.
+/// If the scenario's months are past [`MOST_MONTHS`]: check it first.
 pub fn simulate(place: &Place, scenario: &Scenario) -> Result<Outcome, NotOffered> {
+    let mut via = None;
     let value_by_month = match place.pays {
         Pays::Fixed(rates) => {
             if !scenario.monthly_deposit.is_zero() {
                 return Err(NotOffered::TakesOneSum);
             }
-            let term = Term::for_months(scenario.months).expect("a checked scenario");
+            let term = Term::for_months(scenario.months).ok_or(NotOffered::TooLong)?;
             let rate = rates.of(term).ok_or(NotOffered::NoRate { term })?;
             (0..=scenario.months)
                 .map(|month| deposit_worth(scenario.first_deposit, rate, month))
                 .collect()
         }
         Pays::TheRateLess(fee) => scenario.grown(monthly(scenario.rate, fee)),
+        Pays::GovernmentBond(linkage) => {
+            let run = government_bonds::run(linkage, scenario)?;
+            via = Some(run.via);
+            run.value_by_month
+        }
     };
     let end = *value_by_month.last().expect("the start is always there");
     let at_the_rate = *scenario
@@ -523,6 +568,7 @@ pub fn simulate(place: &Place, scenario: &Scenario) -> Result<Outcome, NotOffere
         kept: at_the_rate - end,
         yearly_cost: as_percent(yearly_cost),
         yearly_after_tax: as_percent(yearly_factor_ending_at(scenario, after_tax) - Decimal::ONE),
+        via,
     })
 }
 
@@ -788,7 +834,7 @@ mod tests {
             Err(InvalidScenario::TooLarge)
         );
         assert_eq!(with(|s| s.months = 0), Err(InvalidScenario::Months));
-        assert_eq!(with(|s| s.months = 61), Err(InvalidScenario::Months));
+        assert_eq!(with(|s| s.months = 601), Err(InvalidScenario::Months));
         assert_eq!(
             with(|s| s.rate = Percent(dec!(-100))),
             Err(InvalidScenario::RateBelowMinus100)
@@ -862,11 +908,15 @@ mod tests {
         assert_eq!(distinct.len(), he.len(), "{he:?}");
     }
 
-    /// The funds first, the shorter list, then the banks' deposits.
+    /// The funds first, the shorter list, then the banks' deposits, then the
+    /// state's bonds.
     #[test]
-    fn the_kinds_are_the_funds_then_the_deposits() {
+    fn the_kinds_are_the_funds_the_deposits_then_the_bonds() {
         let kinds = kinds();
         let names: Vec<&str> = kinds.iter().map(|kind| kind.name.en.as_ref()).collect();
-        assert_eq!(names, ["Money market fund", "Fixed-rate deposit"]);
+        assert_eq!(
+            names,
+            ["Money market fund", "Fixed-rate deposit", "Government bond"]
+        );
     }
 }

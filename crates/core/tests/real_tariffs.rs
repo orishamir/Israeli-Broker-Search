@@ -1824,7 +1824,7 @@ mod short_term_cases {
         );
         let rate = |name: &str, term| match bank(name).pays {
             Pays::Fixed(rates) => rates.of(term),
-            Pays::TheRateLess(_) => unreachable!("a bank"),
+            Pays::TheRateLess(_) | Pays::GovernmentBond(_) => unreachable!("a bank"),
         };
         assert_eq!(
             rate("Banks' average", Term::UpToAYear),
@@ -2178,4 +2178,170 @@ fn otsar_branch() {
         // plus $90.
         [(dec!(1000), dec!(15.25)), (dec!(10000), dec!(107.5))],
     );
+}
+
+/// Government bonds held to maturity, and deposits and funds past five
+/// years (`short_term::government_bonds`, the Bank of Israel's yields of
+/// September 2026).
+mod government_bond_cases {
+    use broker_fees::Percent;
+    use broker_fees::short_term::{
+        self, Liquidity, NotOffered, Pays, Place, Scenario, Tax, deposits, government_bonds,
+        money_market,
+    };
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    fn bond(name: &str) -> Place {
+        government_bonds::kind()
+            .places
+            .into_iter()
+            .find(|place| place.name.en == name)
+            .unwrap()
+    }
+
+    fn sum(amount: Decimal, months: u32) -> Scenario {
+        Scenario {
+            first_deposit: amount,
+            monthly_deposit: Decimal::ZERO,
+            months,
+            rate: short_term::TODAYS_RATE,
+            inflation: Percent(dec!(2)),
+        }
+    }
+
+    fn near(actual: Decimal, expected: Decimal) {
+        assert!(
+            (actual - expected).abs() < dec!(0.01),
+            "{actual} against {expected}"
+        );
+    }
+
+    /// ₪50,000 for 5 years in a shekel government bond, at the 5-year
+    /// yield of September 2026, 3.72% (series `ZC_TSB_ZND_05Y_MA`).
+    ///
+    /// The cheapest new-customer plan for bonds on Tel Aviv is Excellence's
+    /// (its full tariff's row for bonds, which the typical offer falls back
+    /// to): 0.06% of the order, at least ₪3. The purchase is ₪50,000 × 0.06%
+    /// = ₪30, so ₪49,970 buys bonds. Redemption at maturity pays no fee, no
+    /// custody, no handling (waived for the account's life).
+    ///
+    /// 49,970 × 1.0372^5 = 49,970 × 1.2003628 = ₪59,982.13.
+    /// The gain over the ₪50,000 paid in is ₪9,982.13, all of it taxed at 15%
+    /// (section 91(ב)(3)): ₪1,497.32. Left: ₪58,484.81.
+    #[test]
+    fn a_shekel_bond_for_five_years() {
+        let outcome =
+            short_term::simulate(&bond("Shekel government bond"), &sum(dec!(50000), 60)).unwrap();
+        assert_eq!(outcome.via.unwrap().broker.en, "Excellence Trade");
+        near(*outcome.value_by_month.last().unwrap(), dec!(59982.13));
+        near(outcome.earned, dec!(9982.13));
+        near(outcome.tax, dec!(1497.32));
+        near(outcome.after_tax, dec!(58484.81));
+    }
+
+    /// The same for the bond linked to the index, at the real 5-year yield
+    /// of 1.78% (`ZC_TSB_ZRD_05Y_MA`) and prices rising 2% a year.
+    ///
+    /// Nominal factor: 1.0178 × 1.02 = 1.038156 a year.
+    /// 49,970 × 1.038156^5 = ₪60,259.07.
+    /// The tax is 25% of the gain beyond prices (section 91(ב)(1)): the
+    /// ₪50,000 raised by 2% for 5 years is 50,000 × 1.02^5 = ₪55,204.04, so
+    /// the real gain is 60,259.07 − 55,204.04 = ₪5,055.03 and the tax
+    /// ₪1,263.76. Left: ₪58,995.31.
+    #[test]
+    fn a_linked_bond_for_five_years_at_two_percent_inflation() {
+        let outcome =
+            short_term::simulate(&bond("CPI-linked government bond"), &sum(dec!(50000), 60))
+                .unwrap();
+        near(*outcome.value_by_month.last().unwrap(), dec!(60259.07));
+        near(outcome.tax, dec!(1263.76));
+        near(outcome.after_tax, dec!(58995.31));
+    }
+
+    /// Six years sits halfway between the published 5 (3.72%) and 7
+    /// (3.85%) years: 3.785%. 49,970 × 1.03785^6 = ₪62,447.76; the fee on
+    /// the order is the same ₪30.
+    #[test]
+    fn six_years_is_read_between_the_published_terms() {
+        assert_eq!(
+            government_bonds::yield_for_months(government_bonds::Linkage::Unlinked, 72),
+            Ok(Percent(dec!(3.785)))
+        );
+        let outcome =
+            short_term::simulate(&bond("Shekel government bond"), &sum(dec!(50000), 72)).unwrap();
+        near(*outcome.value_by_month.last().unwrap(), dec!(62447.76));
+    }
+
+    #[test]
+    fn a_bond_is_offered_from_a_year_to_fifteen() {
+        let shekel = bond("Shekel government bond");
+        assert!(short_term::simulate(&shekel, &sum(dec!(50000), 12)).is_ok());
+        assert!(short_term::simulate(&shekel, &sum(dec!(50000), 180)).is_ok());
+        assert_eq!(
+            short_term::simulate(&shekel, &sum(dec!(50000), 192)).err(),
+            Some(NotOffered::BondTooLong)
+        );
+        assert_eq!(
+            short_term::simulate(&shekel, &sum(dec!(50000), 11)).err(),
+            Some(NotOffered::BondTooShort)
+        );
+    }
+
+    /// A bond takes money every month, each deposit at the yield for the
+    /// wait it has left (a year's yield when less is left): so the end is
+    /// below the money grown at the 5-year yield, 3.72%, and, the fees being
+    /// small (₪3 at least a purchase, Excellence), not far under the money
+    /// grown at the 1-year yield, 3.19%.
+    #[test]
+    fn monthly_money_buys_bonds_for_the_wait_left() {
+        let scenario = Scenario {
+            first_deposit: dec!(10000),
+            monthly_deposit: dec!(1000),
+            months: 60,
+            ..sum(Decimal::ZERO, 60)
+        };
+        let outcome = short_term::simulate(&bond("Shekel government bond"), &scenario).unwrap();
+        assert_eq!(outcome.via.unwrap().broker.en, "Excellence Trade");
+        let end = *outcome.value_by_month.last().unwrap();
+        let at = |yearly: f64| -> Decimal {
+            let monthly = yearly.powf(1.0 / 12.0);
+            let grown = (0..60).fold(0.0, |value, month| {
+                (value + 1000.0 + if month == 0 { 10_000.0 } else { 0.0 }) * monthly
+            });
+            Decimal::try_from(grown).unwrap()
+        };
+        assert!(end > at(1.0319) - dec!(300) && end < at(1.0372), "{end}");
+    }
+
+    #[test]
+    fn a_bond_is_taxed_and_sold_by_its_linkage() {
+        let shekel = bond("Shekel government bond");
+        let linked = bond("CPI-linked government bond");
+        assert_eq!(shekel.pays.tax(), Tax::OfInterest);
+        assert_eq!(linked.pays.tax(), Tax::OfRealGain);
+        assert_eq!(shekel.pays.liquidity(), Liquidity::AnyDay);
+        assert!(matches!(shekel.pays, Pays::GovernmentBond(_)));
+    }
+
+    /// The Bank of Israel publishes no deposit rates past five years: 60
+    /// months is the last, 61 isn't offered, and a fund goes on.
+    #[test]
+    fn a_deposit_is_offered_to_five_years_and_a_fund_to_fifty() {
+        let bank = deposits::kind()
+            .places
+            .into_iter()
+            .find(|place| place.name.en == "Banks' average")
+            .unwrap();
+        assert!(short_term::simulate(&bank, &sum(dec!(10000), 60)).is_ok());
+        assert_eq!(
+            short_term::simulate(&bank, &sum(dec!(10000), 61)).err(),
+            Some(NotOffered::TooLong)
+        );
+        let fund = money_market::kind().places.into_iter().next().unwrap();
+        let twenty_years = short_term::simulate(&fund, &sum(dec!(10000), 240)).unwrap();
+        assert_eq!(twenty_years.value_by_month.len(), 241);
+        assert!(short_term::simulate(&fund, &sum(dec!(10000), 600)).is_ok());
+        assert!(sum(dec!(10000), 601).check().is_err());
+    }
 }
