@@ -228,6 +228,7 @@ pub(super) fn run(linkage: Linkage, scenario: &Scenario) -> Result<Run, NotOffer
         age: 40,
         withdrawal: Withdrawal::LumpSum,
         redeems_at_maturity: REDEMPTION_IS_FREE,
+        product: None,
     };
     // The prices are in shekels, so the rates of exchange are never used.
     let rates = ExchangeRates::new(dec!(3.7), dec!(4.625)).expect("positive rates");
