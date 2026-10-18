@@ -2,8 +2,28 @@
 
 **https://orishamir.github.io/Israeli-Broker-Search/**
 
-What saving in Israel comes to, after fees and tax. The site is in Hebrew,
-with two calculators, since only what earns the same thing can be ranked.
+What saving in Israel comes to, after fees and tax. The site is in Hebrew.
+
+## What it's for
+
+It began as a comparison of banks and investment houses for investing in
+ETFs, and a way to see compound interest, and how fees eat into it, in
+lines and pies, across exchanges. Research showed that isn't the only
+comparison worth making: in Israel the difference between a mutual fund
+(קרן נאמנות) and an ETF (קרן סל) can matter more than the choice of
+broker. And two kinds of people come: newcomers who don't know the
+strategies (a money market fund, a bond ETF, a stock ETF, a mutual fund, a
+CPI-linked deposit) and want to learn by example, and people who know
+exactly what they want to compare and see. So the site guides through
+questions while accepting the advanced ones, and educates on the way: when
+it chooses something for you it says what that thing is, in the words your
+bank's app and the ads use, why it fits your circumstances, and it draws
+how your money would have looked in the choices it didn't pick.
+`REDESIGN.md` is the plan for the page built on this; what follows
+describes the site as it is today.
+
+Today the page has two calculators, since only what earns the same thing
+can be ranked.
 
 **Investing for the long term (השקעה לטווח ארוך).** Pick what you buy (an
 ETF, an index fund, a bond or a stock), where (Tel Aviv, the USA or

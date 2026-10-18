@@ -1,5 +1,42 @@
 # Broker search
 
+## What this site is for
+
+In the user's words (2026-10-19), the essence every design choice is judged
+against:
+
+> I created this site to compare banks and investment houses for investing
+> in ETFs, and to visually understand clearly how compound interest looks
+> like, and specifically how fees hurt that compounding effect: pie charts,
+> line graphs, and between investing in different exchanges. I still want
+> that. During the research I realized that isn't the only comparison worth
+> making: the difference between a mutual fund (קרן נאמנות) and a קרן סל in
+> Israel isn't trivial and might be more important than choosing between
+> investment houses. And I realized I want both the easy route for
+> newcomers, like I was at the time, who don't understand the different
+> strategies (money market vs bond ETF vs stock ETF vs mutual fund vs פיקדון
+> צמוד מדד) and want to learn by example, and an advanced route for when I
+> specifically know what I want to compare and visualize.
+>
+> When the site chooses something for someone, it must make clear **what** it
+> chose (what is it? קרן סל? קרן מחקה? in the terms they meet in their
+> bank's app, in ads, around them) and **why** it chose it for them: how
+> their circumstances affected the decision. And it never simply tells the
+> answer: it tells it while visually showing how their money would look in
+> the other choices they could have made and weren't recommended. The site
+> guides through questions while simultaneously accepting the more advanced
+> ones, and educates in the process.
+
+The five questions it must answer: a dated goal in about five years (and
+whether the date is flexible); "I want the S&P 500, which way?"; "₪3,000 a
+month, I don't know what for"; "₪1,500 a month for retirement"; "15–20
+years from now". `REDESIGN.md` is the plan of record for the page built on
+this (one page, two routes: the guide and the workbench), with the screens
+in `docs/redesign/screens/`. The sections below describe the code as it is
+until that plan lands.
+
+## The current page
+
 Two calculators on one page, switched under the title, since only what
 earns the same thing can be ranked. For the long term: what Israeli brokers
 charge for a given investing pattern (ETFs, index funds, bonds and stocks,

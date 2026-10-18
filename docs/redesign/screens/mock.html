@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>Mock screens</title>
+<script src="file:///home/ori/dev/broker-search/web/node_modules/echarts/dist/echarts.min.js"></script>
+<style>
+  :root {
+    color-scheme: dark;
+    --text: #e6e8ee; --weak: #8e95a5; --background: #0d0f14; --surface: #151820; --raised: #1d212c;
+    --border: rgb(255 255 255 / 0.08); --strong-border: rgb(255 255 255 / 0.16);
+    --accent: #7b9bff; --warning: #f2c14e; --good: #5fd4a0; --error: #ff8080;
+    --accent-tint: color-mix(in srgb, var(--accent) 15%, transparent);
+    --warning-tint: color-mix(in srgb, var(--warning) 12%, transparent);
+    --warning-edge: color-mix(in srgb, var(--warning) 50%, transparent);
+    --good-tint: color-mix(in srgb, var(--good) 12%, transparent);
+    --radius: 12px;
+    font-family: 'Segoe UI Variable Text', system-ui, 'DejaVu Sans', 'Liberation Sans', sans-serif;
+    line-height: 1.45; color: var(--text); background: #2a2e39;
+  }
+  body { margin: 0; padding: 20px; display: grid; gap: 30px; justify-items: start; }
+  .shot { background: var(--background); box-sizing: border-box; padding: 14px 14px 18px; display: grid; gap: 10px; align-content: start; }
+  .phone { width: 390px; }
+  .desk { width: 1200px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  h1 { font-size: 1.3rem; margin: 0; }
+  .switch { display: inline-flex; align-items: center; gap: 6px; color: var(--weak); font-size: 0.8rem; }
+  .switch .knob { width: 28px; height: 15px; border-radius: 999px; border: 1px solid var(--strong-border); position: relative; }
+  .switch .knob::after { content: ""; position: absolute; top: 1px; inset-inline-start: 1px; width: 11px; height: 11px; border-radius: 50%; background: var(--weak); }
+  .switch.on .knob { background: var(--accent); border-color: var(--accent); }
+  .switch.on .knob::after { inset-inline-start: 14px; background: #0d0f14; }
+  .switch.on { color: var(--text); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 14px; display: grid; gap: 8px; min-width: 0; }
+  .card.answer { border-top: 2px solid var(--good); }
+  .card.question { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+  h3 { margin: 0; font-size: 0.95rem; font-weight: 650; }
+  .h { color: var(--weak); font-size: 0.8rem; }
+  .q { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--strong-border); color: var(--weak); font-size: 0.7rem; vertical-align: middle; margin-inline-start: 4px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .chip { padding: 3px 10px; border: 1px solid var(--strong-border); border-radius: 999px; font-size: 0.82rem; background: transparent; }
+  .chip.on { border-color: var(--accent); background: var(--accent-tint); }
+  .chip.expert { border-color: var(--accent); color: var(--accent); }
+  .field { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .field .lab { font-size: 0.9rem; }
+  .box { border: 1px solid var(--strong-border); border-radius: 8px; padding: 6px 10px; min-width: 110px; box-sizing: border-box; text-align: end; direction: ltr; font-variant-numeric: tabular-nums; background: var(--background); font-size: 0.95rem; }
+  .box.sm { min-width: 54px; }
+  .pair { display: flex; gap: 6px; }
+  .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .btn { border: 1px solid var(--strong-border); border-radius: 8px; padding: 5px 12px; font-size: 0.85rem; background: transparent; }
+  .btn.on { border-color: var(--accent); background: var(--accent-tint); }
+  .btn.primary { border-color: var(--accent); color: var(--accent); }
+  .link { color: var(--accent); }
+  .big { font-size: 1.7rem; font-weight: 650; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .sub { color: var(--weak); font-size: 0.8rem; }
+  .what { font-size: 1rem; }
+  .what b { font-weight: 650; }
+  .reasons { margin: 0; padding-inline-start: 18px; font-size: 0.85rem; display: grid; gap: 4px; }
+  .steps { margin: 0; padding-inline-start: 18px; font-size: 0.85rem; display: grid; gap: 4px; }
+  .steps .s { color: var(--weak); font-size: 0.75rem; }
+  .base { color: var(--weak); font-size: 0.82rem; }
+  .base b { color: var(--text); font-weight: 600; }
+  .rows { display: grid; }
+  .row { display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); align-items: start; font-size: 0.84rem; }
+  .row.head { color: var(--weak); font-size: 0.72rem; border-top: none; padding-top: 0; }
+  .row .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; }
+  .row .nm { display: grid; gap: 1px; min-width: 0; justify-items: start; }
+  .row .nm .d { color: var(--weak); font-size: 0.74rem; }
+  .row .nm .warn { color: var(--warning); font-size: 0.74rem; }
+  .row .nm .ok { color: var(--good); font-size: 0.74rem; }
+  .row .amt { font-variant-numeric: tabular-nums; direction: ltr; text-align: end; white-space: nowrap; }
+  .row.wide { grid-template-columns: 14px minmax(0, 1.6fr) auto auto auto; }
+  .row.wide .n2 { color: var(--weak); font-size: 0.8rem; font-variant-numeric: tabular-nums; direction: ltr; text-align: end; min-width: 56px; }
+  .chart { width: 100%; height: 200px; }
+  .chart.tall { height: 240px; }
+  .donut { width: 100%; height: 170px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 0.74rem; color: var(--weak); }
+  .legend i { display: inline-block; width: 10px; height: 3px; vertical-align: middle; margin-inline-end: 4px; border-radius: 2px; }
+  .risk { font-size: 0.82rem; border-inline-start: 2px solid var(--warning); padding-inline-start: 8px; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; }
+  .tab { padding: 3px 10px; border: 1px solid var(--strong-border); border-radius: 999px; font-size: 0.78rem; }
+  .tab.on { border-color: var(--accent); background: var(--accent-tint); }
+  .sheet { background: var(--surface); border: 1px solid var(--strong-border); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+  .sheet h2 { margin: 0; font-size: 1.2rem; }
+  .sheet .en { color: var(--weak); font-size: 0.8rem; }
+  .sheet dl { margin: 0; display: grid; gap: 6px; }
+  .sheet dt { color: var(--weak); font-size: 0.75rem; }
+  .sheet dd { margin: 0; font-size: 0.86rem; }
+  .bar { position: static; background: var(--raised); border: 1px solid var(--strong-border); border-radius: 10px; padding: 7px 12px; display: flex; justify-content: space-between; font-size: 0.84rem; border-inline-start: 3px solid var(--good); }
+  .ladder { display: grid; }
+  .ladder .r { display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); font-size: 0.82rem; align-items: baseline; }
+  .ladder .r.head { border-top: none; color: var(--weak); font-size: 0.72rem; }
+  .ladder .when { color: var(--weak); }
+  .ladder .safe { color: var(--good); font-size: 0.72rem; }
+  .ladder .risky { color: var(--warning); font-size: 0.72rem; }
+  .ladder .amt { font-variant-numeric: tabular-nums; direction: ltr; }
+  .cols { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 12px; align-items: start; }
+  .col { display: grid; gap: 10px; min-width: 0; }
+  .footer { color: var(--weak); font-size: 0.72rem; display: flex; gap: 12px; flex-wrap: wrap; }
+  .tag { justify-self: start; display: inline-block; font-size: 0.7rem; padding: 0 6px; border-radius: 999px; border: 1px solid var(--strong-border); color: var(--weak); }
+  .tag.good { border-color: var(--good); color: var(--good); }
+  .tag.warn { border-color: var(--warning); color: var(--warning); }
+</style>
+</head>
+<body>
+
+<!-- ===== S1: the guide's first questions ===== -->
+<div class="shot phone" id="s1">
+  <div class="top"><h1>כמה יישאר לכם בסוף</h1><span class="switch"><span class="knob"></span>כל האפשרויות</span></div>
+  <div class="card">
+    <h3>בשביל מה הכסף? <span class="q">?</span></h3>
+    <div class="h">בחרו מצב שדומה לשלכם, או דלגו וענו למטה</div>
+    <div class="chips">
+      <span class="chip">חיסכון מהמשכורת</span><span class="chip">לילד</span><span class="chip on">לדירה או למטרה בתאריך</span><span class="chip">כרית ביטחון</span><span class="chip">בונוס</span><span class="chip">ירושה</span><span class="chip">לפרישה</span><span class="chip">עוד לא יודעים</span><span class="chip">כבר יש לי תיק בבנק</span>
+    </div>
+    <div class="h"><span class="link">אני יודע מה אני רוצה לקנות ולהשוות ›</span></div>
+  </div>
+  <div class="card">
+    <div class="field"><span class="lab">יש לי עכשיו</span><span class="box">₪ 50,000</span></div>
+    <div class="field"><span class="lab">ואוסיף כל חודש</span><span class="box">₪ 0</span></div>
+    <div class="field"><span class="lab">אצטרך את הכסף בעוד</span><span class="pair"><span class="box sm">5</span><span class="box sm">שנים ▾</span></span></div>
+  </div>
+  <div class="card question">
+    <h3>אם הבורסה תהיה בירידה בדיוק אז, תוכלו לחכות עוד שנה–שנתיים? <span class="q">?</span></h3>
+    <div class="h">כשצריך את הכסף בתאריך קבוע, כמו תשלום על דירה, ירידה של 20% בבורסה באותה שנה היא בעיה. כשאפשר לחכות, היא בדרך כלל חולפת.</div>
+    <div class="btns"><span class="btn on">לא, צריך בדיוק אז</span><span class="btn">כן, אפשר לחכות</span></div>
+  </div>
+  <div class="h" style="text-align:center">↓ התשובה מתעדכנת למטה</div>
+</div>
+
+<!-- ===== S2: the answer for 5 years, strict ===== -->
+<div class="shot phone" id="s2">
+  <div class="card answer">
+    <div class="h">מה שמתאים לכסף כזה</div>
+    <div class="what"><b>אג״ח ממשלתית שקלית</b> שנפדית בעוד 5 שנים, דרך חשבון מסחר. <span class="link">מה זה? ›</span></div>
+    <div class="big">₪53,600</div>
+    <div class="sub">יישארו לכם בכסף של היום, אחרי מס · ₪59,200 בשקלים של 2031</div>
+    <div class="base">אם הכסף יישב בעו״ש: <b>₪45,300</b> בכסף של היום</div>
+    <h3>למה דווקא זה</h3>
+    <ul class="reasons">
+      <li>כי תצטרכו את הכסף <b>בתאריך קבוע</b>: אג״ח ממשלתית שמחזיקים עד הפדיון מחזירה סכום שידוע מראש ביום שקבעתם. מניות עלולות להיות בירידה בדיוק אז.</li>
+      <li>כי <b>5 שנים</b> זה יותר מדי לקרן כספית: הריבית שלה משתנה עם ריבית בנק ישראל, ואף אחד לא מבטיח כמה יהיה בסוף.</li>
+      <li>כי זה <b>סכום אחד</b>: פיקדון ל־5 שנים נותן דומה, אבל נועל את הכסף; אג״ח אפשר למכור בדרך, במחיר של אותו יום.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>לעומת האפשרויות האחרות <span class="q">?</span></h3>
+    <div class="h">₪50,000 לאורך 5 שנים, בכסף של היום. כל קו לפי ההנחה שלו.</div>
+    <div id="c2" class="chart tall"></div>
+    <div class="rows">
+      <div class="row"><span class="dot" style="background:#5fd4a0"></span><span class="nm">אג״ח ממשלתית לפדיון <span class="tag good">סכום ידוע מראש</span><span class="d">תשואה לפדיון 4% · מס 15% מהריבית</span></span><span class="amt">₪53,600</span></div>
+      <div class="row"><span class="dot" style="background:#7b9bff"></span><span class="nm">פיקדון ל־5 שנים בריבית קבועה <span class="tag good">סכום ידוע מראש</span><span class="d">3.5% · הכסף נעול · הבנק הזול: דיסקונט</span></span><span class="amt">₪52,500</span></div>
+      <div class="row"><span class="dot" style="background:#c9a3ff"></span><span class="nm">קרן כספית <span class="tag">הריבית משתנה</span><span class="d">בערך ריבית בנק ישראל · אפשר למשוך בכל יום</span></span><span class="amt">₪51,900</span></div>
+      <div class="row"><span class="dot" style="background:#e0557a"></span><span class="nm">קרן מחקה על S&P 500 <span class="tag warn">יכול לרדת בדיוק אז</span><span class="d">בממוצע 10% בשנה; ב־5 שנים, בעבר, בין הפסד של 40% לרווח של פי 3 (השטח המוצל)</span></span><span class="amt">₪67,200</span></div>
+      <div class="row"><span class="dot" style="background:#8e95a5"></span><span class="nm">עו״ש<span class="d">הכסף מאבד 2% מערכו כל שנה</span></span><span class="amt">₪45,300</span></div>
+    </div>
+    <div class="h"><span class="link">להמשיך בכל זאת עם קרן מחקה ›</span> · כל שורה נפתחת להסבר</div>
+  </div>
+  <div class="card">
+    <h3>איפה הכי זול לקנות אותה</h3>
+    <div class="h">אג״ח ממשלתית בתל אביב, ₪50,000, קנייה אחת ופדיון בסוף</div>
+    <div class="rows">
+      <div class="row"><span class="dot" style="background:#5fd4a0"></span><span class="nm">אקסלנס טרייד · מבצע הצטרפות<span class="ok">בלי דמי משמרת · ₪0 עמלות בפדיון</span></span><span class="amt">₪53,600</span></div>
+      <div class="row"><span class="dot" style="background:#7b9bff"></span><span class="nm">בנק לאומי · אונליין<span class="d">דמי משמרת 0.1% בשנה</span></span><span class="amt">₪53,350</span></div>
+      <div class="row"><span class="dot" style="background:#c9a3ff"></span><span class="nm">מיטב טרייד · מבצע הצטרפות<span class="warn">⚠ דורש ₪20,000 בהתחלה: מתאים</span></span><span class="amt">₪53,300</span></div>
+    </div>
+    <div class="h"><span class="link">כל 11 המסלולים, העמלות והמס ›</span></div>
+  </div>
+  <div class="card">
+    <h3>איך עושים את זה</h3>
+    <ol class="steps">
+      <li>פותחים חשבון מסחר באקסלנס טרייד (במבצע ההצטרפות: בלי דמי טיפול למי שמפקיד ₪10,000 עד 31/12/2026).</li>
+      <li>קונים אג״ח ממשלתית שקלית שנפדית ב־2031: באפליקציה היא תופיע כ״ממשלתי שקלי 0331״, למשל. <span class="s">הריבית משולמת לחשבון פעם בשנה.</span></li>
+      <li>לא נוגעים עד הפדיון. בפדיון הכסף חוזר לחשבון, ומס של 15% יורד מהריבית אוטומטית.</li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>לאן הולך כל שקל בסוף</h3>
+    <div id="d2" class="donut"></div>
+  </div>
+  <div class="bar"><span>מתאים: אג״ח ממשלתית לפדיון</span><span>₪53,600 ↓</span></div>
+</div>
+
+<!-- ===== S3: the answer for retirement ===== -->
+<div class="shot phone" id="s3">
+  <div class="card">
+    <div class="chips"><span class="chip on">לפרישה</span></div>
+    <div class="field"><span class="lab">יש לי עכשיו</span><span class="box">₪ 0</span></div>
+    <div class="field"><span class="lab">ואוסיף כל חודש</span><span class="box">₪ 1,500</span></div>
+    <div class="field"><span class="lab">אני בן / בת</span><span class="box sm">40</span></div>
+    <div class="field"><span class="lab">ואפרוש בגיל</span><span class="box sm">60</span></div>
+  </div>
+  <div class="card answer">
+    <div class="h">מה שמתאים לכסף כזה</div>
+    <div class="what"><b>קופת גמל להשקעה</b>, במסלול שעוקב אחרי S&P 500, שתימשך כקצבה חודשית מגיל 60. <span class="link">מה זה? ›</span></div>
+    <div class="big" id="v3"></div>
+    <div class="sub" id="v3s">יישארו לכם בכסף של היום, בלי מס בכלל</div>
+    <div class="base">אם הכסף יישב בעו״ש: <b id="v3c"></b> בכסף של היום · כקצבה: כ־<b id="v3p"></b> בחודש, לכל החיים</div>
+    <h3>למה דווקא זה</h3>
+    <ul class="reasons">
+      <li>כי זה <b>לפרישה</b> ואתם בני 40: מגיל 60 אפשר למשוך את הקופה כקצבה חודשית <b>בלי מס רווחי הון בכלל</b>. בחשבון מסחר הייתם משלמים 25% מהרווח, וזה שווה יותר מדמי הניהול של הקופה.</li>
+      <li>כי <b>20 שנה</b> זה מספיק זמן למניות: בעבר, כמעט כל תקופה של 20 שנה ב־S&P 500 נגמרה ברווח, גם כשהיו בה ירידות של 50%.</li>
+      <li>כי ₪1,500 בחודש נכנס מתחת לתקרה של הקופה (₪83,641 בשנה), ואפשר למשוך את הכסף בכל עת אם יתחשק, במס כמו בחשבון מסחר.</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h3>לעומת האפשרויות האחרות <span class="q">?</span></h3>
+    <div class="h">₪1,500 בחודש, 20 שנה, בכסף של היום, אחרי מס</div>
+    <div id="c3" class="chart tall"></div>
+    <div class="rows">
+      <div class="row"><span class="dot" style="background:#5fd4a0"></span><span class="nm">גמל להשקעה, כקצבה מגיל 60 <span class="tag good">בלי מס</span><span class="d">דמי ניהול 0.62% בשנה (הזולה: מנורה, 0.52%)</span></span><span class="amt" id="a3g"></span></div>
+      <div class="row"><span class="dot" style="background:#7b9bff"></span><span class="nm">קרן מחקה בחשבון מסחר (לאומי, הוראת קבע)<span class="d">עמלות 0.05% בשנה · מס 25% על הרווח הריאלי במכירה</span></span><span class="amt" id="a3b"></span></div>
+      <div class="row"><span class="dot" style="background:#c9a3ff"></span><span class="nm">קרן השתלמות <span class="tag good">בלי מס אחרי 6 שנים</span><span class="d">רק דרך מעסיק או כעצמאים · עד ₪20,566 בשנה</span></span><span class="amt" id="a3s"></span></div>
+      <div class="row"><span class="dot" style="background:#f2c14e"></span><span class="nm">פוליסת חיסכון<span class="d">דמי ניהול 0.77% · מס 25% במשיכה</span></span><span class="amt" id="a3p"></span></div>
+      <div class="row"><span class="dot" style="background:#8e95a5"></span><span class="nm">עו״ש<span class="d">₪360,000 שתפקידו, שווים פחות כל שנה</span></span><span class="amt" id="a3c"></span></div>
+    </div>
+  </div>
+  <div class="card">
+    <h3>איך עושים את זה</h3>
+    <ol class="steps">
+      <li>פותחים קופת גמל להשקעה, אונליין, בחברה שבוחרים (דמי הניהול שונים בין חברה לחברה: 0.52%–0.71%). <span class="s">באתרי החברות ובפרסומות זה נקרא ״גמל להשקעה״.</span></li>
+      <li>בוחרים מסלול השקעה ״עוקב מדד S&P 500״.</li>
+      <li>מגדירים הוראת קבע של ₪1,500 בחודש.</li>
+      <li>בגיל 60 מבקשים קצבה. <span class="s">משיכה לפני כן אפשרית בכל עת, עם מס 25% על הרווח.</span></li>
+    </ol>
+  </div>
+  <div class="card">
+    <h3>לאן הולך כל שקל בסוף</h3>
+    <div class="tabs"><span class="tab on">גמל להשקעה</span><span class="tab">חשבון מסחר</span></div>
+    <div id="d3" class="donut"></div>
+  </div>
+</div>
+
+<!-- ===== S4: the expert's ways ===== -->
+<div class="shot phone" id="s4">
+  <div class="top"><h1>כמה יישאר לכם בסוף</h1><span class="switch on"><span class="knob"></span>כל האפשרויות</span></div>
+  <div class="card">
+    <h3>מה אתם רוצים לקנות?</h3>
+    <div class="chips"><span class="chip on">מדד S&P 500</span><span class="chip">מדד אחר או מניה</span><span class="chip">אג״ח</span><span class="chip">כסף לטווח קצר</span></div>
+    <h3>באילו דרכים להשוות? <span class="q">?</span></h3>
+    <div class="chips"><span class="chip on">קרן מחקה בת״א</span><span class="chip on">קרן סל בת״א</span><span class="chip on">קרן סל בארה״ב</span><span class="chip on">קרן סל באירופה</span><span class="chip on">גמל להשקעה</span><span class="chip">קרן השתלמות</span><span class="chip">פוליסת חיסכון</span></div>
+    <div class="field"><span class="lab">יש לי עכשיו</span><span class="box">₪ 10,000</span></div>
+    <div class="field"><span class="lab">ואוסיף כל חודש</span><span class="box">₪ 2,000</span></div>
+    <div class="field"><span class="lab">למשך</span><span class="pair"><span class="box sm">20</span><span class="box sm">שנים ▾</span></span></div>
+    <div class="h">תשואת המדד 10% · אינפלציה 2% · מכירה בסוף · 9 מסלולים מסומנים <span class="link">לשנות ›</span></div>
+  </div>
+  <div class="card">
+    <h3>הדרכים, מהטובה לפחות טובה</h3>
+    <div class="h">בכל דרך: המסלול הזול ביותר בשבילכם · בכסף של היום</div>
+    <div class="rows">
+      <div class="row wide head"><span></span><span>דרך · דרך מי</span><span>נשאר אחרי מס</span><span>עלות בשנה</span><span>מס</span></div>
+      <div class="row wide"><span class="dot" style="background:#5fd4a0"></span><span class="nm">קרן מחקה בת״א<span class="d">לאומי · אונליין, הוראת קבע</span></span><span class="amt">₪868,000</span><span class="n2">0.05%</span><span class="n2">₪160K</span></div>
+      <div class="row wide"><span class="dot" style="background:#7b9bff"></span><span class="nm">קרן סל באירופה (CSPX)<span class="d">אינטראקטיב · תעריפון</span></span><span class="amt">₪846,000</span><span class="n2">0.22%</span><span class="n2">₪175K</span></div>
+      <div class="row wide"><span class="dot" style="background:#c9a3ff"></span><span class="nm">קרן סל בארה״ב (VOO)<span class="d">אינטראקטיב · תעריפון</span></span><span class="amt">₪831,000</span><span class="n2">0.38%</span><span class="n2">₪172K</span></div>
+      <div class="row wide"><span class="dot" style="background:#f2c14e"></span><span class="nm">גמל להשקעה, מסלול S&P 500<span class="d">ממוצע · בלי מס כקצבה</span></span><span class="amt">₪812,000</span><span class="n2">0.62%</span><span class="n2">₪0</span></div>
+      <div class="row wide"><span class="dot" style="background:#e0557a"></span><span class="nm">קרן סל בת״א<span class="d">אקסלנס · מבצע הצטרפות</span></span><span class="amt">₪781,000</span><span class="n2">0.74%</span><span class="n2">₪148K</span></div>
+    </div>
+    <div class="h">״עלות בשנה״ כוללת את הקרן עצמה: דמי הניהול שלה, המס שהיא מאבדת על דיבידנדים, והפער מהמדד. <span class="q">?</span></div>
+  </div>
+  <div class="card">
+    <div class="tabs"><span class="tab">איך הכסף גדל</span><span class="tab">אבד לעמלות</span><span class="tab on">פירוט עמלות</span><span class="tab">לפי הפקדה</span><span class="tab">לאן הלך כל שקל</span></div>
+    <div id="c4" class="chart tall"></div>
+    <div class="legend"><span><i style="background:#1f9e8f"></i>הקרן עצמה</span><span><i style="background:#7b9bff"></i>קנייה ומכירה</span><span><i style="background:#c9a3ff"></i>דמי משמרת וטיפול</span><span><i style="background:#f2c14e"></i>המרות</span></div>
+  </div>
+</div>
+
+<!-- ===== S5: the learn sheet ===== -->
+<div class="shot phone" id="s5">
+  <div class="sheet">
+    <div>
+      <h2>קרן כספית</h2>
+      <div class="en">Money market fund · באפליקציה של הבנק: תחת ״קרנות נאמנות״, בשם כמו ״כספית שקלית״</div>
+    </div>
+    <dl>
+      <dt>מה זה</dt>
+      <dd>קרן שמלווה את הכסף לזמן קצר לבנקים ולמדינה, ומרוויחה בערך את ריבית בנק ישראל. קונים ומוכרים אותה כמו נייר ערך, והכסף זמין למחרת.</dd>
+      <dt>למה זה טוב</dt>
+      <dd>לכסף שיושב בעו״ש ומחכה: כרית ביטחון, כסף לדירה בשנה הקרובה, או סכום שעוד לא החלטתם מה לעשות איתו. בלי נעילה, ובלי עמלות קנייה ברוב הבנקים.</dd>
+      <dt>החיסרון</dt>
+      <dd>הריבית משתנה עם ריבית בנק ישראל: כשהיא יורדת, הקרן מרוויחה פחות. לכסף שצריך בעוד 5 שנים, אג״ח לפדיון או פיקדון ארוך מבטיחים סכום; קרן כספית לא.</dd>
+      <dt>מה זה עולה</dt>
+      <dd>דמי ניהול של 0.01%–0.26% בשנה, יורדים מהקרן. בבנק אין עמלת קנייה ואין דמי משמרת (אסור לגבות אותם על קרן כספית מ־2013). בבתי השקעות יש לפעמים עמלה קטנה לכל קנייה.</dd>
+      <dt>מס</dt>
+      <dd>25% על הרווח שמעבר לאינפלציה, רק כשמוכרים. בפיקדון: 15% מכל הריבית, בלי התחשבות באינפלציה.</dd>
+      <dt>איפה עוד פוגשים את זה</dt>
+      <dd>בפרסומות של בתי ההשקעות (״הכסף שלכם יושב בעו״ש?״), ובכתבות על ״הקרנות הכספיות״ שגייסו מיליארדים כשהריבית עלתה.</dd>
+    </dl>
+    <div class="h">דוגמה: ₪30,000 לחצי שנה ב־3.25% ובדמי ניהול 0.1% יישארו כ־₪30,400 אחרי מס.</div>
+    <div class="chips"><span class="chip">לעומת פיקדון ›</span><span class="chip">לעומת מק״מ ›</span><span class="chip">כל המונחים ›</span></div>
+  </div>
+</div>
+
+<!-- ===== S6: no horizon, monthly: the ladder and the cushion ===== -->
+<div class="shot phone" id="s6">
+  <div class="card">
+    <div class="chips"><span class="chip on">עוד לא יודעים</span></div>
+    <div class="field"><span class="lab">יש לי עכשיו</span><span class="box">₪ 0</span></div>
+    <div class="field"><span class="lab">ואוסיף כל חודש</span><span class="box">₪ 3,000</span></div>
+    <div class="field"><span class="lab">אצטרך את הכסף בעוד</span><span class="pair"><span class="box sm" style="color:var(--weak)">?</span><span class="box sm">שנים ▾</span></span></div>
+  </div>
+  <div class="card question">
+    <h3>יש לכם כבר כסף בצד ל־3–6 חודשי הוצאות? <span class="q">?</span></h3>
+    <div class="h">כרית ביטחון היא הדבר הראשון: כסף זמין למקרה של פיטורים או הוצאה פתאומית, כדי שלא תצטרכו למכור השקעה בזמן ירידות.</div>
+    <div class="btns"><span class="btn on">עוד לא</span><span class="btn">כן</span></div>
+    <div class="field"><span class="lab">ההוצאות שלי בחודש, בערך</span><span class="box">₪ 17,000</span></div>
+  </div>
+  <div class="card answer">
+    <div class="h">מה שמתאים לכסף כזה</div>
+    <div class="what">קודם <b>כרית ביטחון בקרן כספית</b>: ₪3,000 בחודש, עד שיצטברו כ־₪50,000 (3 חודשי הוצאות), בערך 17 חודשים. אחר כך, <b>קופת גמל להשקעה</b> או קרן מחקה בחשבון מסחר, לטווח ארוך. <span class="link">מה זה? ›</span></div>
+    <h3>למה דווקא זה</h3>
+    <ul class="reasons">
+      <li>כי <b>אין עדיין כרית</b>: בלי כסף זמין, כל הוצאה פתאומית נגמרת במכירה של השקעה, אולי בירידות.</li>
+      <li>כי <b>אין תאריך</b>: לכסף בלי מטרה מתאים מקום שאפשר למשוך ממנו בכל עת, ושבינתיים גדל. קופת גמל להשקעה עושה את שניהם, ומגיל 60 גם נותנת קצבה בלי מס.</li>
+    </ul>
+    <h3>ומה כל טווח ייתן</h3>
+    <div class="h">₪3,000 בחודש אחרי הכרית, בכסף של היום</div>
+    <div class="ladder">
+      <div class="r head"><span>בעוד</span><span>הכי הרבה יישאר ב…</span><span></span></div>
+      <div class="r"><span class="when">שנה</span><span>קרן כספית <span class="safe">בטוח יחסית</span></span><span class="amt">₪36,400</span></div>
+      <div class="r"><span class="when">3 שנים</span><span>קרן כספית <span class="safe">בטוח יחסית</span></span><span class="amt">₪110,000</span></div>
+      <div class="r"><span class="when">5 שנים</span><span>אג״ח ממשלתית לפדיון <span class="safe">סכום ידוע</span></span><span class="amt">₪186,000</span></div>
+      <div class="r"><span class="when">10 שנים</span><span>קרן מחקה, לאומי <span class="risky">יכול לרדת בדרך</span></span><span class="amt">₪470,000</span></div>
+      <div class="r"><span class="when">20 שנה</span><span>גמל להשקעה <span class="risky">יכול לרדת בדרך</span></span><span class="amt">₪1,620,000</span></div>
+    </div>
+    <div class="h">הקישו על שורה כדי להמשיך איתה</div>
+  </div>
+</div>
+
+<!-- ===== S7: desktop ===== -->
+<div class="shot desk" id="s7">
+  <div class="top"><h1>כמה יישאר לכם בסוף</h1><span class="footer"><span>מילון המונחים</span><span>איך המספרים מחושבים</span><span>שיתוף</span><span class="switch"><span class="knob"></span>כל האפשרויות</span></span></div>
+  <div class="cols">
+    <div class="col">
+      <div class="card">
+        <h3>בשביל מה הכסף?</h3>
+        <div class="chips"><span class="chip">חיסכון מהמשכורת</span><span class="chip">לילד</span><span class="chip on">לדירה או למטרה בתאריך</span><span class="chip">כרית ביטחון</span><span class="chip">בונוס</span><span class="chip">ירושה</span><span class="chip">לפרישה</span><span class="chip">עוד לא יודעים</span><span class="chip">כבר יש לי תיק בבנק</span></div>
+        <div class="h"><span class="link">אני יודע מה אני רוצה לקנות ולהשוות ›</span></div>
+      </div>
+      <div class="card">
+        <div class="field"><span class="lab">יש לי עכשיו</span><span class="box">₪ 50,000</span></div>
+        <div class="field"><span class="lab">ואוסיף כל חודש</span><span class="box">₪ 0</span></div>
+        <div class="field"><span class="lab">אצטרך את הכסף בעוד</span><span class="pair"><span class="box sm">5</span><span class="box sm">שנים ▾</span></span></div>
+      </div>
+      <div class="card question">
+        <h3>אם הבורסה תהיה בירידה בדיוק אז, תוכלו לחכות עוד שנה–שנתיים?</h3>
+        <div class="btns"><span class="btn on">לא, צריך בדיוק אז</span><span class="btn">כן, אפשר לחכות</span></div>
+      </div>
+      <div class="card">
+        <h3>איך עושים את זה</h3>
+        <ol class="steps">
+          <li>פותחים חשבון מסחר באקסלנס טרייד (מבצע ההצטרפות).</li>
+          <li>קונים אג״ח ממשלתית שקלית שנפדית ב־2031 (״ממשלתי שקלי 0331״).</li>
+          <li>מחזיקים עד הפדיון; המס (15% מהריבית) יורד אוטומטית.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card answer">
+        <div class="h">מה שמתאים לכסף כזה</div>
+        <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap">
+          <div style="min-width:0;flex:1">
+            <div class="what"><b>אג״ח ממשלתית שקלית</b> שנפדית בעוד 5 שנים, דרך חשבון מסחר (הזול: אקסלנס טרייד · מבצע הצטרפות). <span class="link">מה זה? ›</span></div>
+            <ul class="reasons" style="margin-top:8px">
+              <li>כי תצטרכו את הכסף <b>בתאריך קבוע</b>: אג״ח לפדיון מחזירה סכום ידוע מראש; מניות עלולות להיות בירידה בדיוק אז.</li>
+              <li>כי <b>5 שנים</b> זה יותר מדי לקרן כספית, שהריבית שלה משתנה.</li>
+              <li>כי זה <b>סכום אחד</b>: פיקדון דומה, אבל נעול.</li>
+            </ul>
+          </div>
+          <div style="text-align:end">
+            <div class="big">₪53,600</div>
+            <div class="sub">בכסף של היום, אחרי מס<br>₪59,200 בשקלים של 2031<br>בעו״ש: ₪45,300</div>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:10px">
+        <div class="card">
+          <h3>לעומת האפשרויות האחרות</h3>
+          <div id="c7" class="chart tall"></div>
+          <div class="legend"><span><i style="background:#5fd4a0"></i>אג״ח ממשלתית לפדיון</span><span><i style="background:#7b9bff"></i>פיקדון ל־5 שנים</span><span><i style="background:#c9a3ff"></i>קרן כספית</span><span><i style="background:#e0557a"></i>קרן מחקה S&P 500 (וטווח העבר)</span><span><i style="background:#8e95a5"></i>עו״ש</span></div>
+        </div>
+        <div class="card">
+          <h3>לאן הולך כל שקל בסוף</h3>
+          <div id="d7" class="donut" style="height:200px"></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>איפה הכי זול לקנות אותה</h3>
+        <div class="rows">
+          <div class="row wide head"><span></span><span>מסלול</span><span>נשאר אחרי מס</span><span>עמלות בשנה</span><span>מס</span></div>
+          <div class="row wide"><span class="dot" style="background:#5fd4a0"></span><span class="nm">אקסלנס טרייד · מבצע הצטרפות<span class="ok">בלי דמי משמרת</span></span><span class="amt">₪53,600</span><span class="n2">0.00%</span><span class="n2">₪1,625</span></div>
+          <div class="row wide"><span class="dot" style="background:#7b9bff"></span><span class="nm">בנק לאומי · אונליין<span class="d">דמי משמרת 0.1% בשנה</span></span><span class="amt">₪53,350</span><span class="n2">0.10%</span><span class="n2">₪1,625</span></div>
+          <div class="row wide"><span class="dot" style="background:#c9a3ff"></span><span class="nm">מיטב טרייד · מבצע הצטרפות<span class="d">₪20,000 בהתחלה: מתאים</span></span><span class="amt">₪53,300</span><span class="n2">0.12%</span><span class="n2">₪1,625</span></div>
+        </div>
+        <div class="h"><span class="link">כל 11 המסלולים ›</span> · הטבלה המלאה, פירוט העמלות והגרף לפי הפקדה נפתחים עם ״כל האפשרויות״</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><span>המחשבון מסביר ומדגים לפי כללים שכתובים בו: הוא לא מכיר אתכם ולא מחליף ייעוץ אישי.</span><span>לא קשור לאף בנק, בית השקעות או קופה.</span></div>
+</div>
+
+<script>
+  const F = "'Segoe UI Variable Text', system-ui, 'DejaVu Sans', sans-serif";
+  const fmt = n => '₪' + Math.round(n).toLocaleString('en-US');
+  // Real value by month: deposits grow at `yearly` less `fee`, deflated by inflation.
+  function path(first, monthly, yearly, infl, years, fee = 0) {
+    const r = Math.pow(1 + yearly - fee, 1 / 12) - 1, d = Math.pow(1 + infl, 1 / 12) - 1;
+    let v = first; const out = [v];
+    for (let m = 1; m <= years * 12; m++) { v = v * (1 + r) + monthly; out.push(v / Math.pow(1 + d, m)); }
+    return out;
+  }
+  const base = (title) => ({
+    animation: false, backgroundColor: 'transparent', textStyle: { fontFamily: F, color: '#8e95a5' },
+    grid: { left: 8, right: 56, top: 14, bottom: 24, containLabel: true },
+    xAxis: { type: 'category', boundaryGap: false, axisLine: { lineStyle: { color: '#2a2f3b' } }, axisLabel: { color: '#8e95a5', fontSize: 10 }, axisTick: { show: false } },
+    yAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, axisLabel: { color: '#8e95a5', fontSize: 10, formatter: v => (v / 1000) + 'K' }, scale: true },
+  });
+  function lines(id, years, series, step = 12) {
+    const n = years * 12; const x = []; for (let m = 0; m <= n; m++) x.push(m % step === 0 ? String(m / 12) : '');
+    const opt = base(); opt.xAxis.data = x; opt.xAxis.axisLabel.interval = step - 1;
+    opt.series = series.map(s => ({
+      type: 'line', name: s.name, data: s.data, showSymbol: false, smooth: false,
+      lineStyle: { width: s.bold ? 3 : 1.6, color: s.color, type: s.dash ? 'dashed' : 'solid', opacity: s.area ? 0 : 1 },
+      areaStyle: s.area ? { color: s.color, opacity: 0.12, origin: 'start' } : undefined,
+      stack: s.stack, z: s.bold ? 5 : 2,
+      endLabel: s.label ? { show: true, formatter: s.label, color: s.color, fontSize: 10, offset: [4, 0] } : undefined,
+    }));
+    echarts.init(document.getElementById(id), null, { renderer: 'canvas', devicePixelRatio: 2 }).setOption(opt);
+  }
+  function donut(id, parts) {
+    const opt = {
+      animation: false, backgroundColor: 'transparent', textStyle: { fontFamily: F },
+      series: [{ type: 'pie', radius: ['44%', '66%'], center: ['50%', '50%'], avoidLabelOverlap: true,
+        label: { color: '#e6e8ee', fontSize: 11, overflow: 'none', width: 200, formatter: p => p.name + '\n' + p.percent.toFixed(p.percent < 1 ? 1 : 0) + '%' },
+        labelLine: { lineStyle: { color: '#4a5060' } },
+        data: parts.map(p => ({ name: p.name, value: p.value, itemStyle: { color: p.color } })) }],
+    };
+    echarts.init(document.getElementById(id), null, { renderer: 'canvas', devicePixelRatio: 2 }).setOption(opt);
+  }
+
+  // S2 / S7: ₪50,000 for 5 years.
+  const bond = path(50000, 0, 0.04, 0.02, 5), dep = path(50000, 0, 0.035, 0.02, 5), mmf = path(50000, 0, 0.03, 0.02, 5, 0.0001);
+  const stock = path(50000, 0, 0.10, 0.02, 5), lo = path(50000, 0, -0.095, 0.02, 5), hi = path(50000, 0, 0.245, 0.02, 5);
+  const cash = path(50000, 0, 0, 0.02, 5);
+  const band = [
+    { name: 'lo', data: lo, color: '#e0557a', stack: 'band', area: false, dash: false },
+  ];
+  const fiveYear = [
+    { name: 'טווח', data: lo, color: '#e0557a', stack: 'b', area: false },
+    { name: 'טווח', data: hi.map((v, i) => v - lo[i]), color: '#e0557a', stack: 'b', area: true },
+    { name: 'קרן מחקה', data: stock, color: '#e0557a', label: 'מניות' },
+    { name: 'אג״ח', data: bond, color: '#5fd4a0', bold: true, label: 'אג״ח' },
+    { name: 'פיקדון', data: dep, color: '#7b9bff' },
+    { name: 'קרן כספית', data: mmf, color: '#c9a3ff' },
+    { name: 'עו״ש', data: cash, color: '#8e95a5', dash: true, label: 'עו״ש' },
+  ];
+  // The band's lines are drawn transparent: only the area between them shows.
+  fiveYear[0].area = false; fiveYear[0].color = 'rgba(0,0,0,0)';
+  lines('c2', 5, fiveYear);
+  lines('c7', 5, fiveYear);
+  donut('d2', [
+    { name: 'הפקדה', value: 50000, color: '#3a4152' }, { name: 'רווח', value: 9208, color: '#5fd4a0' },
+    { name: 'מס', value: 1625, color: '#f2c14e' }, { name: 'עמלות', value: 60, color: '#e0557a' },
+  ]);
+  donut('d7', [
+    { name: 'הפקדה', value: 50000, color: '#3a4152' }, { name: 'רווח', value: 9208, color: '#5fd4a0' },
+    { name: 'מס', value: 1625, color: '#f2c14e' }, { name: 'עמלות', value: 60, color: '#e0557a' },
+  ]);
+
+  // S3: ₪1,500 a month, 20 years.
+  const gemel = path(0, 1500, 0.10, 0.02, 20, 0.0062), broker = path(0, 1500, 0.10, 0.02, 20, 0.0005);
+  const study = path(0, 1500, 0.10, 0.02, 20, 0.0054), policy = path(0, 1500, 0.10, 0.02, 20, 0.0077), cash3 = path(0, 1500, 0, 0.02, 20);
+  const end = a => a[a.length - 1];
+  const realDeposits = end(cash3);
+  const taxed = (v, rate) => v - Math.max(0, v - realDeposits) * rate;
+  const brokerAfter = taxed(end(broker), 0.25), policyAfter = taxed(end(policy), 0.25);
+  document.getElementById('v3').textContent = fmt(end(gemel));
+  document.getElementById('v3c').textContent = fmt(realDeposits);
+  document.getElementById('v3p').textContent = fmt(end(gemel) / 200);
+  document.getElementById('a3g').textContent = fmt(end(gemel));
+  document.getElementById('a3b').textContent = fmt(brokerAfter);
+  document.getElementById('a3s').textContent = fmt(end(study));
+  document.getElementById('a3p').textContent = fmt(policyAfter);
+  document.getElementById('a3c').textContent = fmt(realDeposits);
+  lines('c3', 20, [
+    { name: 'גמל', data: gemel, color: '#5fd4a0', bold: true, label: 'גמל' },
+    { name: 'מסחר', data: broker.map((v, i) => taxed(v, i === broker.length - 1 ? 0.25 : 0)), color: '#7b9bff', label: 'מסחר' },
+    { name: 'השתלמות', data: study, color: '#c9a3ff' },
+    { name: 'פוליסה', data: policy.map((v, i) => taxed(v, i === policy.length - 1 ? 0.25 : 0)), color: '#f2c14e' },
+    { name: 'עו״ש', data: cash3, color: '#8e95a5', dash: true, label: 'עו״ש' },
+  ], 60);
+  donut('d3', [
+    { name: 'הפקדות', value: realDeposits, color: '#3a4152' }, { name: 'רווח', value: end(gemel) - realDeposits, color: '#5fd4a0' },
+    { name: 'דמי ניהול', value: end(broker) - end(gemel), color: '#e0557a' }, { name: 'מס', value: 0.0001, color: '#f2c14e' },
+  ]);
+
+  // S4: the fee breakdown by way (stacked bars).
+  const ways = ['קרן מחקה בת״א', 'קרן סל באירופה', 'קרן סל בארה״ב', 'גמל להשקעה', 'קרן סל בת״א'];
+  const bar = {
+    animation: false, backgroundColor: 'transparent', textStyle: { fontFamily: F, color: '#8e95a5' },
+    grid: { left: 8, right: 16, top: 10, bottom: 8, containLabel: true },
+    xAxis: { type: 'value', splitLine: { lineStyle: { color: 'rgba(255,255,255,0.06)' } }, axisLabel: { color: '#8e95a5', fontSize: 10, formatter: v => (v / 1000) + 'K' } },
+    yAxis: { type: 'category', data: ways, inverse: true, axisLine: { show: false }, axisTick: { show: false }, axisLabel: { color: '#e6e8ee', fontSize: 11 } },
+    series: [
+      { type: 'bar', stack: 'f', name: 'הקרן עצמה', data: [2000, 38000, 65000, 112000, 128000], itemStyle: { color: '#1f9e8f' }, barWidth: 16 },
+      { type: 'bar', stack: 'f', name: 'קנייה ומכירה', data: [3100, 1200, 1300, 0, 900], itemStyle: { color: '#7b9bff' } },
+      { type: 'bar', stack: 'f', name: 'משמרת וטיפול', data: [5600, 0, 0, 0, 0], itemStyle: { color: '#c9a3ff' } },
+      { type: 'bar', stack: 'f', name: 'המרות', data: [0, 4600, 4600, 0, 0], itemStyle: { color: '#f2c14e' },
+        label: { show: true, position: 'right', color: '#8e95a5', fontSize: 10, formatter: p => fmt([10700, 43800, 70900, 112000, 128900][p.dataIndex]) } },
+    ],
+  };
+  echarts.init(document.getElementById('c4'), null, { renderer: 'canvas', devicePixelRatio: 2 }).setOption(bar);
+  window.__ready = true;
+</script>
+</body>
+</html>
