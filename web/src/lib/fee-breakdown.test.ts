@@ -20,6 +20,7 @@ const fees = (purchases: number, holding: number): FeeAmounts => ({
   purchases,
   conversions: 0,
   holding,
+  product: 0,
   selling: 0,
   total: purchases + holding,
 })

@@ -4,8 +4,10 @@
 //! prints the timings, so a change that slows the app shows up as a number.
 
 use broker_fees::simulation::{Scenario, compare, simulate};
+use broker_fees::ways::{candidates, compare_ways};
 use broker_fees::{
-    Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Security, Withdrawal, tariffs,
+    Buying, Exchange, ExchangeRates, Lang, Percent, Plan, Product, Security, Withdrawal, listed,
+    tariffs,
 };
 use rust_decimal_macros::dec;
 
@@ -22,6 +24,7 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
     Scenario {
         security,
         exchange,
+        product: Product::for_purchase(security, exchange).first().copied(),
         first_deposit: dec!(10000),
         monthly_deposit: dec!(2000),
         deposit_growth: Percent(dec!(0)),
@@ -52,6 +55,17 @@ fn compare_every_plan(bencher: divan::Bencher, exchange: Exchange) {
     let scenario = defaults(Security::Etf, exchange);
     let rates = rates();
     bencher.bench_local(|| compare(&refs, &scenario, &rates));
+}
+
+/// Every way to hold the S&P 500, each on all the plans that can hold it:
+/// the guide's and the workbench's table, on every input change.
+#[divan::bench]
+fn compare_every_way(bencher: divan::Bencher) {
+    let brokers = listed();
+    let candidates = candidates(&brokers);
+    let scenario = defaults(Security::IndexFund, Exchange::Tlv);
+    let rates = rates();
+    bencher.bench_local(|| compare_ways(&scenario, &candidates, &rates));
 }
 
 /// One plan, on its cheapest track, over 20 years.
