@@ -3118,6 +3118,7 @@ mod tests {
             inflation: crate::Percent(dec!(0)),
             age: 30,
             withdrawal: Withdrawal::LumpSum,
+            redeems_at_maturity: false,
         };
         let over = |year| NotOffered::OverTheCeiling { year };
         // The ceiling, and the first year's deposits.
@@ -3203,6 +3204,7 @@ mod tests {
             inflation: Percent(dec!(2)),
             age,
             withdrawal,
+            redeems_at_maturity: false,
         };
         let at_once = |monthly_deposit| monthly(monthly_deposit, 30, Withdrawal::LumpSum);
         let note = |plan: &Plan, scenario: &Scenario| plan.tax_note(scenario, Lang::En);

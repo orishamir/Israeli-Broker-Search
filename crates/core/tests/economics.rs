@@ -11,7 +11,7 @@
 
 use broker_fees::simulation::{
     self, Around, Comparison, Crossing, Fees, InvalidScenario, NotOffered, Outcome, Scenario,
-    Sweep, Swept, compare, free_plan, simulate, sweep,
+    Sweep, Swept, compare, compare_with_broker_caveats, free_plan, simulate, sweep, unlock,
 };
 use broker_fees::vehicles::GainsTax;
 use broker_fees::*;
@@ -41,6 +41,7 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
         inflation: Percent(dec!(0)),
         age: 30,
         withdrawal: Withdrawal::LumpSum,
+        redeems_at_maturity: false,
     }
 }
 
@@ -768,6 +769,7 @@ fn scenarios() -> impl Strategy<Value = Scenario> {
                     inflation: Percent(Decimal::from(inflation)),
                     age,
                     withdrawal,
+                    redeems_at_maturity: false,
                 }
             },
         )
@@ -1255,6 +1257,7 @@ proptest! {
         let scenario = Scenario {
             inflation: Percent(Decimal::ZERO),
             withdrawal: Withdrawal::LumpSum,
+            redeems_at_maturity: false,
             ..scenario
         };
         let partly_free: Vec<String> = listed_plans()
@@ -2166,4 +2169,119 @@ mod short_term_economics {
             prop_assert_eq!(comparison.at_the_rate, scenario.at_the_rate());
         }
     }
+}
+
+// ─────────────────────────── Ties, unlock, redemption ───────────────────────────
+
+/// Raising a plan from "no caveat" to "may cost more" never moves it above an
+/// equal plan: equal to the shekel is a tie, and a tie goes against the
+/// caveat, whichever of the two is listed first.
+#[test]
+fn a_tie_goes_against_the_plan_that_may_cost_more() {
+    let plan = priced(percent(dec!(0.1)));
+    let flagged = vec![Caveat::may_cost_more(
+        Text::new("Not published", "לא פורסם"),
+        Text::new("not published", "לא פורסם"),
+    )];
+    let scenario = defaults(Security::Etf, Exchange::Tlv);
+    for flagged_first in [true, false] {
+        let (plans, caveats): (Vec<&Plan>, Vec<&[Caveat]>) = if flagged_first {
+            (vec![&plan, &plan], vec![&flagged, &[]])
+        } else {
+            (vec![&plan, &plan], vec![&[], &flagged])
+        };
+        let comparison = compare_with_broker_caveats(&plans, &caveats, &scenario, &rates());
+        let flagged_index = usize::from(!flagged_first);
+        assert_eq!(comparison.plans[1].index, flagged_index);
+        let left = |i: usize| comparison.plans[i].outcome.as_ref().unwrap().after_tax;
+        assert_eq!(left(0), left(1));
+    }
+}
+
+/// A caveat doesn't beat a real difference: a cheaper plan that may cost
+/// more still ranks above a dearer one without a caveat.
+#[test]
+fn a_caveat_only_breaks_ties() {
+    let cheap = priced(percent(dec!(0.05)));
+    let dear = priced(percent(dec!(0.5)));
+    let flagged = vec![Caveat::may_cost_more(
+        Text::new("a", "א"),
+        Text::new("a", "א"),
+    )];
+    let scenario = defaults(Security::Etf, Exchange::Tlv);
+    let comparison =
+        compare_with_broker_caveats(&[&cheap, &dear], &[&flagged, &[]], &scenario, &rates());
+    assert_eq!(comparison.plans[0].index, 0);
+}
+
+fn needing(first_deposit: Decimal, plan: Plan) -> Plan {
+    Plan {
+        min_first_deposit: Some(Money::from_decimal(first_deposit, iso::ILS)),
+        ..plan
+    }
+}
+
+/// The reported first deposit opens the plan, and at it the plan leaves more
+/// than the best plan the saver could already open, both at that deposit.
+#[test]
+fn the_unlock_deposit_opens_the_plan_and_beats_what_fits() {
+    let open = priced(percent(dec!(1)));
+    let closed = needing(dec!(5000), priced(percent(dec!(0.1))));
+    let scenario = Scenario {
+        first_deposit: dec!(1000),
+        ..defaults(Security::Etf, Exchange::Tlv)
+    };
+    let found = unlock(&[&open, &closed], &[&[], &[]], &scenario, &rates()).expect("an unlock");
+    assert_eq!(found.plan, 1);
+    assert_eq!(found.first_deposit, dec!(5000));
+    assert!(closed.opens_with(found.first_deposit));
+    assert!(found.after_tax > found.best_fit_after_tax);
+    // The same deposit in the plan already open leaves exactly the rival's figure.
+    let bigger = Scenario {
+        first_deposit: found.first_deposit,
+        ..scenario
+    };
+    let at_open = simulate(&open, &bigger, &rates()).unwrap().after_tax;
+    assert_eq!(found.best_fit_after_tax, at_open);
+}
+
+/// Nothing is reported when every plan fits, or when the closed plan is no
+/// better than the open one.
+#[test]
+fn nothing_is_unlocked_when_it_would_not_help() {
+    let open = priced(percent(dec!(0.1)));
+    let scenario = defaults(Security::Etf, Exchange::Tlv);
+    let closed_dear = needing(dec!(50_000), priced(percent(dec!(1))));
+    assert_eq!(
+        unlock(&[&open, &closed_dear], &[&[], &[]], &scenario, &rates()),
+        None
+    );
+    let fits = needing(dec!(5000), priced(percent(dec!(0.01))));
+    assert_eq!(
+        unlock(&[&open, &fits], &[&[], &[]], &scenario, &rates()),
+        None
+    );
+}
+
+/// A redemption pays no sale fee and no conversion: the same holdings end
+/// with more, and the sale line of the fees is empty.
+#[test]
+fn a_redemption_charges_no_sale_fee() {
+    let plan = Plan {
+        conversion: ConversionFee {
+            markup: Markup::UpTo(Percent(dec!(1))),
+            ..ConversionFee::FREE
+        },
+        ..priced(percent(dec!(1)))
+    };
+    let sold = defaults(Security::Bond, Exchange::Usa);
+    let redeemed = Scenario {
+        redeems_at_maturity: true,
+        ..sold.clone()
+    };
+    let by_selling = simulate(&plan, &sold, &rates()).unwrap();
+    let by_redeeming = simulate(&plan, &redeemed, &rates()).unwrap();
+    assert!(by_selling.fees.selling > dec!(0));
+    assert_eq!(by_redeeming.fees.selling, dec!(0));
+    assert!(by_redeeming.after_selling > by_selling.after_selling);
 }

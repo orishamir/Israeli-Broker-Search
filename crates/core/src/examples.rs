@@ -44,6 +44,7 @@ pub fn all() -> Vec<Example> {
         inflation: Percent(dec!(0)),
         age: 30,
         withdrawal: Withdrawal::LumpSum,
+        redeems_at_maturity: false,
     };
     vec![
         example(
@@ -113,6 +114,7 @@ pub fn all() -> Vec<Example> {
                 years: 20,
                 age: 45,
                 withdrawal: Withdrawal::Pension,
+                redeems_at_maturity: false,
                 ..base.clone()
             },
         ),

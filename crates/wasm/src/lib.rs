@@ -773,6 +773,7 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
         } else {
             Withdrawal::LumpSum
         },
+        redeems_at_maturity: false,
     };
     scenario.check()?;
     Ok(scenario)
@@ -1034,13 +1035,34 @@ pub fn compare(inputs: Ts<Inputs>) -> Result<Ts<ComparisonData>, JsError> {
         .into_ts()?)
 }
 
+/// Each chosen plan's broker's caveats (none for your own plans), in order.
+fn chosen_broker_caveats<'a>(
+    inputs: &Inputs,
+    brokers: &'a [Broker],
+) -> Vec<&'a [broker_fees::Caveat]> {
+    inputs
+        .plans
+        .iter()
+        .map(|key| match key {
+            PlanKey::Listed { broker, .. } => brokers[*broker].caveats.as_slice(),
+            PlanKey::Yours { .. } => &[],
+        })
+        .collect()
+}
+
+#[allow(
+    clippy::too_many_lines,
+    reason = "one answer built field by field, read top to bottom"
+)]
 pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
     let brokers = all_brokers();
     let plans = chosen_plans(inputs, &brokers)?;
     let scenario = scenario(inputs, &plans)?;
     let rates = exchange_rates(inputs)?;
     let inflation = inflation(inputs)?;
-    let mut comparison = simulation::compare(&plans, &scenario, &rates);
+    let broker_caveats = chosen_broker_caveats(inputs, &brokers);
+    let mut comparison =
+        simulation::compare_with_broker_caveats(&plans, &broker_caveats, &scenario, &rates);
     let mut deposited = scenario.deposited();
     if inputs.in_todays_money && !inflation.is_zero() {
         comparison = comparison.in_todays_money(inflation);

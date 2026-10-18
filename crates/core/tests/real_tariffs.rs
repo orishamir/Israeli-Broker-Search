@@ -126,6 +126,7 @@ fn the_cheapest_track_is_picked() {
             inflation: Percent(dec!(0)),
             age: 30,
             withdrawal: Withdrawal::LumpSum,
+            redeems_at_maturity: false,
         };
         let outcome = simulate(&p, &scenario, &rates()).unwrap();
         p.tracks[outcome.track.unwrap()].name.en.to_string()
@@ -156,6 +157,7 @@ fn the_cheapest_track_is_picked() {
         inflation: Percent(dec!(0)),
         age: 30,
         withdrawal: Withdrawal::LumpSum,
+        redeems_at_maturity: false,
     };
     assert_eq!(simulate(&p, &tel_aviv, &rates()).unwrap().track, None);
 }
@@ -1342,6 +1344,7 @@ fn one_deposit(first_deposit: Decimal, years: u32, yearly_return: Decimal, age: 
         inflation: Percent(dec!(0)),
         age,
         withdrawal: Withdrawal::LumpSum,
+        redeems_at_maturity: false,
     }
 }
 

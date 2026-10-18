@@ -60,8 +60,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::vehicles::Withdrawal;
 use crate::{
-    ConversionFee, Exchange, Holding, IntoEnumIterator, Lang, ManagementFee, Percent, Plan, Price,
-    Security, Text, Trade, TradeFee, Vehicle,
+    Buying, Caveat, ConversionFee, Exchange, Holding, IntoEnumIterator, Lang, ManagementFee,
+    Percent, Plan, Price, Security, Text, Trade, TradeFee, Vehicle,
 };
 
 /// What the user invests in, and how.
@@ -98,6 +98,10 @@ pub struct Scenario {
     pub age: u32,
     /// How the money is taken out at the end, which can change the tax.
     pub withdrawal: Withdrawal,
+    /// The end is a redemption, as a bond held to maturity is repaid: the
+    /// issuer pays it out, so the tariffs charge no sale fee and no
+    /// conversion for it. Only matters while `sell_at_end` is set.
+    pub redeems_at_maturity: bool,
 }
 
 /// How much prices are taken to rise a year unless the user says otherwise:
@@ -864,6 +868,24 @@ pub struct PlanOutcome {
 /// for it. A plan that can't be opened as given is never called the best.
 #[must_use]
 pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> Comparison {
+    compare_with_broker_caveats(plans, &vec![&[][..]; plans.len()], scenario, rates)
+}
+
+/// [`compare`] for plans that also carry their broker's caveats
+/// (`broker_caveats[i]` for `plans[i]`): a tie in what's left, to the
+/// shekel, goes to the plan that has none saying its price may be too low.
+///
+/// # Panics
+/// If the two lists are not as long as each other.
+#[must_use]
+pub fn compare_with_broker_caveats(
+    plans: &[&Plan],
+    broker_caveats: &[&[Caveat]],
+    scenario: &Scenario,
+    rates: &ExchangeRates,
+) -> Comparison {
+    assert_eq!(plans.len(), broker_caveats.len());
+    let plans_in_order = plans;
     // With no fees there's no reason to wait, so the no-fee plan buys every
     // month, and the growth lost while money waits counts as lost to fees.
     let buying_monthly = Scenario {
@@ -881,11 +903,96 @@ pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> C
             fits: plan.opens_with(scenario.first_deposit),
         })
         .collect();
+    let may_cost_more: Vec<bool> = plans_in_order
+        .iter()
+        .zip(broker_caveats)
+        .zip(&plans)
+        .map(|((plan, broker_caveats), outcome)| {
+            outcome.outcome.as_ref().is_ok_and(|o| {
+                let buying = Buying {
+                    security: scenario.security,
+                    exchange: scenario.exchange,
+                    largest_trade: Some(Money::from_decimal(
+                        o.largest_trade,
+                        scenario.exchange.currency(),
+                    )),
+                };
+                plan.has_may_cost_more(buying, broker_caveats, rates)
+            })
+        })
+        .collect();
     plans.sort_by_key(|plan| {
         let left = plan.outcome.as_ref().ok().map(|o| o.after_tax);
-        (plan.outcome.is_err(), !plan.fits, std::cmp::Reverse(left))
+        (
+            plan.outcome.is_err(),
+            !plan.fits,
+            // Equal to the shekel is a tie, and a tie goes to the plan whose
+            // price doesn't rest on a stand-in on the cheap side.
+            std::cmp::Reverse(left.map(|left| left.round_dp(0))),
+            may_cost_more[plan.index],
+            std::cmp::Reverse(left),
+        )
     });
     Comparison { no_fees, plans }
+}
+
+/// What a bigger first deposit would open: a plan whose minimum the
+/// scenario's first deposit doesn't reach, and that, once it does, leaves
+/// more than the best plan the scenario already fits, with the deposit the
+/// same for both.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Unlock {
+    /// ₪, the first deposit that opens the plan: its minimum.
+    pub first_deposit: Decimal,
+    /// Where the plan is in the list given to [`unlock`].
+    pub plan: usize,
+    /// What the plan leaves after tax at that first deposit.
+    pub after_tax: Decimal,
+    /// What the best plan the scenario already fits leaves at that deposit.
+    pub best_fit_after_tax: Decimal,
+}
+
+/// The smallest first deposit that opens a plan better than any the
+/// scenario fits, if there is one. Each minimum among the plans the first
+/// deposit can't open is tried from the smallest, and the first that leaves
+/// a plan ahead is reported: the comparison is at that deposit for every
+/// plan, so a bigger sum alone never counts as the plan's doing.
+#[must_use]
+pub fn unlock(
+    plans: &[&Plan],
+    broker_caveats: &[&[Caveat]],
+    scenario: &Scenario,
+    rates: &ExchangeRates,
+) -> Option<Unlock> {
+    let mut minimums: Vec<Decimal> = plans
+        .iter()
+        .filter(|plan| !plan.opens_with(scenario.first_deposit))
+        .filter_map(|plan| plan.min_first_deposit.map(|min| *min.amount()))
+        .collect();
+    minimums.sort();
+    minimums.dedup();
+    minimums.into_iter().find_map(|first_deposit| {
+        let bigger = Scenario {
+            first_deposit,
+            ..scenario.clone()
+        };
+        let comparison = compare_with_broker_caveats(plans, broker_caveats, &bigger, rates);
+        let after_tax = |plan: &PlanOutcome| plan.outcome.as_ref().ok().map(|o| o.after_tax);
+        let best = comparison.plans.first().filter(|plan| plan.fits)?;
+        let was_closed = !plans[best.index].opens_with(scenario.first_deposit);
+        let best_fit = comparison
+            .plans
+            .iter()
+            .filter(|plan| plans[plan.index].opens_with(scenario.first_deposit))
+            .find_map(after_tax);
+        let after_tax_now = after_tax(best)?;
+        (was_closed && best_fit.is_none_or(|fit| after_tax_now > fit)).then(|| Unlock {
+            first_deposit,
+            plan: best.index,
+            after_tax: after_tax_now,
+            best_fit_after_tax: best_fit.unwrap_or_default(),
+        })
+    })
 }
 
 impl Comparison {
@@ -1307,7 +1414,7 @@ fn sell(
     rates: &ExchangeRates,
 ) -> Sale {
     let currency = scenario.exchange.currency();
-    if !scenario.sell_at_end {
+    if !scenario.sell_at_end || scenario.redeems_at_maturity {
         return Sale {
             proceeds_ils: in_ils(invested + left, currency, rates),
             fees_ils: Decimal::ZERO,
@@ -1410,6 +1517,7 @@ mod tests {
             inflation: Percent(dec!(0)),
             age: 30,
             withdrawal: Withdrawal::LumpSum,
+            redeems_at_maturity: false,
         }
     }
 

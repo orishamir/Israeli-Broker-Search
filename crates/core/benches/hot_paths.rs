@@ -33,6 +33,7 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
         inflation: Percent(dec!(0)),
         age: 30,
         withdrawal: Withdrawal::LumpSum,
+        redeems_at_maturity: false,
     }
 }
 

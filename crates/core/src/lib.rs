@@ -950,6 +950,21 @@ impl Plan {
             .is_none_or(|min| *min.amount() <= first_deposit)
     }
 
+    /// Whether a caveat that matters to `buying`, the broker's or the
+    /// plan's, says the plan's numbers may be too low: the comparison puts
+    /// such a plan after an equal one without.
+    #[must_use]
+    pub fn has_may_cost_more(
+        &self,
+        buying: Buying,
+        broker_caveats: &[Caveat],
+        rates: &ExchangeRates,
+    ) -> bool {
+        broker_caveats.iter().chain(&self.caveats).any(|caveat| {
+            caveat.may_cost_more_summary().is_some() && caveat.matters_for(buying, rates)
+        })
+    }
+
     /// The trade fee row used for `security` traded on `exchange`, if any.
     #[must_use]
     pub fn trade_row(&self, security: Security, exchange: Exchange) -> Option<&TradeFee> {
