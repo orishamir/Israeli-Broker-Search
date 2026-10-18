@@ -529,7 +529,8 @@ fn raising_any_fee_never_helps() {
 }
 
 /// A plan with tracks costs what its cheapest track does: no track, taken on
-/// its own, ends with more.
+/// its own, ends with more. A track whose price leaves a fee out counts
+/// only where no other prices the trade: it would win by what's missing.
 #[test]
 fn the_track_used_is_the_cheapest() {
     for (name, plan) in listed_plans() {
@@ -545,7 +546,18 @@ fn the_track_used_is_the_cheapest() {
                 let Ok(chosen) = simulate(&plan, &scenario, &rates()) else {
                     continue;
                 };
+                let prices = |index| plan.track_for(index, security, exchange).is_some();
+                let others_in_full = (0..plan.tracks.len())
+                    .any(|index| prices(index) && !plan.tracks[index].leaves_out_a_fee);
                 for (index, track) in plan.tracks.iter().enumerate() {
+                    if track.leaves_out_a_fee && prices(index) && others_in_full {
+                        assert_ne!(
+                            chosen.track,
+                            Some(index),
+                            "{name}, {security:?} on {exchange:?}"
+                        );
+                        continue;
+                    }
                     let alone = simulate(&plan.on_track(index), &scenario, &rates()).unwrap();
                     assert!(
                         alone.after_selling <= chosen.after_selling,
@@ -559,6 +571,28 @@ fn the_track_used_is_the_cheapest() {
             }
         }
     }
+}
+
+/// Excellence's "0.3% plus the broker's fee" leaves the foreign broker's
+/// unpublished fee out, so it isn't picked while a track priced in full
+/// prices the trade: an index fund in the US, on its offer, costs $11 an
+/// order or 3¢ a share instead.
+#[test]
+fn a_track_that_leaves_a_fee_out_isnt_picked() {
+    let plans = listed_plans();
+    let offer = plan_of(&plans, "Excellence · Typical offer");
+    let partial = offer
+        .tracks
+        .iter()
+        .position(|track| track.leaves_out_a_fee)
+        .expect("the 0.3% track");
+    let scenario = defaults(Security::IndexFund, Exchange::Usa);
+    let chosen = simulate(offer, &scenario, &rates()).unwrap();
+    assert!(chosen.track.is_some());
+    assert_ne!(chosen.track, Some(partial));
+    // Alone, it would have ended with more.
+    let alone = simulate(&offer.on_track(partial), &scenario, &rates()).unwrap();
+    assert!(alone.after_selling > chosen.after_selling);
 }
 
 /// Waiting for a whole share costs only growth: with none, a broker selling

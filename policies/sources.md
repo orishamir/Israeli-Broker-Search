@@ -81,7 +81,10 @@ Meitav's 0.15% is a quarter (0.6% a year).
   bonds 0.08%, min ₪4.65; managed funds free; US 1¢ a share, min $5 (IB
   system) or $7.50 (ViewTrade); ₪15 a month, free for the first 2 years,
   taken off by the month's trade fees (broker.co.il).
-- **Excellence Trade:** `תעריפון מלא אקסלנס טרייד.pdf` (July 2026). The site:
+- **Excellence Trade:** `תעריפון מלא אקסלנס טרייד.pdf` (July 2026). Row 6's
+  third US track is "0.3% + עמלת ברוקר", the foreign broker's fee unstated
+  anywhere: the track is `leaves_out_a_fee`, picked only where no other
+  track prices the trade, or it would win by what's missing. The site:
   fractional foreign shares, conversion at 2 agorot a dollar, "at most ₪200
   on $10,000"
   ([article](https://www.xnes.co.il/academy/trading/account-fees/), 7 July

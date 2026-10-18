@@ -1028,6 +1028,19 @@ impl Plan {
         })
     }
 
+    /// "First deposit: at least ₪10,000", for its details, if the account
+    /// needs one: the number the table's warning goes by.
+    #[must_use]
+    pub fn first_deposit_text(&self, lang: Lang) -> Option<String> {
+        self.min_first_deposit.map(|min| {
+            let min = format_money(min);
+            match lang {
+                Lang::En => format!("First deposit: at least {min}"),
+                Lang::He => format!("הפקדה ראשונה: לפחות {min}"),
+            }
+        })
+    }
+
     /// "Needs a one-time deposit of at least ₪5,000", if `first_deposit` is less
     /// than the plan's minimum.
     #[must_use]
@@ -2659,6 +2672,18 @@ mod tests {
             "Tariff date not stated"
         );
         assert_eq!(Broker::checked_text(Lang::En), "Checked 29/09/2026");
+    }
+
+    /// The details say what the table's warning goes by.
+    #[test]
+    fn a_plans_least_first_deposit_is_in_its_details() {
+        let excellence = tariffs::excellence();
+        let [full, offer] = [&excellence.plans[0], &excellence.plans[1]];
+        assert_eq!(full.first_deposit_text(Lang::En), None);
+        assert_eq!(
+            offer.first_deposit_text(Lang::He).as_deref(),
+            Some("הפקדה ראשונה: לפחות ₪10,000")
+        );
     }
 
     #[test]

@@ -504,14 +504,26 @@ pub fn simulate(
     } else {
         // The first of the cheapest: tracks that don't price this trade cost
         // the same, and give the first track, reported as none.
-        let (index, mut outcome) = (0..plan.tracks.len())
-            .filter_map(|index| {
-                Some((
-                    index,
-                    simulate_prices(&plan.on_track(index), scenario, rates)?,
-                ))
-            })
-            .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))
+        let cheapest = |tracks: &mut dyn Iterator<Item = usize>| {
+            tracks
+                .filter_map(|index| {
+                    Some((
+                        index,
+                        simulate_prices(&plan.on_track(index), scenario, rates)?,
+                    ))
+                })
+                .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))
+        };
+        // A track that leaves a fee out of this trade's price is tried only
+        // if no other prices it: it would win by what's missing.
+        let in_full = |&index: &usize| {
+            !plan.tracks[index].leaves_out_a_fee
+                || plan
+                    .track_for(index, scenario.security, scenario.exchange)
+                    .is_none()
+        };
+        let (index, mut outcome) = cheapest(&mut (0..plan.tracks.len()).filter(in_full))
+            .or_else(|| cheapest(&mut (0..plan.tracks.len())))
             .ok_or(NotOffered::NoPrice)?;
         outcome.track = plan
             .track_for(index, scenario.security, scenario.exchange)

@@ -633,6 +633,12 @@ pub struct Track {
     pub name: Text,
     /// Trade rows used before the plan's own, for what they cover.
     pub trading: Vec<TradeFee>,
+    /// It adds a fee that isn't published, so its price leaves part out
+    /// (Excellence's "0.3% plus the broker's fee"): it's picked only where
+    /// no track priced in full prices the trade, or it would win by what's
+    /// missing. Saved before there was such a track, a plan has none.
+    #[serde(default)]
+    pub leaves_out_a_fee: bool,
 }
 
 /// A fee for keeping the account, charged every month (Dmei Tipul): "₪15 a

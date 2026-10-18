@@ -243,6 +243,8 @@ pub struct PlanInfo {
     /// language.
     pub english_name: String,
     pub description: String,
+    /// "First deposit: at least ₪10,000", where the account needs one.
+    pub first_deposit: Option<String>,
     /// The age from which it can be taken as a monthly pension, taxed
     /// differently: 60 for a provident fund for investment. Missing where
     /// there's no such way out.
@@ -271,6 +273,7 @@ impl PlanInfo {
             name: plan.name[lang].to_owned(),
             english_name: plan.name.en.to_string(),
             description: plan.description[lang].to_owned(),
+            first_deposit: plan.first_deposit_text(lang),
             pension_from_age: plan.vehicle.rules().pension.map(|pension| pension.from_age),
             // Filled in by the broker, which knows its tariff and its caveats.
             sources: vec![],

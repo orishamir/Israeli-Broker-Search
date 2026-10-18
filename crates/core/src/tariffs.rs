@@ -385,10 +385,12 @@ pub fn altshuler() -> Broker {
                     &[Usa],
                     per_share(usd(dec!(0.01)), usd(dec!(9))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("$11 per order", "$11 לפקודה"),
                 trading: vec![trade(&[Stock, Etf], &[Usa], Price::Flat(usd(dec!(11))))],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.15%", "0.15%"),
@@ -397,6 +399,7 @@ pub fn altshuler() -> Broker {
                     &[Usa],
                     percent(dec!(0.15), Some(usd(dec!(9)))),
                 )],
+                leaves_out_a_fee: false,
             },
         ],
         standing_orders: vec![],
@@ -916,14 +919,17 @@ pub fn excellence() -> Broker {
                     &[Usa],
                     per_share(usd(dec!(0.03)), usd(dec!(8))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("$11 per order", "$11 לפקודה"),
                 trading: vec![trade(securities, &[Usa], Price::Flat(usd(dec!(11))))],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.3% plus the broker's fee", "0.3% ועוד עמלת הברוקר בחו״ל"),
                 trading: vec![trade(securities, &[Usa], percent(dec!(0.3), None))],
+                leaves_out_a_fee: true,
             },
         ]
     };
@@ -971,8 +977,9 @@ pub fn excellence() -> Broker {
         min_first_deposit: None,
         caveats: vec![
             Caveat::not_counted(
-                t("US trades cost at most 2% of their value; the 0.3% track adds the broker's \
-                 fee, which isn't included.", "עסקאות בארה״ב עולות לכל היותר 2% משוויין; שיטת החיוב של 0.3% מוסיפה את עמלת הברוקר בחו״ל, שלא נכללה."),
+                t("US trades cost at most 2% of their value; the 0.3% track adds the foreign \
+                 broker's fee, which isn't published, so it's used only where no other track \
+                 prices the trade.", "עסקאות בארה״ב עולות לכל היותר 2% משוויין; שיטת החיוב של 0.3% מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת."),
             )
             .about_fee(FeeKind::Trade)
             .on(&[Usa]),
@@ -1066,6 +1073,14 @@ pub fn excellence() -> Broker {
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
+            Caveat::not_counted(t(
+                "The full tariff's 0.3% track adds the foreign broker's fee, which isn't \
+                 published, so it's used only where no other track prices the trade.",
+                "שיטת החיוב של 0.3% בתעריפון המלא מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת.",
+            ))
+            .about_fee(FeeKind::Trade)
+            .about(&[Bond, IndexFund])
+            .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
             Caveat::published(t("Some of its trading systems charge at least $5 instead of $6.", "חלק ממערכות המסחר שלה גובות מינימום $5 במקום $6."))
@@ -1184,10 +1199,12 @@ pub fn ibi() -> Broker {
                     &[Usa],
                     per_share(usd(dec!(0.01)), usd(dec!(10))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("$14 per order", "$14 לפקודה"),
                 trading: vec![trade(&[Stock, Etf], &[Usa], Price::Flat(usd(dec!(14))))],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.15%", "0.15%"),
@@ -1196,6 +1213,7 @@ pub fn ibi() -> Broker {
                     &[Usa],
                     percent(dec!(0.15), Some(usd(dec!(10)))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.15% + 1¢ a share", "0.15% + 1¢ למניה"),
@@ -1209,6 +1227,7 @@ pub fn ibi() -> Broker {
                         max: None,
                     },
                 )],
+                leaves_out_a_fee: false,
             },
         ],
         standing_orders: vec![],
@@ -1323,6 +1342,14 @@ pub fn ibi() -> Broker {
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
+            Caveat::not_counted(t(
+                "The full tariff's 0.3% track adds the foreign broker's fee, which isn't \
+                 published, so it's used only where no other track prices the trade.",
+                "שיטת החיוב של 0.3% בתעריפון המלא מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת.",
+            ))
+            .about_fee(FeeKind::Trade)
+            .about(&[Bond, IndexFund])
+            .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
             only_the_monthly_fee_in_the_offer(
@@ -1599,6 +1626,7 @@ pub fn meitav() -> Broker {
                     &[Usa],
                     per_share(usd(dec!(0.01)), usd(dec!(12))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.7%", "0.7%"),
@@ -1607,6 +1635,7 @@ pub fn meitav() -> Broker {
                     &[Usa],
                     percent(dec!(0.7), Some(usd(dec!(12)))),
                 )],
+                leaves_out_a_fee: false,
             },
         ],
         standing_orders: vec![],
@@ -1725,6 +1754,14 @@ pub fn meitav() -> Broker {
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
+            Caveat::not_counted(t(
+                "The full tariff's 0.3% track adds the foreign broker's fee, which isn't \
+                 published, so it's used only where no other track prices the trade.",
+                "שיטת החיוב של 0.3% בתעריפון המלא מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת.",
+            ))
+            .about_fee(FeeKind::Trade)
+            .about(&[Bond, IndexFund])
+            .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
             Caveat::not_counted(t("The ₪100 gift for opening an account isn't included.", "מתנת ₪100 על פתיחת חשבון לא נכללה."))
