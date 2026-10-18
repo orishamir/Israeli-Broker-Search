@@ -577,3 +577,52 @@ and the tax.
     security; a unit of an exempt fund (קרן נאמנות פטורה) is sold under
     it (91(ב1)(1ב)). The 15% of section 91(ב)(3) is for unlinked bonds,
     commercial paper and loans themselves, not a fund's units.
+
+## The index's history
+
+`crates/core/src/history.rs` (table: `history/sp500.rs`, made by
+`uv run --with xlrd policies/sp500-history.py > crates/core/src/history/sp500.rs && cargo fmt`).
+
+- **Source:** Robert Shiller's monthly data, `ie_data.xls` at
+  `econ.yale.edu/~shiller/data/` (his data page, `data.htm`, now links only
+  the newer chapter files, but this one is still served). The copy there was
+  last saved in September 2023, and it has no dividends after June 2023, so
+  the history is **January 1926 to June 2023** (1,170 months). It is not
+  updated by the script on its own; a newer file is read with the file
+  argument.
+- **Method:** the total return index grows each month by
+  (price + dividend / 12) / last month's price: the month's share of the
+  year's dividend counts as reinvested at once, so it only approximates the
+  total return index. Nominal dollars, before any fund's fee or tax. Shiller's
+  price is the month's average of daily closes, not the last day's, which
+  smooths each window's two ends a little. For each whole number of years
+  from 1 to 30, every window (starting in any month) gives an annualized
+  return; the table has the worst, the 10th percentile, the median, the 90th
+  percentile, the best, and how many windows ended lower than they started
+  (total return below 1). Windows overlap, so the 930 windows of 20 years
+  are not 930 separate experiences (the data holds under five separate
+  20-year ones).
+- **Why 1926:** the usual start of long US stock series (CRSP, Ibbotson,
+  most textbooks); earlier years are thinner and less like the index bought
+  now. `--from 1871-01` uses all of the data.
+- **Between and beyond:** between whole years the rates and the share are
+  interpolated in a straight line (the number of windows is exact); under 1
+  year or over 30 `band` says nothing (`None`), since a few months' swing
+  isn't a yearly rate and 30 years holds about three separate experiences.
+- **The chart's band** applies the worst and best as constant yearly rates.
+  That is an approximation: real paths wander up and down on the way, and
+  the shown line is not a path any investor had.
+- **Headline numbers** (yearly, nominal dollars; worst / 10th / median /
+  90th / best; windows that ended lower):
+
+  | Years | Worst | 10th | Median | 90th | Best | Ended lower |
+  |---|---|---|---|---|---|---|
+  | 5 | -17.31% | -0.63% | 11.00% | 20.05% | 33.23% | 135 of 1,110 (12%) |
+  | 7 | -5.36% | 1.92% | 11.26% | 18.10% | 25.53% | 52 of 1,086 (5%) |
+  | 10 | -4.02% | 3.34% | 10.32% | 17.18% | 21.17% | 50 of 1,050 (5%) |
+  | 17 | 1.25% | 5.67% | 10.50% | 15.81% | 19.71% | 0 of 966 |
+  | 20 | 2.05% | 6.70% | 10.98% | 14.97% | 17.95% | 0 of 930 |
+
+  The plan's claim that the 20-year worst is positive in dollars holds. A
+  10-year stretch did end lower in about 1 of 20 starts, which the guide
+  must not round to "never".
