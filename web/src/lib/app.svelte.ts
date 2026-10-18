@@ -16,6 +16,7 @@ import type {
   PlanKey,
   Purchase,
   Security,
+  SpreadData,
   SweepData,
   Swept,
   WhyNot,
@@ -25,7 +26,7 @@ import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
 import { encode, type Shared } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
-import { load, save } from './saved'
+import { firstOfEachId, load, save } from './saved'
 import { ShortTermState, type Place } from './short-term.svelte'
 import type { SweepRequest } from './sweeper'
 import { t } from './text'
@@ -81,10 +82,21 @@ export interface Result {
   track: number | undefined
   /** Why the plan can't be used as the inputs are: "Needs a one-time deposit of at least ₪5,000". */
   warning: string | undefined
+  /** Whether the first deposit is enough to open it: one that isn't comes
+   * after every plan that is. */
+  fits: boolean
   /** Why its numbers may be too low: "May cost more: conversion markup not published". */
   mayCostMore: string | undefined
   /** What makes sense of its numbers: "A standing order buys every month, so it isn't used here". */
   note: string | undefined
+  /** Who can open it, if not anyone: "Through an employer, or if self-employed". */
+  whoCanJoin: string | undefined
+  /** As a pension, the monthly amount the balance buys: "A balance for a
+   * pension: about ₪10,000 a month for life, at a conversion factor of about 200". */
+  pensionNote: string | undefined
+  /** For a kind of fund's average, what's left at its cheapest and dearest
+   * company and at the most allowed. */
+  spread: SpreadData | undefined
   /** What became of a fund's tax: "No tax: your deposits are within ₪20,566 a year". */
   taxNote: string | undefined
   /** Why it has no numbers: "Nothing in Europe is offered", or how far the
@@ -111,7 +123,16 @@ export type WayOut = 'atOnce' | 'pension'
 /** The chosen plans, best first, or why they couldn't be compared.
  * `largestTrade`: the biggest single order, in the exchange's currency. */
 export type Comparison =
-  { results: Result[]; noFees: OutcomeData; deposited: number; largestTrade: number } | { error: string }
+  | {
+      results: Result[]
+      noFees: OutcomeData
+      deposited: number
+      largestTrade: number
+      /** The US estate tax, when a broker's plan holds enough of a US
+       * security: said once, under the table. */
+      usEstateTax: string | undefined
+    }
+  | { error: string }
 
 /** What the details dialog shows. A plan of the user's own opens in the
  * editor, and so does a draft, before "Add plan". `about` is the page on how
@@ -136,7 +157,7 @@ export const planId = (key: PlanKey): string =>
  * (saved by another version of the app). */
 function loadYourPlans(): YourPlan[] {
   const saved = load<YourPlan[]>('your-plans-v1', [])
-  return Array.isArray(saved) ? readable(saved, 'a saved plan') : []
+  return Array.isArray(saved) ? firstOfEachId(readable(saved, 'a saved plan')) : []
 }
 
 /** `plans` without any the core can't read: saved, or in a link, by
@@ -171,25 +192,49 @@ export class AppState {
   get aboutShown() {
     return this.family === 'short' ? this.short.about : this.about
   }
+  /** How old the numbers are, in a line under the table. */
+  readonly dataDates: string = core.dataDates()
   readonly securities: Choice<Security>[] = core.securities()
   readonly exchanges: Choice<Exchange>[] = core.exchanges()
   /** Ready-made investing patterns, each setting every basic input. */
   readonly examples: ExampleData[] = core.examples()
+  /** Every plan the list offers. A kind of fund's cheapest and dearest
+   * company and its maximum aren't among them: they're shown beside its
+   * average (`shownBeside`). */
   readonly listedPlans: Plan[] = (() => {
     const plans = this.brokers.flatMap((broker, brokerIndex) =>
-      broker.plans.map((info, planIndex) => ({
-        broker,
-        info,
-        key: { kind: 'listed' as const, broker: brokerIndex, plan: planIndex },
-        id: planId({ kind: 'listed', broker: brokerIndex, plan: planIndex }),
-        subtitle: broker.name,
-        // A non-breaking space: a line mustn't start with the separator.
-        label: `${broker.shortName}\u00a0· ${info.name}`,
-        englishLabel: `${broker.englishShortName} · ${info.englishName}`,
-      })),
+      broker.plans.flatMap((info, planIndex) =>
+        broker.shownBeside.includes(planIndex)
+          ? []
+          : [
+              {
+                broker,
+                info,
+                key: { kind: 'listed' as const, broker: brokerIndex, plan: planIndex },
+                id: planId({ kind: 'listed', broker: brokerIndex, plan: planIndex }),
+                subtitle: broker.name,
+                // A non-breaking space: a line mustn't start with the separator.
+                label: `${broker.shortName}\u00a0· ${info.name}`,
+                englishLabel: `${broker.englishShortName} · ${info.englishName}`,
+              },
+            ],
+      ),
     )
     return plans.map((plan) => withColor(plan, () => this.colorOf(plan.id)))
   })()
+
+  /** By English label, the average of the kind of fund each plan shown
+   * beside an average belongs to: links made before they were, which tick
+   * one, tick its average. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
+  private readonly averageFor: ReadonlyMap<string, string> = new Map(
+    this.brokers.flatMap((broker, brokerIndex) =>
+      broker.shownBeside.map((planIndex) => [
+        `${broker.englishShortName} · ${broker.plans[planIndex].englishName}`,
+        planId({ kind: 'listed', broker: brokerIndex, plan: broker.newCustomerPlan }),
+      ]),
+    ),
+  )
 
   /** The user's own plans, oldest first. Raw: they're replaced, not changed. */
   yourPlans = $state.raw<YourPlan[]>(loadYourPlans())
@@ -640,6 +685,7 @@ export class AppState {
       shared.depositGrowthPercent ||
       (shared.buyEveryMonths ?? 1) !== 1 ||
       shared.inflationPercent !== undefined ||
+      shared.short?.inflationPercent !== undefined ||
       shared.sellAtEnd === false
     ) {
       this.moreOptions = true
@@ -664,6 +710,10 @@ export class AppState {
       for (const plan of this.plans) {
         if ((plan.key.kind === 'listed' && labels.has(plan.englishLabel)) || ids.has(plan.id))
           this.selected.add(plan.id)
+      }
+      for (const label of labels) {
+        const average = this.averageFor.get(label)
+        if (average) this.selected.add(average)
       }
     }
   }
@@ -693,16 +743,38 @@ export class AppState {
       deposited: data.deposited,
       noFees: data.noFees,
       largestTrade: data.largestTrade,
+      usEstateTax: data.usEstateTax,
       // Best first, and the plans without an outcome last.
       results: data.plans.map(
-        ({ key, outcome, track, warning, mayCostMore, note, taxNote, notOffered, whyNot }, index) => ({
+        (
+          {
+            key,
+            outcome,
+            track,
+            warning,
+            fits,
+            mayCostMore,
+            note,
+            whoCanJoin,
+            pensionNote,
+            spread,
+            taxNote,
+            notOffered,
+            whyNot,
+          },
+          index,
+        ) => ({
           plan: this.plansById.get(planId(key))!,
           outcome,
           rank: outcome ? index + 1 : undefined,
           track,
           warning,
+          fits,
           mayCostMore,
           note,
+          whoCanJoin,
+          pensionNote,
+          spread,
           taxNote,
           notOffered,
           whyNot,
@@ -726,9 +798,9 @@ export class AppState {
   /** Why the inputs can't be compared, while they can't. */
   inputError: string | undefined = $derived('error' in this.latest ? this.latest.error : undefined)
 
-  /** The table's first plan. One that can't be opened with these deposits
-   * (a minimum first deposit) is still the best: its warning is shown with
-   * it, rather than a dearer plan named as best. */
+  /** The table's first plan, which the first deposit can open: the core
+   * ranks the ones it can't after the rest. Only if none can is one of them
+   * the best, with its warning. */
   best: Result | undefined = $derived(
     'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
   )
@@ -778,7 +850,7 @@ export class AppState {
       this.ilsPerEur = ilsPerEur
       this.ratesStatus = { kind: 'downloaded', date }
     } catch (error) {
-      this.ratesStatus = { kind: 'failed', error: String(error) }
+      this.ratesStatus = { kind: 'failed', error: error instanceof Error ? error.message : String(error) }
     }
   }
 }

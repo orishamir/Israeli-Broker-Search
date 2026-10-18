@@ -18,3 +18,11 @@ export function save(key: string, value: unknown) {
     // Not saved, but the app still works.
   }
 }
+
+/** `items` with only the first of each id. A list saved or shared with an
+ * id twice (edited by hand, or by an older version) would break the page:
+ * a repeated key in a keyed list throws. */
+export function firstOfEachId<T extends { id: string }>(items: T[]): T[] {
+  const seen = new Set<string>()
+  return items.filter(({ id }) => !seen.has(id) && seen.add(id))
+}

@@ -4,6 +4,7 @@
   import { compactPercent, percent } from './format'
   import NumberField from './NumberField.svelte'
   import PlaceSheet from './PlaceSheet.svelte'
+  import { scrollsPast } from './slider'
   import { t } from './text'
   import { reveal } from './motion'
   import Tip from './Tip.svelte'
@@ -35,7 +36,7 @@
 
 <section class="card">
   <h3><label for="months">{t.forHowLong}</label></h3>
-  <div class="range">
+  <div class="range" {@attach scrollsPast}>
     <input id="months" type="range" min="1" max={short.longest} bind:value={short.months} />
     <output for="months">{t.monthsCount(short.months)}</output>
   </div>

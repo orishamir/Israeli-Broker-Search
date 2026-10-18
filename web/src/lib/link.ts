@@ -6,6 +6,7 @@
 import type { Family, YourPlan } from './app.svelte'
 import * as core from './core/core'
 import type { Exchange, Security } from './core/core'
+import { firstOfEachId } from './saved'
 import { looksLikeYourDeposit, type YourDeposit } from './short-term.svelte'
 
 /** What a link carries. Every field is optional: a link from another
@@ -136,8 +137,9 @@ const numberIn =
     return Number.isFinite(value) && check(value) ? value : undefined
   }
 
-/** A link's list, from base64 JSON, keeping only the items `looksRight` accepts. */
-function listIn<T>(
+/** A link's list, from base64 JSON, keeping only the items `looksRight`
+ * accepts, and the first of each id. */
+function listIn<T extends { id: string }>(
   params: URLSearchParams,
   key: string,
   looksRight: (value: unknown) => value is T,
@@ -146,7 +148,7 @@ function listIn<T>(
   if (text === null) return undefined
   try {
     const parsed: unknown = JSON.parse(fromBase64Url(text))
-    return Array.isArray(parsed) ? parsed.filter(looksRight) : undefined
+    return Array.isArray(parsed) ? firstOfEachId(parsed.filter(looksRight)) : undefined
   } catch {
     // Not a list: left out.
     return undefined

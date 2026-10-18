@@ -896,6 +896,14 @@ impl Caveat {
 }
 
 impl Plan {
+    /// Whether the account can be opened with `first_deposit` ₪: at least
+    /// its minimum, if it has one.
+    #[must_use]
+    pub fn opens_with(&self, first_deposit: Decimal) -> bool {
+        self.min_first_deposit
+            .is_none_or(|min| *min.amount() <= first_deposit)
+    }
+
     /// The trade fee row used for `security` traded on `exchange`, if any.
     #[must_use]
     pub fn trade_row(&self, security: Security, exchange: Exchange) -> Option<&TradeFee> {
@@ -1034,6 +1042,29 @@ pub enum BrokerKind {
     Funds,
 }
 
+/// A kind of fund's plans beyond its average (its `new_customer_plan`),
+/// as indexes into [`Broker::plans`]: what savers pay at the cheapest and
+/// the dearest company, and the most the law allows. They say how far one
+/// company's fee can be from the average, which is what's compared: ranked
+/// as plans of their own, the most allowed looked like one to pick.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Spread {
+    pub cheapest: Option<usize>,
+    pub dearest: Option<usize>,
+    pub most_allowed: usize,
+}
+
+impl Spread {
+    /// The plans, by index: the cheapest, the dearest, the most allowed.
+    #[must_use]
+    pub fn plans(self) -> Vec<usize> {
+        [self.cheapest, self.dearest, Some(self.most_allowed)]
+            .into_iter()
+            .flatten()
+            .collect()
+    }
+}
+
 /// A broker or bank, and every plan it offers.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Broker {
@@ -1066,6 +1097,9 @@ pub struct Broker {
     pub caveats: Vec<Caveat>,
     /// Every plan a customer of this broker can be on.
     pub plans: Vec<Plan>,
+    /// For a kind of fund, the plans shown beside its average rather than
+    /// as plans of their own; `None` for a broker.
+    pub spread: Option<Spread>,
 }
 
 // ─────────────────────────── Inputs ───────────────────────────

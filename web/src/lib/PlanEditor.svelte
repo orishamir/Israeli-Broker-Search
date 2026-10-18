@@ -131,8 +131,11 @@
 <footer>
   {#if draft}
     <button onclick={close}>{t.cancel}</button>
+    <!-- Not while a field says what's wrong: the plan would be added with
+         the last good value, not the one on screen. -->
     <button
       class="primary"
+      disabled={Object.keys(errors).length > 0}
       onclick={() => {
         app.addYourPlan(yours)
         close()

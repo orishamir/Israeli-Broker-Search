@@ -55,7 +55,24 @@ export const en = {
     'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
   yearlyCost: 'Yearly fees',
   yearlyCostTip:
-    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. 100% when nothing is left.',
+    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, which a fund’s fee does. 100% when nothing is left.',
+  spreadBetween: (low: string, lowName: string, high: string, highName: string) =>
+    `From ${low} (${lowName}) to ${high} (${highName})`,
+  spreadAtMost: (name: string, amount: string) => `${name}: ${amount}`,
+  assumptions: (yearly: string, inflation: string, selling: boolean) =>
+    selling
+      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain`
+      : `Assuming a return of ${yearly} a year and inflation of ${inflation}, with nothing sold and no tax`,
+  shortAssumptions: (rate: string, inflation: string) =>
+    `Assuming the Bank of Israel's rate is ${rate} on average and inflation is ${inflation}`,
+  anyDayInstead: (label: string, amount: string, less: string) =>
+    `Can be taken out any day: ${label}, ${amount} (${less} less)`,
+  ratesOf: (date: string) => `exchange rates of ${date}`,
+  notAdvice: 'The calculator doesn’t advise: it works out fees and tax from what you typed.',
+  notAffiliated: 'Not connected to any bank, investment house or fund.',
+  reportAMistake: 'Report a mistake (GitHub)',
+  accessibilityStatement: 'Accessibility statement',
+  needBiggerFirstDeposit: 'Need a bigger one-time deposit',
   lostToFees: 'Lost to fees',
   lostToFeesTip: (selling: boolean) =>
     `How much less you end up with${selling ? ', after selling and before tax,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
@@ -142,12 +159,14 @@ export const en = {
   security: 'Security',
   tradedOn: 'Traded on',
   tradedOnTip: (security: string, example: string) =>
-    `${security} can be bought on different exchanges: in Tel Aviv, or abroad in dollars or euros. ${example} Banks and investment houses charge different fees on each exchange, and abroad some also charge for converting your shekels.`,
+    `${security} can be bought in Tel Aviv, or abroad in dollars or euros. ${example} Banks and investment houses charge different fees on each exchange, and abroad some also charge for converting your shekels.`,
   tradedOnBonds:
     "Israel's government bonds trade in Tel Aviv in shekels, and US Treasuries in New York in dollars.",
   tradedOnStocks: 'Teva, for example, trades in Tel Aviv in shekels and in New York in dollars.',
   tradedOnFunds:
     'The same S&P 500, for example, is sold in Tel Aviv as an ETF in shekels, and in New York as an ETF such as VOO, in dollars.',
+  tradedOnIndexFunds:
+    'The same S&P 500, for example, is sold as an Israeli index fund in shekels, and as a foreign index fund in dollars.',
   exchange: 'Exchange',
   downloadingRates: "· downloading today's…",
   couldntDownloadRates: "· couldn't download today's",
@@ -237,6 +256,8 @@ export const en = {
   brokerYourOwn: (broker: string) => `${broker} · your own`,
   yourPlan: 'Your plan',
   yourPlanNumbered: (count: number) => `Your plan ${count}`,
+  couldntLoad: 'The calculator didn’t load. Check your internet connection and reload the page.',
+  ratesUnreachable: 'the exchange-rate service could not be reached',
   ratesServiceAnswered: (status: number) => `the rates service answered ${status}`,
 
   // Names in the other language
@@ -400,6 +421,8 @@ export const en = {
   netYearlyColumn: 'A year, net',
   netYearlyTip:
     'What the money earned after costs and tax, as a yearly rate: the rate at which the same deposits would come to the same sum.',
+  shortLeftAfterTaxTip:
+    'What you end up with, and what the table is ranked by: what you put in, with what it earned in the deposit or the fund (after the fund’s fee), less the tax.',
   costYearly: 'Cost a year',
   costYearlyTip:
     "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. Below zero, the bank pays more than the rate.",

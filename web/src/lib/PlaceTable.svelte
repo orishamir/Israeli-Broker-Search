@@ -20,7 +20,11 @@
   /** The amounts, what the table is ranked by first: on a phone only the
    * first two fit beside the place's name, and the rest scroll into view. */
   const columns: Column[] = $derived([
-    { title: t.leftAfterTax, explanation: t.leftAfterTaxTip, text: (outcome) => shekels(outcome.afterTax) },
+    {
+      title: t.leftAfterTax,
+      explanation: t.shortLeftAfterTaxTip,
+      text: (outcome) => shekels(outcome.afterTax),
+    },
     {
       title: t.netYearlyColumn,
       explanation: t.netYearlyTip,

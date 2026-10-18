@@ -80,6 +80,10 @@
    * its column and moved every number when the security or exchange
    * changed; now the note wraps, and only its row grows taller. */
   const width = $derived({ plan: '30%', amount: `${70 / columns.length}%` })
+
+  /** The first plan the first deposit can't open: the core ranks those after
+   * the rest, and a line above it says why. */
+  const firstUnfit = $derived(results.find(({ outcome, fits }) => outcome && !fits)?.plan.id)
 </script>
 
 <table>
@@ -98,10 +102,11 @@
     <!-- Rows glide to their new place when the ranking changes. Plans that
          can't be used (the security isn't offered, the deposits are over a
          fund's ceiling, its money is still locked) have no line to highlight. -->
-    {#each results as { plan, outcome, rank, warning, mayCostMore, note, taxNote, notOffered, whyNot } (plan.id)}
+    {#each results as { plan, outcome, rank, warning, mayCostMore, note, whoCanJoin, pensionNote, spread, taxNote, notOffered, whyNot } (plan.id)}
       <tr
         animate:flip={{ duration: duration(SETTLE), easing: easeOut }}
         class:not-offered={!outcome}
+        class:first-unfit={plan.id === firstUnfit}
         class:highlighted={app.highlighted.has(plan.id)}
         class:pinned={app.pinned.has(plan.id)}
         style:--plan-color={plan.color}
@@ -111,6 +116,8 @@
       >
         <td class="rank">{rank ?? '–'}</td>
         <td class="plan">
+          <!-- In the row, so it slides with it. -->
+          {#if plan.id === firstUnfit}<span class="unfit">{t.needBiggerFirstDeposit}</span>{/if}
           <div>
             <span class="mark" class:yours={plan.yours} style:--plan-color={plan.color}></span>
             <span class="names">
@@ -120,8 +127,29 @@
               <!-- A number that may be too low: the plan stays ranked, flagged. -->
               {#if mayCostMore}<span class="warning">⚠ {mayCostMore}</span>{/if}
               {#if note}<span class="note">{note}</span>{/if}
+              {#if whoCanJoin}<span class="note">{whoCanJoin}</span>{/if}
+              <!-- A kind of fund's companies and maximum, beside its average. -->
+              {#if spread}
+                {#if spread.cheapest && spread.dearest}
+                  <span class="note"
+                    >{t.spreadBetween(
+                      shekels(spread.dearest.left),
+                      spread.dearest.name,
+                      shekels(spread.cheapest.left),
+                      spread.cheapest.name,
+                    )}</span
+                  >
+                {/if}
+                {#if spread.mostAllowed}
+                  <span class="note"
+                    >{t.spreadAtMost(spread.mostAllowed.name, shekels(spread.mostAllowed.left))}</span
+                  >
+                {/if}
+              {/if}
               <!-- A fund's tax rule decides its row: said here, not only in its caveats. -->
               {#if taxNote}<span class="note tax-note">{taxNote}</span>{/if}
+              <!-- Its amount is a balance for a pension, not cash to take out. -->
+              {#if pensionNote}<span class="note pension-note">{pensionNote}</span>{/if}
             </span>
           </div>
         </td>
@@ -247,8 +275,19 @@
   .warning {
     color: var(--warning);
   }
-  /* As readable as the plan's name: it's why the row's tax is what it is. */
-  .tax-note {
+  /* Above the first plan the first deposit can't open: why it and the rest
+     below come after the others. */
+  .unfit {
+    display: block;
+    margin-block-end: 6px;
+    color: var(--weak);
+    font-size: 0.75rem;
+    white-space: normal;
+  }
+  /* As readable as the plan's name: it's why the row's tax is what it is,
+     and what its amount buys as a pension. */
+  .tax-note,
+  .pension-note {
     color: var(--text);
   }
   /* Long ones wrap, rather than widen the table past its card. */

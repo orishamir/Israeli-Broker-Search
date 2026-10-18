@@ -28,10 +28,11 @@ use crate::{
     ils, iso, usd,
 };
 
-/// Every broker the app knows, in the order to offer them.
+/// Every broker the app knows, in the order to offer them, each with what
+/// holds at all of them ([`us_estate_tax`]).
 #[must_use]
 pub fn all() -> Vec<Broker> {
-    vec![
+    let mut brokers = vec![
         altshuler(),
         leumi(),
         excellence(),
@@ -40,7 +41,59 @@ pub fn all() -> Vec<Broker> {
         meitav(),
         mizrahi(),
         otsar_hahayal(),
-    ]
+    ];
+    for broker in &mut brokers {
+        broker.caveats.push(us_estate_tax());
+    }
+    brokers
+}
+
+/// The US taxes a foreigner's estate on what's held in the US above
+/// $60,000, whoever the broker: shares of a US company or a US-registered
+/// fund. Not bonds, whose interest is portfolio interest, which isn't US
+/// property for the tax. Israel has no estate-tax treaty with the US, and
+/// an Irish fund isn't a US asset. The tax is paid by the estate, not on
+/// selling, so it isn't counted; but a US holding may cost up to 40% of its
+/// value more than the table shows, so the page says so once, under the
+/// table, when the holdings pass the amount (it would be the same under
+/// every broker's plan), and each plan's details say it among what isn't
+/// counted.
+#[must_use]
+pub fn us_estate_tax() -> Caveat {
+    let page = |name: Text, url: &str| source(name, url);
+    Caveat::not_counted(t(
+        "If you die holding more than $60,000 in US securities, such as an ETF or a stock \
+         registered in the US, the US taxes your estate on them, at up to 40%, and Israel has \
+         no estate-tax treaty with the US. ETFs registered in Ireland, traded in Tel Aviv or in \
+         Europe, aren't US assets. It isn't counted: the estate pays it, not a sale.",
+        "מי שנפטר כשיש לו יותר מ\u{2011}$60,000 בניירות ערך אמריקאיים, כמו קרן סל או מניה שרשומות בארה״ב, ארה״ב גובה מס עיזבון עליהם, עד 40%, ולישראל אין עם ארה״ב אמנה למס עיזבון. קרנות סל שרשומות באירלנד, שנסחרות בתל אביב או באירופה, אינן נכס אמריקאי. המחשבון לא סופר אותו: הוא משולם מהעיזבון, ולא במכירה.",
+    ))
+    .about(&[Etf, IndexFund, Stock])
+    .on(&[Usa])
+    .when_above(usd(dec!(60000)))
+    .sources(&[
+        &page(
+            t(
+                "IRS: some nonresidents with US assets must file estate tax returns",
+                "רשות המסים האמריקאית: מי שאינם תושבים ויש להם נכסים בארה״ב חייבים בדוח מס עיזבון",
+            ),
+            "https://www.irs.gov/individuals/international-taxpayers/some-nonresidents-with-us-assets-must-file-estate-tax-returns",
+        ),
+        &page(
+            t(
+                "IRS: instructions for Form 706-NA, the $13,000 credit and the rates",
+                "רשות המסים האמריקאית: ההוראות לטופס 706-NA, הזיכוי של $13,000 ושיעורי המס",
+            ),
+            "https://www.irs.gov/instructions/i706na",
+        ),
+        &page(
+            t(
+                "IRS: the countries with estate and gift tax treaties",
+                "רשות המסים האמריקאית: המדינות שיש להן אמנה למס עיזבון ומתנות",
+            ),
+            "https://www.irs.gov/businesses/small-businesses-self-employed/estate-gift-tax-treaties-international",
+        ),
+    ])
 }
 
 /// When the numbers were last checked against the brokers' documents and
@@ -497,6 +550,7 @@ pub fn altshuler() -> Broker {
             .source(&faq),
         ],
         plans: vec![full_tariff, new_customers],
+        spread: None,
     }
 }
 
@@ -818,10 +872,11 @@ pub fn leumi() -> Broker {
                       and on the Pepper app, so it has several plans here.",
             "מהבנקים הגדולים בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (אונליין בלאומי טרייד, או בסניף), בקבוצות לקוחות ובאפליקציית פפר, ולכן יש לו כאן כמה מסלולים.",
         ),
-        tariff_date: Some(TariffDate::Day(date!(2026 - 06 - 29))),
+        tariff_date: Some(TariffDate::Day(date!(2026 - 10 - 01))),
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, plus18, standing_order, pepper],
+        spread: None,
     }
 }
 
@@ -1058,6 +1113,7 @@ pub fn excellence() -> Broker {
         source_url: Some("https://www.xnes.co.il/media/nwogkoos/taarifon.pdf".into()),
         caveats: vec![],
         plans: vec![full_tariff, typical_offer],
+        spread: None,
     }
 }
 
@@ -1331,6 +1387,7 @@ pub fn ibi() -> Broker {
             .on(&[Usa, Europe]),
         ],
         plans: vec![full_tariff, typical_offer],
+        spread: None,
     }
 }
 
@@ -1488,6 +1545,7 @@ pub fn interactive() -> Broker {
             .source(&tariff),
         ],
         plans: vec![standard],
+        spread: None,
     }
 }
 
@@ -1699,6 +1757,7 @@ pub fn meitav() -> Broker {
             .source(&tradingil_conversions()),
         ],
         plans: vec![full_tariff, typical_offer],
+        spread: None,
     }
 }
 
@@ -1931,6 +1990,7 @@ pub fn mizrahi() -> Broker {
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, young],
+        spread: None,
     }
 }
 
@@ -2261,5 +2321,6 @@ pub fn otsar_hahayal() -> Broker {
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, standing_order, club, top_trade],
+        spread: None,
     }
 }

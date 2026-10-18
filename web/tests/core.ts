@@ -43,20 +43,27 @@ export * from '../src/lib/core/core'
 /** The exchange rates tests/fixtures.ts answers the app with. */
 export const RATES = { date: '2026-09-25', ilsPerEur: 3.4594, ilsPerUsd: 3.0338 }
 
-/** Every listed plan, with its broker and its key. */
+/** Every plan the list offers, with its broker and its key: as the page,
+ * without a kind of fund's plans shown beside its average. */
 export const listedPlans = brokers().flatMap((broker, brokerIndex) =>
-  broker.plans.map((plan, planIndex) => ({
-    broker,
-    plan,
-    key: { kind: 'listed', broker: brokerIndex, plan: planIndex } as ListedKey,
-    /** As the table and buttons name it: "לאומי · פפר". */
-    label: `${broker.shortName}\u00a0· ${plan.name}`,
-    /** As tests name it, and links: "Leumi · Pepper". */
-    englishLabel: `${broker.englishShortName} · ${plan.englishName}`,
-    /** Ticked when the app opens: each broker's usual plan, and what
-     * savers in a provident fund for investment pay on average. */
-    usual: broker.comparedAtFirst && planIndex === broker.newCustomerPlan,
-  })),
+  broker.plans.flatMap((plan, planIndex) =>
+    broker.shownBeside.includes(planIndex)
+      ? []
+      : [
+          {
+            broker,
+            plan,
+            key: { kind: 'listed', broker: brokerIndex, plan: planIndex } as ListedKey,
+            /** As the table and buttons name it: "לאומי · פפר". */
+            label: `${broker.shortName}\u00a0· ${plan.name}`,
+            /** As tests name it, and links: "Leumi · Pepper". */
+            englishLabel: `${broker.englishShortName} · ${plan.englishName}`,
+            /** Ticked when the app opens: each broker's usual plan, and what
+             * savers in a provident fund for investment pay on average. */
+            usual: broker.comparedAtFirst && planIndex === broker.newCustomerPlan,
+          },
+        ],
+  ),
 )
 
 export const usualPlans = listedPlans.filter(({ usual }) => usual)

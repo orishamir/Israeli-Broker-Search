@@ -28,11 +28,16 @@
 
   const details = (place: Place) => (app.details = { kind: 'place', place })
 
-  /** Adds a deposit of your own and puts the caret in its rate. */
+  /** Adds a deposit of your own and selects its rate, today's, so the one
+   * offered is typed over it. */
   async function add() {
     const deposit = short.addYourDeposit()
     await tick()
-    document.getElementById(`deposit-rate-${deposit.id}`)?.focus()
+    const rate = document.getElementById(`deposit-rate-${deposit.id}`)
+    if (rate instanceof HTMLInputElement) {
+      rate.focus()
+      rate.select()
+    }
   }
 </script>
 

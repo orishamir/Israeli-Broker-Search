@@ -6,8 +6,10 @@ export interface Rates {
   ilsPerEur: number
 }
 
-/** Rates to start with, until today's arrive (or if they can't be fetched). */
-export const DEFAULT_RATES: Rates = { ilsPerUsd: 3.7, ilsPerEur: 4.3 }
+/** Rates to start with, until today's arrive (or if they can't be fetched):
+ * the European Central Bank's of 16 October 2026, so that without a
+ * connection the page is near today's, not a guess. */
+export const DEFAULT_RATES: Rates = { ilsPerUsd: 3.0944, ilsPerEur: 3.4822 }
 
 /**
  * Today's European Central Bank reference rates, from Frankfurter: a free
@@ -15,7 +17,13 @@ export const DEFAULT_RATES: Rates = { ilsPerUsd: 3.7, ilsPerEur: 4.3 }
  * (the ECB's own files don't).
  */
 export async function fetchRates(): Promise<Rates & { date: string }> {
-  const response = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,ILS')
+  let response: Response
+  try {
+    response = await fetch('https://api.frankfurter.dev/v1/latest?base=EUR&symbols=USD,ILS')
+  } catch {
+    // The browser's own words ("TypeError: Failed to fetch") are English.
+    throw new Error(t.ratesUnreachable)
+  }
   if (!response.ok) {
     throw new Error(t.ratesServiceAnswered(response.status))
   }

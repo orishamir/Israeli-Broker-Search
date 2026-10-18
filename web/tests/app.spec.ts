@@ -1,3 +1,4 @@
+import { test as baseTest } from '@playwright/test'
 import {
   expectedRows,
   inputsOnPage,
@@ -85,4 +86,12 @@ test('Share copies a link that opens the same comparison', async ({ page, contex
   await expect(page.locator('.chart canvas')).toBeVisible()
   expect(await inputsOnPage(page)).toMatchObject({ security: 'Bond', monthlyDeposit: 3500 })
   await expect.poll(() => rowsOnPage(page)).toEqual(before)
+})
+
+// Without the fixture, which waits for the app.
+baseTest("if the core can't load, the page says so instead of pulsing on", async ({ page }) => {
+  await page.route(/\.wasm(\?|$)/, (route) => route.abort())
+  await page.goto('/')
+  await expect(page.getByRole('alert')).toHaveText(t.couldntLoad)
+  await expect(page.locator('#skeleton .block').first()).toHaveCSS('animation-name', 'none')
 })

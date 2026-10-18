@@ -1,3 +1,4 @@
+import { test as baseTest } from '@playwright/test'
 import {
   brokers,
   compare,
@@ -7,6 +8,7 @@ import {
   inputsOnPage,
   listed,
   listedPlans,
+  RATES,
   rowsOnPage,
   securityName,
   sharePriceSymbol,
@@ -15,7 +17,7 @@ import {
   type Security,
 } from './core'
 import { t } from '../src/lib/text'
-import { choice, expect, openPlans, planInList, plansList, rows, test } from './fixtures'
+import { choice, expect, fingerDrag, openPlans, planInList, plansList, rows, test } from './fixtures'
 
 // The inputs panel: fields, choices and what they show or hide.
 
@@ -24,6 +26,12 @@ test('Tel Aviv needs no exchange rates or share price', { tag: '@phone' }, async
   await expect(page.getByText('$1 = ₪')).toBeHidden()
   await expect(page.getByLabel(t.sharePrice)).toBeHidden()
   await expect(rows(page).first()).toBeVisible()
+})
+
+test("where it's traded is explained for an index fund without an ETF for its example", async ({ page }) => {
+  await choice(page, t.security, securityName('IndexFund')).click()
+  await page.getByRole('button', { name: t.whatMeans(t.tradedOn) }).hover()
+  await expect(page.getByRole('tooltip').filter({ hasText: t.tradedOnIndexFunds })).toBeVisible()
 })
 
 test('the share price is asked for only where the core says it matters', async ({ page }) => {
@@ -86,7 +94,29 @@ test('amounts show thousands separators, and the arrow keys step them', async ({
   await first.blur()
   await expect(first).toHaveValue('25,000')
   await expect(page.getByText('₪505,000')).toBeVisible() // deposited: 25,000 + 2,000 × 240
+  // Pasted with its sign, it's read and tidied; what isn't a number stays
+  // as typed, to be fixed, rather than vanishing.
+  await first.fill('₪15 000')
+  await first.blur()
+  await expect(first).toHaveValue('15,000')
+  await first.fill('15k')
+  await first.blur()
+  await expect(first).toHaveValue('15k')
 })
+
+// Without the fixture, whose page has today's rates.
+baseTest(
+  "without today's rates, the page says so in its own words and starts near them",
+  async ({ page }) => {
+    await page.route('https://api.frankfurter.dev/**', (route) => route.abort('internetdisconnected'))
+    await page.goto('/')
+    await expect(page.getByText(t.couldntDownloadCheck(t.ratesUnreachable))).toBeVisible()
+    await expect(page.getByText('TypeError')).toBeHidden()
+    // The fallback is a recent day's, not a guess 20% off.
+    const usd = Number(await page.getByLabel('$1 =').inputValue())
+    expect(Math.abs(usd - RATES.ilsPerUsd) / RATES.ilsPerUsd).toBeLessThan(0.05)
+  },
+)
 
 test(
   'exchange rates are folded away until opened, and can be changed',
@@ -230,3 +260,28 @@ test('on a phone the list covers the whole screen', { tag: '@touch' }, async ({ 
   const { width, height } = page.viewportSize()!
   expect([list.x, list.y, Math.round(list.width), Math.round(list.height)]).toEqual([0, 0, width, height])
 })
+
+test(
+  'a finger scrolling over the years slider scrolls the page and leaves the years alone',
+  { tag: ['@touch', '@chromium'] },
+  async ({ page }) => {
+    const years = page.getByLabel(t.years)
+    await years.scrollIntoViewIfNeeded()
+    await page.evaluate(() => window.scrollBy(0, -200))
+    const before = await years.inputValue()
+    const scrolled = await page.evaluate(() => scrollY)
+    // Starting away from the thumb, where a press alone would move it.
+    await fingerDrag(page, years, 0.2, 0, -250)
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(scrolled + 100)
+    await expect(years).toHaveValue(before)
+    await expect(page.locator('output[for="years"]')).toHaveText(before)
+
+    // Sideways, it's a slider; once the page has stopped gliding, since a
+    // touch while it flings only stops it.
+    let last = NaN
+    await expect.poll(async () => last === (last = await page.evaluate(() => scrollY))).toBe(true)
+    await fingerDrag(page, years, 0.5, -80, 0)
+    await expect(years).not.toHaveValue(before)
+    await expect(page.locator('output[for="years"]')).toHaveText(await years.inputValue())
+  },
+)

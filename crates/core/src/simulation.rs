@@ -14,6 +14,10 @@
 //! - Custody is charged every month, a twelfth of a year's fee on what's
 //!   held, and so is a plan's handling fee; both are paid from the shekels.
 //!   What they don't cover is owed, and the next deposits repay it first.
+//!   Until then it's paid from the saver's own money, as a bank takes it
+//!   from the current account, and costs the growth that money would have
+//!   had in the holdings ([`Outcome::owed_growth`]): custody on a sum put
+//!   in once compounds like a fund's fee, rather than waiting for the sale.
 //! - A manager's fee ([`ManagementFee`](crate::ManagementFee)) comes off
 //!   each deposit as it arrives, and off the holdings every month. A fund
 //!   or a policy invests every deposit at once
@@ -327,6 +331,10 @@ pub struct Outcome {
     pub tax: Decimal,
     /// What's left of `after_selling` once the tax is paid.
     pub after_tax: Decimal,
+    /// The growth that fees no deposit covered cost, having been paid from
+    /// the saver's own money (part of `after_selling`, not of `fees`). It
+    /// isn't paid to anyone, so the tax doesn't count it.
+    pub owed_growth: Decimal,
 }
 
 /// Fees in ₪, by what they were charged for. Adding two adds each kind, so
@@ -437,6 +445,7 @@ impl Outcome {
             yearly_cost: self.yearly_cost,
             tax: self.tax / at_end,
             after_tax: self.after_tax / at_end,
+            owed_growth: self.owed_growth / at_end,
         }
     }
 
@@ -556,6 +565,10 @@ fn yearly_cost(scenario: &Scenario, after_selling: Decimal) -> Percent {
 
 /// Runs `scenario` on `plan`'s own prices, without choosing a track. `None`
 /// if the plan has no price for the security on that exchange.
+#[allow(
+    clippy::too_many_lines,
+    reason = "a month's steps in the order they happen, read top to bottom"
+)]
 fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> Option<Outcome> {
     let price = &plan.trade_row(scenario.security, scenario.exchange)?.price;
     let buy_every_months = buys_every_months(plan, scenario);
@@ -569,7 +582,8 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
     // The law never lowers a cost: when prices fall, the whole gain is taxed.
     let rising_prices = self::monthly_growth(scenario.inflation).max(Decimal::ONE);
 
-    let mut cash_ils = Decimal::ZERO; // negative while fees are owed
+    // Negative while fees are owed: what deposits haven't covered yet.
+    let mut cash_ils = Decimal::ZERO;
     let mut left = Decimal::ZERO; // converted and not yet spent, in `currency`
     let mut invested = Decimal::ZERO; // in `currency`
     let mut taxed = Taxed::new(plan, scenario);
@@ -578,6 +592,7 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
     let mut fees_by_year = Vec::new();
     let mut fees_this_year = Fees::default();
     let mut largest_trade = Decimal::ZERO;
+    let mut owed_growth = Decimal::ZERO;
 
     for (month, monthly_deposit) in (0..scenario.years * 12).zip(scenario.monthly_deposits()) {
         let one_time = if month == 0 {
@@ -624,6 +639,7 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
 
         invested *= monthly_growth;
         share_price *= monthly_growth;
+        owed_growth += grow_owed(&mut cash_ils, monthly_growth);
         taxed.month_passes(monthly_growth, rising_prices, plan.management);
 
         if let Some(fee) = plan.management {
@@ -672,7 +688,20 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         yearly_cost: Percent::default(),
         tax,
         after_tax: after_selling - tax,
+        owed_growth,
     })
+}
+
+/// Fees owed (`cash_ils` below zero) cost the growth the saver's own money,
+/// which paid them, would have had in the holdings: they grow with them.
+/// Returns that growth.
+fn grow_owed(cash_ils: &mut Decimal, growth: Decimal) -> Decimal {
+    if *cash_ils >= Decimal::ZERO {
+        return Decimal::ZERO;
+    }
+    let owed = *cash_ils;
+    *cash_ils *= growth;
+    owed - *cash_ils
 }
 
 /// What the tax at the end is worked out on: the holdings whose gain is
@@ -813,10 +842,16 @@ pub struct PlanOutcome {
     pub index: usize,
     /// Or why the plan can't be used for the scenario.
     pub outcome: Result<Outcome, NotOffered>,
+    /// Whether the scenario's first deposit is enough to open it
+    /// ([`Plan::opens_with`]). One that isn't still has its numbers, ranked
+    /// after every plan that is.
+    pub fits: bool,
 }
 
 /// Runs `scenario` on each of `plans`, sorted by what's left after selling
-/// and paying the tax, most first. Plans that can't be used for it go last.
+/// and paying the tax, most first: the plans the scenario fits, then those
+/// its first deposit is too small to open, then the ones that can't be used
+/// for it. A plan that can't be opened as given is never called the best.
 #[must_use]
 pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> Comparison {
     // With no fees there's no reason to wait, so the no-fee plan buys every
@@ -833,11 +868,12 @@ pub fn compare(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates) -> C
         .map(|(index, plan)| PlanOutcome {
             index,
             outcome: simulate(plan, scenario, rates),
+            fits: plan.opens_with(scenario.first_deposit),
         })
         .collect();
     plans.sort_by_key(|plan| {
         let left = plan.outcome.as_ref().ok().map(|o| o.after_tax);
-        std::cmp::Reverse(left)
+        (plan.outcome.is_err(), !plan.fits, std::cmp::Reverse(left))
     });
     Comparison { no_fees, plans }
 }

@@ -122,6 +122,10 @@ input[type='range'],
 input[type='checkbox'] {
   accent-color: var(--accent);
 }
+/* A finger moving up or down scrolls the page (see `scrollsPast`). */
+input[type='range'] {
+  touch-action: pan-y;
+}
 
 /* As tall as a choice button (`.choices label`), which a button often sits
    beside. */
@@ -138,13 +142,18 @@ button {
     border-color var(--quick),
     scale 200ms var(--ease-out);
 }
-button:hover {
+/* Can't be used yet: the editor's add, while a field says what's wrong. */
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+button:hover:not(:disabled) {
   border-color: var(--strong-border);
   background: var(--raised-strong);
 }
 /* Pressed: sinks a little at once, and springs back on release. Not text
    links, which would wobble. */
-button:active:not(.link) {
+button:active:not(.link, :disabled) {
   scale: 0.96;
   transition-duration: 60ms;
 }

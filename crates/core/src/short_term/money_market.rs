@@ -141,9 +141,9 @@ pub fn kind() -> Kind {
         t("Cheapest fund", "הקרן הזולה"),
         t(
             "The shekel money market fund that charges the least: Ayalon's Dolphin \
-             (דולפין\u{a0}כספית\u{a0}שקלית). It takes no management fee, only 0.01% for the \
-             trustee who oversees the fund.",
-            "הקרן הכספית השקלית שגובה הכי מעט: דולפין כספית שקלית של איילון. היא לא גובה דמי ניהול, רק 0.01% לנאמן שמפקח על הקרן.",
+             (דולפין\u{a0}כספית\u{a0}שקלית). Its manager takes nothing: its whole fee, 0.01%, \
+             goes to the trustee who oversees the fund.",
+            "הקרן הכספית השקלית שגובה הכי מעט: דולפין כספית שקלית של איילון. מנהל הקרן לא לוקח דבר: כל דמי הניהול שלה, 0.01%, הולכים לנאמן שמפקח על הקרן.",
         ),
         Percent(dec!(0.01)),
         true,
@@ -182,9 +182,9 @@ pub fn kind() -> Kind {
              the government and to banks, so the money in it grows at about the Bank of \
              Israel's rate, less a small management fee. It suits money you may need soon, \
              like an emergency fund: it can be taken out any business day without losing what \
-             it has earned. The downside: its rate is neither fixed nor guaranteed, and when \
-             the Bank of Israel cuts its rate, the fund earns less.",
-            "קרן שאוספת כסף מחוסכים רבים ומלווה אותו לזמן קצר, בעיקר למדינה ולבנקים, ולכן הכסף בה גדל בערך בריבית בנק ישראל, פחות דמי ניהול קטנים. מתאימה לכסף שאולי תצטרכו בקרוב, כמו כרית ביטחון: אפשר למשוך בכל יום עסקים בלי להפסיד את מה שהצטבר. החיסרון: הריבית לא קבועה ולא מובטחת, וכשבנק ישראל מוריד את הריבית, הקרן מרוויחה פחות.",
+             it has earned. The downside: its return is neither fixed nor guaranteed, and \
+             when the Bank of Israel cuts its rate, the fund earns less.",
+            "קרן שאוספת כסף מחוסכים רבים ומלווה אותו לזמן קצר, בעיקר למדינה ולבנקים, ולכן הכסף בה גדל בערך בריבית בנק ישראל, פחות דמי ניהול קטנים. מתאימה לכסף שאולי תצטרכו בקרוב, כמו כרית ביטחון: אפשר למשוך בכל יום עסקים בלי להפסיד את מה שהצטבר. החיסרון: התשואה לא קבועה ולא מובטחת, וכשבנק ישראל מוריד את הריבית, הקרן מרוויחה פחות.",
         ),
         data_of: DATA_OF,
         checked: checked(),

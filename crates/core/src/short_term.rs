@@ -28,7 +28,7 @@ pub mod money_market;
 pub const TODAYS_RATE: Percent = Percent(dec!(3.25));
 
 /// The pages behind [`TODAYS_RATE`]: the cut to it, and the one before, to
-/// 3.5%, which the deposits' August rates were set at.
+/// 3.5%.
 #[must_use]
 pub fn todays_rate_sources() -> Vec<Page> {
     let page = |en: &'static str, he: &'static str, url: &str| Page {
@@ -206,8 +206,10 @@ impl Scenario {
 
     /// How much of what's earned only kept up with prices: each deposit
     /// raised by inflation from its month to the end, less the deposits.
+    /// The law never lowers a cost: when prices fall, the whole gain is
+    /// taxed, as in the long term.
     fn kept_up_with_prices(&self) -> Decimal {
-        let prices = yearly(self.inflation);
+        let prices = yearly(self.inflation).max(Decimal::ONE);
         self.deposits()
             .map(|(month, deposit)| {
                 deposit * (years_of(prices, self.months - month) - Decimal::ONE)

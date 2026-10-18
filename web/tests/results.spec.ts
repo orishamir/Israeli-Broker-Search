@@ -1,6 +1,7 @@
 import {
   brokers,
   compare,
+  dataDates,
   examples,
   exchangeName,
   expectedAroundLine,
@@ -9,12 +10,14 @@ import {
   listed,
   listedPlans,
   purchasePhrase,
+  RATES,
   rowOf,
   rowOfKey,
   rowsOnPage,
   securityName,
   usualPlans,
 } from './core'
+import { compactPercent, dateText, shekels } from '../src/lib/format'
 import { t } from '../src/lib/text'
 import {
   away,
@@ -49,39 +52,132 @@ test(
   },
 )
 
-test("the best plan is the table's first, with its warning when it needs a bigger first deposit", async ({
+test('the best plan is the first the first deposit opens; the others come after a line that says why', async ({
   page,
 }) => {
   const best = async () => {
     const { plans } = compare(await inputsOnPage(page))
-    const best = plans.find(({ outcome }) => outcome)!
+    const best = plans.find(({ outcome, fits }) => outcome && fits) ?? plans.find(({ outcome }) => outcome)!
     const label = listedPlans.find(({ key }) => JSON.stringify(key) === JSON.stringify(best.key))!.label
     return { label, warning: best.warning }
   }
   const card = page.locator('.stat.best')
   await expect(card).toContainText(t.best((await best()).label))
-  // A plan that needs a bigger first deposit is warned, in the table and,
-  // if it's the best, in the summary too: it's still the cheapest.
-  await page.getByLabel(t.oneTimeDeposit).fill('1000')
-  const warned = compare(await inputsOnPage(page)).plans.filter(({ warning }) => warning)
-  expect(warned.length).toBeGreaterThan(0)
-  for (const { key, warning } of warned) await expect(rowOfKey(page, key)).toContainText(`⚠ ${warning}`)
-  await expect(card).toContainText(t.best((await best()).label))
-  await expect(card).not.toContainText('⚠')
   // On Tel Aviv, with nothing to start (saving from a salary), the cheapest
-  // plans all need a deposit.
+  // plans all need a deposit: they come after the rest, each warned, under
+  // a line that says so, and the best is one that can be opened.
   const fromSalary = examples().find(
     ({ exchange, firstDeposit }) => exchange === 'Tlv' && firstDeposit === 0,
   )!
   await page.getByRole('button', { name: fromSalary.name, exact: true }).click()
+  const { plans } = compare(await inputsOnPage(page))
+  const unfit = plans.filter(({ outcome, fits }) => outcome && !fits)
+  expect(unfit.length).toBeGreaterThan(0)
+  for (const { key, warning } of unfit) await expect(rowOfKey(page, key)).toContainText(`⚠ ${warning}`)
+  await expect(rowOfKey(page, unfit[0].key)).toContainText(t.needBiggerFirstDeposit)
+  await expect(rows(page).filter({ hasText: t.needBiggerFirstDeposit })).toHaveCount(1)
   const { label, warning } = await best()
-  expect(warning).toBeTruthy()
+  expect(warning).toBeUndefined()
   await expect(card).toContainText(t.best(label))
-  // A sign beside the amount, which says it on hover or tap: a line of its
-  // own would change the card's height and move the table.
-  const sign = card.getByRole('button', { name: `⚠ ${warning}`, exact: true })
+  await expect(card).not.toContainText('⚠')
+
+  // When none can be opened, the best is one that can't, with its warning:
+  // a sign beside the amount, which says it on hover or tap, since a line
+  // of its own would change the card's height and move the table.
+  const ibi = listed('IBI · Typical offer')
+  const ticked = (await inputsOnPage(page)).plans.map(
+    (key) => listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.englishLabel,
+  )
+  for (const englishLabel of ticked.filter((label) => label !== ibi.englishLabel))
+    await tickPlan(page, englishLabel, false)
+  const alone = await best()
+  expect(alone.label).toBe(ibi.label)
+  expect(alone.warning).toBeTruthy()
+  const sign = card.getByRole('button', { name: `⚠ ${alone.warning}`, exact: true })
   await sign.hover()
-  await expect(card.getByRole('tooltip')).toHaveText(warning!)
+  await expect(card.getByRole('tooltip')).toHaveText(alone.warning!)
+})
+
+test('a study fund says who can open one, in its row and, as the best, in the summary', async ({ page }) => {
+  const study = listed('Study fund · Average fee')
+  await tickPlan(page, study.englishLabel)
+  const fromSalary = examples().find(({ firstDeposit }) => firstDeposit === 0)!
+  await page.getByRole('button', { name: fromSalary.name, exact: true }).click()
+  const { plans } = compare(await inputsOnPage(page))
+  const said = plans.find(({ key }) => JSON.stringify(key) === JSON.stringify(study.key))!.whoCanJoin!
+  expect(said).toBeTruthy()
+  await expect(rowOfKey(page, study.key)).toContainText(said)
+  await expect(page.locator('.stat.best')).toContainText(t.best(study.label))
+  await expect(page.locator('.stat.best')).toContainText(said)
+})
+
+test("a kind of fund is one row, its companies' range and the most allowed under its name", async ({
+  page,
+}) => {
+  const study = listed('Study fund · Average fee')
+  // The list offers the kind's average only.
+  await planInList(page, study.englishLabel)
+  await expect(
+    plansList(page).getByRole('list', { name: study.broker.name }).getByRole('listitem'),
+  ).toHaveCount(1)
+  await tickPlan(page, study.englishLabel)
+  const { spread } = compare(await inputsOnPage(page)).plans.find(
+    ({ key }) => JSON.stringify(key) === JSON.stringify(study.key),
+  )!
+  const row = rowOfKey(page, study.key)
+  await expect(row).toContainText(
+    t.spreadBetween(
+      shekels(spread!.dearest!.left),
+      spread!.dearest!.name,
+      shekels(spread!.cheapest!.left),
+      spread!.cheapest!.name,
+    ),
+  )
+  await expect(row).toContainText(
+    t.spreadAtMost(spread!.mostAllowed!.name, shekels(spread!.mostAllowed!.left)),
+  )
+})
+
+test('taken as a pension, the fund says what monthly amount its balance buys, in its row and the summary', async ({
+  page,
+}) => {
+  const retiring = examples().find(({ asPension }) => asPension)!
+  await page.getByRole('button', { name: retiring.name, exact: true }).click()
+  const fund = compare(await inputsOnPage(page)).plans.find(({ pensionNote }) => pensionNote)!
+  await expect(rowOfKey(page, fund.key)).toContainText(fund.pensionNote!)
+  await expect(page.locator('.stat.best')).toContainText(fund.pensionNote!)
+})
+
+test("under the table, how old the numbers are, with the day's exchange rates where something's converted", async ({
+  page,
+}) => {
+  const dates = page.locator('.table .dates')
+  await expect(dates).toHaveText(`${dataDates()}\u00a0· ${t.ratesOf(dateText(RATES.date))}`)
+  await choice(page, t.exchange, exchangeName('Tlv')).click()
+  await expect(dates).toHaveText(dataDates())
+})
+
+test('under the summary, what its amounts assume, following the inputs', async ({ page }) => {
+  const line = page.locator('.assumptions')
+  const { yearlyReturnPercent, inflationPercent } = await inputsOnPage(page)
+  await expect(line).toHaveText(
+    t.assumptions(compactPercent(yearlyReturnPercent!), compactPercent(inflationPercent!), true),
+  )
+  await page.getByLabel(t.yearlyReturn, { exact: true }).fill('7')
+  await expect(line).toHaveText(t.assumptions(compactPercent(7), compactPercent(inflationPercent!), true))
+})
+
+test('the US estate tax is said once, under the table, while a broker holds enough of a US security', async ({
+  page,
+}) => {
+  const said = compare(await inputsOnPage(page)).usEstateTax!
+  expect(said).toBeTruthy()
+  const flag = page.locator('.table .kind-flag')
+  await expect(flag).toHaveText(`⚠ ${said}`)
+  // Not under each plan.
+  await expect(rows(page).filter({ hasText: '$60,000' })).toHaveCount(0)
+  await choice(page, t.exchange, exchangeName('Tlv')).click()
+  await expect(flag).toHaveCount(0)
 })
 
 // Worked out off the page's thread (sweeper.ts), so it follows the inputs a

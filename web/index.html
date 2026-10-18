@@ -101,6 +101,14 @@
         background: #1d212c;
         animation: skeleton-pulse 1.4s ease-in-out infinite;
       }
+      /* The app couldn't load (main.ts): its message replaces the
+         inputs and results, and nothing pulses on. */
+      #skeleton.failed .block {
+        animation: none;
+      }
+      #skeleton [role='alert'] {
+        margin: 16px 24px;
+      }
       @keyframes skeleton-pulse {
         50% {
           opacity: 0.5;
@@ -113,6 +121,9 @@
         #skeleton .layout {
           grid-template-columns: minmax(0, 1fr);
           padding: 12px;
+        }
+        #skeleton [role='alert'] {
+          margin: 12px;
         }
         /* Inputs come first on phones, and fill the first screen. */
         #skeleton .results {

@@ -119,6 +119,8 @@ test(
     await expect(dialog).toContainText(`${plan.name}: ${simple(changed).management!.was!.price.text}`)
     await balance.fill('-1')
     await expect(dialog).toContainText(NEGATIVE)
+    // Not added while a field says what's wrong with it.
+    await expect(dialog.getByRole('button', { name: t.addPlan })).toBeDisabled()
     await balance.fill('0.4')
     await expect(dialog).not.toContainText(NEGATIVE)
 

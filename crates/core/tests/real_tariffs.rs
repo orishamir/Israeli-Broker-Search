@@ -1469,6 +1469,77 @@ fn the_funds_fees_are_the_regulators() {
     assert_eq!(fee(policy(), "Highest fee"), of(dec!(2), dec!(0)));
 }
 
+/// Above $60,000 of a US-registered ETF, index fund or stock, the US estate
+/// tax matters, whoever the broker; not on Tel Aviv, not for bonds, and not
+/// below the amount. It's among what isn't counted, so no plan is flagged
+/// for it: the page says it once.
+#[test]
+fn us_holdings_above_60000_dollars_meet_the_estate_tax() {
+    let buying = |security, exchange, largest: Decimal| Buying {
+        security,
+        exchange,
+        largest_trade: Some(Money::from_decimal(largest, exchange.currency())),
+    };
+    let matters = |security, exchange, largest| {
+        tariffs::us_estate_tax().matters_for(buying(security, exchange, largest), &rates())
+    };
+    assert!(matters(Etf, Usa, dec!(70000)));
+    assert!(matters(Stock, Usa, dec!(60001)));
+    assert!(!matters(Etf, Usa, dec!(50000)));
+    assert!(!matters(Bond, Usa, dec!(70000)));
+    assert!(!matters(Etf, Tlv, dec!(300000)));
+    for b in tariffs::all() {
+        assert!(
+            b.caveats.contains(&tariffs::us_estate_tax()),
+            "{}",
+            b.name.en
+        );
+        let plan = &b.plans[b.new_customer_plan];
+        let flag = b.may_cost_more(plan, buying(Etf, Usa, dec!(70000)), &rates(), Lang::En);
+        assert!(
+            !flag.unwrap_or_default().contains("estate"),
+            "{}",
+            b.name.en
+        );
+    }
+}
+
+/// Each kind of fund shows its average, with the rest of its plans beside
+/// it: the cheapest and dearest company, where the regulator reports
+/// companies, and the most allowed. A broker's plans are all its own.
+#[test]
+fn a_kind_of_fund_shows_the_rest_beside_its_average() {
+    let names = |b: &Broker| {
+        let spread = b.spread.unwrap();
+        let name = |index: Option<usize>| index.map(|index| b.plans[index].name.en.to_string());
+        (
+            name(spread.cheapest),
+            name(spread.dearest),
+            name(Some(spread.most_allowed)).unwrap(),
+        )
+    };
+    let some = |name: &str| Some(name.to_owned());
+    for b in [funds::investment_gemel(), funds::study_fund()] {
+        assert_eq!(
+            names(&b),
+            (
+                some("Cheapest company"),
+                some("Dearest company"),
+                "Legal maximum".to_owned()
+            ),
+            "{}",
+            b.name.en
+        );
+        assert_eq!(b.plans.len(), 4);
+    }
+    let policy = funds::savings_policy();
+    assert_eq!(names(&policy), (None, None, "Highest fee".to_owned()));
+    assert_eq!(policy.plans.len(), 2);
+    for b in listed().into_iter().filter(|b| b.kind != BrokerKind::Funds) {
+        assert_eq!(b.spread, None, "{}", b.name.en);
+    }
+}
+
 /// A fund's plan is its vehicle's, and charges its manager's fee and nothing
 /// else, whatever is bought and wherever: the first plan of each is the one
 /// compared at first, and only the provident fund is ticked when the app
@@ -1571,11 +1642,11 @@ mod short_term_cases {
         assert_eq!(short_term::TODAYS_RATE, Percent(dec!(3.25)));
     }
 
-    /// The Bank of Israel's figures for August 2026, as
+    /// The Bank of Israel's figures for September 2026, as
     /// `policies/deposit-rates.py` prints them: the average first, then the
     /// ten banks in its order, a few rates checked by hand.
     #[test]
-    fn the_banks_rates_are_augusts() {
+    fn the_banks_rates_are_septembers() {
         let names: Vec<String> = deposits::kind()
             .places
             .iter()
@@ -1603,15 +1674,15 @@ mod short_term_cases {
         };
         assert_eq!(
             rate("Banks' average", Term::UpToAYear),
-            Some(Percent(dec!(3.6)))
+            Some(Percent(dec!(3.54)))
         );
         assert_eq!(
             rate("Bank Yahav", Term::UpToAMonth),
-            Some(Percent(dec!(0.3)))
+            Some(Percent(dec!(0.29)))
         );
         assert_eq!(
             rate("Mercantile Bank", Term::UpToFiveYears),
-            Some(Percent(dec!(1.14)))
+            Some(Percent(dec!(1.38)))
         );
         assert_eq!(rate("Bank Massad", Term::UpToFiveYears), None);
         assert_eq!(rate("One Zero", Term::UpToAYear), Some(Percent(dec!(6))));
@@ -1667,49 +1738,49 @@ mod short_term_cases {
         );
     }
 
-    /// ₪100,000 for a year at the Bank of Jerusalem's 3.87% for "6 months to
-    /// a year": ₪3,870 of interest, of which 15%, ₪580.50, is tax, leaving
-    /// ₪103,289.50. At the 3.25% rate the money would have made ₪3,250, so
-    /// the bank pays ₪620 more than the rate: it "keeps" −₪620.
+    /// ₪100,000 for a year at the Bank of Jerusalem's 3.71% for "6 months to
+    /// a year": ₪3,710 of interest, of which 15%, ₪556.50, is tax, leaving
+    /// ₪103,153.50. At the 3.25% rate the money would have made ₪3,250, so
+    /// the bank pays ₪460 more than the rate: it "keeps" −₪460.
     #[test]
     fn a_year_at_the_bank_of_jerusalem() {
         let outcome =
             short_term::simulate(&bank("Bank of Jerusalem"), &kept(dec!(100000), 12)).unwrap();
-        assert_eq!(outcome.earned, dec!(3870));
-        assert_eq!(outcome.tax, dec!(580.50));
-        assert_eq!(outcome.after_tax, dec!(103289.50));
-        assert_eq!(outcome.kept.round_dp(2), dec!(-620.00));
-        // After tax: 3.2895% a year.
-        assert_eq!(outcome.yearly_after_tax, Percent(dec!(3.2895)));
+        assert_eq!(outcome.earned, dec!(3710));
+        assert_eq!(outcome.tax, dec!(556.50));
+        assert_eq!(outcome.after_tax, dec!(103153.50));
+        assert_eq!(outcome.kept.round_dp(2), dec!(-460.00));
+        // After tax: 3.1535% a year.
+        assert_eq!(outcome.yearly_after_tax, Percent(dec!(3.1535)));
     }
 
-    /// ₪100,000 for 6 months at Hapoalim's 3.53% for "3 to 6 months": half
-    /// a year's interest, 100,000 × 3.53% ÷ 2 = ₪1,765, and 15% of it,
-    /// ₪264.75, is tax: ₪101,500.25 is left.
+    /// ₪100,000 for 6 months at Hapoalim's 3.37% for "3 to 6 months": half
+    /// a year's interest, 100,000 × 3.37% ÷ 2 = ₪1,685, and 15% of it,
+    /// ₪252.75, is tax: ₪101,432.25 is left.
     #[test]
     fn half_a_year_at_hapoalim() {
         let outcome = short_term::simulate(&bank("Bank Hapoalim"), &kept(dec!(100000), 6)).unwrap();
-        assert_eq!(outcome.earned, dec!(1765));
-        assert_eq!(outcome.tax, dec!(264.75));
-        assert_eq!(outcome.after_tax, dec!(101500.25));
+        assert_eq!(outcome.earned, dec!(1685));
+        assert_eq!(outcome.tax, dec!(252.75));
+        assert_eq!(outcome.after_tax, dec!(101432.25));
         // Three months in, a quarter of the year's interest has built up.
-        assert_eq!(outcome.value_by_month[3], dec!(100882.5));
+        assert_eq!(outcome.value_by_month[3], dec!(100842.5));
     }
 
-    /// ₪50,000 for 18 months at Leumi's 3.62% for "1 to 2 years": a year
-    /// makes it 50,000 × 1.0362 = ₪51,810, and half a year more
-    /// 51,810 × 1.0181 = ₪52,747.761. The interest, ₪2,747.761, pays 15% tax,
-    /// ₪412.16415, leaving ₪52,335.59685.
+    /// ₪50,000 for 18 months at Leumi's 3.86% for "1 to 2 years": a year
+    /// makes it 50,000 × 1.0386 = ₪51,930, and half a year more
+    /// 51,930 × 1.0193 = ₪52,932.249. The interest, ₪2,932.249, pays 15% tax,
+    /// ₪439.83735, leaving ₪52,492.41165.
     #[test]
     fn a_year_and_a_half_at_leumi() {
         let outcome = short_term::simulate(&bank("Bank Leumi"), &kept(dec!(50000), 18)).unwrap();
-        assert_eq!(outcome.value_by_month[12], dec!(51810));
-        assert_eq!(outcome.earned, dec!(2747.761));
-        assert_eq!(outcome.tax, dec!(412.16415));
-        assert_eq!(outcome.after_tax, dec!(52335.59685));
+        assert_eq!(outcome.value_by_month[12], dec!(51930));
+        assert_eq!(outcome.earned, dec!(2932.249));
+        assert_eq!(outcome.tax, dec!(439.83735));
+        assert_eq!(outcome.after_tax, dec!(52492.41165));
     }
 
-    /// Massad published nothing for "3 to 5 years" in August, and One Zero
+    /// Massad published nothing for "3 to 5 years" in September, and One Zero
     /// only for "6 months to a year".
     #[test]
     fn a_term_the_bank_published_nothing_for_isnt_offered() {
@@ -1743,6 +1814,21 @@ mod short_term_cases {
         assert_eq!(outcome.after_tax.round_dp(2), dec!(102806.63));
         assert_eq!(outcome.kept.round_dp(4), dec!(174.4925));
         assert_eq!(outcome.yearly_cost, Percent(dec!(0.169)));
+    }
+
+    /// The same year with prices falling 2%: the law never lowers what the
+    /// money cost, so all of the ₪3,075.5075 earned is a real gain, and 25%
+    /// of it, ₪768.876875, is tax (not ₪1,268.88, as if the fall were a gain
+    /// too).
+    #[test]
+    fn a_year_in_the_average_money_market_fund_as_prices_fall() {
+        let falling = Scenario {
+            inflation: Percent(dec!(-2)),
+            ..kept(dec!(100000), 12)
+        };
+        let outcome = short_term::simulate(&fund("Average fund"), &falling).unwrap();
+        assert_eq!(outcome.earned.round_dp(4), dec!(3075.5075));
+        assert_eq!(outcome.tax.round_dp(6), dec!(768.876875));
     }
 
     /// ₪5,000 at the start of every month for a year, in the cheapest fund:

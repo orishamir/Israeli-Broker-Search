@@ -18,7 +18,7 @@ import type {
 import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { percent } from './format'
 import type { SharedShort } from './link'
-import { load, save } from './saved'
+import { firstOfEachId, load, save } from './saved'
 import { t } from './text'
 
 /** One of the saver's own deposits: a rate a bank offered them. */
@@ -38,8 +38,8 @@ export interface Place {
   info: PlaceInfo
   /** Its kind's name, under its own in the table: "Money market fund". */
   kindName: string
-  /** The flag its kind raises for all its places, said once: "August's
-   * rates, before a cut". Its own flag is `info.mayCostMore`. */
+  /** The flag its kind raises for all its places, said once, as when a
+   * kind's rates are from before a cut. Its own flag is `info.mayCostMore`. */
   kindFlag: string | undefined
   /** Where it's named alone, in the chips and the charts: "Cheapest fund", "Leumi". */
   label: string
@@ -84,7 +84,7 @@ export function looksLikeYourDeposit(value: unknown): value is YourDeposit {
 
 function loadYourDeposits(): YourDeposit[] {
   const saved = load<unknown>('your-deposits-v1', [])
-  return Array.isArray(saved) ? saved.filter(looksLikeYourDeposit) : []
+  return Array.isArray(saved) ? firstOfEachId(saved.filter(looksLikeYourDeposit)) : []
 }
 
 export class ShortTermState {
@@ -98,6 +98,8 @@ export class ShortTermState {
   private readonly yoursInfo: PlaceInfo = core.yourDepositInfo()
   /** How the numbers are made, what isn't counted, and the sources. */
   readonly about: About = core.aboutShortTerm()
+  /** How old the numbers are, in a line under the table. */
+  readonly dataDates: string = core.shortTermDataDates()
   /** Ready-made patterns, each setting the amounts and the months. */
   readonly examples: ShortTermExampleData[] = core.shortTermExamples()
   /** The Bank of Israel's rate when the numbers were checked, in percent. */
@@ -195,7 +197,7 @@ export class ShortTermState {
   /** Which of a deposit's rates the months fall in. */
   term: number | undefined = $derived(core.termFor(this.months))
 
-  /** What a place pays for these months, in a few words: "3.87% interest",
+  /** What a place pays for these months, in a few words: "3.71% interest",
    * "0.17% fee". */
   paysFor(place: Place): string {
     if (place.yours)
@@ -256,6 +258,15 @@ export class ShortTermState {
   /** The table's first place. */
   best: PlaceResult | undefined = $derived(
     'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
+  )
+
+  /** When the best place locks the money until the end, the best that can
+   * be taken out any day: said beside it, for money that may be needed
+   * sooner. */
+  bestAnyDay: PlaceResult | undefined = $derived(
+    'error' in this.comparison || this.best?.place.info.liquidity !== 'AtTheEnd'
+      ? undefined
+      : this.comparison.results.find(({ outcome, place }) => outcome && place.info.liquidity === 'AnyDay'),
   )
 
   /** Ticks or unticks places. Unticked places are unpinned too. */

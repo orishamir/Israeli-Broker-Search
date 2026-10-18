@@ -84,12 +84,14 @@ pub fn all() -> Vec<Example> {
             Text::new("An inheritance", "ירושה"),
             Text::new(
                 "₪500,000 at once, from an inheritance or a flat that was sold, into an ETF that \
-                 follows the S&P 500, in the USA, for 15 years. There's one purchase, so what's \
+                 follows the S&P 500, in Tel Aviv, for 15 years: there it isn't a US asset, \
+                 which the US taxes in an estate above $60,000. There's one purchase, so what's \
                  charged for holding matters most. A provident fund for investment can't take so \
                  much in one year.",
-                "₪500,000 בבת אחת, מירושה או ממכירת דירה, לקרן סל על מדד S&P 500 בארה״ב, ל-15 שנה. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק. לקופת גמל להשקעה אי אפשר להפקיד סכום כזה בשנה אחת.",
+                "₪500,000 בבת אחת, מירושה או ממכירת דירה, לקרן סל על מדד S&P 500 בתל אביב, ל-15 שנה: שם היא לא נכס אמריקאי, שארה״ב גובה עליו מס עיזבון מעל $60,000. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק. לקופת גמל להשקעה אי אפשר להפקיד סכום כזה בשנה אחת.",
             ),
             Scenario {
+                exchange: Exchange::Tlv,
                 first_deposit: dec!(500_000),
                 years: 15,
                 age: 50,

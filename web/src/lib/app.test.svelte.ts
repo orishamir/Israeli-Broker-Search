@@ -62,8 +62,13 @@ test("each broker's usual plan and the provident fund's average are ticked at fi
   expect(usual).toHaveLength(app.brokers.length - 2)
   const ranked = results(app)
   expect(ranked.map(({ plan }) => plan.id).toSorted()).toEqual(usual.toSorted())
-  const left = ranked.map(({ outcome }) => outcome?.afterTax ?? -Infinity)
-  expect(left).toEqual(left.toSorted((a, b) => b - a))
+  // The plans the first deposit opens first, each group by what's left.
+  for (const fits of [true, false]) {
+    const left = ranked
+      .filter((row) => row.fits === fits)
+      .map(({ outcome }) => outcome?.afterTax ?? -Infinity)
+    expect(left).toEqual(left.toSorted((a, b) => b - a))
+  }
   expect(app.purchase).toBe('קרן סל שנקנית בארה״ב')
 })
 
@@ -308,6 +313,19 @@ test('your plans are kept for the next visit, and ones the core cannot read are 
   expect(warn).toHaveBeenCalledOnce()
 })
 
+test('saved plans with an id twice keep the first of each, as a keyed list needs', () => {
+  const app = start()
+  app.draftNewPlan()
+  const draft = draftOf(app.details)
+  app.addYourPlan(draft)
+  flushSync()
+  const renamed = { ...draft, plan: core.rename(draft.plan, 'Second') }
+  localStorage.setItem('your-plans-v1', JSON.stringify([draft, renamed]))
+  const again = start()
+  expect(again.yourPlans).toHaveLength(1)
+  expect(core.planInfo(again.yourPlans[0].plan).name).toBe(core.planInfo(draft.plan).name)
+})
+
 test('a copy knows its original by name, shares its color, and charges the same until changed', () => {
   const app = start()
   const original = app.listedPlans.find(({ id }) => app.selected.has(id))!
@@ -484,6 +502,20 @@ test('a link says how often to buy only with More options, and only when not eve
   expect(older.inputs.buyEveryMonths).toBe(1)
 })
 
+test("a short-term link's inflation opens More options, so it counts", () => {
+  const app = start()
+  app.family = 'short'
+  app.moreOptions = true
+  app.short.inflationPercent = 4
+  const link = app.shareLink()
+  flushSync()
+  localStorage.clear()
+  const opened = start_from(link)
+  expect(opened.family).toBe('short')
+  expect(opened.moreOptions).toBe(true)
+  expect(opened.short.inputs.inflationPercent).toBe(4)
+})
+
 test('a link without plans keeps what is ticked; one with plans replaces it, and yours joins by id', () => {
   const first = start()
   first.draftNewPlan()
@@ -528,6 +560,38 @@ test('the chart starts on what was lost to fees; the one by deposit is shown onl
   expect(app.chartView).toBe('lost')
   app.moreOptions = true
   expect(app.chartView).toBe('crossover')
+})
+
+test('a kind of fund is one plan in the list, with its companies and maximum beside it; old links tick its average', () => {
+  const app = start()
+  const gemel = app.brokers.findIndex(({ kind }) => kind === 'Funds')
+  const beside = app.brokers[gemel].shownBeside
+  expect(beside.length).toBeGreaterThan(0)
+  const inList = app.listedPlans.filter(({ key }) => key.kind === 'listed' && key.broker === gemel)
+  expect(inList.map(({ key }) => key.kind === 'listed' && key.plan)).toEqual([
+    app.brokers[gemel].newCustomerPlan,
+  ])
+  const average = results(app).find(({ plan }) => plan.id === inList[0].id)!
+  expect(average.spread?.cheapest?.left).toBeGreaterThan(average.outcome!.afterTax)
+  expect(average.spread?.mostAllowed?.left).toBeLessThan(average.outcome!.afterTax)
+
+  const { englishShortName, plans } = app.brokers[gemel]
+  const cheapest = `${englishShortName} · ${plans[beside[0]].englishName}`
+  localStorage.clear()
+  const opened = start_from(`http://localhost:3000/#${encode({ plans: [cheapest] })}`)
+  expect([...opened.selected]).toEqual([inList[0].id])
+})
+
+test('with nothing at first, the plans that need a first deposit come after the rest, and none is the best', () => {
+  const app = start()
+  app.firstDeposit = 0
+  const rows = results(app).filter(({ outcome }) => outcome)
+  const unfit = rows.filter(({ fits }) => !fits)
+  expect(unfit.length).toBeGreaterThan(0)
+  expect(unfit.every(({ warning }) => warning)).toBe(true)
+  expect(rows.map(({ fits }) => fits)).toEqual(rows.map((_, index) => index < rows.length - unfit.length))
+  expect(app.best?.fits).toBe(true)
+  expect(app.best).toBe(rows[0])
 })
 
 test("the best plan's line keeps its words until the sweep answers, shown while they're about the best", () => {

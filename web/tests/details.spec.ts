@@ -188,6 +188,24 @@ test("a fund's plan's details show its fee alone, from the regulator's data", as
   }
 })
 
+test(
+  "the footer says it isn't advice, and opens the accessibility statement",
+  { tag: '@phone' },
+  async ({ page }) => {
+    const footer = page.locator('footer.page-footer')
+    await expect(footer).toContainText(t.notAdvice)
+    await expect(footer).toContainText(t.notAffiliated)
+    const { accessibility } = about()
+    const issues = accessibility.items.at(-1)!.url!
+    await expect(footer.getByRole('link', { name: `${t.reportAMistake} ↗` })).toHaveAttribute('href', issues)
+    await footer.getByRole('button', { name: t.accessibilityStatement }).click()
+    const dialog = page.getByRole('dialog', { name: t.aboutTheNumbers })
+    await expect(dialog.getByRole('heading', { name: accessibility.title })).toBeInViewport()
+    for (const item of accessibility.items) await expect(dialog).toContainText(item.text)
+    await closeDialog(page)
+  },
+)
+
 test('the numbers are explained, from the title and from a plan', { tag: '@phone' }, async ({ page }) => {
   const { sections } = about()
   await page.getByRole('button', { name: sections[2].title }).click()

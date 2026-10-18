@@ -1,16 +1,18 @@
+import { compactPercent } from '../src/lib/format'
 import { t } from '../src/lib/text'
 import {
   aboutShortTerm,
   expectedPlaceRows,
   place,
   placeRowsOnPage,
+  shortTermDataDates,
   shortTermExamples,
   shortTermInputsOnPage,
   shortTermKinds,
   shortTermPlaces,
   termFor,
 } from './core'
-import { away, details, expect, test, type Page } from './fixtures'
+import { away, details, expect, fingerDrag, test, type Page } from './fixtures'
 
 // The short-term calculator: the switch to it, its inputs, the places to
 // compare, and what the core says for them.
@@ -93,10 +95,12 @@ test('a deposit of your own is compared at the rate you type, and kept for the n
   await toShortTerm(page)
   await openPlaces(page)
   await placesList(page).getByRole('button', { name: t.addYourDeposit }).click()
-  // The caret is in its rate, to type the one offered.
+  // The caret is in its rate, today's chosen, so typing the one offered
+  // replaces it.
   const rate = placesList(page).getByRole('textbox', { name: t.depositRate, exact: true })
   await expect(rate).toBeFocused()
-  await rate.fill('4.6')
+  await page.keyboard.type('4.6')
+  await expect(rate).toHaveValue('4.6')
   const yours = { [(await rate.getAttribute('id'))!.replace('deposit-rate-', '')]: t.yourDepositName }
   await closePlaces(page)
   await expectCoresTable(page, yours)
@@ -127,6 +131,12 @@ test("a place's details show its rates by term, the months' term marked", async 
   const chosen = leumi.rates[termFor(12)!]
   await expect(dialog.locator('tr.chosen')).toHaveText(new RegExp(chosen.term))
   await expect(dialog.getByText(leumi.tax)).toBeVisible()
+})
+
+test("what's left after tax is explained in the short term's words, with nothing sold", async ({ page }) => {
+  await toShortTerm(page)
+  await page.getByRole('button', { name: t.whatMeans(t.leftAfterTax) }).hover()
+  await expect(page.getByRole('tooltip').filter({ hasText: t.shortLeftAfterTaxTip })).toBeVisible()
 })
 
 test("each kind is explained by the table's place column and beside its heading in the list", async ({
@@ -181,4 +191,57 @@ test('a row pins its place in the chart, and the button unpins it', async ({ pag
   await expect(first).toHaveClass(/pinned/)
   await page.getByRole('button', { name: t.unpinAll }).click()
   await expect(first).not.toHaveClass(/pinned/)
+})
+
+test(
+  'a finger scrolling over the months slider scrolls the page and leaves the months alone',
+  { tag: ['@touch', '@chromium'] },
+  async ({ page }) => {
+    await toShortTerm(page)
+    const months = page.getByLabel(t.forHowLong)
+    await months.scrollIntoViewIfNeeded()
+    await page.evaluate(() => window.scrollBy(0, -200))
+    const before = await months.inputValue()
+    const scrolled = await page.evaluate(() => scrollY)
+    await fingerDrag(page, months, 0.2, 0, -250)
+    await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(scrolled + 100)
+    await expect(months).toHaveValue(before)
+  },
+)
+
+test('under the table, how old the rates and fees are', async ({ page }) => {
+  await toShortTerm(page)
+  await expect(page.locator('.table .dates')).toHaveText(shortTermDataDates())
+})
+
+test('under the summary, the rate and inflation it assumes', async ({ page }) => {
+  await toShortTerm(page)
+  const { ratePercent, inflationPercent } = await shortTermInputsOnPage(page)
+  await expect(page.locator('.assumptions')).toHaveText(
+    t.shortAssumptions(compactPercent(ratePercent!), compactPercent(inflationPercent!)),
+  )
+})
+
+test('a locked best names the best that can be taken out any day, and for how much less', async ({
+  page,
+}) => {
+  await toShortTerm(page)
+  const emergency = shortTermExamples().find(
+    ({ firstDeposit, months }) => firstDeposit === 30_000 && months === 6,
+  )!
+  await page.getByRole('button', { name: emergency.name, exact: true }).click()
+  await openPlaces(page)
+  const mercantile = place('Fixed-rate deposit · Mercantile Bank').place
+  await placesList(page).getByRole('checkbox', { name: mercantile.name, exact: true }).check()
+  await closePlaces(page)
+  const card = page.locator('.stat.best')
+  await expect(card).toContainText(t.best(mercantile.shortName))
+  await expect(card.locator('.any-day')).toContainText(
+    place('Money market fund · Cheapest fund').place.shortName,
+  )
+  // Without it, a fund is best, and nothing is said beside it.
+  await openPlaces(page)
+  await placesList(page).getByRole('checkbox', { name: mercantile.name, exact: true }).uncheck()
+  await closePlaces(page)
+  await expect(card.locator('.any-day')).toHaveCount(0)
 })

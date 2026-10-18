@@ -93,7 +93,8 @@
         <h2 id="details-title">{t.aboutTheNumbers}</h2>
         <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
       </header>
-      {#each app.aboutShown.sections as section, index (section.title)}
+      <!-- The accessibility statement last, where the footer opens it. -->
+      {#each [...app.aboutShown.sections, app.aboutShown.accessibility] as section, index (section.title)}
         <section class="about" id="about-{index}">
           <h3>{section.title}</h3>
           {#each section.paragraphs as paragraph (paragraph)}

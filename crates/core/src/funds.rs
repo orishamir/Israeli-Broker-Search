@@ -16,7 +16,7 @@ use time::macros::date;
 
 use crate::{
     Broker, BrokerKind, Caveat, ConversionFee, Exchange, FeeKind, IntoEnumIterator, ManagementFee,
-    Page, Percent, Plan, Price, TariffDate, Text, TradeFee, Vehicle, ils, vehicles,
+    Page, Percent, Plan, Price, Spread, TariffDate, Text, TradeFee, Vehicle, ils, vehicles,
 };
 
 /// Every kind of fund the app knows, in the order to offer them.
@@ -172,6 +172,23 @@ fn kol_zchut_pension() -> Page {
             "כל\u{2011}זכות על הפטור ממס בקצבה לאחר גיל 60",
         ),
         "https://www.kolzchut.org.il/he/%D7%A4%D7%98%D7%95%D7%A8_%D7%9E%D7%9E%D7%A1_%D7%A2%D7%9C_%D7%A8%D7%95%D7%95%D7%97%D7%99%D7%9D_%D7%91%D7%A7%D7%95%D7%A4%D7%AA_%D7%92%D7%9E%D7%9C_%D7%9C%D7%94%D7%A9%D7%A7%D7%A2%D7%94_%D7%94%D7%9E%D7%A9%D7%95%D7%9C%D7%9E%D7%AA_%D7%9B%D7%A7%D7%A6%D7%91%D7%94_%D7%9C%D7%90%D7%97%D7%A8_%D7%92%D7%99%D7%9C_60",
+    )
+}
+
+/// What a balance is divided by for the monthly pension it buys, for life:
+/// about 200. The fund doesn't pay the pension itself: the money moves to an
+/// insurer or a pension fund, which sets its factor at retirement, by age,
+/// sex and terms (Bizportal, 24 August 2026: 188.58 to 202.8 for a man
+/// retiring at 67, about 214.35 in plans since 2013).
+pub const CONVERSION_FACTOR: Decimal = dec!(200);
+
+fn bizportal_on_factors() -> Page {
+    source(
+        t(
+            "Bizportal on conversion factors (24 August 2026)",
+            "ביזפורטל על מקדמי המרה (24 באוגוסט 2026)",
+        ),
+        "https://www.bizportal.co.il/longtermsavings/news/article/20040089",
     )
 }
 
@@ -405,6 +422,20 @@ pub fn investment_gemel() -> Broker {
                 "במשיכה בבת אחת משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר. מגיל 60 אפשר לקבל את הכסף כקצבה חודשית, ואז גם הרווח וגם הקצבה פטורים ממס: הכסף עובר לקופה שמשלמת קצבאות, והיא קובעת את הסכום החודשי.",
             ))
             .source(&kol_zchut_pension()),
+            Caveat::reading(
+                t(
+                    "As a pension, the monthly amount shown is the balance divided by 200, a \
+                     usual conversion factor. The insurer or pension fund the money moves to \
+                     sets its own at retirement, by age, sex and terms: from about 189 to 214 \
+                     in Bizportal's examples, so the pension may be about 5% more or 7% less.",
+                    "בקצבה, הסכום החודשי שמוצג הוא היתרה חלקי 200, מקדם המרה מקובל. חברת הביטוח או קרן הפנסיה שאליה עובר הכסף קובעת מקדם משלה בפרישה, לפי גיל, מין ותנאים: בדוגמאות של ביזפורטל בין כ-189 לכ-214, ולכן הקצבה עשויה להיות גבוהה בכ-5% או נמוכה בכ-7%.",
+                ),
+                t(
+                    "Bizportal's examples of conversion factors",
+                    "הדוגמאות של ביזפורטל למקדמי המרה",
+                ),
+            )
+            .source(&bizportal_on_factors()),
             Caveat::published(t(
                 "No more than ₪83,641 can be deposited in a calendar year (2026), in all of \
                  one person's funds together. The ceiling follows the price index every \
@@ -430,6 +461,11 @@ pub fn investment_gemel() -> Broker {
             .sources(&[&globes_on_the_cap(), &bizportal_on_the_cap()]),
         ],
         plans: vec![average, cheapest, dearest, legal_maximum],
+        spread: Some(Spread {
+            cheapest: Some(1),
+            dearest: Some(2),
+            most_allowed: 3,
+        }),
     }
 }
 
@@ -569,6 +605,11 @@ pub fn study_fund() -> Broker {
             investing_costs_arent_counted(),
         ],
         plans: vec![average, cheapest, dearest, legal_maximum],
+        spread: Some(Spread {
+            cheapest: Some(1),
+            dearest: Some(2),
+            most_allowed: 3,
+        }),
     }
 }
 
@@ -687,5 +728,12 @@ pub fn savings_policy() -> Broker {
             .source(&analyst_comparison()),
         ],
         plans: vec![average, highest],
+        // The regulator reports the insurers' policies together, so there's
+        // no cheapest or dearest company to show.
+        spread: Some(Spread {
+            cheapest: None,
+            dearest: None,
+            most_allowed: 1,
+        }),
     }
 }

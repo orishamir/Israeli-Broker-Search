@@ -101,3 +101,26 @@ test('an empty rate of your own says which field to fill in', () => {
   short.updateYourDeposit({ ...yours, ratePercent: null })
   expect(short.inputError).toBe('מלאו את הריבית של הפיקדון שלכם')
 })
+
+test('saved deposits with an id twice keep the first of each, as a keyed list needs', () => {
+  const deposit = (name: string) => ({ id: 'd-1', name, ratePercent: 4 })
+  localStorage.setItem('your-deposits-v1', JSON.stringify([deposit('first'), deposit('second')]))
+  expect(start().yourDeposits).toEqual([deposit('first')])
+})
+
+test('when the best place locks the money, the best that can be taken out any day is named beside it', () => {
+  const short = start()
+  short.firstDeposit = 30_000
+  short.monthlyDeposit = 0
+  short.months = 6
+  // Mercantile pays a little more than the cheapest fund for 6 months.
+  const mercantile = short.listedPlaces.find(({ englishLabel }) => englishLabel.endsWith('Mercantile Bank'))!
+  short.setSelected([mercantile.id], true)
+  expect(short.best?.place.id).toBe(mercantile.id)
+  const anyDay = results(short).find(({ outcome, place }) => outcome && place.info.liquidity === 'AnyDay')!
+  expect(short.bestAnyDay).toBe(anyDay)
+  // A fund that's best needs nothing beside it.
+  short.setSelected([mercantile.id], false)
+  expect(short.best?.place.info.liquidity).toBe('AnyDay')
+  expect(short.bestAnyDay).toBeUndefined()
+})

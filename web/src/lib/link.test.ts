@@ -83,6 +83,22 @@ test('a short-term link carries its inputs, places and your deposits, and nothin
   expect(decode(hash)).toEqual(short)
 })
 
+test('a link with an id twice keeps the first of each, as a keyed list needs', () => {
+  const plan = (id: string, brokerName: string) => ({ id, plan: {}, brokerName, basedOn: null })
+  expect(
+    decode('yours=' + btoa(JSON.stringify([plan('a', 'first'), plan('b', 'b'), plan('a', 'second')]))),
+  ).toEqual({
+    yours: [plan('a', 'first'), plan('b', 'b')],
+  })
+  const deposit = (id: string, name: string) => ({ id, name, ratePercent: 4 })
+  expect(
+    decode('c=s&deposits=' + btoa(JSON.stringify([deposit('d-1', 'first'), deposit('d-1', 'second')]))),
+  ).toEqual({
+    family: 'short',
+    short: { yours: [deposit('d-1', 'first')] },
+  })
+})
+
 test('a short-term link keeps only what makes sense', () => {
   expect(decode('c=s&n=0&d=-5&m=x&deposits=nonsense')).toEqual({ family: 'short', short: {} })
   expect(decode('c=s&n=61')).toEqual({ family: 'short', short: {} })

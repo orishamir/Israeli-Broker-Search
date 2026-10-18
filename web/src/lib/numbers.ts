@@ -4,13 +4,23 @@
 export const formatNumber = (number: number | null): string =>
   number === null ? '' : number.toLocaleString('en-US', { maximumFractionDigits: 4 })
 
-/** The number typed into a field, ignoring commas typed or left in; null
- * while the field is empty or isn't a number. */
+/** The number typed into a field; null while the field is empty or isn't
+ * a number. Spaces and a ₪, $, € or % pasted in are ignored, and so are
+ * commas that group thousands ("25,000"). A lone comma before one or two
+ * digits ("3,25") is a decimal point, as many keyboards type it; any other
+ * comma makes it no number, rather than a guess a hundred times too big.
+ * Only plain decimals are read: not "0x10", "1e6" or "Infinity", which
+ * `Number` would take. */
 export function parseNumber(text: string): number | null {
-  const cleaned = text.replaceAll(',', '').trim()
+  const cleaned = text.replaceAll(/[\s₪$€%]/gu, '')
   if (cleaned === '') return null
-  const number = Number(cleaned)
-  return Number.isFinite(number) ? number : null
+  const decimalComma = /^(-?\d+),(\d{1,2})$/u.exec(cleaned)
+  const plain = decimalComma
+    ? `${decimalComma[1]}.${decimalComma[2]}`
+    : /^-?\d{1,3}(,\d{3})+(\.\d*)?$/u.test(cleaned)
+      ? cleaned.replaceAll(',', '')
+      : cleaned
+  return /^-?(\d+\.?\d*|\.\d+)$/u.test(plain) ? Number(plain) : null
 }
 
 /** `value` moved one `step` up or down, rounded so that 0.1 steps don't

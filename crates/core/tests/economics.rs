@@ -10,8 +10,8 @@
 //! smallest failing ones and prints them.
 
 use broker_fees::simulation::{
-    Around, Comparison, Crossing, Fees, InvalidScenario, NotOffered, Outcome, Scenario, Sweep,
-    Swept, compare, free_plan, simulate, sweep,
+    self, Around, Comparison, Crossing, Fees, InvalidScenario, NotOffered, Outcome, Scenario,
+    Sweep, Swept, compare, free_plan, simulate, sweep,
 };
 use broker_fees::*;
 use proptest::prelude::*;
@@ -617,35 +617,57 @@ fn usual_plans_lose_a_plausible_share() {
 }
 
 /// Every plan compared gets a rank, best first by what's left after selling
-/// and paying the tax, with the ones that can't be used last. That isn't
-/// always the order of what's left before tax: what a broker takes for
-/// keeping the account is taxed as gain, so of two plans that leave about
-/// the same, the one charging on trades pays less tax.
+/// and paying the tax: first the plans the inputs fit, then those whose
+/// first deposit is below their minimum, which can't be opened as given,
+/// then the ones that can't be used at all. That isn't always the order of
+/// what's left before tax: what a broker takes for keeping the account is
+/// taxed as gain, so of two plans that leave about the same, the one
+/// charging on trades pays less tax.
 #[test]
 fn the_comparison_ranks_by_what_is_left() {
     let plans = listed_plans();
     let plans: Vec<&Plan> = plans.iter().map(|(_, plan)| plan).collect();
     for (security, exchange) in every_purchase() {
-        let comparison = compare(&plans, &defaults(security, exchange), &rates());
-        assert_eq!(comparison.plans.len(), plans.len());
-        let left: Vec<Option<Decimal>> = comparison
-            .plans
-            .iter()
-            .map(|plan| {
-                let outcome = plan.outcome.as_ref().ok();
-                outcome.map(|outcome| outcome.after_tax)
-            })
-            .collect();
-        let offered: Vec<Decimal> = left.iter().flatten().copied().collect();
-        assert!(
-            offered.windows(2).all(|pair| pair[0] >= pair[1]),
-            "{security:?} on {exchange:?}: {left:?}"
-        );
-        let first_unoffered = left.iter().position(Option::is_none).unwrap_or(left.len());
-        assert!(
-            left[first_unoffered..].iter().all(Option::is_none),
-            "{security:?} on {exchange:?}: {left:?}"
-        );
+        // ₪10,000 at first, and nothing at first, which no minimum takes.
+        for first_deposit in [dec!(10000), dec!(0)] {
+            let scenario = Scenario {
+                first_deposit,
+                ..defaults(security, exchange)
+            };
+            let comparison = compare(&plans, &scenario, &rates());
+            assert_eq!(comparison.plans.len(), plans.len());
+            // 0 for a plan the inputs fit, 1 for one they don't, 2 for one
+            // that can't be used.
+            let group = |compared: &simulation::PlanOutcome| match &compared.outcome {
+                Ok(_) if compared.fits => 0,
+                Ok(_) => 1,
+                Err(_) => 2,
+            };
+            let rows: Vec<(u8, Option<Decimal>)> = comparison
+                .plans
+                .iter()
+                .map(|compared| {
+                    let left = compared
+                        .outcome
+                        .as_ref()
+                        .ok()
+                        .map(|outcome| outcome.after_tax);
+                    (group(compared), left)
+                })
+                .collect();
+            assert!(
+                rows.windows(2).all(|pair| pair[0].0 < pair[1].0
+                    || (pair[0].0 == pair[1].0 && pair[0].1 >= pair[1].1)),
+                "{security:?} on {exchange:?}, ₪{first_deposit} at first: {rows:?}"
+            );
+            for compared in &comparison.plans {
+                let plan = plans[compared.index];
+                let fits = plan
+                    .min_first_deposit
+                    .is_none_or(|min| *min.amount() <= first_deposit);
+                assert_eq!(compared.fits, fits, "{}", plan.name.en);
+            }
+        }
     }
 }
 
@@ -780,6 +802,76 @@ fn a_fee_on_the_balance_is_the_yearly_cost() {
             "{security:?} on {exchange:?}"
         );
     }
+}
+
+/// Custody on a sum put in once costs at least its rate a year, as a fund's
+/// fee on the balance does: with no deposits to pay it from, it comes out
+/// of money that would otherwise have grown. Owed interest-free until the
+/// sale, a 0.8% custody fee read as 0.63% a year (the inheritance example
+/// at Leumi). A minimum makes the rate highest while the holdings are
+/// small, so the rate on what no fees would end with is the lowest it ever
+/// charges.
+#[test]
+fn a_lump_sums_yearly_cost_is_at_least_its_custody_rate() {
+    for (security, exchange) in every_purchase() {
+        let scenario = Scenario {
+            first_deposit: dec!(500_000),
+            monthly_deposit: dec!(0),
+            years: 15,
+            ..defaults(security, exchange)
+        };
+        let (no_fees, outcomes) = outcomes(&scenario);
+        let end = Holding {
+            security,
+            exchange,
+            value: ils(no_fees.held),
+        };
+        for (name, plan) in listed_plans() {
+            let Some(outcome) = outcomes.iter().find(|(other, _)| *other == name) else {
+                continue;
+            };
+            let custody = *plan.custody_per_year(&[end], &rates()).amount();
+            let rate = custody / no_fees.held * dec!(100);
+            assert!(
+                outcome.1.yearly_cost.0 >= rate.round_dp(4),
+                "{name}, {security:?} on {exchange:?}: {} a year, custody {rate}%",
+                outcome.1.yearly_cost
+            );
+        }
+    }
+}
+
+/// Paid from the saver's own money, each month's custody on a sum put in
+/// once grows to a month's fee on the end value: the holdings were worth
+/// V·gᵐ when it was paid, and the money would have grown for the months
+/// left. Ten years at 1.2% a year owe 120 × 0.1% of the end value, 12%.
+#[test]
+fn custody_on_a_lump_sum_costs_its_months_fee_on_the_end_value() {
+    let plan = Plan {
+        custody: vec![CustodyFee {
+            securities: vec![],
+            exchanges: vec![],
+            percent: Percent(dec!(1.2)),
+            per: Period::Year,
+            billed: Period::Month,
+            min: None,
+        }],
+        ..free_plan()
+    };
+    let scenario = Scenario {
+        first_deposit: dec!(100_000),
+        monthly_deposit: dec!(0),
+        years: 10,
+        ..defaults(Security::IndexFund, Exchange::Tlv)
+    };
+    let comparison = compare(&[&plan], &scenario, &rates());
+    let outcome = comparison.plans[0].outcome.as_ref().unwrap();
+    let end = comparison.no_fees.after_selling;
+    assert!(close(outcome.after_selling, end * dec!(0.88)));
+    assert!(close(
+        outcome.owed_growth,
+        end * dec!(0.12) - outcome.fees.custody
+    ));
 }
 
 /// A fee on deposits takes its share of every deposit, and so of everything
@@ -1063,7 +1155,9 @@ proptest! {
     /// monthly fee) isn't part of what the holdings cost, and comes off the
     /// proceeds only in the year of the sale: the earlier years' is taxed
     /// with the gain. A manager's fees and the fees on each order are cost.
-    /// A study fund, where part of the gain is tax-free, never pays more.
+    /// The growth that owed fees cost the saver is paid to no one, and
+    /// isn't counted. A study fund, where part of the gain is tax-free,
+    /// never pays more.
     #[test]
     fn the_tax_is_a_quarter_of_what_came_out_beyond_what_went_in(scenario in scenarios()) {
         let scenario = Scenario {
@@ -1081,6 +1175,7 @@ proptest! {
             let gain = outcome.after_selling - scenario.deposited()
                 + outcome.fees.custody
                 + outcome.fees.handling
+                + outcome.owed_growth
                 - last_year.custody
                 - last_year.handling;
             let on_it_all = gain.max(Decimal::ZERO) / dec!(4);
@@ -1758,7 +1853,7 @@ mod short_term_economics {
     /// ₪10,000 a month (at least ₪1,000 in all), for 1 to 60 months, at a
     /// rate of −1% to 8% in quarters, with prices rising 0% to 6%.
     fn sums() -> impl Strategy<Value = Scenario> {
-        (0..=5000u32, 0..=20u32, 1..=60u32, -4..=32i32, 0..=6u32).prop_map(
+        (0..=5000u32, 0..=20u32, 1..=60u32, -4..=32i32, -3..=6i32).prop_map(
             |(thousands, five_hundreds, months, quarters, inflation)| Scenario {
                 first_deposit: Decimal::from(thousands.max(u32::from(five_hundreds == 0)))
                     * dec!(1000),

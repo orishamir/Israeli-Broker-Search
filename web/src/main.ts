@@ -14,7 +14,12 @@ todaysRates().catch(() => undefined)
 
 // Loads and compiles the Rust core (WebAssembly) once; every call after
 // that is synchronous.
-await init()
+try {
+  await init()
+} catch (error) {
+  couldntLoad()
+  throw error
+}
 
 // The core answers in Hebrew from here on.
 setLang('He')
@@ -27,3 +32,18 @@ mount(App, { target: document.getElementById('app')! })
 const skeleton = document.getElementById('skeleton')
 skeleton?.classList.add('done')
 setTimeout(() => skeleton?.remove(), reducedMotion ? 0 : 250)
+
+/** Says where the page's shape pulses that the app couldn't load, rather
+ * than pulsing on: the core didn't download (a connection lost midway). */
+function couldntLoad() {
+  const skeleton = document.getElementById('skeleton')
+  const layout = skeleton?.querySelector('.layout')
+  if (!skeleton || !layout) return
+  skeleton.removeAttribute('aria-hidden')
+  skeleton.classList.add('failed')
+  const message = document.createElement('p')
+  message.className = 'card'
+  message.setAttribute('role', 'alert')
+  message.textContent = t.couldntLoad
+  layout.replaceWith(message)
+}

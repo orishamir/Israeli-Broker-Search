@@ -8,6 +8,7 @@
   import { BUYING_INTERVALS } from './link'
   import NumberField from './NumberField.svelte'
   import PlanSheet from './PlanSheet.svelte'
+  import { scrollsPast } from './slider'
   import { t } from './text'
   import { en } from './text/en'
   import { glideHeight, reveal } from './motion'
@@ -85,7 +86,9 @@
             ? t.tradedOnBonds
             : app.security === 'Stock'
               ? t.tradedOnStocks
-              : t.tradedOnFunds,
+              : app.security === 'IndexFund'
+                ? t.tradedOnIndexFunds
+                : t.tradedOnFunds,
         )}
       </p>
     </Tip>
@@ -150,7 +153,7 @@
     <NumberField id="yearly-return" suffix="%" step={0.5} bind:value={app.yearlyReturnPercent} />
 
     <label for="years">{t.years}</label>
-    <div class="range">
+    <div class="range" {@attach scrollsPast}>
       <input id="years" type="range" min="1" max="50" bind:value={app.years} />
       <output for="years">{app.years}</output>
     </div>

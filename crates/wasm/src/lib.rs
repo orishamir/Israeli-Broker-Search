@@ -25,7 +25,7 @@ use broker_fees::yours::{
 };
 use broker_fees::{
     Broker, BrokerKind, Buying, Exchange, ExchangeRates, IntoEnumIterator, Lang, Money, Named,
-    Percent, Period, Plan, Security, TradeFee, Withdrawal, ils,
+    Percent, Period, Plan, Security, Spread, TradeFee, Vehicle, Withdrawal, ils,
 };
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -185,7 +185,7 @@ pub struct BrokerInfo {
     /// What "usual" means beside the plan a new customer gets: a bank's
     /// online prices, an investment house's joining offer.
     pub usual_plan: String,
-    /// "Tariff of 29/06/2026"
+    /// "Tariff of 01/10/2026"
     pub tariff_date: String,
     /// "Checked 28/09/2026": when the numbers were last checked against the
     /// broker's documents and site.
@@ -195,6 +195,10 @@ pub struct BrokerInfo {
     /// on, each once.
     pub sources: Vec<Source>,
     pub plans: Vec<PlanInfo>,
+    /// For a kind of fund, the plans shown beside its average rather than
+    /// in the list of plans: its cheapest and dearest company and the most
+    /// allowed ([`Spread`]). Empty for a broker.
+    pub shown_beside: Vec<usize>,
 }
 
 impl BrokerInfo {
@@ -226,6 +230,7 @@ impl BrokerInfo {
                     ..PlanInfo::new(plan, lang)
                 })
                 .collect(),
+            shown_beside: broker.spread.map_or_default(Spread::plans),
         }
     }
 }
@@ -464,6 +469,22 @@ pub fn about() -> Result<Ts<About>, JsError> {
     Ok(describe::about(lang()).into_ts()?)
 }
 
+/// How old the long term's numbers are, in a line under its table: "Tariffs
+/// of 02/04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the
+/// data of 08/2026".
+#[wasm_bindgen(js_name = dataDates)]
+#[must_use]
+pub fn data_dates() -> String {
+    describe::data_dates(lang())
+}
+
+/// The same for the short term.
+#[wasm_bindgen(js_name = shortTermDataDates)]
+#[must_use]
+pub fn short_term_data_dates() -> String {
+    describe::short_term_data_dates(lang())
+}
+
 /// "an ETF bought in the USA"
 #[wasm_bindgen(js_name = purchasePhrase)]
 pub fn purchase_phrase(security: Ts<Security>, exchange: Ts<Exchange>) -> Result<String, JsError> {
@@ -642,7 +663,12 @@ impl InvalidInputs {
                 let field = field.name(lang);
                 match lang {
                     Lang::En => format!("{field} can't be negative"),
-                    Lang::He => format!("אי אפשר להזין ערך שלילי ב{field}"),
+                    // After ב the article's ה goes: בגיל, not בהגיל. Every
+                    // field's name that starts with ה starts with the article.
+                    Lang::He => format!(
+                        "אי אפשר להזין ערך שלילי ב{}",
+                        field.strip_prefix('ה').unwrap_or(field)
+                    ),
                 }
             }
             InvalidInputs::Other(problem) => problem.name(lang).to_owned(),
@@ -782,6 +808,11 @@ pub struct ComparisonData {
     /// Best first (most left after selling and paying the tax); plans that
     /// can't be used last.
     pub plans: Vec<PlanOutcomeData>,
+    /// The US estate tax, when a broker's plan holds more than $60,000 of a
+    /// US-registered security: said once, under the table, since it would be
+    /// the same under every broker's plan, and a fund's holdings aren't the
+    /// saver's.
+    pub us_estate_tax: Option<String>,
 }
 
 #[derive(Debug, Serialize, Tsify)]
@@ -796,6 +827,9 @@ pub struct PlanOutcomeData {
     /// Why the plan can't be used as the inputs are, though its numbers are
     /// still shown: "Needs a one-time deposit of at least ₪5,000".
     pub warning: Option<String>,
+    /// Whether the first deposit is enough to open it. One that isn't comes
+    /// after every plan that is, and is never the best.
+    pub fits: bool,
     /// Why its numbers may be too low, if a caveat says so: "May cost more:
     /// conversion markup not published". The plan stays ranked.
     pub may_cost_more: Option<String>,
@@ -803,6 +837,16 @@ pub struct PlanOutcomeData {
     /// share, the cheapest for you", "A standing order buys every month, so
     /// it isn't used here".
     pub note: Option<String>,
+    /// Who can open it, if not anyone, under its name: "Through an employer,
+    /// or if self-employed".
+    pub who_can_join: Option<String>,
+    /// As a pension, the monthly amount the balance would buy, under its
+    /// name: "A balance for a pension: about ₪10,000 a month for life, at a
+    /// conversion factor of about 200".
+    pub pension_note: Option<String>,
+    /// For a kind of fund's average, what's left beside it at its cheapest
+    /// and dearest company and at the most allowed.
+    pub spread: Option<SpreadData>,
     /// What became of a fund's tax, under its name: "No tax: your deposits
     /// are within ₪20,566 a year". Missing for a broker's plan, when
     /// nothing is sold, and with the outcome.
@@ -814,6 +858,26 @@ pub struct PlanOutcomeData {
     pub not_offered: Option<String>,
     /// Which of those it is, for the few words the table itself says.
     pub why_not: Option<WhyNot>,
+}
+
+/// What's left at a kind of fund's other plans, in ₪, in the amount the
+/// table ranks by: after tax, or what's held when nothing is sold. Missing
+/// where the kind has no such plan, or it can't be used.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct SpreadData {
+    pub cheapest: Option<Beside>,
+    pub dearest: Option<Beside>,
+    pub most_allowed: Option<Beside>,
+}
+
+/// One of a kind of fund's other plans, by name ("The cheapest company"),
+/// and what's left there.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct Beside {
+    pub name: String,
+    pub left: f64,
 }
 
 /// Why a plan can't be used for the inputs.
@@ -947,7 +1011,14 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
             exchange.currency(),
         )),
     };
+    let estate_tax = broker_fees::tariffs::us_estate_tax();
+    let at_a_broker = comparison.plans.iter().any(|compared| {
+        compared.outcome.is_ok() && plans[compared.index].vehicle == Vehicle::Brokerage
+    });
+    let us_estate_tax = (at_a_broker && estate_tax.matters_for(buying, &rates))
+        .then(|| estate_tax.text[lang()].to_owned());
     Ok(ComparisonData {
+        us_estate_tax,
         deposited: number(deposited),
         no_fees: OutcomeData::compared_to(no_fees, no_fees),
         largest_trade: number(no_fees.largest_trade),
@@ -976,6 +1047,7 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                     warning: plan
                         .first_deposit_warning(ils(scenario.first_deposit), lang())
                         .or_else(|| fees_warning().map(str::to_owned)),
+                    fits: compared.fits,
                     may_cost_more,
                     note: plan
                         .track_note(security, exchange, track, lang())
@@ -988,6 +1060,21 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                             )
                             .map(str::to_owned)
                         }),
+                    who_can_join: plan.who_can_join(lang()).map(str::to_owned),
+                    pension_note: outcome.and_then(|outcome| {
+                        plan.pension_note(&scenario, outcome.after_tax, lang())
+                    }),
+                    spread: match key {
+                        PlanKey::Listed { broker, plan } => spread_of(
+                            &brokers[*broker],
+                            *plan,
+                            &scenario,
+                            &rates,
+                            inputs,
+                            inflation,
+                        ),
+                        PlanKey::Yours { .. } => None,
+                    },
                     tax_note: outcome.and_then(|_| plan.tax_note(&scenario, lang())),
                     not_offered: compared
                         .outcome
@@ -998,6 +1085,39 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                 }
             })
             .collect(),
+    })
+}
+
+/// What's left at the kind of fund's other plans, if `plan` is its average
+/// ([`SpreadData`]).
+fn spread_of(
+    broker: &Broker,
+    plan: usize,
+    scenario: &Scenario,
+    rates: &ExchangeRates,
+    inputs: &Inputs,
+    inflation: Percent,
+) -> Option<SpreadData> {
+    let spread = broker.spread.filter(|_| plan == broker.new_customer_plan)?;
+    let left = |index: Option<usize>| {
+        let plan = &broker.plans[index?];
+        let mut outcome = simulation::simulate(plan, scenario, rates).ok()?;
+        if inputs.in_todays_money && !inflation.is_zero() {
+            outcome = outcome.in_todays_money(inflation);
+        }
+        Some(Beside {
+            name: plan.name[lang()].to_owned(),
+            left: number(if scenario.sell_at_end {
+                outcome.after_tax
+            } else {
+                outcome.held
+            }),
+        })
+    };
+    Some(SpreadData {
+        cheapest: left(spread.cheapest),
+        dearest: left(spread.dearest),
+        most_allowed: left(Some(spread.most_allowed)),
     })
 }
 
@@ -1609,13 +1729,13 @@ pub struct KindInfo {
     pub name: String,
     pub english_name: String,
     pub description: String,
-    /// "Rates given, by the data of 08/2026"
+    /// "Rates given, by the data of 09/2026"
     pub data_of: String,
     /// "Checked 01/10/2026"
     pub checked: String,
     pub source: Source,
     /// The flag its caveats raise for every place of the kind, when they say
-    /// the numbers may be too good: "August's rates, before a cut". Said
+    /// the numbers may be too good, as when its rates are from before a cut. Said
     /// once, not under each place.
     pub may_cost_more: Option<String>,
     pub places: Vec<PlaceInfo>,
@@ -2300,7 +2420,7 @@ mod tests {
     #[test]
     fn broker_info_describes_every_plan() {
         let leumi = BrokerInfo::new(&tariffs::leumi(), Lang::En);
-        assert_eq!(leumi.tariff_date, "Tariff of 29/06/2026");
+        assert_eq!(leumi.tariff_date, "Tariff of 01/10/2026");
         assert_eq!(leumi.plans.len(), 4);
         assert_eq!(leumi.plans[0].tariff.trading.len(), 2);
         assert_ne!(leumi.plans[3].description, "");
@@ -2381,8 +2501,15 @@ mod tests {
         inputs.age = Some(-1.0);
         assert_eq!(
             compare_plans(&inputs).unwrap_err().text(Lang::He),
-            "אי אפשר להזין ערך שלילי בהגיל שלכם"
+            "אי אפשר להזין ערך שלילי בגיל שלכם"
         );
+        inputs.age = Some(40.0);
+        let monthly = inputs.monthly_deposit.replace(-1.0);
+        assert_eq!(
+            compare_plans(&inputs).unwrap_err().text(Lang::He),
+            "אי אפשר להזין ערך שלילי בהפקדה החודשית"
+        );
+        inputs.monthly_deposit = monthly;
         inputs.age = Some(40.0);
         let as_pension = compare_plans(&inputs).unwrap();
         assert_eq!(as_pension.plans[0].key, fund);
@@ -2435,6 +2562,47 @@ mod tests {
         let (tax_today, sold_today, deposited_today) = after_tax(&inputs);
         assert!(sold_today < sold && tax_today < tax && deposited_today < deposited);
         assert_eq!(usual_inflation_percent(), 2.0);
+    }
+
+    /// Above $60,000 of a US ETF at a broker, the US estate tax is said once
+    /// for the comparison; not on Tel Aviv, nor for a fund alone.
+    #[test]
+    fn the_us_estate_tax_is_said_once_when_a_broker_holds_enough() {
+        let mut inputs = inputs();
+        let said = |inputs: &Inputs| compare_plans(inputs).unwrap().us_estate_tax;
+        assert!(said(&inputs).unwrap().contains("$60,000"));
+        inputs.plans = vec![the_fund()];
+        assert_eq!(said(&inputs), None);
+        let mut tlv = self::inputs();
+        tlv.exchange = Exchange::Tlv;
+        assert_eq!(said(&tlv), None);
+    }
+
+    /// A kind of fund's average carries what's left at its cheapest and
+    /// dearest company and at the most allowed, which the list doesn't offer
+    /// as plans of their own; in today's money too, like its own amount.
+    #[test]
+    fn a_funds_average_carries_its_spread() {
+        let mut inputs = inputs();
+        inputs.plans.push(the_fund());
+        for in_todays_money in [false, true] {
+            inputs.in_todays_money = in_todays_money;
+            inputs.inflation_percent = Some(2.0);
+            let comparison = compare_plans(&inputs).unwrap();
+            let fund = compared(&comparison, &the_fund());
+            let average = fund.outcome.as_ref().unwrap().after_tax;
+            let spread = fund.spread.as_ref().unwrap();
+            let left = |beside: &Option<Beside>| beside.as_ref().unwrap().left;
+            let (cheapest, dearest) = (left(&spread.cheapest), left(&spread.dearest));
+            assert!(
+                cheapest > average && average > dearest && dearest > left(&spread.most_allowed)
+            );
+            let brokers_plan = comparison.plans.iter().find(|plan| plan.key != the_fund());
+            assert!(brokers_plan.unwrap().spread.is_none());
+        }
+        let info = |index: usize| BrokerInfo::new(&all_brokers()[index], Lang::En);
+        assert_eq!(info(tariffs::all().len()).shown_beside, [1, 2, 3]);
+        assert_eq!(info(0).shown_beside, [] as [usize; 0]);
     }
 
     /// Deposits over a fund's ceiling leave it without numbers, saying by
@@ -2569,7 +2737,7 @@ mod tests {
         assert_eq!(Choice::new(Exchange::Usa, Lang::He).english_name, None);
         assert_eq!(
             BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
-            "תעריפון מ-29/06/2026"
+            "תעריפון מ-01/10/2026"
         );
     }
 
@@ -2585,7 +2753,7 @@ mod tests {
         }
     }
 
-    /// ₪100,000 for a year at the Bank of Jerusalem's 3.87% and in the
+    /// ₪100,000 for a year at the Bank of Jerusalem's 3.71% and in the
     /// average fund, as the core works them out: the deposit first, its
     /// term named; with money every month the deposit says why it's out.
     #[test]
@@ -2607,7 +2775,7 @@ mod tests {
         assert_eq!(data.places[0].key, jerusalem);
         assert_eq!(
             data.places[0].outcome.as_ref().unwrap().after_tax,
-            103_289.5
+            103_153.5
         );
         assert_eq!(data.places[1].key, average);
         assert_eq!(data.at_the_rate.len(), 13);
@@ -2692,16 +2860,13 @@ mod tests {
         let info = PlaceInfo::new(leumi, deposits, Lang::He);
         assert_eq!(info.rates.len(), 7);
         assert_eq!(info.rates[3].term, "6 חודשים עד שנה");
-        assert_eq!(info.rates[3].rate, Some(3.75));
+        assert_eq!(info.rates[3].rate, Some(3.66));
         assert_eq!(info.tax, "15% מכל הריבית");
         assert_eq!(info.liquidity, Liquidity::AtTheEnd);
-        // The deposits' flag is said once, by their kind; One Zero's own
-        // flag is its own.
+        // September's rates are after the last cut, so the deposits raise
+        // no flag of their own; One Zero's own flag is its own.
         assert_eq!(info.may_cost_more, None);
-        assert_eq!(
-            may_cost_more(&deposits.caveats, Lang::He).as_deref(),
-            Some("ריביות אוגוסט, לפני הורדת ריבית")
-        );
+        assert_eq!(may_cost_more(&deposits.caveats, Lang::He), None);
         let one_zero = deposits
             .places
             .iter()

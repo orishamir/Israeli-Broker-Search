@@ -3,7 +3,8 @@
 
   /** A number with its unit inside the box: "₪ 10,000", "10 %". A text
    * field rather than a number one, to show thousands separators. Commas
-   * typed or left in are ignored, and the text is tidied on leaving; not
+   * typed or left in are ignored (`parseNumber`), and the text is tidied on
+   * leaving, or kept as typed if it isn't a number; not
    * while editing, which would lose the selection and move the caret. The
    * value is null while the field is empty or isn't a number. `label` is its
    * name for screen readers, when no <label> names it. */
@@ -28,8 +29,10 @@
   let focused = $state(false)
   let text = $state('')
   // Follows the value when it changes from outside, e.g. downloaded rates.
+  // Text that already says the value stays, so leaving a field never erases
+  // what isn't a number yet.
   $effect(() => {
-    if (!focused) text = formatNumber(value)
+    if (!focused && parseNumber(text) !== value) text = formatNumber(value)
   })
 
   function onKeyDown(event: KeyboardEvent) {

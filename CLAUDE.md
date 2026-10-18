@@ -128,8 +128,9 @@ quietly keep running the old core.
 - Each broker's `new_customer_plan` is ticked at first; of the funds, only
   the provident fund for investment's (`compared_at_first`).
 - A fund is listed as a kind, not a company: "Average fee" from the
-  regulator's data (dated in a caveat), the cheapest and dearest company,
-  and the most allowed. A fund's plan charges only its `management`; in
+  regulator's data (dated in a caveat), with the cheapest and dearest
+  company and the most allowed shown beside it, not as plans of their own
+  (`Broker::spread`). A fund's plan charges only its `management`; in
   Hebrew it isn't called a מסלול, which for a fund is an investment track
   (מסלול השקעה).
 - A plan's `description` says what it is, who can join and on what terms,

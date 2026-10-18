@@ -154,3 +154,19 @@ export async function fitScreenToPage(page: Page) {
   const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight)
   if (pageHeight > height) await page.setViewportSize({ width, height: pageHeight })
 }
+
+/** Drags a real finger (touch events through the debugging protocol, which
+ * `tap()` can't do) from a point on `target` by `dx`, `dy` pixels, in ten
+ * steps. Chromium only. */
+export async function fingerDrag(page: Page, target: Locator, at: number, dx: number, dy: number) {
+  const box = (await target.boundingBox())!
+  const [x, y] = [box.x + box.width * at, box.y + box.height / 2]
+  const cdp = await page.context().newCDPSession(page)
+  const touch = (type: string, touchPoints: { x: number; y: number }[]) =>
+    cdp.send('Input.dispatchTouchEvent', { type: type as 'touchStart', touchPoints })
+  await touch('touchStart', [{ x, y }])
+  for (let step = 1; step <= 10; step++) {
+    await touch('touchMove', [{ x: x + (dx * step) / 10, y: y + (dy * step) / 10 }])
+  }
+  await touch('touchEnd', [])
+}

@@ -40,8 +40,9 @@ Meitav's 0.15% is a quarter (0.6% a year).
   bonds and funds" row included. The exchange's June 2026 averages show its
   customers paying 0% custody, which backs reading the offer's "no
   management fees" as covering custody.
-- **Bank Leumi:** `תעריפוני עמלות לאומי.pdf`, dated 29 June 2026, still the
-  current one. Leumi Trade is the bank's online channel: its prices are the
+- **Bank Leumi:** `תעריפוני עמלות לאומי.pdf`, dated 1 October 2026, the
+  current one. Its securities rows are the same as the 29 June tariff's
+  (only rows about returned cheques were added, and rows moved). Leumi Trade is the bank's online channel: its prices are the
   tariff's appendix E (direct channels); customer groups (18+) and Pepper
   are appendix A. [Pepper's site](https://www.pepper.co.il/) (its FAQ) states
   the same ₪4 and $4 up to ₪30,000 and $8,000 an order, says larger orders
@@ -290,6 +291,13 @@ what's left after the tax (`Outcome::after_tax`).
     the saver earns; a lump sum, or any withdrawal before 60, pays 25% of the
     real gain. Its example (₪200,000 of real gain) is a test in
     `vehicles.rs`.
+  - The monthly pension shown is the balance divided by 200
+    (`funds::CONVERSION_FACTOR`), a reading: the fund pays no pension
+    itself, and the insurer or pension fund the money moves to sets its
+    factor at retirement. [Bizportal](https://www.bizportal.co.il/longtermsavings/news/article/20040089)
+    (24 August 2026) gives 188.58 to 202.8 for a man born in 1960 retiring
+    at 67 (by the spouse's share), 186.67 to 191.51 for a woman, about 199.7
+    in policies of the 2000s and about 214.35 in plans since 2013.
 - **Study fund (קרן השתלמות):** Kol Zchut, on
   [the fund](https://www.kolzchut.org.il/he/קרן_השתלמות) and on
   [the self-employed's](https://www.kolzchut.org.il/he/קרן_השתלמות_לעובד_עצמאי).
@@ -386,6 +394,25 @@ that report no fee (new ones) are left out.
   cap outside managers' fees and the like at 0.25% of a fund's assets a
   year. Not counted, like an ETF's own fee.
 
+## The US estate tax
+
+- [IRS](https://www.irs.gov/individuals/international-taxpayers/some-nonresidents-with-us-assets-must-file-estate-tax-returns)
+  (reviewed 27 June 2026): a nonresident who isn't a US citizen leaves an
+  estate that must file Form 706-NA once the US-situated assets pass
+  $60,000; they include "stock of corporations organized in or under U.S.
+  law". Its [FAQ](https://www.irs.gov/businesses/small-businesses-self-employed/frequently-asked-questions-on-estate-taxes-for-nonresidents-not-citizens-of-the-united-states)
+  (20 September 2026) treats securities paying portfolio interest as outside
+  the US, so bonds aren't flagged.
+- [The instructions for Form 706-NA](https://www.irs.gov/instructions/i706na)
+  (09/2025): a credit of $13,000, which is the tax on $60,000, and Form
+  706's rate table, which reaches 40%.
+- [The treaty countries](https://www.irs.gov/businesses/small-businesses-self-employed/estate-gift-tax-treaties-international):
+  15, Israel not among them.
+- `tariffs::us_estate_tax` is among what each broker's plans don't count
+  (the estate pays it, not a sale), and the page says it once, under the
+  table, for an ETF, index fund or stock in the USA once the largest order
+  (the sale at the end) passes $60,000 at a broker.
+
 ## Money for the short term
 
 Checked on 1 October 2026 (`short_term::deposits::checked`,
@@ -401,7 +428,8 @@ and the tax.
   ([ynet](https://www.ynet.co.il/economy/article/cdo59v3t1),
   [Bizportal](https://www.bizportal.co.il/general/news/article/20040979)).
   The cut before it, on 6 July, took the rate to 3.5%, so it was 3.5% all
-  August ([TheMarker](https://www.themarker.com/news/macroeconomics/2026-07-06/ty-article-live/0000019f-376f-d22f-a9ff-f77f73af0000)).
+  August ([TheMarker](https://www.themarker.com/news/macroeconomics/2026-07-06/ty-article-live/0000019f-376f-d22f-a9ff-f77f73af0000)),
+  and 3.25% all September. The next decision is on 21 October 2026.
   A fund is taken to earn the rate the saver expects on average over the
   months, today's unless they say otherwise.
 - **Deposits:** the Bank of Israel's comparison of the banks' deposit rates
@@ -411,8 +439,10 @@ and the tax.
   L7.6.1a): each bank's average yearly rate on the fixed-rate, unlinked
   shekel deposits households opened with it in a month, by term, from June
   2024. `deposit-rates.py` here prints them (`uv run --with openpyxl python
-  policies/deposit-rates.py 2026-08`), rounded to two places; the file
-  says 14 September 2026 and ends with August.
+  policies/deposit-rates.py 2026-09`), rounded to two places; the file
+  says 11 October 2026 and ends with September. A test in `deposits.rs`
+  fails from the 15th of the second month after the data's, about five
+  days after the Bank of Israel publishes the next month.
   - Ten banks and the whole system ("מערכת", the banks' average). Otsar
     Hahayal isn't among them.
   - A 0 is a rate left out: the page says it publishes none for a bank's
@@ -423,16 +453,18 @@ and the tax.
     it, up to its own: "עד חודש", "חודש עד 3 חודשים", "3 חודשים עד 6
     חודשים", "6 חודשים עד שנה", "שנה עד שנתיים", "שנתיים עד 3 שנים", "3 שנים
     עד 5 שנים". The daily and weekly terms are left out.
-  - The rates are shown as published for August, dated, and every deposit
-    is flagged as August's, before the September cut (the user's choice,
-    over moving each bank by the cut).
+  - The rates are shown as published for September, dated. August's were
+    flagged as from before the September cut (the user's choice, over
+    moving each bank by the cut); September's need no flag, the rate having
+    been 3.25% all month. Flag a month again if the rate was cut in it or
+    since.
   - A rate is a year's: part of a year earns that part of the year's
     interest, and a whole year's interest joins the deposit.
   - [Calcalist](https://www.calcalist.co.il/market/article/bytylkzgbl)
     (13 November 2025): the Bank of Jerusalem and Mizrahi-Tefahot are the
     only banks that open a deposit for someone without a current account
     with them; One Zero offered 5.5% a year to those joining its premium
-    tracks. Its 6.00% for "6 months to a year" in August, with no rate for
+    tracks. Its 6.00% for "6 months to a year" in August and September, with no rate for
     any other term, is read as such an offer.
 - **Money market funds:** Maya, the Tel Aviv Stock Exchange's list of
   mutual funds ([maya.tase.co.il](https://maya.tase.co.il/he/funds/mutual-funds)),

@@ -128,9 +128,10 @@ impl Explained for Security {
                  a day, set after the exchange closes; any amount will do, even ₪100. Brokers \
                  charge it as a fund, which at most of them is a different price from a \
                  share: on Altshuler's full tariff an ETF costs at least ₪3.5 a trade and an \
-                 index fund at least ₪16, for the same S&P 500. Managed (active) and \
-                 money-market funds aren't compared here.",
-                "אותו סוג של סל, אבל היא לא נסחרת בבורסה: קונים אותה מחברת הקרן דרך הבנק או בית ההשקעות, ומוכרים לה אותה בחזרה באותה דרך, במחיר אחד ביום שנקבע אחרי סגירת המסחר. אפשר לקנות בכל סכום, אפילו ₪100. העמלות עליה הן של קרן ולא של מניה, וברוב המקומות הן שונות: בתעריפון המלא של אלטשולר, עסקה בקרן סל עולה לפחות ₪3.5 ועסקה בקרן מחקה לפחות ₪16, על אותו S&P 500. קרנות מנוהלות (אקטיביות) וקרנות כספיות לא מושוות כאן.",
+                 index fund at least ₪16, for the same S&P 500. Managed (active) funds aren't \
+                 compared here, and money market funds are compared under saving for the \
+                 short term.",
+                "אותו סוג של סל, אבל היא לא נסחרת בבורסה: קונים אותה מחברת הקרן דרך הבנק או בית ההשקעות, ומוכרים לה אותה בחזרה באותה דרך, במחיר אחד ביום שנקבע אחרי סגירת המסחר. אפשר לקנות בכל סכום, אפילו ₪100. העמלות עליה הן של קרן ולא של מניה, וברוב המקומות הן שונות: בתעריפון המלא של אלטשולר, עסקה בקרן סל עולה לפחות ₪3.5 ועסקה בקרן מחקה לפחות ₪16, על אותו S&P 500. קרנות מנוהלות (אקטיביות) לא מושוות כאן, וקרנות כספיות מושוות בחיסכון לטווח קצר.",
             ),
             Security::Bond => lang.pick(
                 "A loan you give to a government or a company: it pays you interest, say 4% a \
@@ -999,7 +1000,7 @@ impl Plan {
     #[must_use]
     pub fn first_deposit_warning(&self, first_deposit: Money, lang: Lang) -> Option<String> {
         self.min_first_deposit
-            .filter(|min| first_deposit.amount() < min.amount())
+            .filter(|_| !self.opens_with(*first_deposit.amount()))
             .map(|min| {
                 let min = format_money(min);
                 match lang {
@@ -1070,6 +1071,51 @@ impl Vehicle {
 }
 
 impl Plan {
+    /// Who can open one, if not anyone: shown under the plan, since the
+    /// numbers mean nothing to someone who can't. An employee gets a study
+    /// fund only through an employer; the self-employed open their own.
+    #[must_use]
+    pub fn who_can_join(&self, lang: Lang) -> Option<&'static str> {
+        match self.vehicle {
+            Vehicle::StudyFund => Some(lang.pick(
+                "Through an employer, or if self-employed",
+                "דרך מעסיק, או לעצמאים",
+            )),
+            Vehicle::Brokerage | Vehicle::InvestmentGemel | Vehicle::SavingsPolicy => None,
+        }
+    }
+
+    /// The monthly pension `left` would buy, when `scenario` takes the money
+    /// as one: "A balance for a pension: about ₪10,000 a month for life, at
+    /// a conversion factor of about 200". Then the
+    /// amount the table ranks by is a balance, not cash to take out, and the
+    /// pension is what the saver would get. Divided by
+    /// [`funds::CONVERSION_FACTOR`], to the nearest ₪100.
+    #[must_use]
+    pub fn pension_note(&self, scenario: &Scenario, left: Decimal, lang: Lang) -> Option<String> {
+        let rules = self.vehicle.rules();
+        let age = rules.pension?.from_age;
+        let pays = scenario.sell_at_end
+            && scenario.withdrawal == Withdrawal::Pension
+            && scenario.age.saturating_add(scenario.years) >= age;
+        if !pays {
+            return None;
+        }
+        let hundreds = left / funds::CONVERSION_FACTOR / Decimal::ONE_HUNDRED;
+        let monthly = hundreds.round() * Decimal::ONE_HUNDRED;
+        let monthly = format_money(ils(monthly));
+        let factor = funds::CONVERSION_FACTOR;
+        Some(match lang {
+            Lang::En => format!(
+                "A balance for a pension: about {monthly} a month for life, at a conversion \
+                 factor of about {factor}"
+            ),
+            Lang::He => format!(
+                "יתרה לקצבה: כ\u{2011}{monthly} בחודש לכל החיים, במקדם המרה של כ\u{2011}{factor}"
+            ),
+        })
+    }
+
     /// What became of the tax for `scenario`, in a line under the plan in
     /// the table: "No tax: your deposits are within ₪20,566 a year". Beside
     /// its tax, so the number doesn't have to be worked out from the
@@ -1184,7 +1230,7 @@ impl Broker {
         }
     }
 
-    /// "Tariff of 29/06/2026", "Tariff of 01/2025", or that the tariff isn't
+    /// "Tariff of 01/10/2026", "Tariff of 01/2025", or that the tariff isn't
     /// dated.
     #[must_use]
     pub fn tariff_date_text(&self, lang: Lang) -> String {
@@ -1213,6 +1259,91 @@ impl Broker {
             BrokerKind::Funds => checked_text(funds::checked(), lang),
             BrokerKind::Bank | BrokerKind::InvestmentHouse => Broker::checked_text(lang),
         }
+    }
+}
+
+impl TariffDate {
+    /// "29/06/2026", or "01/2025" when only the month counts.
+    fn text(self) -> String {
+        match self {
+            TariffDate::Day(date) => date.format(format_description!("[day]/[month]/[year]")),
+            TariffDate::Month(date) => date.format(format_description!("[month]/[year]")),
+        }
+        .expect("a fixed format")
+    }
+
+    /// The day it stands for, to put dates in order: a month's first.
+    fn day(self) -> time::Date {
+        match self {
+            TariffDate::Day(date) | TariffDate::Month(date) => date,
+        }
+    }
+}
+
+/// How old the long term's numbers are, in a line under its table: "Tariffs
+/// of 04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the data of
+/// 08/2026". The brokers' tariffs by their oldest and newest date (two give
+/// none), then the funds' data.
+#[must_use]
+pub fn data_dates(lang: Lang) -> String {
+    let dates: Vec<TariffDate> = tariffs::all()
+        .iter()
+        .filter_map(|broker| broker.tariff_date)
+        .collect();
+    let oldest = dates
+        .iter()
+        .min_by_key(|date| date.day())
+        .map(|date| date.text());
+    let newest = dates
+        .iter()
+        .max_by_key(|date| date.day())
+        .map(|date| date.text());
+    let (oldest, newest) = (oldest.unwrap_or_default(), newest.unwrap_or_default());
+    let checked = tariffs::checked()
+        .format(format_description!("[day]/[month]/[year]"))
+        .expect("a fixed format");
+    let funds = funds::all()
+        .first()
+        .and_then(|kind| kind.tariff_date)
+        .map_or_default(TariffDate::text);
+    match lang {
+        Lang::En => format!(
+            "Tariffs of {oldest} to {newest}, checked {checked} · Funds' fees by the data of \
+             {funds}"
+        ),
+        Lang::He => format!(
+            "תעריפונים מ\u{2011}{oldest} עד {newest}, נבדקו ב\u{2011}{checked}\u{a0}· דמי הניהול בקופות לפי נתוני {funds}"
+        ),
+    }
+}
+
+/// The same for the short term: "Deposit rates by the data of 09/2026 ·
+/// Money market funds' fees by the data of 30/09/2026".
+#[must_use]
+pub fn short_term_data_dates(lang: Lang) -> String {
+    let date = |kind: &short_term::Kind| kind.data_of.text();
+    let kinds = short_term::kinds();
+    let deposits = kinds.iter().find(|kind| {
+        matches!(
+            kind.places.first().map(|place| place.pays),
+            Some(short_term::Pays::Fixed(_))
+        )
+    });
+    let funds = kinds.iter().find(|kind| {
+        !matches!(
+            kind.places.first().map(|place| place.pays),
+            Some(short_term::Pays::Fixed(_))
+        )
+    });
+    let (deposits, funds) = (deposits.map_or_default(date), funds.map_or_default(date));
+    match lang {
+        Lang::En => format!(
+            "Deposit rates by the data of {deposits} · Money market funds' fees by the data \
+             of {funds}"
+        ),
+        Lang::He => format!(
+            "ריביות הפיקדונות לפי נתוני {deposits}\u{a0}· דמי הניהול בקרנות הכספיות לפי נתוני {funds}"
+        ),
     }
 }
 
@@ -1712,6 +1843,9 @@ impl Caveat {
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub struct About {
     pub sections: Vec<Section>,
+    /// The accessibility statement, which the page's footer opens: the same
+    /// for both calculators, and not among the sections the header links.
+    pub accessibility: Section,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -1727,7 +1861,7 @@ pub struct Section {
 }
 
 /// The pages behind one broker's numbers, or one kind of source: "Bank
-/// Leumi · Tariff of 29/06/2026".
+/// Leumi · Tariff of 01/10/2026".
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
@@ -1756,6 +1890,52 @@ pub struct Item {
     pub url: Option<String>,
 }
 
+/// Where to report a mistake, or something that doesn't work for you.
+pub const ISSUES: &str = "https://github.com/orishamir/Israeli-Broker-Search/issues";
+
+/// What's done to make the page usable for everyone, what isn't yet, and
+/// how to say so: what the law asks of a site's accessibility statement.
+fn accessibility(lang: Lang) -> Section {
+    let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
+    Section {
+        title: paragraph("Accessibility", "נגישות"),
+        paragraphs: vec![paragraph(
+            "The calculator is built to be used with a keyboard, a screen reader and a \
+                 phone. It's checked by automated tests in Chrome and Safari, on computer and \
+                 phone screens, for what every part shows and how it answers a click, a tap \
+                 and a key. Not yet:",
+            "המחשבון בנוי כך שאפשר להשתמש בו במקלדת, בקורא מסך ובטלפון. הוא נבדק בבדיקות אוטומטיות בדפדפנים Chrome ו\u{2011}Safari, במסכי מחשב וטלפון, על מה שכל חלק מציג ואיך הוא מגיב ללחיצה, להקשה ולמקש. מה שעדיין לא:",
+        )],
+        items: vec![
+            item(
+                lang,
+                "A row of the table can't be pinned from the keyboard.",
+                "אי אפשר לנעוץ שורה בטבלה מהמקלדת.",
+            ),
+            item(
+                lang,
+                "The charts aren't described in words; every number in them is in the table too.",
+                "הגרפים לא מתוארים במילים; כל מספר שבהם מופיע גם בטבלה.",
+            ),
+            item(
+                lang,
+                "Some explanations that open when the mouse is over them don't open with a tap on \
+                 a phone.",
+                "חלק מההסברים שנפתחים כשהעכבר מעליהם לא נפתחים בהקשה בטלפון.",
+            ),
+            Item {
+                text: paragraph(
+                    "Something doesn't work for you? Say so on GitHub, and it will be fixed \
+                     (updated 18/10/2026).",
+                    "משהו לא עובד לכם? כתבו לנו ב\u{2011}GitHub, ונתקן (עודכן ב\u{2011}18/10/2026).",
+                ),
+                url: Some(ISSUES.to_owned()),
+            },
+        ],
+        sources: vec![],
+    }
+}
+
 fn item(lang: Lang, en: &str, he: &str) -> Item {
     Item {
         text: lang.pick(en, he).to_owned(),
@@ -1777,11 +1957,13 @@ pub fn about(lang: Lang) -> About {
                  of the month and waits as shekels until the next purchase, which converts it \
                  (abroad) and buys with it, whole shares only where the broker sells no \
                  fractions. What keeping the account costs, a share of the holdings or a \
-                 fixed amount, is paid every month out of the shekels. At the end everything \
+                 fixed amount, is paid every month out of the shekels; when there are none \
+                 (a sum put in once), out of your own money, counted with the growth it \
+                 would have had in the account. At the end everything \
                  is sold and converted back and the tax on the gain is paid, and what's left \
                  is what the table ranks by; or, if you choose to keep holding, the table \
                  ranks by what's held, and nothing is paid for selling or in tax.",
-                "המחשבון מחשב כל מסלול חודש אחר חודש, על ההפקדות שלכם. כל הפקדה מגיעה בתחילת החודש ומחכה בשקלים עד הקנייה הבאה. בקנייה הכסף מומר (אם קונים בחו״ל) ומושקע; אם הבנק או בית ההשקעות לא מוכר שברי מניה, נקנות רק מניות שלמות. דמי המשמרת והטיפול (אחוז מהתיק או סכום קבוע) משולמים כל חודש מהשקלים. בסוף הכול נמכר, מומר חזרה לשקלים, ומשולם מס על הרווח; הסכום שנשאר קובע את הדירוג בטבלה. אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי התיק, בלי עמלת מכירה ובלי מס.",
+                "המחשבון מחשב כל מסלול חודש אחר חודש, על ההפקדות שלכם. כל הפקדה מגיעה בתחילת החודש ומחכה בשקלים עד הקנייה הבאה. בקנייה הכסף מומר (אם קונים בחו״ל) ומושקע; אם הבנק או בית ההשקעות לא מוכר שברי מניה, נקנות רק מניות שלמות. דמי המשמרת והטיפול (אחוז מהתיק או סכום קבוע) משולמים כל חודש מהשקלים; כשאין שקלים בחשבון (למשל כשמפקידים סכום אחד בלבד), הם משולמים מכסף שלכם, והמחשבון מוסיף להם את התשואה שהכסף הזה היה מרוויח בתיק. בסוף הכול נמכר, מומר חזרה לשקלים, ומשולם מס על הרווח; הסכום שנשאר קובע את הדירוג בטבלה. אם בוחרים להמשיך להחזיק, הטבלה מדרגת לפי שווי התיק, בלי עמלת מכירה ובלי מס.",
             ),
             paragraph(
                 "A provident fund for investment, a study fund or a savings policy is run the \
@@ -1866,6 +2048,15 @@ pub fn about(lang: Lang) -> About {
         )],
         sources: vec![],
         items: vec![
+            item(
+                lang,
+                "What the ETF or index fund itself charges, its yearly fee taken from the \
+                 fund: it's paid wherever it's bought, so it doesn't change which broker is \
+                 cheapest. A provident fund's or a policy's fee includes managing the \
+                 investments, so beside one, look the fund's fee up apart, on its \
+                 manager's site.",
+                "דמי הניהול של קרן הסל או הקרן המחקה עצמה, שיורדים מהקרן כל שנה: משלמים אותם בכל מקום שקונים אותה, ולכן הם לא משנים איזה בנק או בית השקעות זול יותר. דמי הניהול של קופה או פוליסה כוללים את ניהול ההשקעות, ולכן כשמשווים אליהן, בדקו את דמי הניהול של הקרן בנפרד, באתר של מנהל הקרן.",
+            ),
             item(
                 lang,
                 "Tax on dividends along the way: a quarter of each payment at a broker, for \
@@ -1994,6 +2185,7 @@ pub fn about(lang: Lang) -> About {
     };
     About {
         sections: vec![method, left_out, sources],
+        accessibility: accessibility(lang),
     }
 }
 
@@ -2407,7 +2599,7 @@ mod tests {
         );
         assert_eq!(
             tariffs::leumi().tariff_date_text(Lang::En),
-            "Tariff of 29/06/2026"
+            "Tariff of 01/10/2026"
         );
         assert_eq!(
             tariffs::altshuler().tariff_date_text(Lang::En),
@@ -2453,6 +2645,32 @@ mod tests {
         assert_eq!(
             titles,
             ["How the numbers are made", "What isn't counted", "Sources"]
+        );
+        // How old the numbers are, under the tables.
+        assert_eq!(
+            data_dates(Lang::En),
+            "Tariffs of 02/04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the data of \
+             08/2026"
+        );
+        assert_eq!(
+            short_term_data_dates(Lang::He),
+            "ריביות הפיקדונות לפי נתוני 09/2026\u{a0}· דמי הניהול בקרנות הכספיות לפי נתוני 30/09/2026"
+        );
+        // The footer's accessibility statement: the same for the short term,
+        // ending with where to report what doesn't work.
+        assert_eq!(
+            about.accessibility,
+            about_short_term(Lang::En).accessibility
+        );
+        assert_eq!(about.accessibility.title, "Accessibility");
+        let last = about.accessibility.items.last().unwrap();
+        assert_eq!(last.url.as_deref(), Some(ISSUES));
+        // First what most changes a comparison with a fund: the fee inside
+        // the ETF or index fund, which a fund's own fee includes.
+        assert!(
+            about.sections[1].items[0]
+                .text
+                .starts_with("What the ETF or index fund itself charges")
         );
         let sources = &about.sections[2];
         assert!(sources.paragraphs[0].starts_with("Checked 29/09/2026"));
@@ -2675,6 +2893,22 @@ mod tests {
             note(&gemel, &at_once(dec!(2000))).as_deref(),
             Some("Taxed like a broker; no tax as a pension from 60")
         );
+        // ₪2,004,301 ÷ 200 = ₪10,021.5, about ₪10,000 a month; nothing
+        // taken at once, or before the pension opens.
+        let pension = monthly(dec!(2000), 40, Withdrawal::Pension);
+        assert_eq!(
+            gemel
+                .pension_note(&pension, dec!(2004301), Lang::He)
+                .as_deref(),
+            Some("יתרה לקצבה: כ\u{2011}₪10,000 בחודש לכל החיים, במקדם המרה של כ\u{2011}200")
+        );
+        assert_eq!(
+            gemel.pension_note(&at_once(dec!(2000)), dec!(2004301), Lang::En),
+            None
+        );
+        let early = monthly(dec!(2000), 39, Withdrawal::Pension);
+        assert_eq!(gemel.pension_note(&early, dec!(2004301), Lang::En), None);
+        assert_eq!(study.pension_note(&pension, dec!(2004301), Lang::En), None);
         assert_eq!(
             note(&gemel, &monthly(dec!(2000), 40, Withdrawal::Pension)).as_deref(),
             Some("No tax: taken as a pension from 60")
@@ -2903,6 +3137,28 @@ mod tests {
         assert_eq!(part_single.price.text, single.tracks[0].name.en);
     }
 
+    /// Only a study fund says who can open it: anyone can open the rest.
+    #[test]
+    fn only_a_study_fund_says_who_can_join() {
+        for broker in crate::listed() {
+            for plan in &broker.plans {
+                let said = plan.who_can_join(Lang::He);
+                assert_eq!(
+                    said.is_some(),
+                    plan.vehicle == Vehicle::StudyFund,
+                    "{}",
+                    plan.name.en
+                );
+            }
+        }
+        let study = crate::funds::all()
+            .into_iter()
+            .flat_map(|broker| broker.plans)
+            .find(|plan| plan.vehicle == Vehicle::StudyFund)
+            .unwrap();
+        assert_eq!(study.who_can_join(Lang::He), Some("דרך מעסיק, או לעצמאים"));
+    }
+
     #[test]
     fn the_fees_warning_needs_fees_beyond_the_deposits() {
         use crate::simulation::{Fees, Outcome};
@@ -2920,6 +3176,7 @@ mod tests {
             yearly_cost: Percent::default(),
             tax: Decimal::ZERO,
             after_tax: Decimal::ZERO,
+            owed_growth: Decimal::ZERO,
         };
         assert_eq!(
             outcome.warning(dec!(200), Lang::En),
@@ -3211,6 +3468,7 @@ pub fn about_short_term(lang: Lang) -> About {
     };
     About {
         sections: vec![method, left_out, sources],
+        accessibility: accessibility(lang),
     }
 }
 
@@ -3243,7 +3501,7 @@ mod short_term_tests {
             groups,
             [
                 "קרן כספית\u{a0}· דמי הניהול, לפי נתוני 30/09/2026",
-                "פיקדון בריבית קבועה\u{a0}· הריביות שניתנו, לפי נתוני 08/2026",
+                "פיקדון בריבית קבועה\u{a0}· הריביות שניתנו, לפי נתוני 09/2026",
                 "ריבית בנק ישראל",
             ]
         );

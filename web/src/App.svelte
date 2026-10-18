@@ -18,7 +18,7 @@
   import ValueChart from './lib/ValueChart.svelte'
   import WarningSign from './lib/WarningSign.svelte'
   import { askSweep } from './lib/sweeper'
-  import { percent, shekels } from './lib/format'
+  import { compactPercent, dateText, percent, shekels } from './lib/format'
   import { HeldWhileTyping } from './lib/held.svelte'
   import { duration, easeOut, glideHeight, reducedMotion, reveal, SETTLE } from './lib/motion'
   import { t } from './lib/text'
@@ -85,6 +85,32 @@
   /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
   const best = $derived(app.best)
+  /** How old the numbers are, under each table: the core's line, and
+   * today's exchange rates where something is converted. */
+  const longDates = $derived(
+    app.exchange !== 'Tlv' && app.ratesStatus.kind === 'downloaded'
+      ? `${app.dataDates}\u00a0· ${t.ratesOf(dateText(app.ratesStatus.date))}`
+      : app.dataDates,
+  )
+  const shortDates = short.dataDates
+  /** What the summary's amounts rest on, in a line under it. While a field
+   * is being retyped, the last one stays, with the faded results. */
+  let lastLong = ''
+  const longAssumptions = $derived.by(() => {
+    const { yearlyReturnPercent: yearly, inflationPercent: inflation } = app.inputs
+    if (yearly == null || inflation == null) return lastLong
+    lastLong = t.assumptions(compactPercent(yearly), compactPercent(inflation), app.sellAtEnd)
+    return lastLong
+  })
+  let lastShort = ''
+  const shortAssumptions = $derived.by(() => {
+    const { ratePercent: rate, inflationPercent: inflation } = short.inputs
+    if (rate == null || inflation == null) return lastShort
+    lastShort = t.shortAssumptions(compactPercent(rate), compactPercent(inflation))
+    return lastShort
+  })
+  /** Where to report a mistake: the accessibility statement's last link. */
+  const issues = $derived(app.aboutShown.accessibility.items.at(-1)?.url)
   /** The line about other deposits keeps its words while a deposit is being
    * typed: words for 2, 25 and 250 took one line and then two, and moved the
    * page with every keystroke. */
@@ -231,11 +257,15 @@
                       />{/if}</span
                   >
                   <span class="notes">
+                    <!-- Who can open it, first: the rest means nothing to someone who can't. -->
+                    {#if best.whoCanJoin}<span class="note">{best.whoCanJoin}</span>{/if}
                     {#if app.sellAtEnd}
                       <span class="note"
                         >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
                       >
                     {/if}
+                    <!-- What's left is a balance, which buys this pension. -->
+                    {#if best.pensionNote}<span class="note">{best.pensionNote}</span>{/if}
                     <span class="note"
                       >{t.lostAndYearly(
                         shekels(bestLost.current),
@@ -254,6 +284,7 @@
                 >
               </div>
             </div>
+            <p class="assumptions">{longAssumptions}</p>
           </div>
 
           {#if app.comparison.results.length === 0}
@@ -266,6 +297,11 @@
                 <div class="scrolls">
                   <ResultsTable {app} results={app.comparison.results} />
                 </div>
+                <!-- The same under every broker's plan, so said once. -->
+                {#if app.comparison.usEstateTax}
+                  <p class="kind-flag">⚠ {app.comparison.usEstateTax}</p>
+                {/if}
+                <p class="dates">{longDates}</p>
               </section>
             </div>
 
@@ -341,6 +377,20 @@
                   <span class="notes">
                     <span class="note">{t.netYearly(percent(shortBest.outcome.yearlyAfterTaxPercent))}</span>
                     <span class="note">{t.canTakeOut(shortBest.place.info.liquidityName)}</span>
+                    <!-- Locked until the end: what can come out any day, and for how much less. -->
+                    {#if short.bestAnyDay?.outcome}
+                      {@const anyDay = {
+                        label: short.bestAnyDay.place.label,
+                        outcome: short.bestAnyDay.outcome,
+                      }}
+                      <span class="note any-day"
+                        >{t.anyDayInstead(
+                          anyDay.label,
+                          shekels(anyDay.outcome.afterTax),
+                          shekels(shortBest.outcome.afterTax - anyDay.outcome.afterTax),
+                        )}</span
+                      >
+                    {/if}
                   </span>
                 </div>
               {/if}
@@ -350,6 +400,7 @@
                 <span class="notes"><span class="note">{t.noCostsNoTax}</span></span>
               </div>
             </div>
+            <p class="assumptions">{shortAssumptions}</p>
           </div>
 
           {#if comparison.results.length === 0}
@@ -364,6 +415,7 @@
                 {#each flaggedKinds(comparison.results) as kind (kind.name)}
                   <p class="kind-flag">⚠ <bdi>{kind.name}</bdi>: <bdi>{kind.mayCostMore}</bdi></p>
                 {/each}
+                <p class="dates">{shortDates}</p>
               </section>
             </div>
 
@@ -401,6 +453,18 @@
     </main>
   </div>
 {/if}
+
+<!-- What the page is and isn't, and how to reach whoever made it. -->
+<footer class="page-footer">
+  <span>{t.notAdvice}</span>
+  <span>{t.notAffiliated}</span>
+  {#if issues}<a href={issues} target="_blank" rel="noreferrer">{t.reportAMistake} ↗</a>{/if}
+  <button
+    class="link"
+    onclick={() => (app.details = { kind: 'about', section: app.aboutShown.sections.length })}
+    >{t.accessibilityStatement}</button
+  >
+</footer>
 
 <svelte:window
   onscroll={placeBar}
@@ -447,6 +511,18 @@
   .about {
     font-size: 0.9rem;
   }
+  /* Quiet: read once, by whoever looks for it. */
+  .page-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 16px;
+    padding: 8px 24px 32px;
+    color: var(--weak);
+    font-size: 0.8rem;
+  }
+  .page-footer a {
+    color: var(--accent);
+  }
   .separator {
     margin: 0 8px;
   }
@@ -492,6 +568,9 @@
     }
     .top {
       padding: 16px 12px 0;
+    }
+    .page-footer {
+      padding: 8px 12px 24px;
     }
   }
 
@@ -605,6 +684,23 @@
   .kind-flag {
     margin: 4px 10px 8px;
     color: var(--warning);
+    font-size: 0.75rem;
+  }
+  .any-day {
+    margin-top: 4px;
+    padding: 4px 8px;
+    border-radius: 8px;
+    background: var(--good-tint);
+    color: var(--text);
+  }
+  .assumptions {
+    margin: 8px 2px 0;
+    color: var(--weak);
+    font-size: 0.8rem;
+  }
+  .dates {
+    margin: 4px 10px 8px;
+    color: var(--weak);
     font-size: 0.75rem;
   }
   .scrolls {

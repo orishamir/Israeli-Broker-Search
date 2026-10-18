@@ -14,11 +14,11 @@ use crate::{Caveat, Page, Percent, TariffDate, Text};
 /// When the rates were last taken from the Bank of Israel's figures.
 #[must_use]
 pub fn checked() -> Date {
-    date!(2026 - 10 - 01)
+    date!(2026 - 10 - 18)
 }
 
 /// The month the deposits were opened in.
-const DATA_OF: TariffDate = TariffDate::Month(date!(2026 - 08 - 01));
+const DATA_OF: TariffDate = TariffDate::Month(date!(2026 - 09 - 01));
 
 fn t(en: &'static str, he: &'static str) -> Text {
     Text::new(en, he)
@@ -72,16 +72,6 @@ fn the_figures() -> Page {
     )
 }
 
-fn the_cut() -> Page {
-    source(
-        t(
-            "ynet on the cut to 3.25% (1 September 2026)",
-            "ynet על הורדת הריבית ל-3.25% (1 בספטמבר 2026)",
-        ),
-        "https://www.ynet.co.il/economy/article/cdo59v3t1",
-    )
-}
-
 fn calcalist() -> Page {
     source(
         t(
@@ -126,7 +116,7 @@ fn open_to_anyone(en: &'static str, he: &'static str) -> Vec<Caveat> {
     vec![Caveat::published(t(en, he)).source(&calcalist())]
 }
 
-/// The banks' deposits, as the Bank of Israel published them for August 2026.
+/// The banks' deposits, as the Bank of Israel published them for September 2026.
 #[must_use]
 #[allow(clippy::too_many_lines, reason = "the banks' data")]
 pub fn kind() -> Kind {
@@ -138,7 +128,7 @@ pub fn kind() -> Kind {
             "What households got on average for fixed-rate deposits, at all the banks together.",
             "מה שמשקי בית קיבלו בממוצע על פיקדונות בריבית קבועה, בכל הבנקים יחד.",
         ),
-        pays: Pays::Fixed(rates![1.84 2.67 2.93 3.6 3.35 2.82 3.12]),
+        pays: Pays::Fixed(rates![1.76 2.54 2.73 3.54 3.22 2.93 3.01]),
         caveats: vec![],
         compared_at_first: true,
     };
@@ -147,28 +137,28 @@ pub fn kind() -> Kind {
             t("Bank Hapoalim", "בנק הפועלים"),
             t("Hapoalim", "הפועלים"),
             true,
-            rates![2.12 2.54 3.53 3.76 2.92 3.04 3.11],
+            rates![1.95 2.26 3.37 3.77 2.83 3.1 2.96],
             vec![],
         ),
         bank(
             t("Bank Leumi", "בנק לאומי"),
             t("Leumi", "לאומי"),
             true,
-            rates![1.78 3.22 2.85 3.75 3.62 2.62 2.55],
+            rates![1.52 2.93 2.8 3.66 3.86 2.93 2.65],
             vec![],
         ),
         bank(
             t("Israel Discount Bank", "בנק דיסקונט"),
             t("Discount", "דיסקונט"),
             true,
-            rates![1.83 2.38 2.55 3.49 2.55 1.73 1.67],
+            rates![1.97 2.32 2.42 3.51 2.43 2.45 1.72],
             vec![],
         ),
         bank(
             t("Mizrahi-Tefahot Bank", "בנק מזרחי\u{2011}טפחות"),
             t("Mizrahi", "מזרחי"),
             true,
-            rates![1.74 1.87 1.47 3.46 3.5 3.44 3.12],
+            rates![1.63 1.85 1.41 3.3 3.35 3.02 3.1],
             open_to_anyone(
                 "Mizrahi-Tefahot opens a deposit even for someone without a current account \
                  with it, as the Bank of Jerusalem does.",
@@ -179,35 +169,35 @@ pub fn kind() -> Kind {
             t("First International Bank", "הבנק הבינלאומי"),
             t("First International", "הבינלאומי"),
             true,
-            rates![1.44 2.13 3.35 3.42 3.58 2.84 3.09],
+            rates![1.55 2.49 2.3 3.3 3.29 2.81 2.95],
             vec![],
         ),
         bank(
             t("Bank Yahav", "בנק יהב"),
             t("Yahav", "יהב"),
             false,
-            rates![0.3 0.61 1.43 3.1 3.82 2.2 3.11],
+            rates![0.29 0.29 1.79 2.91 3.7 2.2 2.82],
             vec![],
         ),
         bank(
             t("Mercantile Bank", "בנק מרכנתיל"),
             t("Mercantile", "מרכנתיל"),
             false,
-            rates![2.65 3.22 3.17 3.27 3.42 2.62 1.14],
+            rates![2.84 2.99 3.44 2.9 3.18 2.57 1.38],
             vec![],
         ),
         bank(
             t("Bank Massad", "בנק מסד"),
             t("Massad", "מסד"),
             false,
-            rates![2.13 2.56 2.97 2.95 3.07 2.1 -],
+            rates![1.8 2.75 3.04 2.79 3.15 1.88 -],
             vec![],
         ),
         bank(
             t("Bank of Jerusalem", "בנק ירושלים"),
             t("Jerusalem", "ירושלים"),
             false,
-            rates![2.69 3.06 3.69 3.87 3.84 - 3.95],
+            rates![2.51 2.83 3.43 3.71 3.73 3.79 3.81],
             open_to_anyone(
                 "The Bank of Jerusalem opens a deposit even for someone without a current \
                  account with it, as Mizrahi-Tefahot does.",
@@ -242,8 +232,9 @@ pub fn kind() -> Kind {
              it's opened that doesn't change. It suits money you're sure you won't need before \
              a known date, especially when you expect the Bank of Israel to cut its rate. The \
              downside: the money is locked until the end, and taking it out early usually \
-             loses the interest. And banks mostly pay less than the Bank of Israel's rate.",
-            "נותנים לבנק סכום אחד לתקופה שבוחרים מראש, בריבית שנקבעת ביום הפתיחה ולא משתנה. מתאים לכסף שבטוח לא תצטרכו עד תאריך ידוע, במיוחד כשמצפים שריבית בנק ישראל תרד. החיסרון: הכסף נעול עד הסוף, ויציאה מוקדמת מפסידה בדרך כלל את הריבית. ובנקים משלמים לרוב פחות מריבית בנק ישראל.",
+             loses the interest. And the rate depends on the bank and the term, and can be \
+             well below the Bank of Israel's, especially for short terms.",
+            "נותנים לבנק סכום אחד לתקופה שבוחרים מראש, בריבית שנקבעת ביום הפתיחה ולא משתנה. מתאים לכסף שבטוח לא תצטרכו עד תאריך ידוע, במיוחד כשמצפים שריבית בנק ישראל תרד. החיסרון: הכסף נעול עד הסוף, ויציאה מוקדמת מפסידה בדרך כלל את הריבית. והריבית תלויה בבנק ובתקופה, ויכולה להיות נמוכה בהרבה מריבית בנק ישראל, במיוחד בתקופות קצרות.",
         ),
         data_of: DATA_OF,
         checked: checked(),
@@ -251,21 +242,12 @@ pub fn kind() -> Kind {
         caveats: vec![
             Caveat::published(t(
                 "Each bank's rate is the average on the fixed-rate, unlinked shekel deposits \
-                 households opened with it in August 2026, as it reports them to the Bank of \
+                 households opened with it in September 2026, as it reports them to the Bank of \
                  Israel. It's what depositors got on average, not a rate on offer: yours may \
                  be higher or lower, and some customers get more than others.",
-                "הריבית של כל בנק היא הממוצע על הפיקדונות בריבית קבועה, בשקלים ולא צמודים, שמשקי בית פתחו בו באוגוסט 2026, כפי שהבנק מדווח לבנק ישראל. זה מה שמפקידים קיבלו בממוצע, ולא ריבית שמוצעת לכם: אצלכם היא יכולה להיות גבוהה או נמוכה יותר, ויש לקוחות שמקבלים יותר.",
+                "הריבית של כל בנק היא הממוצע על הפיקדונות בריבית קבועה, בשקלים ולא צמודים, שמשקי בית פתחו בו בספטמבר 2026, כפי שהבנק מדווח לבנק ישראל. זה מה שמפקידים קיבלו בממוצע, ולא ריבית שמוצעת לכם: אצלכם היא יכולה להיות גבוהה או נמוכה יותר, ויש לקוחות שמקבלים יותר.",
             ))
             .sources(&[&figures, &the_figures()]),
-            Caveat::may_cost_more(
-                t(
-                    "These are August's rates, when the Bank of Israel's rate was 3.5%. It has \
-                     been 3.25% since 1 September, so a deposit opened now may pay less.",
-                    "אלה הריביות של אוגוסט, כשריבית בנק ישראל הייתה 3.5%. מ-1 בספטמבר היא 3.25%, ולכן פיקדון שנפתח היום עשוי לשלם פחות.",
-                ),
-                t("August's rates, before a cut", "ריביות אוגוסט, לפני הורדת ריבית"),
-            )
-            .sources(&[&the_figures(), &the_cut()]),
             Caveat::reading(
                 t(
                     "The Bank of Israel groups deposits by term: up to a month, 1 to 3 months, \
@@ -316,5 +298,26 @@ pub fn kind() -> Kind {
             .source(&section_125c()),
         ],
         places: std::iter::once(average).chain(banks).collect(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The Bank of Israel publishes a month's figures about the 10th of the
+    /// next: September's on 11 October 2026. Fails once the month after
+    /// `DATA_OF` has been out about five days, so a stale rate can't rank the
+    /// banks unnoticed: run `policies/deposit-rates.py`.
+    #[test]
+    fn the_rates_are_no_more_than_a_month_behind() {
+        let (TariffDate::Month(month) | TariffDate::Day(month)) = DATA_OF;
+        let today = time::OffsetDateTime::now_utc().date();
+        let index = |date: Date| date.year() * 12 + i32::from(u8::from(date.month()));
+        let behind = index(today) - index(month);
+        assert!(
+            behind < 2 || (behind == 2 && today.day() < 15),
+            "the deposits' rates are of {month}: the Bank of Israel has published newer ones"
+        );
     }
 }
