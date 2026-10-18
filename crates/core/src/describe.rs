@@ -632,30 +632,62 @@ pub fn caveat_groups(caveats: &[&Caveat], lang: Lang) -> Vec<CaveatGroup> {
         .collect()
 }
 
-/// `caveats` grouped as [`caveat_groups`] does, for a short-term place: a
-/// number on the place's side means less left for the saver, not a fee
-/// that may cost more, and there's no ✎ to change it with.
+/// `caveats` grouped as [`caveat_groups`] does, for a short-term place,
+/// explained in the short term's terms: its numbers come from the Bank of
+/// Israel's figures and the funds' reports, not a tariff, there's no ✎ to
+/// change them with, and a number on the place's side means less left for
+/// the saver, not a fee that may cost more.
 #[must_use]
 pub fn place_caveat_groups(caveats: &[&Caveat], lang: Lang) -> Vec<CaveatGroup> {
     caveat_groups(caveats, lang)
         .into_iter()
-        .map(|group| match group.kind {
-            CaveatKind::MayCostMore => CaveatGroup {
-                label: lang
+        .map(|group| {
+            let label = match group.kind {
+                CaveatKind::MayCostMore => lang
                     .pick("Assumed, may leave less", "הערכה, ייתכן שיישאר פחות")
                     .to_owned(),
-                explanation: lang
-                    .pick(
-                        "The number is an estimate on the place's side, so what's really \
-                         left for you may be less than shown.",
-                        "המספר הוא הערכה לטובת האפיק, ולכן ייתכן שבפועל יישאר לכם פחות ממה שמוצג.",
-                    )
-                    .to_owned(),
+                _ => group.label,
+            };
+            CaveatGroup {
+                label,
+                explanation: place_explanation(group.kind, lang).to_owned(),
                 ..group
-            },
-            _ => group,
+            }
         })
         .collect()
+}
+
+/// What a kind of caveat means for a short-term place (see
+/// [`place_caveat_groups`]).
+fn place_explanation(kind: CaveatKind, lang: Lang) -> &'static str {
+    match kind {
+        CaveatKind::MayCostMore => lang.pick(
+            "The number is an estimate on the place's side, so what's really left for you \
+             may be less than shown.",
+            "המספר הוא הערכה לטובת האפיק, ולכן ייתכן שבפועל יישאר לכם פחות ממה שמוצג.",
+        ),
+        CaveatKind::AtMost => lang.pick(
+            "The number is an estimate on the cautious side, so what's really left for you \
+             can only be more than shown.",
+            "המספר הוא הערכה זהירה, ולכן בפועל יכול רק להישאר לכם יותר ממה שמוצג.",
+        ),
+        CaveatKind::Reading => lang.pick(
+            "The figures don't say this outright. This is how they were read, and what \
+             supports the reading: that a money market fund earns about the Bank of Israel's \
+             rate, for example, from the returns the funds report.",
+            "הנתונים לא אומרים את זה במפורש. כך הבנו אותם, ועל סמך מה: למשל, שקרן כספית מרוויחה בערך את ריבית בנק ישראל, לפי התשואות שהקרנות מדווחות.",
+        ),
+        CaveatKind::NotCounted => lang.pick(
+            "A real cost the app leaves out, and why: a fee for buying a fund that depends on \
+             where it's bought, for example, rather than on the fund.",
+            "עלות אמיתית שהמחשבון לא סופר, והסיבה: למשל, עמלה על קניית קרן שתלויה במקום שבו קונים אותה, ולא בקרן.",
+        ),
+        CaveatKind::Published => lang.pick(
+            "What the Bank of Israel's figures, the funds' reports or a bank's site say. \
+             Nothing is uncertain; it's worth knowing before you choose.",
+            "כך כתוב בנתונים של בנק ישראל, בדיווחים של הקרנות או באתר של הבנק. אין כאן ספק, אבל כדאי לדעת לפני שבוחרים.",
+        ),
+    }
 }
 
 /// One fee, named and explained, and what a plan charges for it.
@@ -3670,14 +3702,18 @@ mod short_term_tests {
         let groups = caveat_groups(&[&published, &may_cost_more], Lang::En);
         let kinds: Vec<CaveatKind> = groups.iter().map(|group| group.kind).collect();
         assert_eq!(kinds, [CaveatKind::MayCostMore, CaveatKind::Published]);
-        // A short-term place says what it means for the saver.
+        // A short-term place explains every kind in its own terms: no
+        // tariff, no ✎, and the same caveats otherwise.
         let place = place_caveat_groups(&[&published, &may_cost_more], Lang::He);
-        assert_eq!(place[0].label, "הערכה, ייתכן שיישאר פחות");
-        assert!(!place[0].explanation.contains('✎'));
-        assert_eq!(place[1], groups_he(&published));
-    }
-
-    fn groups_he(caveat: &Caveat) -> CaveatGroup {
-        caveat_groups(&[caveat], Lang::He).remove(0)
+        let long = caveat_groups(&[&published, &may_cost_more], Lang::He);
+        assert_eq!(place.len(), long.len());
+        for (place, long) in place.iter().zip(&long) {
+            assert_eq!(place.caveats.len(), long.caveats.len());
+            assert_ne!(place.explanation, long.explanation, "{:?}", place.kind);
+        }
+        for kind in CaveatKind::iter() {
+            let text = place_explanation(kind, Lang::He);
+            assert!(!text.contains('✎') && !text.contains("תעריפון"), "{kind:?}");
+        }
     }
 }
