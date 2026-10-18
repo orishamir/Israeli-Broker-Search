@@ -20,7 +20,7 @@ use broker_fees::examples;
 use broker_fees::short_term::{self, Liquidity, Pays, Place, Term};
 use broker_fees::simulation::{self, Fees, InvalidScenario, NotOffered, Outcome, Scenario, Swept};
 use broker_fees::yours::{
-    Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, ManagementFields,
+    self, Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, ManagementFields,
     MarkupFields, PriceKind, PriceList, SimpleFees, TradeFields,
 };
 use broker_fees::{
@@ -256,8 +256,11 @@ pub struct PlanInfo {
 
 impl PlanInfo {
     fn new(plan: &Plan, lang: Lang) -> Self {
+        // Each row as far as it's used: an offer's rows replace part of
+        // the full tariff's that follow them.
         let trade_rows = |rows: &[TradeFee]| {
-            rows.iter()
+            yours::trade_rows_as_charged(rows)
+                .iter()
                 .map(|row| TariffRow {
                     covers: row.coverage(lang),
                     price: row.price.price_text(lang),
@@ -290,8 +293,7 @@ impl PlanInfo {
                     })
                     .collect(),
                 standing_orders: trade_rows(&plan.standing_orders),
-                custody: plan
-                    .custody
+                custody: yours::custody_rows_as_charged(&plan.custody)
                     .iter()
                     .map(|row| TariffRow {
                         covers: row.coverage(lang),
@@ -607,12 +609,13 @@ impl Named for Problem {
         match self {
             Problem::NoSuchPlan => lang.pick("there's no such plan", "אין מסלול כזה"),
             Problem::NoYears => lang.pick("invest for at least a year", "השקיעו לפחות שנה אחת"),
-            Problem::NeverBuys => {
-                lang.pick("buy at least every 12 months", "קנו לפחות פעם ב-12 חודשים")
-            }
+            Problem::NeverBuys => lang.pick(
+                "buy at least every 12 months",
+                "קנו לפחות פעם ב\u{2011}12 חודשים",
+            ),
             Problem::SharePriceZero => lang.pick(
                 "the share price must be more than 0",
-                "מחיר המניה חייב להיות גדול מ-0",
+                "מחיר המניה חייב להיות גדול מ\u{2011}0",
             ),
             Problem::InflationTooLow => lang.pick(
                 "inflation can't be −100% or below",
@@ -620,7 +623,7 @@ impl Named for Problem {
             ),
             Problem::RatesNotPositive => lang.pick(
                 "exchange rates must be more than 0",
-                "שערי החליפין חייבים להיות גדולים מ-0",
+                "שערי החליפין חייבים להיות גדולים מ\u{2011}0",
             ),
         }
     }
@@ -2737,7 +2740,7 @@ mod tests {
         assert_eq!(Choice::new(Exchange::Usa, Lang::He).english_name, None);
         assert_eq!(
             BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
-            "תעריפון מ-01/10/2026"
+            "תעריפון מ\u{2011}01/10/2026"
         );
     }
 

@@ -133,7 +133,7 @@ impl InvalidScenario {
             ),
             InvalidScenario::DepositGrowthBelowMinus100 => lang.pick(
                 "the deposits can't shrink by more than 100% a year",
-                "ההפקדות לא יכולות לקטון ביותר מ-100% בשנה",
+                "ההפקדות לא יכולות לקטון ביותר מ\u{2011}100% בשנה",
             ),
             InvalidScenario::TooLarge => lang.pick(
                 "the deposits would grow too large to calculate",
@@ -958,13 +958,16 @@ pub struct Sweep {
     pub amounts: Vec<Decimal>,
     /// By plan, in the order given to [`sweep`], then by amount. `None`
     /// where the plan can't be used: it doesn't offer the security on that
-    /// exchange, at any amount, or the deposits are over its ceiling.
+    /// exchange, at any amount, the deposits are over its ceiling, or the
+    /// one-time deposit is under its minimum.
     pub costs: Vec<Vec<Option<Percent>>>,
 }
 
 /// Runs each of `plans` on `scenario` with the `swept` deposit at each of
 /// [`Swept::amounts`], leaving out amounts the scenario's growth would take
-/// beyond what can be calculated.
+/// beyond what can be calculated. A plan has no cost where its account
+/// can't be opened with the one-time deposit: the line about other deposits
+/// mustn't call it the cheapest there.
 #[must_use]
 pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept: Swept) -> Sweep {
     let amounts: Vec<Decimal> = swept
@@ -978,7 +981,11 @@ pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept:
             amounts
                 .iter()
                 .map(|&amount| {
-                    simulate(plan, &swept.scenario_with(scenario, amount), rates)
+                    let scenario = swept.scenario_with(scenario, amount);
+                    if !plan.opens_with(scenario.first_deposit) {
+                        return None;
+                    }
+                    simulate(plan, &scenario, rates)
                         .map(|outcome| outcome.yearly_cost)
                         .ok()
                 })

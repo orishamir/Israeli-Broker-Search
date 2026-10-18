@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from 'svelte/animate'
   import type { ShortTermOutcomeData } from './core/core'
-  import { compactPercent, percent, shekels } from './format'
+  import { percent, shekels, typedPercent } from './format'
   import { duration, easeOut, SETTLE } from './motion'
   import type { PlaceResult, ShortTermState } from './short-term.svelte'
   import { t } from './text'
@@ -37,7 +37,7 @@
     },
     {
       title: t.tax,
-      explanation: t.shortTaxTip(compactPercent(short.inputs.inflationPercent ?? 0)),
+      explanation: t.shortTaxTip(typedPercent(short.inputs.inflationPercent ?? 0)),
       text: (outcome) => (outcome.tax === 0 ? t.noTax : shekels(outcome.tax)),
     },
   ])

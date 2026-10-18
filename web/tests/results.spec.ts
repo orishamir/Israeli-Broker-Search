@@ -437,7 +437,7 @@ test(
     await row.getByRole('button', { name: t.whatMeans(t.theCeiling) }).click()
     const { plans } = compare(await inputsOnPage(page))
     const reason = plans.at(-1)!.notOffered!
-    expect(reason).toContain('אי אפשר להפקיד יותר מ-₪83,641 בשנה')
+    expect(reason).toContain('אי אפשר להפקיד יותר מ\u2011₪83,641 בשנה')
     await expect(page.getByRole('tooltip').filter({ hasText: reason })).toBeVisible()
   },
 )

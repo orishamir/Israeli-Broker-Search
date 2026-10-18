@@ -75,6 +75,11 @@ const roundPercent = new Intl.NumberFormat('en-IL', {
 /** "0.42%", "12.50%": a yearly cost, from a number of percent (0.42). */
 export const percent = (value: number): string => twoDecimals.format(value / 100)
 
+/** A plan's yearly cost as `percent` writes it, but "less than 0.01%" for a
+ * cost that rounds to nothing: "0.00%" read as no fees at all. */
+export const yearlyCost = (value: number): string =>
+  value > 0 && value < 0.005 ? t.underAHundredth : percent(value)
+
 const percentTo = [2, 3, 4].map(
   (decimals) =>
     new Intl.NumberFormat('en-IL', {
@@ -97,3 +102,9 @@ export function percentApart(values: number[]): (value: number) => string {
 /** "0.1%", "1%", "10%", "0.42%": short enough for an axis, from a number of
  * percent. */
 export const compactPercent = (value: number): string => roundPercent.format(value / 100)
+
+const asTyped = new Intl.NumberFormat('en-IL', { style: 'percent', maximumFractionDigits: 4 })
+
+/** "3.25%", "12.5%", "2%": a percentage the user typed, as typed, from a
+ * number of percent. Rounded to two digits, 3.25% read 3.3%. */
+export const typedPercent = (value: number): string => asTyped.format(value / 100)

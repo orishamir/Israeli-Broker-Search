@@ -144,7 +144,7 @@ test("deposits over a fund's yearly ceiling leave it without numbers, saying why
   expect(row.plan.id).toBe(fund.id)
   expect(row).toMatchObject({ outcome: undefined, rank: undefined, whyNot: 'OverTheCeiling' })
   expect(row.notOffered).toBe(
-    'אי אפשר להפקיד יותר מ-₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל-₪130,000',
+    'אי אפשר להפקיד יותר מ\u2011₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u2011₪130,000',
   )
 })
 

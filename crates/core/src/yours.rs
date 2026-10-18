@@ -172,6 +172,47 @@ fn taken_by<R: Row>(rows: &[R], index: usize) -> (Vec<usize>, bool) {
     (by, all)
 }
 
+/// Each of `rows` cut down to what it really prices: the first row that
+/// covers a security on an exchange is the one used, so a later row keeps
+/// only the rest, and goes if nothing is left. A listed offer's rows come
+/// before the full tariff's it falls back to, which would otherwise show
+/// prices the offer replaced.
+fn as_charged<R: Row>(rows: &[R]) -> Vec<R> {
+    rows.iter()
+        .enumerate()
+        .flat_map(|(index, row)| {
+            let covered = row.covered();
+            let own: Vec<_> = covered
+                .iter()
+                .copied()
+                .filter(|each| {
+                    !rows[..index]
+                        .iter()
+                        .any(|earlier| earlier.covered().contains(each))
+                })
+                .collect();
+            // Kept whole, a row covering everything still says so.
+            if own.len() == covered.len() {
+                vec![row.clone()]
+            } else {
+                row.covering(&own)
+            }
+        })
+        .collect()
+}
+
+/// The trade rows as the details list them ([`as_charged`]).
+#[must_use]
+pub fn trade_rows_as_charged(rows: &[TradeFee]) -> Vec<TradeFee> {
+    as_charged(rows)
+}
+
+/// The custody rows as the details list them ([`as_charged`]).
+#[must_use]
+pub fn custody_rows_as_charged(rows: &[CustodyFee]) -> Vec<CustodyFee> {
+    as_charged(rows)
+}
+
 // ─────────────────────────── The editor's fields ───────────────────────────
 
 /// A number typed into one of the editor's fields: a percentage or an amount
@@ -1232,6 +1273,46 @@ mod tests {
             .into_iter()
             .flat_map(|broker: Broker| broker.plans)
             .collect()
+    }
+
+    /// Altshuler's offer lists its own Tel Aviv price, 0.07%, before the
+    /// full tariff's rows; listed as charged, the full tariff's ETF and
+    /// index fund rows go, and its row for stocks and bonds keeps bonds.
+    #[test]
+    fn rows_are_listed_as_charged() {
+        let offer = altshuler()
+            .plans
+            .into_iter()
+            .find(|plan| plan.name.en == "New customers")
+            .unwrap();
+        let listed: Vec<String> = trade_rows_as_charged(&offer.trading)
+            .iter()
+            .map(|row| format!("{}: {}", row.coverage(Lang::En), row.price.text(Lang::En)))
+            .collect();
+        let on_tel_aviv: Vec<&String> = listed
+            .iter()
+            .filter(|row| row.contains("Tel Aviv"))
+            .collect();
+        assert_eq!(on_tel_aviv.len(), 2, "{listed:#?}");
+        assert!(
+            on_tel_aviv[0].starts_with("Stock, ETF, Index fund on Tel Aviv: 0.07%"),
+            "{listed:#?}"
+        );
+        assert!(
+            on_tel_aviv[1].starts_with("Bond on Tel Aviv: 0.15%"),
+            "{listed:#?}"
+        );
+        // Every pair is still priced by the row the simulation uses.
+        for security in Security::iter() {
+            for exchange in Exchange::iter() {
+                let used = offer.trade_row(security, exchange).map(|row| &row.price);
+                let shown = trade_rows_as_charged(&offer.trading)
+                    .into_iter()
+                    .find(|row| row.applies_to(security, exchange))
+                    .map(|row| row.price);
+                assert_eq!(used, shown.as_ref(), "{security:?} on {exchange:?}");
+            }
+        }
     }
 
     /// Every listed plan, and each on each of its tracks.

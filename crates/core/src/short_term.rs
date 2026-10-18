@@ -38,17 +38,17 @@ pub fn todays_rate_sources() -> Vec<Page> {
     vec![
         page(
             "ynet on the cut to 3.25% (1 September 2026)",
-            "ynet על הורדת הריבית ל-3.25% (1 בספטמבר 2026)",
+            "ynet על הורדת הריבית ל\u{2011}3.25% (1 בספטמבר 2026)",
             "https://www.ynet.co.il/economy/article/cdo59v3t1",
         ),
         page(
             "Bizportal on the cut to 3.25%",
-            "ביזפורטל על הורדת הריבית ל-3.25%",
+            "ביזפורטל על הורדת הריבית ל\u{2011}3.25%",
             "https://www.bizportal.co.il/general/news/article/20040979",
         ),
         page(
             "TheMarker on the cut to 3.5% (6 July 2026)",
-            "TheMarker על הורדת הריבית ל-3.5% (6 ביולי 2026)",
+            "TheMarker על הורדת הריבית ל\u{2011}3.5% (6 ביולי 2026)",
             "https://www.themarker.com/news/macroeconomics/2026-07-06/ty-article-live/0000019f-376f-d22f-a9ff-f77f73af0000",
         ),
     ]

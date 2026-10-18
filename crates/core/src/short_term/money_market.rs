@@ -59,8 +59,9 @@ fn dolphin() -> Page {
 fn custody_rule() -> Page {
     source(
         t(
-            "The Bank of Israel on custody for makam and money market funds (28 November 2012)",
-            "בנק ישראל על דמי משמרת על מק״מ ועל קרנות כספיות (28 בנובמבר 2012)",
+            "The Bank of Israel announces the rule on custody for makam and money market \
+             funds (28 November 2012)",
+            "הודעת בנק ישראל על הכלל לדמי משמרת על מק״מ ועל קרנות כספיות (28 בנובמבר 2012)",
         ),
         "https://boi.org.il/publications/pressreleases/%D7%94%D7%9E%D7%A4%D7%A7%D7%97-%D7%A2%D7%9C-%D7%94%D7%91%D7%A0%D7%A7%D7%99%D7%9D-%D7%A0%D7%95%D7%A7%D7%98-%D7%91%D7%A6%D7%A2%D7%93%D7%99%D7%9D-%D7%9C%D7%94%D7%A4%D7%97%D7%AA%D7%AA-%D7%A2%D7%9E%D7%9C%D7%95%D7%AA-%D7%A2%D7%91%D7%95%D7%A8-%D7%9E%D7%A9%D7%A7%D7%99-%D7%94%D7%91%D7%99%D7%AA-%D7%95%D7%94%D7%A2%D7%A1%D7%A7%D7%99%D7%9D-%D7%94%D7%A7%D7%98%D7%A0%D7%99%D7%9D/",
     )
@@ -99,7 +100,7 @@ fn rate_came_down() -> [Page; 2] {
         source(
             t(
                 "ynet on the cut to 3.25% (1 September 2026)",
-                "ynet על הורדת הריבית ל-3.25% (1 בספטמבר 2026)",
+                "ynet על הורדת הריבית ל\u{2011}3.25% (1 בספטמבר 2026)",
             ),
             "https://www.ynet.co.il/economy/article/cdo59v3t1",
         ),
@@ -150,9 +151,9 @@ pub fn kind() -> Kind {
         vec![
             Caveat::may_cost_more(
                 t(
-                    "A fund less than a year old: its 0% management fee may be an opening \
-                     offer, and could rise.",
-                    "קרן בת פחות משנה: דמי ניהול של 0% עשויים להיות מבצע פתיחה, ויכולים לעלות.",
+                    "A fund less than a year old: its manager taking nothing may be an \
+                     opening offer, and the fee could rise.",
+                    "קרן בת פחות משנה: מנהל הקרן לא לוקח דבר, וזה עשוי להיות מבצע פתיחה. דמי הניהול יכולים לעלות.",
                 ),
                 t(
                     "A new fund: its fee may rise",
@@ -205,16 +206,16 @@ pub fn kind() -> Kind {
                      exactly: over the 12 months to September 2026 the largest funds returned \
                      4.1% to 4.3% after their fees, while the rate came down from 4.5% to \
                      3.25%.",
-                    "ההנחה היא שקרן מרוויחה את ריבית בנק ישראל, בממוצע על פני התקופה, לפני דמי הניהול. מה שהיא מחזיקה עוקב אחרי הריבית מקרוב, אבל לא בדיוק: ב-12 החודשים עד ספטמבר 2026 הקרנות הגדולות הרוויחו 4.1% עד 4.3% אחרי דמי הניהול, בזמן שהריבית ירדה מ-4.5% ל-3.25%.",
+                    "ההנחה היא שקרן מרוויחה את ריבית בנק ישראל, בממוצע על פני התקופה, לפני דמי הניהול. מה שהיא מחזיקה עוקב אחרי הריבית מקרוב, אבל לא בדיוק: ב\u{2011}12 החודשים עד ספטמבר 2026 הקרנות הגדולות הרוויחו 4.1% עד 4.3% אחרי דמי הניהול, בזמן שהריבית ירדה מ\u{2011}4.5% ל\u{2011}3.25%.",
                 ),
-                t("the funds' 12-month returns on Maya", "התשואות של הקרנות ל-12 חודשים במאיה"),
+                t("the funds' 12-month returns on Maya", "התשואות של הקרנות ל\u{2011}12 חודשים במאיה"),
             )
             .sources(&[&maya, &before, &after]),
             Caveat::published(t(
                 "Banks may not charge custody on a money market fund, nor on the Bank of \
-                 Israel's bills: a Bank of Israel rule since 2013, which Leumi's price list, \
-                 for one, repeats.",
-                "בנקים לא רשאים לגבות דמי משמרת על קרן כספית, וגם לא על מק״מ: כלל של בנק ישראל מ-2013, שהתעריפון של לאומי, למשל, חוזר עליו.",
+                 Israel's bills: a Bank of Israel rule in force since January 2013, which \
+                 Leumi's price list, for one, repeats.",
+                "בנקים לא רשאים לגבות דמי משמרת על קרן כספית, וגם לא על מק״מ: כלל של בנק ישראל שחל מינואר 2013, שהתעריפון של לאומי, למשל, חוזר עליו.",
             ))
             .sources(&[&custody_rule(), &leumi_tariff()]),
             Caveat::reading(

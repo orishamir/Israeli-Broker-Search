@@ -46,7 +46,7 @@ test("a plan's details are in Hebrew, tariff and caveats included", async ({ pag
   await aboutPlan(page, 'Leumi · Online')
   const dialog = page.getByRole('dialog', { name: 'אונליין' })
   await expect(dialog.getByRole('heading', { level: 2 })).toHaveText('אונליין')
-  await expect(dialog).toContainText('תעריפון מ-01/10/2026')
+  await expect(dialog).toContainText('תעריפון מ\u201101/10/2026')
   await expect(dialog).toContainText('קנייה או מכירה')
   await expect(dialog).toContainText('הפרשנות שלנו')
   await expect(dialog.getByRole('link', { name: /תעריפון \(PDF\)/ }).first()).toBeVisible()

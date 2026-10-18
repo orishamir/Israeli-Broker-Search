@@ -381,7 +381,7 @@ impl Explained for FeeKind {
             FeeKind::DepositFee => lang.pick(
                 "A share of every deposit, taken before it's invested: at 4%, ₪1,920 of a \
                  ₪2,000 deposit is invested. Few funds take one.",
-                "אחוז מכל הפקדה, שנגבה לפני שהיא מושקעת: ב-4%, מושקעים ₪1,920 מתוך הפקדה של ₪2,000. מעט קופות גובות אותם.",
+                "אחוז מכל הפקדה, שנגבה לפני שהיא מושקעת: ב\u{2011}4%, מושקעים ₪1,920 מתוך הפקדה של ₪2,000. מעט קופות גובות אותם.",
             ),
         }
     }
@@ -779,7 +779,7 @@ impl Plan {
                  deposits come to {deposits}"
             ),
             (0, Lang::He) => format!(
-                "אי אפשר להפקיד יותר מ-{ceiling} בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל-{deposits}"
+                "אי אפשר להפקיד יותר מ\u{2011}{ceiling} בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}{deposits}"
             ),
             (_, Lang::En) => format!(
                 "No more than {ceiling} can be deposited in year {} (the ceiling, raised with \
@@ -787,7 +787,7 @@ impl Plan {
                 year + 1
             ),
             (_, Lang::He) => format!(
-                "אי אפשר להפקיד יותר מ-{ceiling} בשנה ה-{} (התקרה, מעודכנת לפי האינפלציה), וההפקדות שלכם מגיעות ל-{deposits}",
+                "אי אפשר להפקיד יותר מ\u{2011}{ceiling} בשנה ה\u{2011}{} (התקרה, מעודכנת לפי האינפלציה), וההפקדות שלכם מגיעות ל\u{2011}{deposits}",
                 year + 1
             ),
         }
@@ -1248,7 +1248,7 @@ impl Broker {
             (BrokerKind::Funds, Lang::En) => format!("Fees paid, by the data of {date}"),
             (BrokerKind::Funds, Lang::He) => format!("דמי הניהול שנגבו, לפי נתוני {date}"),
             (_, Lang::En) => format!("Tariff of {date}"),
-            (_, Lang::He) => format!("תעריפון מ-{date}"),
+            (_, Lang::He) => format!("תעריפון מ\u{2011}{date}"),
         }
     }
 
@@ -1354,7 +1354,7 @@ fn checked_text(date: time::Date, lang: Lang) -> String {
         .expect("a fixed format");
     match lang {
         Lang::En => format!("Checked {date}"),
-        Lang::He => format!("נבדק ב-{date}"),
+        Lang::He => format!("נבדק ב\u{2011}{date}"),
     }
 }
 
@@ -1542,10 +1542,13 @@ impl Priced for HandlingFee {
                 format!("free for the first {} years, then {monthly}", months / 12)
             }
             (months, Lang::He) if months % 12 == 0 => {
-                format!("חינם ב-{} השנים הראשונות, ואז {monthly}", months / 12)
+                format!(
+                    "חינם ב\u{2011}{} השנים הראשונות, ואז {monthly}",
+                    months / 12
+                )
             }
             (months, Lang::En) => format!("free for the first {months} months, then {monthly}"),
-            (months, Lang::He) => format!("חינם ב-{months} החודשים הראשונים, ואז {monthly}"),
+            (months, Lang::He) => format!("חינם ב\u{2011}{months} החודשים הראשונים, ואז {monthly}"),
         };
         if self.less_trade_fees {
             text.push_str(lang.pick(
@@ -1664,8 +1667,13 @@ impl Priced for Markup {
 /// trait for a type if one of them is ours.
 #[must_use]
 pub fn format_money(money: Money) -> String {
-    // Normalized, so whole amounts have no ".00".
-    let money = Money::from_decimal(money.amount().normalize(), money.currency());
+    // Normalized, so whole amounts have no ".00"; but cents are two digits,
+    // "$7.50" rather than "$7.5". A smaller part stays: "$0.005".
+    let mut amount = money.amount().normalize();
+    if amount.scale() == 1 {
+        amount.rescale(2);
+    }
+    let money = Money::from_decimal(amount, money.currency());
     let params = Params {
         symbol: Some(money.currency().symbol),
         ..Params::default()
@@ -2007,7 +2015,7 @@ pub fn about(lang: Lang) -> About {
                  ₪100 to ₪32,000 a month (or, with no monthly deposit, from ₪1,000 to \
                  ₪4,600,000 at once), to show where their ranking by fees flips: a plan with \
                  minimum fees is dear for small deposits and cheap for large ones.",
-                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ-₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ-₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
+                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ\u{2011}₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ\u{2011}₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
@@ -2088,7 +2096,7 @@ pub fn about(lang: Lang) -> About {
                  0.3% of the payment): the return is taken as total return, dividends \
                  reinvested, and 0.3% of a dividend is a few thousandths of a percent a \
                  year.",
-                "דיבידנדים, והעמלה שיש שגובים עליהם (באלטשולר ובמיטב 0.3% מהדיבידנד): המחשבון מניח תשואה כוללת, עם דיבידנדים שמושקעים מחדש, ו-0.3% מדיבידנד הם אלפיות אחוז בשנה.",
+                "דיבידנדים, והעמלה שיש שגובים עליהם (באלטשולר ובמיטב 0.3% מהדיבידנד): המחשבון מניח תשואה כוללת, עם דיבידנדים שמושקעים מחדש, ו\u{2011}0.3% מדיבידנד הם אלפיות אחוז בשנה.",
             ),
             item(
                 lang,
@@ -2210,14 +2218,15 @@ mod tests {
     use rust_decimal_macros::dec;
 
     #[test]
-    fn amounts_as_tariffs_write_them() {
+    fn amounts_have_no_zero_cents_but_two_digits_of_cents() {
         assert_eq!(format_money(usd(dec!(6750.00))), "$6,750");
         assert_eq!(format_money(usd(dec!(5.76))), "$5.76");
-        assert_eq!(format_money(ils(dec!(3.5))), "₪3.5");
+        assert_eq!(format_money(ils(dec!(3.5))), "₪3.50");
         assert_eq!(
             format_money(Money::from_decimal(dec!(2.5), iso::EUR)),
-            "€2.5"
+            "€2.50"
         );
+        assert_eq!(format_money(usd(dec!(0.005))), "$0.005");
     }
 
     fn rates() -> ExchangeRates {
@@ -2317,7 +2326,7 @@ mod tests {
         assert_eq!(etf.fees[0].parts, []);
 
         let plus18 = describe(plan("Online, 'Leumi 18+'"), Security::Etf, Exchange::Usa);
-        assert_eq!(plus18.fees[2].price.text, "0.1%, min $7.2, max $3,000");
+        assert_eq!(plus18.fees[2].price.text, "0.1%, min $7.20, max $3,000");
         assert_eq!(
             parts(&plus18.fees[2]),
             [
@@ -2770,7 +2779,7 @@ mod tests {
         );
         assert_eq!(
             fund.why_not_offered(over(0), &at_once, Lang::He),
-            "אי אפשר להפקיד יותר מ-₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל-₪100,000"
+            "אי אפשר להפקיד יותר מ\u{2011}₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}₪100,000"
         );
         // ₪6,900 a month is ₪82,800 a year; 3% more the next year is ₪85,284,
         // and at 2% inflation the ceiling is 83,641 × 1.02 = ₪85,313.82 by
@@ -2789,7 +2798,7 @@ mod tests {
         );
         assert!(
             fund.why_not_offered(over(1), &growing, Lang::He)
-                .contains("בשנה ה-2")
+                .contains("בשנה ה\u{2011}2")
         );
         // A study fund kept for less than its six years.
         let study = funds::study_fund().plans.remove(0);
@@ -3449,18 +3458,26 @@ pub fn about_short_term(lang: Lang) -> About {
         title: paragraph("The Bank of Israel's rate", "ריבית בנק ישראל"),
         sources: links(&short_term::todays_rate_sources(), lang),
     });
-    let checked = checked_text(short_term::deposits::checked(), lang);
+    // The two were checked on different days: each says its own.
+    let day = |date: time::Date| {
+        date.format(format_description!("[day]/[month]/[year]"))
+            .expect("a fixed format")
+    };
+    let (deposits, funds) = (
+        day(short_term::deposits::checked()),
+        day(short_term::money_market::checked()),
+    );
     let sources = Section {
         title: paragraph("Sources", "מקורות"),
         paragraphs: vec![match lang {
             Lang::En => format!(
-                "{checked} against the Bank of Israel's figures and the funds' reports to \
-                 the Tel Aviv Stock Exchange. The banks' rates change every month and a fund's \
-                 fee at most once a year: each place's details link to what its numbers rest \
-                 on."
+                "The banks' rates were checked on {deposits} against the Bank of Israel's \
+                 figures, and the funds' fees on {funds} against their reports to the Tel Aviv \
+                 Stock Exchange. The banks' rates change every month and a fund's fee at most \
+                 once a year: each place's details link to what its numbers rest on."
             ),
             Lang::He => format!(
-                "{checked} מול הנתונים של בנק ישראל והדיווחים של הקרנות לבורסה בתל אביב. הריביות בבנקים משתנות כל חודש, ודמי הניהול של קרן לכל היותר פעם בשנה: בפרטי כל אפיק יש קישור למה שהמספרים שלו מבוססים עליו."
+                "הריביות בבנקים נבדקו ב\u{2011}{deposits} מול הנתונים של בנק ישראל, ודמי הניהול של הקרנות ב\u{2011}{funds} מול הדיווחים שלהן לבורסה בתל אביב. הריביות בבנקים משתנות כל חודש, ודמי הניהול של קרן לכל היותר פעם בשנה: בפרטי כל אפיק יש קישור למה שהמספרים שלו מבוססים עליו."
             ),
         }],
         items: vec![],

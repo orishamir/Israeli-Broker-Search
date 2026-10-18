@@ -581,9 +581,11 @@ export class AppState {
       return core.around({
         sweep: answer.sweep,
         deposit: (this.swept === 'Monthly' ? this.monthlyDeposit : this.firstDeposit) ?? 0,
-        costs: this.comparison.results.map(({ plan, outcome }) => ({
+        // A plan the first deposit can't open isn't in the running, as in
+        // the sweep.
+        costs: this.comparison.results.map(({ plan, outcome, fits }) => ({
           key: plan.key,
-          cost: outcome?.yearlyCostPercent ?? null,
+          cost: fits ? (outcome?.yearlyCostPercent ?? null) : null,
         })),
       })
     } catch {

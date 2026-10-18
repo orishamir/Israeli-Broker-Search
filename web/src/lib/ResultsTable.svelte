@@ -3,7 +3,7 @@
   import { flip } from 'svelte/animate'
   import type { AppState, Result } from './app.svelte'
   import type { OutcomeData, WhyNot } from './core/core'
-  import { compactPercent, percent, shekels } from './format'
+  import { shekels, typedPercent, yearlyCost } from './format'
   import { duration, easeOut, reducedMotion, SETTLE } from './motion'
   import { t } from './text'
   import Tip from './Tip.svelte'
@@ -51,7 +51,7 @@
       key: 'yearly',
       title: t.yearlyCost,
       explanation: t.yearlyCostTip,
-      text: (outcome) => percent(outcome.yearlyCostPercent),
+      text: (outcome) => yearlyCost(outcome.yearlyCostPercent),
     }
     const fees: Column = {
       key: 'fees',
@@ -69,7 +69,7 @@
     const tax: Column = {
       key: 'tax',
       title: t.tax,
-      explanation: t.taxTip(compactPercent(app.inputs.inflationPercent ?? 0)) + money,
+      explanation: t.taxTip(typedPercent(app.inputs.inflationPercent ?? 0)) + money,
       text: (outcome) => (outcome.tax === 0 ? t.noTax : shekels(outcome.tax)),
     }
     return [left, lost, tax, yearly, fees, held]

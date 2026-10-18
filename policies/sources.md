@@ -238,7 +238,7 @@ and the banks' unpublished markups, come from these:
 - Mizrahi-Tefahot's young customer groups pay 0.4% on Tel Aviv "not less
   than the minimum fee": modelled with the tariff's ₪50 minimum and ₪10,750
   maximum. Whether Online's ₪45 minimum applies too isn't said (up to ₪5 on
-  orders under ₪9,600), nor whether the halved conversion fee is half of
+  orders under ₪12,500, ₪50 ÷ 0.4%), nor whether the halved conversion fee is half of
   Online's rather than the branch's; the plan takes the better of the halved
   branch fee and Online's, and says both are "at most".
 - Otsar Hahayal's standing-order notes give only a lower minimum (₪7, $4.50),
@@ -246,7 +246,7 @@ and the banks' unpublished markups, come from these:
   more" (0.64% and 0.85% by a banker). ETFs on Tel Aviv aren't in the note,
   so by standing order they're priced as Online.
 - The Otzar Habitachon club's 0.3% abroad is above Online's 0.25% on orders
-  over $15,600, and its terms allow no double benefits: the club's price is
+  over $13,000 ($39 ÷ 0.3%), and its terms allow no double benefits: the club's price is
   used throughout ("at most"). Conversion isn't in the club's terms or on
   Top Trade's page: Online's is used, since the direct-channel prices are
   the tariff's own for every customer on the website or app, not a club

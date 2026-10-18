@@ -18,7 +18,7 @@
   import ValueChart from './lib/ValueChart.svelte'
   import WarningSign from './lib/WarningSign.svelte'
   import { askSweep } from './lib/sweeper'
-  import { compactPercent, dateText, percent, shekels } from './lib/format'
+  import { dateText, percent, shekels, typedPercent, yearlyCost } from './lib/format'
   import { HeldWhileTyping } from './lib/held.svelte'
   import { duration, easeOut, glideHeight, reducedMotion, reveal, SETTLE } from './lib/motion'
   import { t } from './lib/text'
@@ -99,14 +99,14 @@
   const longAssumptions = $derived.by(() => {
     const { yearlyReturnPercent: yearly, inflationPercent: inflation } = app.inputs
     if (yearly == null || inflation == null) return lastLong
-    lastLong = t.assumptions(compactPercent(yearly), compactPercent(inflation), app.sellAtEnd)
+    lastLong = t.assumptions(typedPercent(yearly), typedPercent(inflation), app.sellAtEnd)
     return lastLong
   })
   let lastShort = ''
   const shortAssumptions = $derived.by(() => {
     const { ratePercent: rate, inflationPercent: inflation } = short.inputs
     if (rate == null || inflation == null) return lastShort
-    lastShort = t.shortAssumptions(compactPercent(rate), compactPercent(inflation))
+    lastShort = t.shortAssumptions(typedPercent(rate), typedPercent(inflation))
     return lastShort
   })
   /** Where to report a mistake: the accessibility statement's last link. */
@@ -196,7 +196,7 @@
     return {
       color: best.plan.color,
       label: best.plan.label,
-      note: t.yearlyAndLost(percent(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees)),
+      note: t.yearlyAndLost(yearlyCost(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees)),
     }
   })
 </script>
@@ -269,7 +269,7 @@
                     <span class="note"
                       >{t.lostAndYearly(
                         shekels(bestLost.current),
-                        percent(best.outcome.yearlyCostPercent),
+                        yearlyCost(best.outcome.yearlyCostPercent),
                       )}</span
                     >
                     <span class="note around" class:gone={!around.current.shown}>{around.current.text}</span>

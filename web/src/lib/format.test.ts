@@ -27,7 +27,7 @@ test('black on light colors, white on dark', () => {
 test("a chart's time is in years and months", () => {
   expect(elapsed(0)).toBe('אחרי 0 שנים')
   expect(elapsed(1)).toBe('אחרי שנה')
-  expect(elapsed(15 + 5 / 12)).toBe('אחרי 15 שנים ו-5 חודשים')
+  expect(elapsed(15 + 5 / 12)).toBe('אחרי 15 שנים ו\u20115 חודשים')
   expect(elapsed(2 + 1 / 12)).toBe('אחרי שנתיים וחודש')
   expect(elapsed(3 + 2 / 12)).toBe('אחרי 3 שנים וחודשיים')
 })

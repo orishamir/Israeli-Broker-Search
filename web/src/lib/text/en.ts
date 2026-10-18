@@ -53,6 +53,7 @@ export const en = {
   leftAfterTax: 'Left after tax',
   leftAfterTaxTip:
     'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
+  underAHundredth: 'less than 0.01%',
   yearlyCost: 'Yearly fees',
   yearlyCostTip:
     'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, which a fund’s fee does. 100% when nothing is left.',
