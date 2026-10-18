@@ -165,15 +165,16 @@ fn plans() -> &'static [(Text, Plan)] {
     })
 }
 
-/// What the saver's deposits come to held to the end, month by month, in
-/// the cheapest account for bonds.
+/// Every broker's plan on the saver's deposits held to the end, as the
+/// long-term simulation compares them (see [`run`] for what each deposit
+/// earns).
 ///
 /// Each deposit earns the yield for the wait that's left when it's made
 /// (never less than a year's), the curve being taken to stay as it is. The
 /// brokers' fees are worked out by the long-term simulation on one yearly
 /// return, so that return is the one that ends with the same money before
 /// fees; the simulation's own flat-return growth then carries the fees.
-pub(super) fn run(linkage: Linkage, scenario: &Scenario) -> Result<Run, NotOffered> {
+fn compared(linkage: Linkage, scenario: &Scenario) -> Result<simulation::Comparison, NotOffered> {
     let months = scenario.months;
     let curve = |remaining: u32| {
         let remaining = remaining.max(SHORTEST_MONTHS);
@@ -235,6 +236,49 @@ pub(super) fn run(linkage: Linkage, scenario: &Scenario) -> Result<Run, NotOffer
     let plans = plans();
     let refs: Vec<&Plan> = plans.iter().map(|(_, plan)| plan).collect();
     let comparison = simulation::compare(&refs, &sim_scenario, &rates);
+    Ok(comparison)
+}
+
+/// Every broker's plan that can hold the bonds for `scenario` and what it leaves
+/// after the long-term simulation's tax and fees, best first: the ranking the
+/// cheapest plan comes from.
+///
+/// # Errors
+///
+/// A wait outside the curve, or no plan that opens with the first deposit.
+pub fn broker_ranking(
+    linkage: Linkage,
+    scenario: &Scenario,
+) -> Result<Vec<(Via, Decimal)>, NotOffered> {
+    let comparison = compared(linkage, scenario)?;
+    let plans = plans();
+    Ok(comparison
+        .plans
+        .iter()
+        .filter(|plan| plan.fits)
+        .filter_map(|plan| {
+            let outcome = plan.outcome.as_ref().ok()?;
+            let (broker, plan) = &plans[plan.index];
+            Some((
+                Via {
+                    broker: broker.clone(),
+                    plan: plan.name.clone(),
+                },
+                outcome.after_tax,
+            ))
+        })
+        .collect())
+}
+
+/// What the saver's deposits come to held to the end, month by month, in
+/// the cheapest account for bonds.
+///
+/// Each deposit earns the yield for the wait that's left when it's made
+/// (never less than a year's), the curve being taken to stay as it is.
+pub(super) fn run(linkage: Linkage, scenario: &Scenario) -> Result<Run, NotOffered> {
+    let months = scenario.months;
+    let comparison = compared(linkage, scenario)?;
+    let plans = plans();
     let best = comparison
         .plans
         .iter()

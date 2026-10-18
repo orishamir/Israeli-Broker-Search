@@ -16,7 +16,6 @@ use std::cell::Cell;
 use broker_fees::describe::{
     self, About, CaveatGroup, Explained, FeeKind, FeesFor, PriceText, Priced, Source,
 };
-use broker_fees::examples;
 use broker_fees::short_term::{self, Liquidity, Pays, Place, Term};
 use broker_fees::simulation::{self, Fees, InvalidScenario, NotOffered, Outcome, Scenario, Swept};
 use broker_fees::yours::{
@@ -1371,51 +1370,6 @@ pub fn around_of(inputs: &AroundInputs) -> Option<AroundData> {
     })
 }
 
-/// A ready-made investing pattern, and the inputs it sets.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-pub struct ExampleData {
-    /// "Saving from your salary"
-    pub name: String,
-    /// The pattern in words, for its tip.
-    pub explanation: String,
-    pub security: Security,
-    pub exchange: Exchange,
-    pub first_deposit: f64,
-    pub monthly_deposit: f64,
-    pub yearly_return_percent: f64,
-    pub years: u32,
-    /// Whether the money is taken as a monthly pension where a plan pays
-    /// one, rather than all at once.
-    pub as_pension: bool,
-    /// The saver's age today: a pension opens from an age.
-    pub age: u32,
-}
-
-/// The examples, in the order to offer them.
-#[wasm_bindgen]
-pub fn examples() -> Result<Vec<Ts<ExampleData>>, JsError> {
-    examples::all()
-        .into_iter()
-        .map(|example| {
-            let scenario = example.scenario;
-            Ok(ExampleData {
-                name: example.name[lang()].to_owned(),
-                explanation: example.explanation[lang()].to_owned(),
-                security: scenario.security,
-                exchange: scenario.exchange,
-                first_deposit: number(scenario.first_deposit),
-                monthly_deposit: number(scenario.monthly_deposit),
-                yearly_return_percent: number(scenario.yearly_return.0),
-                years: scenario.years,
-                as_pension: scenario.withdrawal == Withdrawal::Pension,
-                age: scenario.age,
-            }
-            .into_ts()?)
-        })
-        .collect()
-}
-
 /// How much prices are taken to rise a year unless the user says otherwise,
 /// in percent: what the inflation field starts with.
 #[wasm_bindgen(js_name = usualInflationPercent)]
@@ -2157,35 +2111,6 @@ pub fn compare_places(inputs: &ShortTermInputs) -> Result<ShortTermComparisonDat
             })
             .collect(),
     })
-}
-
-/// A short-term pattern for its button.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-pub struct ShortTermExampleData {
-    pub name: String,
-    pub explanation: String,
-    pub first_deposit: f64,
-    pub monthly_deposit: f64,
-    pub months: u32,
-}
-
-/// The short-term examples, in the order to offer them.
-#[wasm_bindgen(js_name = shortTermExamples)]
-pub fn short_term_examples() -> Result<Vec<Ts<ShortTermExampleData>>, JsError> {
-    examples::short_term()
-        .into_iter()
-        .map(|example| {
-            Ok(ShortTermExampleData {
-                name: example.name[lang()].to_owned(),
-                explanation: example.explanation[lang()].to_owned(),
-                first_deposit: number(example.first_deposit),
-                monthly_deposit: number(example.monthly_deposit),
-                months: example.months,
-            }
-            .into_ts()?)
-        })
-        .collect()
 }
 
 /// The short-term calculator's page on its numbers.
