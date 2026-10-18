@@ -66,7 +66,7 @@
     const tax: Column = {
       key: 'tax',
       title: t.tax,
-      explanation: t.taxTip(typedPercent(app.inputs.inflationPercent ?? 0)) + money,
+      explanation: t.taxTip(typedPercent(app.inputs.inflationPercent ?? 0), ...app.surtaxTerms) + money,
       text: (outcome) => (outcome.tax === 0 ? t.noTax : shekels(outcome.tax)),
     }
     return [left, lost, tax, yearly, fees, held]

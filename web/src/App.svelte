@@ -99,7 +99,8 @@
     // A fund taken as a pension pays no tax, which the line would deny.
     const pension =
       'results' in app.comparison && app.comparison.results.some(({ pensionNote }) => pensionNote)
-    lastLong = t.assumptions(typedPercent(yearly), typedPercent(inflation), app.sellAtEnd, pension)
+    const abroad = app.exchange !== 'Tlv'
+    lastLong = t.assumptions(typedPercent(yearly), typedPercent(inflation), app.sellAtEnd, pension, abroad)
     return lastLong
   })
   let lastShort = ''
@@ -259,7 +260,10 @@
                     {#if best.whoCanJoin}<span class="note">{best.whoCanJoin}</span>{/if}
                     {#if app.sellAtEnd}
                       <span class="note"
-                        >{t.leftAfter(best.outcome.tax === 0 ? undefined : shekels(bestTax.current))}</span
+                        >{t.leftAfter(
+                          best.outcome.tax === 0 ? undefined : shekels(bestTax.current),
+                          best.pensionNote ? app.pensionFromAge : undefined,
+                        )}</span
                       >
                     {/if}
                     <!-- What's left is a balance, which buys this pension. -->

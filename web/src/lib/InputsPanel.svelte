@@ -43,7 +43,7 @@
   ]
 
   const security = $derived(app.securities.find(({ value }) => value === app.security)!)
-  const exchange = $derived(app.exchanges.find(({ value }) => value === app.exchange)!)
+  const exchange = $derived(app.exchangeChoices.find(({ value }) => value === app.exchange)!)
 </script>
 
 <section class="card">
@@ -93,7 +93,7 @@
       </p>
     </Tip>
   </div>
-  <Choices label={t.exchange} options={app.exchanges} bind:value={app.exchange} />
+  <Choices label={t.exchange} options={app.exchangeChoices} bind:value={app.exchange} />
   <!-- The description and the rates line change together, in one glide: the
        rates line closing on its own while the new description was taller
        moved the cards below one way and then the other. -->

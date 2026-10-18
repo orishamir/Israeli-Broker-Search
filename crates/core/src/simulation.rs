@@ -585,8 +585,13 @@ fn simulate_prices(plan: &Plan, scenario: &Scenario, rates: &ExchangeRates) -> O
         .map(|row| &row.price);
     let currency = scenario.exchange.currency();
     let monthly_growth = monthly_growth(scenario.yearly_return);
-    // The law never lowers a cost: when prices fall, the whole gain is taxed.
-    let rising_prices = self::monthly_growth(scenario.inflation).max(Decimal::ONE);
+    // The law never lowers a cost: when prices fall, the whole gain is
+    // taxed. Abroad it follows the exchange rate, which stays as it is.
+    let rising_prices = if plan.vehicle.cost_rises_with_prices(currency) {
+        self::monthly_growth(scenario.inflation).max(Decimal::ONE)
+    } else {
+        Decimal::ONE
+    };
 
     // Negative while fees are owed: what deposits haven't covered yet.
     let mut cash_ils = Decimal::ZERO;
@@ -819,18 +824,17 @@ fn custody_for_month(
     *plan.custody_per_year(&[holding], rates).amount() / Decimal::from(12)
 }
 
-/// The tax on selling at the end with `real_gain`, in ₪: by the rules of
-/// the plan's vehicle, for the saver's age then and the way they take the
-/// money out. Holdings that are kept aren't taxed yet.
+/// The tax on selling at the end with `real_gain`, in ₪, the surtax
+/// included: by the rules of the plan's vehicle, for the saver's age then
+/// and the way they take the money out. Holdings that are kept aren't taxed
+/// yet.
 fn tax_on_selling(plan: &Plan, scenario: &Scenario, real_gain: Decimal) -> Decimal {
     if !scenario.sell_at_end {
         return Decimal::ZERO;
     }
     let age = scenario.age.saturating_add(scenario.years);
-    plan.vehicle
-        .rules()
-        .tax_at(scenario.withdrawal, age)
-        .on(real_gain)
+    let tax = plan.vehicle.rules().tax_at(scenario.withdrawal, age);
+    tax.on(real_gain) + tax.surtax_on(real_gain, scenario.years, scenario.inflation)
 }
 
 /// Every compared plan's outcome, best first, and what the same investing

@@ -117,6 +117,21 @@ pub fn exchanges() -> Result<Vec<Ts<Choice<Exchange>>>, JsError> {
         .collect()
 }
 
+/// The same, each explained for buying `security` there.
+#[wasm_bindgen(js_name = exchangesFor)]
+pub fn exchanges_for(security: Ts<Security>) -> Result<Vec<Ts<Choice<Exchange>>>, JsError> {
+    let security = security.to_rust()?;
+    Exchange::iter()
+        .map(|exchange| {
+            let choice = Choice {
+                explanation: exchange.explanation_for(security, lang()).to_owned(),
+                ..Choice::new(exchange, lang())
+            };
+            Ok(choice.into_ts()?)
+        })
+        .collect()
+}
+
 /// A kind of fee, like a [`Choice`], with its name under the fee it's part of.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
@@ -1374,6 +1389,17 @@ pub fn usual_inflation_percent() -> f64 {
     number(simulation::USUAL_INFLATION.0)
 }
 
+/// The surtax on a large year's gain, as the tax's tip states it: its rate
+/// ("5%") and this year's threshold ("₪721,560").
+#[wasm_bindgen(js_name = surtaxTerms)]
+#[must_use]
+pub fn surtax_terms() -> Vec<String> {
+    vec![
+        broker_fees::vehicles::SURTAX.to_string(),
+        describe::format_money(ils(broker_fees::vehicles::SURTAX_THRESHOLD)),
+    ]
+}
+
 /// The share price's currency ("$"), if the share price matters to what
 /// `inputs` compares; `null` if its field isn't needed.
 #[wasm_bindgen(js_name = sharePriceSymbol)]
@@ -2403,7 +2429,11 @@ mod tests {
             .find(|p| p.key == full_tariff)
             .unwrap();
         let track = altshuler.track.expect("its tracks price US ETFs");
-        let name = &listed(0, 0).unwrap().tracks[track].name.en;
+        // An ETF's units aren't shares: the track's name says so.
+        let name = listed(0, 0).unwrap().tracks[track]
+            .name
+            .en
+            .replace(" a share", " a unit");
         assert_eq!(
             altshuler.note,
             Some(format!("US track: {name}, the cheapest for you"))
@@ -2760,7 +2790,8 @@ mod tests {
         assert_eq!(choice.name, "Index fund");
         let hebrew = Choice::new(Security::IndexFund, Lang::He);
         assert_eq!(hebrew.name, "קרן מחקה");
-        assert_eq!(hebrew.english_name.as_deref(), Some("Index fund"));
+        // Shown under the Hebrew name, more precise than the name links use.
+        assert_eq!(hebrew.english_name.as_deref(), Some("Index mutual fund"));
         // An exchange is a place, known by its Hebrew name alone.
         assert_eq!(Choice::new(Exchange::Usa, Lang::He).english_name, None);
     }

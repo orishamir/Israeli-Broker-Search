@@ -22,7 +22,8 @@ test('a tapped ? explains its label until a tap elsewhere', { tag: '@touch' }, a
   const { button, tip } = yearlyReturn(page)
   await button.tap()
   await expect(tip).toBeVisible()
-  await page.getByRole('heading', { name: t.deposits }).tap()
+  // The title: on a phone the tip is tall enough to cover the cards beside it.
+  await page.getByRole('heading', { name: t.title }).tap()
   await expect(tip).toBeHidden()
 })
 

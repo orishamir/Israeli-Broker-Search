@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
 use time::Date;
 use time::macros::date;
 
+use crate::money::{Currency, iso};
 use crate::{ManagementFee, Percent};
 
 /// When the rules were last checked against the law and the ceilings
@@ -107,6 +108,16 @@ impl Vehicle {
             Vehicle::InvestmentGemel | Vehicle::StudyFund | Vehicle::SavingsPolicy => true,
         }
     }
+
+    /// Whether the law raises what the holdings cost with prices before
+    /// taxing the gain, for holdings in `currency`. A security in another
+    /// currency, held in a brokerage account, is measured against its
+    /// exchange rate instead; a fund's or a policy's savings are in shekels,
+    /// whatever they're invested in.
+    #[must_use]
+    pub fn cost_rises_with_prices(self, currency: &Currency) -> bool {
+        self != Vehicle::Brokerage || currency == iso::ILS
+    }
 }
 
 /// What the law says about a [`Vehicle`].
@@ -195,6 +206,37 @@ impl GainsTax {
             GainsTax::OfRealGain(rate) => rate.of(real_gain.max(Decimal::ZERO)),
         }
     }
+
+    /// The surtax on `real_gain` when all of it falls in the tax year
+    /// `years` from now. Income that isn't taxed pays none.
+    #[must_use]
+    pub fn surtax_on(self, real_gain: Decimal, years: u32, inflation: Percent) -> Decimal {
+        match self {
+            GainsTax::Exempt => Decimal::ZERO,
+            GainsTax::OfRealGain(_) => {
+                SURTAX.of((real_gain - surtax_threshold_in(years, inflation)).max(Decimal::ZERO))
+            }
+        }
+    }
+}
+
+/// The surtax (Mas Yesef): a year's taxable income above
+/// [`SURTAX_THRESHOLD`] pays 3% more, and since 2025 capital income above
+/// it 2% more again. Selling at the end puts the whole gain in one year.
+/// With no other income that year all of it is capital income, so 5% of
+/// the part above; a salary would add more, which the app doesn't know,
+/// so this is the least the surtax can be.
+pub const SURTAX: Percent = Percent(dec!(5));
+
+/// The surtax's threshold for 2026.
+pub const SURTAX_THRESHOLD: Decimal = dec!(721560);
+
+/// The surtax's threshold in the tax year `years` from now. The law froze
+/// it for 2025 to 2027, and it rises with prices after: a sale next year
+/// still meets this year's.
+#[must_use]
+pub fn surtax_threshold_in(years: u32, inflation: Percent) -> Decimal {
+    raised_with_prices(SURTAX_THRESHOLD, years.saturating_sub(1), inflation)
 }
 
 /// How the saver takes the money out at the end.
@@ -219,6 +261,33 @@ mod tests {
         assert_eq!(tax.on(dec!(0)), dec!(0));
         assert_eq!(tax.on(dec!(-1000)), dec!(0));
         assert_eq!(GainsTax::Exempt.on(dec!(200000)), dec!(0));
+    }
+
+    /// ₪721,560 in 2026 and 2027, then raised with prices: at 2%,
+    /// 721,560 × 1.02 = ₪735,991.20 in 2028. A gain of ₪821,560 in 2026
+    /// pays 5% of the ₪100,000 above it, ₪5,000; an exempt one pays none.
+    #[test]
+    fn the_surtax_is_frozen_until_2027() {
+        let two = Percent(dec!(2));
+        assert_eq!(surtax_threshold_in(0, two), dec!(721560));
+        assert_eq!(surtax_threshold_in(1, two), dec!(721560));
+        assert_eq!(surtax_threshold_in(2, two), dec!(735991.20));
+        let tax = GainsTax::OfRealGain(Percent(dec!(25)));
+        assert_eq!(tax.surtax_on(dec!(821560), 0, two), dec!(5000));
+        assert_eq!(tax.surtax_on(dec!(700000), 0, two), dec!(0));
+        assert_eq!(GainsTax::Exempt.surtax_on(dec!(821560), 0, two), dec!(0));
+    }
+
+    /// Only a broker's holdings abroad are measured against the exchange
+    /// rate; a fund's savings are in shekels whatever it holds.
+    #[test]
+    fn only_a_brokers_holdings_abroad_skip_prices() {
+        assert!(!Vehicle::Brokerage.cost_rises_with_prices(iso::USD));
+        assert!(!Vehicle::Brokerage.cost_rises_with_prices(iso::EUR));
+        assert!(Vehicle::Brokerage.cost_rises_with_prices(iso::ILS));
+        for vehicle in Vehicle::iter().filter(|&vehicle| vehicle != Vehicle::Brokerage) {
+            assert!(vehicle.cost_rises_with_prices(iso::USD), "{vehicle:?}");
+        }
     }
 
     /// The fund's pension is tax-free from 60, and only as a pension: a lump

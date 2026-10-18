@@ -91,8 +91,10 @@ the UI is Svelte 5 + ECharts.
   fees alone (the yearly cost), while the table ranks after tax: the line
   shows only when the best plan is also the cheapest in fees. How the money
   is taken out (at once, or as a pension) is asked only while a ticked plan
-  pays a pension and everything is sold. Inflation always lowers the tax
-  (2% unless More options sets another); showing amounts in today's money
+  pays a pension and everything is sold. Inflation lowers the tax
+  (2% unless More options sets another), except on a broker's holdings
+  abroad, whose gain the law measures against the exchange rate; a large
+  sale also pays the surtax, at its least. Showing amounts in today's money
   is a separate switch there.
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from;
   `sources.md` says where each number comes from and how unclear rows were

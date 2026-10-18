@@ -34,19 +34,19 @@ What `vehicles.rs` and the tax at the end leave out (September 2026). The
 sources are in `sources.md`, "Tax and the vehicles".
 
 - **Tax on dividends along the way:** 25% of each payment at a broker, for a
-  security that pays out; less inside a fund or an accumulating ETF. On the
-  S&P 500 it's about 0.3% a year. The return is taken as total return.
+  share that pays out. A fund's depends on where it's registered: a US ETF
+  such as VOO loses 25% of each dividend every year (the US–Israel treaty
+  rate), an Irish one that accumulates loses 15% inside the fund, an
+  Israeli one by how it's built. On the S&P 500 the gap is 0.1–0.3% a year.
+  The return is taken as total return; the page says this in words only
+  (counting it was built on 2 October 2026 and reverted).
 - **Unlinked shekel bonds:** taxed at 15% of the whole gain (section
   91(b)(3)), not 25% of the real one. The app doesn't know which bond is
-  bought, so every security is taxed as 25% of the real gain.
-- **The exchange rate as the index:** for a security in foreign currency
-  the law measures the real gain against the exchange rate (section 88,
-  "מדד"). Exchange rates stay the same in the simulation, so the price
-  index is used for every security: the shekel is taken to weaken as prices
-  rise.
-- **The surtax (מס יסף):** 3% more, and 2% more on income from capital, on
-  what passes ₪721,560 in a year. A sale large enough pays it in any
-  vehicle that taxes the gain.
+  bought, so every bond is taxed as 25% of the real gain.
+- **The surtax beyond its least:** the surtax is counted as if the saver had
+  no other income in the year of the sale (5% of the gain above the
+  threshold); a salary that year adds 3% of the part of all income above
+  it. Selling over several years, which can avoid it, isn't modelled.
 - **Custody and the monthly fee as deductions:** see `sources.md`.
 - **Losses set against other gains, and withdrawing in parts.**
 - **What the investment itself charges:** an ETF's or fund's own yearly fee
@@ -112,7 +112,6 @@ What `short_term.rs` leaves out (October 2026). The sources are in
   managers' funds free.
 - **A lower tax:** 15% and 25% are the most an individual pays on interest
   and on a capital gain; someone with a low enough income may pay less.
-  The surtax (מס יסף) on large incomes isn't counted either.
 
 ## Mizrahi-Tefahot Bank
 

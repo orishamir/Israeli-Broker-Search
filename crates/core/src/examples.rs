@@ -50,10 +50,11 @@ pub fn all() -> Vec<Example> {
             Text::new("Saving from your salary", "חיסכון מהמשכורת"),
             Text::new(
                 "₪1,500 a month from your salary, from 30 to 60, into an index fund that follows \
-                 the S&P 500, on Tel Aviv, expecting 10% a year (the index's long-run average). \
+                 the S&P 500, on Tel Aviv, expecting 10% a year, as the index made in the past, \
+                 in dollars. \
                  Over 30 years, custody, charged every year on everything held, matters far more \
                  than the fee on each purchase.",
-                "₪1,500 בחודש מהמשכורת, מגיל 30 ועד 60, לקרן מחקה על מדד S&P 500 בתל אביב, בציפייה ל\u{2011}10% בשנה (הממוצע ארוך הטווח של המדד). לאורך 30 שנה, דמי המשמרת, שנגבים כל שנה מכל התיק, חשובים הרבה יותר מהעמלה על כל קנייה.",
+                "₪1,500 בחודש מהמשכורת, מגיל 30 ועד 60, לקרן מחקה על מדד S&P 500 בתל אביב, בציפייה ל\u{2011}10% בשנה, כמו הממוצע של המדד בעבר, בדולרים. לאורך 30 שנה, דמי המשמרת, שנגבים כל שנה מכל התיק, חשובים הרבה יותר מהעמלה על כל קנייה.",
             ),
             Scenario {
                 security: Security::IndexFund,
@@ -118,10 +119,10 @@ pub fn all() -> Vec<Example> {
         example(
             Text::new("After retiring", "אחרי הפרישה"),
             Text::new(
-                "₪400,000 in bonds on Tel Aviv, from 67, for 10 years at 4% a year: money kept \
-                 with little risk after retiring. With a return this low, even custody of a \
+                "₪400,000 in government bonds on Tel Aviv, from 67, for 10 years at a yield to \
+                 maturity of 4% a year: money kept at low risk after retiring. With a return this low, even custody of a \
                  fraction of a percent a year takes a large share of the interest.",
-                "₪400,000 באג״ח בתל אביב, מגיל 67 ול\u{2011}10 שנים, ב\u{2011}4% בשנה: כסף שרוצים לשמור בלי סיכון גדול אחרי הפרישה. כשהתשואה נמוכה כל כך, גם דמי משמרת של חלקי אחוז בשנה לוקחים חלק גדול מהריבית.",
+                "₪400,000 באג״ח מדינה בתל אביב, מגיל 67 ול\u{2011}10 שנים, בתשואה לפדיון של 4% בשנה: כסף שרוצים לשמור בסיכון נמוך אחרי הפרישה. כשהתשואה נמוכה כל כך, גם דמי משמרת של חלקי אחוז בשנה לוקחים חלק גדול מהריבית.",
             ),
             Scenario {
                 security: Security::Bond,
@@ -178,9 +179,10 @@ pub fn short_term() -> Vec<ShortTermExample> {
         ShortTermExample {
             name: Text::new("Saving for a flat, 3 years", "חיסכון לדירה, 3 שנים"),
             explanation: Text::new(
-                "₪5,000 a month for three years, towards a flat's first payment. A deposit \
-                 takes one sum, so only the funds take money every month.",
-                "₪5,000 בחודש במשך 3 שנים, לקראת התשלום הראשון על דירה. פיקדון מקבל סכום אחד, ולכן רק הקרנות מקבלות הפקדה חודשית.",
+                "₪5,000 a month for three years, towards a flat's first payment. With money put \
+                 in every month only the money market funds are compared: banks have savings \
+                 plans for it, but their rates aren't published.",
+                "₪5,000 בחודש במשך 3 שנים, לקראת התשלום הראשון על דירה. בהפקדה חודשית מושוות רק הקרנות הכספיות: לבנקים יש לזה תוכניות חיסכון, אבל הריביות שלהן לא מתפרסמות.",
             ),
             first_deposit: dec!(0),
             monthly_deposit: dec!(5000),

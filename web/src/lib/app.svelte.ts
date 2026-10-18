@@ -179,6 +179,8 @@ export class AppState {
   /** How much prices are taken to rise a year, in percent, unless the user
    * says otherwise: the core's, since the tax is worked out with it. */
   readonly usualInflation: number = core.usualInflationPercent()
+  /** The surtax's rate and threshold, for the tax's tip. */
+  readonly surtaxTerms = core.surtaxTerms() as [string, string]
   readonly about = core.about()
   get aboutShown() {
     return this.family === 'short' ? this.short.about : this.about
@@ -186,6 +188,15 @@ export class AppState {
   readonly dataDates: string = core.dataDates()
   readonly securities: Choice<Security>[] = core.securities()
   readonly exchanges: Choice<Exchange>[] = core.exchanges()
+  /** The exchanges as offered for the chosen security: their explanations
+   * say what buying it there means. */
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
+  private readonly exchangesFor: ReadonlyMap<Security, Choice<Exchange>[]> = new Map(
+    this.securities.map(({ value }) => [value, core.exchangesFor(value)]),
+  )
+  get exchangeChoices(): Choice<Exchange>[] {
+    return this.exchangesFor.get(this.security)!
+  }
   readonly examples: ExampleData[] = core.examples()
   /** Every plan the list offers. A kind of fund's cheapest and dearest
    * company and its maximum aren't among them: they're shown beside its

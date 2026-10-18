@@ -13,6 +13,7 @@ use broker_fees::simulation::{
     self, Around, Comparison, Crossing, Fees, InvalidScenario, NotOffered, Outcome, Scenario,
     Sweep, Swept, compare, free_plan, simulate, sweep,
 };
+use broker_fees::vehicles::GainsTax;
 use broker_fees::*;
 use proptest::prelude::*;
 use rust_decimal::Decimal;
@@ -1081,9 +1082,11 @@ fn a_study_fund_taxes_only_the_gains_on_what_is_over_its_yearly_amount() {
     // Each year's deposits count together. ₪1,700 a month is ₪20,400 a
     // year: within. ₪2,000 a month is ₪24,000, of which 3,434 is over:
     // that share of the gain is taxed, every year alike.
+    // Ten years, so that no gain reaches the surtax.
     let monthly = |monthly_deposit| Scenario {
         first_deposit: dec!(0),
         monthly_deposit,
+        years: 10,
         ..defaults(Security::IndexFund, Exchange::Tlv)
     };
     assert_eq!(run(&fund, &monthly(dec!(1700))).tax, dec!(0));
@@ -1141,7 +1144,8 @@ fn a_study_fund_opens_after_six_years() {
 /// Only the gain beyond the rise in prices is taxed, which is the gain in
 /// today's money: restated in it, the tax is a quarter of what came out
 /// beyond what went in. Checked where every fee is a cost of the holdings:
-/// with no fees, and in a fund.
+/// with no fees, and in a fund; over ten years, so that no gain reaches the
+/// surtax.
 #[test]
 fn the_tax_is_a_quarter_of_the_gain_in_todays_money() {
     let mut plans = fund_plans();
@@ -1151,6 +1155,7 @@ fn the_tax_is_a_quarter_of_the_gain_in_todays_money() {
         let inflation = Percent(inflation);
         let scenario = Scenario {
             inflation,
+            years: 10,
             ..defaults(Security::IndexFund, Exchange::Tlv)
         };
         for (name, plan) in &plans {
@@ -1171,11 +1176,15 @@ fn the_tax_is_a_quarter_of_the_gain_in_todays_money() {
 /// The more prices rise, the less of the gain is taxed; and falling prices
 /// count as standing still, since the law never lowers what something cost.
 /// A study fund's tax-free amount does follow prices down, so there falling
-/// prices leave more to tax.
+/// prices leave more to tax. In shekels, over ten years, so that no gain
+/// reaches the surtax, whose threshold follows prices too.
 #[test]
 fn inflation_only_ever_lowers_the_tax() {
     for (name, plan) in &listed_plans() {
-        let scenario = defaults(Security::Etf, Exchange::Usa);
+        let scenario = Scenario {
+            years: 10,
+            ..defaults(Security::Etf, Exchange::Tlv)
+        };
         if simulate(plan, &scenario, &rates()).is_err() {
             continue;
         }
@@ -1194,6 +1203,40 @@ fn inflation_only_ever_lowers_the_tax() {
         assert!(tax(dec!(2)) < tax(dec!(0)), "{name}");
         assert!(tax(dec!(5)) < tax(dec!(2)), "{name}");
     }
+}
+
+/// Abroad, a broker's gain is measured against the exchange rate, which
+/// stays as it is, so inflation doesn't lower its tax at all; a fund's
+/// savings are in shekels whatever they hold, so there it does. Over ten
+/// years, so that no gain reaches the surtax.
+#[test]
+fn abroad_only_a_funds_tax_follows_prices() {
+    let at = |inflation| Scenario {
+        years: 10,
+        inflation: Percent(inflation),
+        ..defaults(Security::Etf, Exchange::Usa)
+    };
+    let mut brokers = 0;
+    for (name, plan) in &listed_plans() {
+        let Ok(still) = simulate(plan, &at(dec!(0)), &rates()) else {
+            continue;
+        };
+        let rising = simulate(plan, &at(dec!(3)), &rates()).unwrap();
+        if plan.vehicle == Vehicle::Brokerage {
+            assert_eq!(rising.tax, still.tax, "{name}");
+            brokers += 1;
+        } else {
+            assert!(rising.tax < still.tax, "{name}");
+        }
+    }
+    assert!(brokers > 0);
+}
+
+/// What a gain pays when all of it is taxed: a quarter, and the surtax on
+/// the part above its threshold in the year of the sale.
+fn taxed_in_full(gain: Decimal, scenario: &Scenario) -> Decimal {
+    let tax = GainsTax::OfRealGain(Percent(dec!(25)));
+    tax.on(gain) + tax.surtax_on(gain, scenario.years, scenario.inflation)
 }
 
 proptest! {
@@ -1227,7 +1270,7 @@ proptest! {
                 + outcome.owed_growth
                 - last_year.custody
                 - last_year.handling;
-            let on_it_all = gain.max(Decimal::ZERO) / dec!(4);
+            let on_it_all = taxed_in_full(gain, &scenario);
             if partly_free.contains(&name) {
                 prop_assert!(outcome.tax <= on_it_all + dec!(0.000001), "{name}: tax ₪{}", outcome.tax);
             } else {
@@ -1247,12 +1290,18 @@ proptest! {
     }
 
     /// A gain that only keeps up with prices isn't taxed: when the return
-    /// is no more than inflation, no plan pays tax.
+    /// is no more than inflation, no plan pays tax, except a broker's
+    /// holdings abroad, which are measured against the exchange rate.
     #[test]
     fn keeping_up_with_prices_isnt_taxed(scenario in scenarios()) {
         let scenario = Scenario { inflation: scenario.yearly_return, ..scenario };
-        for (name, outcome) in outcomes(&scenario).1 {
-            prop_assert!(close(outcome.tax, Decimal::ZERO), "{name}: tax ₪{}", outcome.tax);
+        for (name, plan) in listed_plans() {
+            if !plan.vehicle.cost_rises_with_prices(scenario.exchange.currency()) {
+                continue;
+            }
+            if let Ok(outcome) = simulate(&plan, &scenario, &rates()) {
+                prop_assert!(close(outcome.tax, Decimal::ZERO), "{name}: tax ₪{}", outcome.tax);
+            }
         }
     }
 }

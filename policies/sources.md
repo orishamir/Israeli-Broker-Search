@@ -322,7 +322,7 @@ what's left after the tax (`Outcome::after_tax`).
   of 1–3%, "as it has been since 2003"
   ([the bank's review of the target, November 2024](https://boi.org.il/en/communication-and-publications/press-releases/6-11-24/)).
 
-- **25% of the real gain, everywhere:** the Income Tax Ordinance
+- **25% of the real gain:** the Income Tax Ordinance
   ([Hebrew Wikisource](https://he.wikisource.org/wiki/פקודת_מס_הכנסה)),
   section 91(b)(1): an individual pays "at a rate of no more than 25%" on a
   real capital gain. Section 88 defines the real gain as the gain less the
@@ -330,6 +330,22 @@ what's left after the tax (`Outcome::after_tax`).
   exceeds the cost": so a loss pays nothing, and falling prices never lower
   a cost. [Meitav Trade's guide](https://www.meitav.co.il/trade/capital_market_guide/capital_market_tax/)
   says the same in plain words.
+- **A security in foreign currency:** section 88 measures its real gain
+  against the exchange rate rather than the price index (the "מדד" of a
+  security in foreign currency; practitioners' summaries at
+  [capitax.co.il](https://www.capitax.co.il/content/2/1208) and
+  [bshcpa.co.il](https://www.bshcpa.co.il/מיסוי-השקעות-צמודות-דולר/)).
+  Exchange rates stay as they are in the simulation, so a broker's holdings
+  abroad are taxed on their whole gain (`Vehicle::cost_rises_with_prices`).
+  A fund's or a policy's savings are in shekels whatever they hold.
+- **The surtax (מס יסף):** section 121B: 3% of a year's taxable income
+  above ₪721,560, and, from 2025, 2% more on capital income above it, the
+  threshold frozen for 2025–2027 by the Economic Efficiency Law
+  ([Shibolet](https://www.shibolet.com/הטלת-מס-יסף-נוסף-בשיעור-של-2-על-הכנסה-ממק/),
+  [Malam payroll's 2026 update](https://www.malam-payroll.com/%D7%A2%D7%93%D7%9B%D7%95%D7%A0%D7%99-%D7%9E%D7%A1-%D7%94%D7%9B%D7%A0%D7%A1%D7%94-%D7%9C%D7%A9%D7%A0%D7%AA-2026/)).
+  Counted at its least: 5% of the sale year's taxed gain above the
+  threshold, as if there were no other income, the threshold raised with
+  prices from 2028 (`vehicles::SURTAX`, `surtax_threshold_in`).
 - **Provident fund for investment (קופת גמל להשקעה):** Kol Zchut, a rights
   guide backed by the Ministry of Justice.
   - [The fund](https://www.kolzchut.org.il/he/קופת_גמל_להשקעה): no more than

@@ -22,11 +22,16 @@ export const en = {
   withNoFees: 'With no fees',
   ifSoldBeforeTax: 'if sold at the end, before tax',
   heldAtEnd: 'held at the end',
-  best: (label: string) => `Best: ${label}`,
+  best: (label: string) => `Most left: ${label}`,
   lostAndYearly: (lost: string, yearly: string) => `${lost} lost to fees · ${yearly} a year`,
   yearlyAndLost: (yearly: string, lost: string) => `${yearly} a year · ${lost} lost to fees`,
   /** Under the best plan's amount: what it is, and the tax it's after. */
-  leftAfter: (tax: string | undefined) => (tax ? `after ${tax} of tax` : 'with no tax'),
+  leftAfter: (tax: string | undefined, pensionFrom?: number) =>
+    tax
+      ? `after ${tax} of tax`
+      : pensionFrom === undefined
+        ? 'with no tax'
+        : `with no tax, as a pension from ${pensionFrom}`,
   // The best plan at other values of the deposit the chart by deposit varies.
   cheapestThroughout: (from: string, to: string, swept: Swept) =>
     swept === 'Monthly'
@@ -56,13 +61,13 @@ export const en = {
   underAHundredth: 'less than 0.01%',
   yearlyCost: 'Fees, as a yearly %',
   yearlyCostTip:
-    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, which a fund’s fee does. 100% when nothing is left.',
+    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, nor, in a fund, its direct expenses (trading commissions and outside managers’ fees). 100% when nothing is left.',
   spreadBetween: (low: string, lowName: string, high: string, highName: string) =>
     `From ${low} (${lowName}) to ${high} (${highName})`,
   spreadAtMost: (name: string, amount: string) => `${name}: ${amount}`,
-  assumptions: (yearly: string, inflation: string, selling: boolean, pension: boolean) =>
+  assumptions: (yearly: string, inflation: string, selling: boolean, pension: boolean, abroad: boolean) =>
     selling
-      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain${pension ? '; a fund taken as a pension: no tax' : ''}`
+      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain${abroad ? ', at a broker abroad on the whole gain (by the exchange rate, which stays as it is)' : ''}${pension ? '; a fund taken as a pension: no tax' : ''}`
       : `Assuming a return of ${yearly} a year and inflation of ${inflation}, with nothing sold and no tax`,
   shortAssumptions: (rate: string, inflation: string) =>
     `Assuming the Bank of Israel's rate is ${rate} on average and inflation is ${inflation}`,
@@ -78,8 +83,8 @@ export const en = {
   lostToFeesTip: (selling: boolean) =>
     `How much less you end up with${selling ? ', after selling and before tax,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
   tax: 'Tax',
-  taxTip: (inflation: string) =>
-    `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year). What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
+  taxTip: (inflation: string, surtax: string, threshold: string) =>
+    `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year), in shekels and in a fund or a policy. At a broker, a security in dollars or euros is measured against the exchange rate, which stays as it is here, so its whole gain is taxed. A large gain in one year also pays the surtax: ${surtax} of what's above ${threshold} (raised with prices from 2028), as if you had no other income that year; a salary adds to it, and selling over several years can avoid it. A shekel bond that isn't linked to prices pays 15% of its whole gain, which the app doesn't tell apart. What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
   noTax: 'none',
   feesPaid: 'Fees paid',
   /** `buying`: the monthly purchases, if there are any. */
@@ -112,7 +117,7 @@ export const en = {
     'How much less each plan has than with no fees and buying every month, year by year. Shows where plans overtake each other. The end is after selling, as in the table.',
   byDepositView: 'By deposit',
   byDepositViewTip:
-    "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking by fees flips. Plans with minimum fees cost a lot for small deposits and little for large ones, and a fund's line ends where a year's deposits pass its ceiling. The dashed line is your deposit. Tax isn't in this chart.",
+    "Each plan's yearly cost if you deposited more or less than you do: where two lines cross, their ranking by fees flips. Plans with minimum fees cost relatively more for small deposits, plans with a fixed fee per order grow cheaper as deposits grow, and a fund's line ends where a year's deposits pass its ceiling. The dashed line is your deposit. Tax isn't in this chart.",
   breakdownView: 'Fee breakdown',
   breakdownViewTip:
     'What each plan pays in fees, by kind, and how they pile up over the years. Tax isn’t a fee, and isn’t here.',
@@ -174,9 +179,9 @@ export const en = {
     "Israel's government bonds trade in Tel Aviv in shekels, and US Treasuries in New York in dollars.",
   tradedOnStocks: 'Teva, for example, trades in Tel Aviv in shekels and in New York in dollars.',
   tradedOnFunds:
-    'The same S&P 500, for example, is sold in Tel Aviv as an ETF in shekels, and in New York as an ETF such as VOO, in dollars.',
+    'Each exchange has another ETF on the same S&P 500: in Tel Aviv an Israeli one in shekels, in New York a US one such as VOO, and in Europe usually an Irish one. Each has a fee of its own, and loses another tax on its dividends: 25% of each dividend in a US fund, 15% inside an Irish one.',
   tradedOnIndexFunds:
-    'The same S&P 500, for example, is sold as an Israeli index fund in shekels, and as a foreign index fund in dollars.',
+    'The same S&P 500 has an Israeli index fund in shekels, and foreign index funds in dollars, bought through your broker. Each has a fee of its own, and another tax on its dividends.',
   exchange: 'Exchange',
   downloadingRates: "· downloading today's…",
   couldntDownloadRates: "· couldn't download today's",
@@ -200,15 +205,15 @@ export const en = {
   expectations: 'Expectations',
   yearlyReturn: 'Yearly return',
   yearlyReturnTip:
-    'How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%; a bond grows by its interest, say 4%.',
+    'How much the security grows a year on average, in its own currency, dividends or interest included. The S&P 500 has made about 10% a year since 1926, in dollars, before inflation; that promises nothing, and in a shekel fund on a US index the dollar moves the return too. A bond held until it is due earns its yield to maturity, which depends on the price paid as well as on its interest, say 4%.',
   sharePrice: (stock: boolean): string => (stock ? 'Share price' : 'Unit price'),
   sharePriceTip: (stock: boolean): string =>
     stock
-      ? "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return."
-      : "Today's price of one unit of the fund or the bond. Most brokers sell whole units only, so a deposit too small for a unit waits for the next purchase: at $500 a unit, a ₪2,000 deposit buys one unit and the rest waits. It grows with the yearly return.",
+      ? "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. Here it grows with the whole return, as if the dividends stayed in the share."
+      : "Today's price of one unit of the fund or the bond. Most brokers sell whole units only, so a deposit too small for a unit waits for the next purchase: at $500 a unit, a ₪2,000 deposit buys one unit and the rest waits. Here it grows with the whole return, as if dividends and interest stayed in the security.",
   inflation: 'Inflation',
   inflationTip:
-    "How much prices rise a year. Tax is paid only on the gain beyond it, so a higher inflation means less tax. Israel's target is 1–3%, and the app starts from its middle.",
+    "How much prices rise a year. On a security in shekels, and in a fund or a policy, tax is paid only on the gain beyond it, so there a higher inflation means less tax. Israel's target is 1–3%, and the app starts from its middle.",
   todaysMoney: "Show amounts in today's money",
   todaysMoneyTip:
     "Prices rise, so a shekel in 20 years buys less than one today. Ticked, every amount is shown in today's shekels: divided by how much prices will have risen by then, at the inflation above. The ranking doesn't change, only how the numbers read.",
@@ -378,7 +383,7 @@ export const en = {
   // The two calculators
   calculators: 'For how long',
   longTerm: 'Long-term investing',
-  longTermKinds: 'ETFs and index funds, bonds, stocks, provident funds',
+  longTermKinds: 'ETFs and index funds, bonds, stocks, funds and policies',
   shortTerm: 'Short-term saving',
   shortTermKinds: 'Bank deposits, money market funds',
   calculatorsTip:

@@ -62,11 +62,12 @@ pub fn all() -> Vec<Broker> {
 pub fn us_estate_tax() -> Caveat {
     let page = |name: Text, url: &str| source(name, url);
     Caveat::not_counted(t(
-        "If you die holding more than $60,000 in US securities, such as an ETF or a stock \
-         registered in the US, the US taxes your estate on them, at up to 40%, and Israel has \
-         no estate-tax treaty with the US. ETFs registered in Ireland, traded in Tel Aviv or in \
-         Europe, aren't US assets. It isn't counted: the estate pays it, not a sale.",
-        "על ניירות ערך אמריקאיים (כמו קרן סל או מניה שרשומות בארה״ב) של מי שנפטר והחזיק בהם יותר מ\u{2011}$60,000, ארה״ב גובה מס עיזבון של עד 40%; לישראל אין איתה אמנה למס עיזבון. קרנות סל שרשומות באירלנד, גם כשהן נסחרות בתל אביב או באירופה, לא חייבות במס הזה. המחשבון לא כולל אותו, כי הוא משולם מהעיזבון ולא במכירה.",
+        "On shares of US companies and on funds registered in the US, wherever you bought \
+         them, the US taxes the estate of someone who isn't resident there, at a rising rate \
+         of up to 40% on the value above $60,000; Israel has no estate-tax treaty with the \
+         US. Funds registered in Ireland or in Israel, and shares of companies that aren't \
+         American, don't pay it. It isn't counted: the estate pays it, not a sale.",
+        "על מניות של חברות אמריקאיות ועל קרנות שרשומות בארה״ב, בכל בורסה שקניתם אותן, ארה״ב גובה ממי שאינו תושב בה מס עיזבון: בשיעור עולה, עד 40%, על השווי שמעל $60,000. לישראל אין איתה אמנה למס עיזבון. קרנות שרשומות באירלנד או בישראל, ומניות של חברות שאינן אמריקאיות, לא חייבות בו. המחשבון לא כולל אותו, כי הוא משולם מהעיזבון ולא במכירה.",
     ))
     .about(&[Etf, IndexFund, Stock])
     .on(&[Usa])
@@ -1627,8 +1628,9 @@ pub fn interactive() -> Broker {
             Caveat::reading(
                 t("Bonds are charged 0.2% of their face value; the trade's value is used \
                  instead.", "העמלה על אג״ח היא 0.2% מהערך הנקוב (הסכום שהאג״ח מחזירה בפירעון); המחשבון מחשב אותה משווי העסקה."),
-                t("bonds trade within a few percent of their face value, so the fee is nearly \
-                 the same", "אג״ח נסחרות בטווח של אחוזים בודדים מהערך הנקוב, כך שהעמלה כמעט זהה"),
+                t("most bonds trade near their face value, so the fee is nearly the same; on \
+                 a bond trading far from it, such as a long one with low interest, the fee \
+                 differs from what's shown", "רוב האג״ח נסחרות קרוב לערך הנקוב, ואז העמלה כמעט זהה; באג״ח שנסחרת רחוק ממנו (למשל אג״ח ארוכה בריבית נמוכה) העמלה בפועל שונה ממה שמוצג"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Bond])
@@ -1915,9 +1917,9 @@ pub fn meitav() -> Broker {
         kind: BrokerKind::InvestmentHouse,
         new_customer_plan: 1, // Typical offer
         compared_at_first: true,
-        description: t("The largest exchange member that isn't a bank, part of the Meitav \
+        description: t("One of the largest exchange members that aren't banks, part of the Meitav \
                       investment house. It publishes only a full tariff of maximum prices; \
-                      new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. מיטב טרייד מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
+                      new customers are usually offered far less.", "מחברי הבורסה הגדולים שאינם בנק, חלק מבית ההשקעות מיטב. מיטב טרייד מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
         tariff_date: Some(TariffDate::Month(date!(2025 - 01 - 01))),
         latest_appendix: None,
         source_url: Some("https://www.meitav.co.il/media/z2hkkhku/taarifon.pdf".into()),

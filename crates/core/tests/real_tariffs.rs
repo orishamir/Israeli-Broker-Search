@@ -2,7 +2,9 @@ use broker_fees::simulation::{NotOffered, Scenario, free_plan, simulate};
 use broker_fees::tariffs::{
     altshuler, excellence, ibi, interactive, leumi, meitav, mizrahi, otsar_hahayal,
 };
-use broker_fees::vehicles::{GainsTax, LARGEST_GEMEL_FEE, LARGEST_STUDY_FUND_FEE, Pension};
+use broker_fees::vehicles::{
+    GainsTax, LARGEST_GEMEL_FEE, LARGEST_STUDY_FUND_FEE, Pension, SURTAX, SURTAX_THRESHOLD,
+};
 use broker_fees::*;
 
 use Exchange::{Europe, Tlv, Usa};
@@ -1453,6 +1455,63 @@ fn a_quarter_of_the_gain_beyond_the_rise_in_prices() {
     let pension = run(Vehicle::InvestmentGemel, 50, Withdrawal::Pension);
     assert_eq!(pension.tax, dec!(0));
     assert_eq!(pension.after_tax.round_dp(2), dec!(207499.40));
+}
+
+/// The same ₪80,000 in a US ETF at a broker grows to the same ₪207,499.40,
+/// rates staying as they are. A security in dollars is measured against the
+/// exchange rate, not prices, so the whole gain of ₪127,499.40 is taxed:
+/// ₪31,874.85, not ₪27,494.96. A fund holding it still counts in shekels.
+#[test]
+fn abroad_the_whole_gain_is_taxed() {
+    let no_fee = ManagementFee {
+        of_deposits: Percent(dec!(0)),
+        of_balance: Percent(dec!(0)),
+    };
+    let scenario = Scenario {
+        security: Etf,
+        exchange: Usa,
+        inflation: Percent(dec!(2)),
+        ..one_deposit(dec!(80000), 10, dec!(10), 50)
+    };
+    let at_a_broker = simulate(&free_plan(), &scenario, &rates()).unwrap();
+    assert_eq!(at_a_broker.after_selling.round_dp(2), dec!(207499.40));
+    assert_eq!(at_a_broker.tax.round_dp(2), dec!(31874.85));
+    let in_a_fund = simulate(&fund(Vehicle::SavingsPolicy, no_fee), &scenario, &rates()).unwrap();
+    assert_eq!(in_a_fund.tax.round_dp(2), dec!(27494.96));
+}
+
+/// The surtax: 5% of a year's gain above ₪721,560, frozen until 2027 and
+/// raised with prices after. ₪500,000 for ten years at 10% a year, with no
+/// fees, grows to 500,000 × 1.1¹⁰ = ₪1,296,871.23, a gain of ₪796,871.23.
+/// With prices standing still, a quarter of it is ₪199,217.81 and the
+/// surtax 5% of the ₪75,311.23 above the threshold, ₪3,765.56: ₪202,983.37.
+/// At 2% inflation the real gain is 1,296,871.23 − 500,000 × 1.02¹⁰ =
+/// ₪687,374.02, under the threshold of 721,560 × 1.02⁹ = ₪862,330.99 in
+/// the sale's year, so only the quarter, ₪171,843.51. A savings policy
+/// pays the same as a broker.
+#[test]
+fn a_large_sale_pays_the_surtax() {
+    assert_eq!(SURTAX, Percent(dec!(5)));
+    assert_eq!(SURTAX_THRESHOLD, dec!(721560));
+    let no_fee = ManagementFee {
+        of_deposits: Percent(dec!(0)),
+        of_balance: Percent(dec!(0)),
+    };
+    let run = |inflation, vehicle, withdrawal| {
+        let scenario = Scenario {
+            inflation: Percent(inflation),
+            withdrawal,
+            ..one_deposit(dec!(500000), 10, dec!(10), 50)
+        };
+        simulate(&fund(vehicle, no_fee), &scenario, &rates()).unwrap()
+    };
+    let still = run(dec!(0), Vehicle::Brokerage, Withdrawal::LumpSum);
+    assert_eq!(still.after_selling.round_dp(2), dec!(1296871.23));
+    assert_eq!(still.tax.round_dp(2), dec!(202983.37));
+    let rising = run(dec!(2), Vehicle::Brokerage, Withdrawal::LumpSum);
+    assert_eq!(rising.tax.round_dp(2), dec!(171843.51));
+    let policy = run(dec!(0), Vehicle::SavingsPolicy, Withdrawal::LumpSum);
+    assert_eq!(policy.tax, still.tax);
 }
 
 /// ₪41,132 in a study fund for ten years at 10% a year, with no fees, while
