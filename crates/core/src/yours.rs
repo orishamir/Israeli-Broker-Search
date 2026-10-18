@@ -235,8 +235,8 @@ pub enum PriceKind {
     PerShare,
     PerOrder,
     /// The percentage in `amount`, plus `per_share`. After the field's "%",
-    /// it reads "0.15 % ועוד סכום למניה": "+ למניה" was read as a per-share
-    /// price alone.
+    /// it reads "0.15 % + סכום למניה": "+ למניה" was read as a per-share
+    /// price alone, and anything longer is cut off on a phone.
     PercentPlusPerShare,
 }
 
@@ -246,7 +246,7 @@ impl Named for PriceKind {
             PriceKind::Percent => lang.pick("of the trade", "מהעסקה"),
             PriceKind::PerShare => lang.pick("per share", "למניה"),
             PriceKind::PerOrder => lang.pick("per order", "לפקודה"),
-            PriceKind::PercentPlusPerShare => lang.pick("plus per share", "ועוד סכום למניה"),
+            PriceKind::PercentPlusPerShare => lang.pick("+ an amount per share", "+ סכום למניה"),
         }
     }
 }

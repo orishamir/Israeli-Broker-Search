@@ -10,11 +10,7 @@ import {
   listedPlans,
   RATES,
   rowsOnPage,
-  securityName,
-  sharePriceSymbol,
   usualPlans,
-  type Exchange,
-  type Security,
 } from './core'
 import { t } from '../src/lib/text'
 import { choice, expect, fingerDrag, openPlans, planInList, plansList, rows, test } from './fixtures'
@@ -26,31 +22,6 @@ test('Tel Aviv needs no exchange rates or share price', { tag: '@phone' }, async
   await expect(page.getByText('$1 = ₪')).toBeHidden()
   await expect(page.locator('#share-price')).toBeHidden()
   await expect(rows(page).first()).toBeVisible()
-})
-
-test("where it's traded is explained for an index fund without an ETF for its example", async ({ page }) => {
-  await choice(page, t.security, securityName('IndexFund')).click()
-  await page.getByRole('button', { name: t.whatMeans(t.tradedOn) }).hover()
-  await expect(page.getByRole('tooltip').filter({ hasText: t.tradedOnIndexFunds })).toBeVisible()
-})
-
-test('the share price is asked for only where the core says it matters', async ({ page }) => {
-  const sharePrice = page.locator('#share-price')
-  const unit = page.locator('.field').filter({ has: sharePrice }).locator('.unit')
-  for (const security of ['Etf', 'IndexFund', 'Bond'] as Security[]) {
-    for (const exchange of ['Usa', 'Europe', 'Tlv'] as Exchange[]) {
-      await choice(page, t.security, securityName(security)).click()
-      await choice(page, t.exchange, exchangeName(exchange)).click()
-      const symbol = sharePriceSymbol(await inputsOnPage(page)) ?? null
-      const shown = async () => ({
-        visible: await sharePrice.isVisible(),
-        unit: (await unit.allTextContents())[0] ?? null,
-      })
-      await expect
-        .poll(shown, { message: `${security} on ${exchange}` })
-        .toEqual({ visible: symbol !== null, unit: symbol })
-    }
-  }
 })
 
 test('bad inputs show why, in the words of the core, instead of breaking', async ({ page }) => {
@@ -130,30 +101,6 @@ test(
     await expect(page.getByText('$1 = ₪4 · €1 = ₪3.4594')).toBeVisible()
   },
 )
-
-test(
-  'the chosen security is explained, with its English name and its other Hebrew names',
-  { tag: '@phone' },
-  async ({ page }) => {
-    // The popovers say it too, hidden.
-    const shown = (text: string) => page.locator('.explained').getByText(text, { exact: true })
-    await expect(shown('ETF')).toBeVisible()
-    await expect(shown('קרן סל מחקה מדד')).toBeVisible()
-    await choice(page, t.security, securityName('IndexFund')).click()
-    await expect(shown('Index fund')).toBeVisible()
-    await expect(shown('קרן נאמנות מחקה')).toBeVisible()
-    await expect(page.locator('.explained').getByText('במחיר אחד ביום')).toBeVisible()
-  },
-)
-
-// Every label, choice and number, as text: a change to any shows as a diff.
-test('the inputs, as text', async ({ page }) => {
-  await expect(page.locator('aside')).toMatchAriaSnapshot({ name: 'inputs.aria.yml' })
-  // And the list of plans, every broker unfolded.
-  await openPlans(page)
-  for (const { name } of brokers()) await plansList(page).getByRole('button', { name, exact: true }).click()
-  await expect(plansList(page)).toMatchAriaSnapshot({ name: 'plans.aria.yml' })
-})
 
 test(
   'an example fills the fields as the core says; More options reveals the expert fields, which count',

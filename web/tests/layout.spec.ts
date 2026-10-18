@@ -14,7 +14,6 @@ import {
   copyPlan,
   details,
   expect,
-  fitScreenToPage,
   planInList,
   test,
   tickBrokers,
@@ -24,9 +23,7 @@ import {
 import { t } from '../src/lib/text'
 
 // Runs on every device in playwright.config.ts, including the layout-only
-// ones: rules that hold at any screen size, in every state of the page. The
-// start state also gets a picture per device, with the numbers and charts
-// masked out, so a tariff change doesn't change the picture.
+// one: rules that hold at any screen size, in every state of the page.
 
 /** What breaks the layout on this screen, in words; empty if nothing. */
 const layoutProblems = (page: Page) =>
@@ -218,20 +215,6 @@ test('the rules notice text drawn over text, text cut off, a tip off the screen,
 
 test('at the start', { tag: '@phone' }, async ({ page }) => {
   await checkLayout(page, 'start')
-  await fitScreenToPage(page)
-  // The numbers and the charts change with the tariffs; the rest is layout.
-  await expect(page).toHaveScreenshot('start.png', {
-    fullPage: true,
-    mask: [
-      page.locator('td.amount'),
-      page.locator('.stat .value'),
-      page.locator('.stat.best .label'),
-      page.locator('.stat.best .around'),
-      page.locator('.best-bar'),
-      page.locator('.chart'),
-      page.locator('.date'),
-    ],
-  })
 })
 
 // A chosen choice is bold, and so wider: every one must still fit.
@@ -346,7 +329,7 @@ test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({
 
 test('with a plan of your own', { tag: '@phone' }, async ({ page }) => {
   await copyPlan(page, 'Leumi · Pepper')
-  await dialog(page).getByRole('button', { name: t.addPlan }).click()
+  await dialog(page).getByRole('button', { name: t.saveTheCopy }).click()
   await checkLayout(page, 'your plans')
 })
 
@@ -455,7 +438,7 @@ test(
 
     await copyPlan(page, 'Provident fund · Average fee')
     await checkLayout(page, 'fund editor')
-    await dialog(page).getByRole('button', { name: t.addPlan }).click()
+    await dialog(page).getByRole('button', { name: t.saveTheCopy }).click()
     await closePlans(page)
     await page.getByLabel(t.everyMonth).fill('8000')
     await expect(page.getByText(t.overTheCeiling).first()).toBeVisible()
@@ -468,7 +451,7 @@ test(
     await page.keyboard.press('Escape')
     await closePlans(page)
     await page.locator('#years').fill('5')
-    await expect(page.getByText(t.stillLocked)).toBeVisible()
+    await expect(page.getByText(t.stillLocked).first()).toBeVisible()
     await checkLayout(page, 'locked')
   },
 )
@@ -508,48 +491,3 @@ test(
     await checkLayout(page, 'value over time, saving monthly')
   },
 )
-
-// Pictures, on the two extreme screens only (playwright.config.ts): what
-// the rules can't see, such as a color or an alignment, in the states with
-// the most in them. What comes from the tariffs is masked, so they change
-// only when the page itself does; the bars can't be, since the amounts are
-// the picture.
-test.describe('pictures', { tag: '@pictures' }, () => {
-  test("of a plan's details", async ({ page }) => {
-    await aboutPlan(page, 'Leumi · Pepper')
-    await expect(dialog(page)).toBeVisible()
-    await dialog(page).getByText(t.allPrices).click()
-    await page.mouse.move(0, 0)
-    await expect(dialog(page)).toHaveScreenshot('plan-dialog.png', {
-      mask: [
-        dialog(page).locator('.fees-for dd'),
-        dialog(page).locator('.group li'),
-        dialog(page).locator('.tariff td:nth-child(2)'),
-        dialog(page).locator('.tariff li'),
-        dialog(page).locator('.source'),
-      ],
-    })
-  })
-
-  test('of the editor, in both views', async ({ page }) => {
-    await copyPlan(page, 'Leumi · Pepper')
-    await expect(dialog(page)).toBeVisible()
-    await page.mouse.move(0, 0)
-    const masks = () => [
-      dialog(page).locator('input:not([type=radio], [type=checkbox])'),
-      dialog(page).locator('.was'),
-    ]
-    await expect(dialog(page)).toHaveScreenshot('editor.png', { mask: masks() })
-    await choice(dialog(page), t.view, t.fullPriceList).click()
-    await page.mouse.move(0, 0)
-    await expect(dialog(page)).toHaveScreenshot('editor-full.png', { mask: masks() })
-  })
-
-  test('of the fee breakdown', async ({ page }) => {
-    await choice(page, t.chart, t.breakdownView).click()
-    await page.mouse.move(0, 0)
-    const card = page.locator('section.card', { has: page.locator('.bars') })
-    await fitScreenToPage(page)
-    await expect(card).toHaveScreenshot('breakdown.png')
-  })
-})

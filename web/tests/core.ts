@@ -6,12 +6,10 @@
 
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
-import { aroundWords } from '../src/lib/around'
-import { percent, shekels } from '../src/lib/format'
+import { percent, placeCost, shekels, yearlyCost } from '../src/lib/format'
 import { parseNumber } from '../src/lib/numbers'
 import { t } from '../src/lib/text'
 import {
-  around,
   brokers,
   compare,
   compareShortTerm,
@@ -20,18 +18,9 @@ import {
   securities,
   setLang,
   shortTermKinds,
-  sweep,
   usualInflationPercent,
 } from '../src/lib/core/core'
-import type {
-  Exchange,
-  Inputs,
-  PlaceKey,
-  PlanKey,
-  Security,
-  ShortTermInputs,
-  Swept,
-} from '../src/lib/core/core'
+import type { Exchange, Inputs, PlaceKey, PlanKey, Security, ShortTermInputs } from '../src/lib/core/core'
 
 /** The key of a listed plan: where its broker is, and where it is in the broker's plans. */
 export type ListedKey = Extract<PlanKey, { kind: 'listed' }>
@@ -142,7 +131,7 @@ export function expectedRows(inputs: Inputs) {
   return compare(inputs).plans.map(({ key, outcome }) => {
     const plan = listedPlans.find((listed) => JSON.stringify(listed.key) === JSON.stringify(key))!
     const [lost, yearly, fees] = outcome
-      ? [shekels(outcome.lostToFees), percent(outcome.yearlyCostPercent), shekels(outcome.fees.total)]
+      ? [shekels(outcome.lostToFees), yearlyCost(outcome.yearlyCostPercent), shekels(outcome.fees.total)]
       : []
     const amounts = !outcome
       ? []
@@ -212,25 +201,6 @@ export function trackOnPage(inputs: Inputs, key: PlanKey): number | undefined {
   } catch {
     return undefined
   }
-}
-
-/** The best plan's line about other deposits for `inputs`: the core's
- * answer, in the page's words. The sweep varies the monthly deposit if
- * there is one, else the one-time deposit, and is asked without it. */
-export function expectedAroundLine(inputs: Inputs): string | undefined {
-  const swept: Swept = (inputs.monthlyDeposit ?? 0) > 0 ? 'Monthly' : 'OneTime'
-  const without = swept === 'Monthly' ? { ...inputs, monthlyDeposit: 0 } : { ...inputs, firstDeposit: 0 }
-  const found = around({
-    sweep: sweep(without, swept),
-    deposit: (swept === 'Monthly' ? inputs.monthlyDeposit : inputs.firstDeposit) ?? 0,
-    costs: compare(inputs).plans.map(({ key, outcome }) => ({
-      key,
-      cost: outcome?.yearlyCostPercent ?? null,
-    })),
-  })
-  const labelOf = (key: PlanKey) =>
-    listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.label
-  return found && aroundWords(found, swept, labelOf)
 }
 
 // ─────────────────────────── The short term ───────────────────────────
@@ -305,7 +275,7 @@ export function expectedPlaceRows(inputs: ShortTermInputs, yourNames: Record<str
       ? [
           shekels(outcome.afterTax),
           percent(outcome.yearlyAfterTaxPercent),
-          percent(outcome.yearlyCostPercent),
+          placeCost(outcome.yearlyCostPercent),
           outcome.tax === 0 ? t.noTax : shekels(outcome.tax),
         ]
       : [notOffered]

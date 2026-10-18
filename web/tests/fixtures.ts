@@ -145,16 +145,6 @@ export async function recordDrawnText(page: Page) {
   return () => page.evaluate(() => (window as unknown as { drawn: string[] }).drawn)
 }
 
-/** Makes the screen as tall as the page, before a picture of all of it.
- * Chromium's phones lose their touch emulation while capturing past the
- * bottom of the screen, and draw the page as for a mouse ("Click" rather
- * than "Tap"). */
-export async function fitScreenToPage(page: Page) {
-  const { width, height } = page.viewportSize()!
-  const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight)
-  if (pageHeight > height) await page.setViewportSize({ width, height: pageHeight })
-}
-
 /** Drags a real finger (touch events through the debugging protocol, which
  * `tap()` can't do) from a point on `target` by `dx`, `dy` pixels, in ten
  * steps. Chromium only. */

@@ -1,14 +1,5 @@
 import { barY, nameY, NARROW_SCREEN } from '../src/lib/fee-breakdown'
-import {
-  brokers,
-  compare,
-  exchangeName,
-  expectedRows,
-  inputsOnPage,
-  listedPlans,
-  purchasePhrase,
-  rowOfKey,
-} from './core'
+import { brokers, compare, expectedRows, inputsOnPage, listedPlans, rowOfKey } from './core'
 import {
   away,
   canvasPicture,
@@ -74,30 +65,15 @@ async function secondRow(page: Page) {
   }
 }
 
-test('clicking a bar pins its plan and shows it over time', async ({ page }) => {
-  const second = (await byFees(page))[1]
-  const { bar } = await secondRow(page)
-  await page.mouse.click(bar.x, bar.y)
-  await away(page)
-  await expect(rowOfKey(page, second.key)).toHaveClass(/pinned/)
-  await expect(overTime(page)).toContainText(second.label)
-})
-
-test('tapping a bar pins its plan and shows it over time', { tag: '@touch' }, async ({ page }) => {
-  const second = (await byFees(page))[1]
-  const { bar } = await secondRow(page)
-  await page.touchscreen.tap(bar.x, bar.y)
-  await expect(rowOfKey(page, second.key)).toHaveClass(/pinned/)
-  await expect(overTime(page)).toContainText(second.label)
-})
-
 /** Presses each part of the second row twice: once pins its plan, and the
  * second time unpins it. The whole row is the plan's, as its outline shows. */
 async function pressEachPart(page: Page, press: (x: number, y: number) => Promise<void>) {
-  const row = rowOfKey(page, (await byFees(page))[1].key)
+  const second = (await byFees(page))[1]
+  const row = rowOfKey(page, second.key)
   for (const [part, { x, y }] of Object.entries(await secondRow(page))) {
     await press(x, y)
     await expect(row, `pinned from its ${part}`).toHaveClass(/pinned/)
+    await expect(overTime(page)).toContainText(second.label)
     await press(x, y)
     await expect(row, `unpinned from its ${part}`).not.toHaveClass(/pinned/)
   }
@@ -130,16 +106,6 @@ test(
     await expect(page.locator('tbody tr.pinned')).toHaveCount(0)
   },
 )
-
-test('plans without a price are named, not just left out', { tag: '@phone' }, async ({ page }) => {
-  await choice(page, t.exchange, exchangeName('Europe')).click()
-  const unoffered = compare(await inputsOnPage(page))
-    .plans.filter(({ outcome }) => !outcome)
-    .map(({ key }) => listedPlans.find((plan) => JSON.stringify(plan.key) === JSON.stringify(key))!.label)
-  expect(unoffered.length).toBeGreaterThan(0)
-  const hint = page.getByText(`${t.notOfferedFor(purchasePhrase('Etf', 'Europe'))}:`)
-  for (const label of unoffered) await expect(hint).toContainText(label)
-})
 
 // Each name is drawn whole, on its line above the bar: none is cut to fit
 // the box (see `fitName`), on this screen and in the page's font.

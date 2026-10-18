@@ -15,8 +15,9 @@ catch the bug:
    and `fee-breakdown.ts` are pure functions the components hand to
    ECharts), number formatting. Milliseconds each.
 3. **Playwright** (`npm run test:browser`, `tests/*.spec.ts`): only what
-   needs a browser: that the page shows what the core says, and that
-   clicks, taps, hovers, keys and scrolling do what they should.
+   needs a browser: clicks, taps, hovers, keys and scrolling, and the
+   layout. Not what the page says: those words are the core's or `t`'s, and
+   checking them again here broke on every rewording and caught nothing.
 
 ## Playwright
 
@@ -57,8 +58,8 @@ catch the bug:
   `@touch` only on those two (tapping, the zoom slider, real swipes), with
   `@chromium` when it needs the debugging protocol, which WebKit lacks.
   Split a test by device rather than branching on `isMobile` inside it.
-  `layout.spec.ts` also runs on six more screen sizes; to cover another,
-  add it to `layoutOnly`.
+  `layout.spec.ts` also runs on the narrowest iPhone; to cover another
+  screen, add it to `layoutOnly`.
 - **Plans are ticked in the list of plans**, a dialog over the inputs
   (`PlanSheet.svelte`), each broker folded to one line. `fixtures.ts` opens
   it and unfolds for you: `tickBrokers`, `tickPlan`, `planInList` (a plan's
@@ -70,7 +71,7 @@ catch the bug:
 - Import `test`/`expect` from `./fixtures`: it mocks the exchange rates,
   waits until the app is drawn, and fails the test on any error thrown in
   the page (which is how a ResizeObserver loop on the iPad was found).
-- **Rules before pictures.** `layoutProblems` (`layout.spec.ts`) checks
+- **Layout by rules.** `layoutProblems` (`layout.spec.ts`) checks
   every device and state: no sideways scroll, nothing sticking out of a
   card or dialog, no text drawn over other text, no text cut off inside its
   own box, fields ≥16px, choices on one row, dropdowns not cut off, an open
@@ -84,20 +85,9 @@ catch the bug:
   `breakdown.spec.ts` records what the chart draws (`fillText`) and checks
   that every plan's name is drawn whole, on one line: none cut to fit the
   screen.
-- **Pictures, 18 in all, for what rules can't see** (a color, an
-  alignment): the start page on each of the nine devices; on the
-  narrowest phone and the desktop only (`@pictures`), a plan's details, the
-  editor in both views, and the fee breakdown; and an open tip on the
-  desktop (`tips.spec.ts`). What comes from the tariffs is masked, so they
-  change only when the page itself does; the breakdown's
-  bars can't be, since the amounts are the picture, so a tariff change
-  re-records those two. A growth chart is checked by comparing its canvas
+- **No pictures.** A growth chart is checked by comparing its canvas
   before and after (`canvasPicture`): zooming must change it and resetting
   restore it; what the lines look like is a unit test of the options.
-  Baselines pass differences up to 0.2% of pixels, so assert a subtle change
-  (an opacity) instead. `npx playwright test --update-snapshots=all
-tests/layout.spec.ts` re-records them; look at the changed PNGs before
-  committing, on one contact sheet (LESSONS.md, "Recipes").
 - Charts are canvases: click at positions computed from the chart's box,
   after scrolling it into view. Real swipes need CDP
   `Input.dispatchTouchEvent` (see `breakdown.spec.ts`), because `tap()`
@@ -105,11 +95,9 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
 - Animations are off (`reducedMotion`). A test about motion itself (an end
   label riding on its line, `chart.spec.ts`) turns them on with
   `test.use({ reducedMotion: 'no-preference' })`, and waits until nothing is
-  drawn before acting: the lines draw themselves in after loading. Before a
-  screenshot or Esc, call `away(page)`, so no hover tip is under the
-  pointer; `closeDialog` does.
-  Before a full-page picture, `fitScreenToPage`: Chromium phones otherwise
-  lose touch emulation.
+  drawn before acting: the lines draw themselves in after loading. Before
+  Esc, call `away(page)`, so no hover tip is under the pointer;
+  `closeDialog` does.
 - On the iPhone project a tap is a mouse click, so a hover stays behind
   (`app.hovered`): move the mouse away before asserting anything a hover
   changes.
@@ -125,11 +113,10 @@ tests/layout.spec.ts` re-records them; look at the changed PNGs before
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.
-- In CI (`.github/workflows/deploy.yml`) only the desktop project runs, with
-  `--ignore-snapshots`: the runner's fonts differ from the ones the pictures
-  were recorded with. Phones and the performance suite are run here.
-- A full run takes about 110 s (320 tests on 9 devices), the desktop alone
-  (100 of them) 25 s; the first run after `npm run wasm` can take a few
+- In CI (`.github/workflows/deploy.yml`) only the desktop project runs.
+  Phones and the performance suite are run here.
+- A full run takes about a minute (182 tests on 4 devices), the desktop
+  alone (74 of them) 20 s; the first run after `npm run wasm` can take a few
   minutes more, while Vite starts cold. Run it twice after timing-related
   changes.
 

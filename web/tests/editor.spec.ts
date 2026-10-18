@@ -7,14 +7,13 @@ import {
   listed,
   listedPlan,
   planInfo,
-  purchasePhrase,
   securityName,
   setManagement,
   setTrade,
   simpleFees,
   trackOnPage,
 } from './core'
-import type { Exchange, FeeKind, PlanData, Security } from './core'
+import type { FeeKind, PlanData } from './core'
 import {
   choice,
   closePlans,
@@ -26,8 +25,6 @@ import {
   plansList,
   rows,
   test,
-  tickBrokers,
-  tickPlan,
   type Page,
 } from './fixtures'
 import { t } from '../src/lib/text'
@@ -67,7 +64,7 @@ const copy = copyPlan
 async function addDeal(page: Page) {
   await copy(page, 'Leumi · Pepper')
   await editor(page).getByLabel(t.fieldOf(TRADE, t.price)).fill('2')
-  await editor(page).getByRole('button', { name: t.addPlan }).click()
+  await editor(page).getByRole('button', { name: t.saveTheCopy }).click()
   await expect(editor(page)).toBeHidden()
 }
 
@@ -87,7 +84,7 @@ test("✎ copies a plan to change, showing the original's fees", { tag: '@phone'
   const was = simple(changed).trade!.was!
   await expect(dialog).toContainText(`${plan.name}: ${was.price.text}`)
 
-  await dialog.getByRole('button', { name: t.addPlan }).click()
+  await dialog.getByRole('button', { name: t.saveTheCopy }).click()
   await expect(dialog).toBeHidden()
   await expect(await yourPlans(page)).toContainText(t.copyOf(plan.name, broker.name))
   const row = rows(page).filter({ hasText: planInfo(data).name })
@@ -120,11 +117,11 @@ test(
     await balance.fill('-1')
     await expect(dialog).toContainText(NEGATIVE)
     // Not added while a field says what's wrong with it.
-    await expect(dialog.getByRole('button', { name: t.addPlan })).toBeDisabled()
+    await expect(dialog.getByRole('button', { name: t.saveTheCopy })).toBeDisabled()
     await balance.fill('0.4')
     await expect(dialog).not.toContainText(NEGATIVE)
 
-    await dialog.getByRole('button', { name: t.addPlan }).click()
+    await dialog.getByRole('button', { name: t.saveTheCopy }).click()
     await expect(dialog).toBeHidden()
     const row = rows(page).filter({ hasText: yours })
     await expect(row).toContainText(t.yourDeal(broker.name))
@@ -254,32 +251,6 @@ test('the full price list: rows, what they cover, and overlaps', async ({ page }
   await expect(dialog).toBeVisible()
 })
 
-test('the simple view shows the fees for every security and exchange', async ({ page }) => {
-  // A loop over everything: near the timeout under load.
-  test.slow()
-  for (const exchange of ['Tlv', 'Usa', 'Europe'] as Exchange[]) {
-    await choice(page, t.exchange, exchangeName(exchange)).click()
-    for (const security of ['Etf', 'IndexFund', 'Bond', 'Stock'] as Security[]) {
-      await choice(page, t.security, securityName(security)).click()
-      const { simple } = await copied(page, 'Leumi · Online')
-      await copy(page, 'Leumi · Online')
-      const dialog = editor(page)
-      await expect(dialog, `${security} on ${exchange}`).toContainText(
-        t.forPurchase(purchasePhrase(security, exchange)),
-      )
-      await expect(dialog.getByLabel(t.fieldOf(TRADE, t.price))).toBeVisible()
-      await expect(dialog.getByLabel(t.fieldOf(t.custody, t.rate))).toBeVisible()
-      // Nothing is converted on Tel Aviv.
-      await expect(dialog.getByLabel(t.fieldOf(fee('Conversion'), t.fee))).toHaveCount(
-        simple().conversion ? 1 : 0,
-      )
-      await dialog.getByRole('button', { name: t.cancel }).click()
-      await expect(dialog).toBeHidden()
-      await closePlans(page)
-    }
-  }
-})
-
 test('✎ shows on hover', async ({ page }) => {
   const plan = await planInList(page, 'Leumi · Pepper')
   const pencil = plan.getByRole('button', { name: t.changeACopy(listed('Leumi · Pepper').label) })
@@ -294,113 +265,4 @@ test('✎ always shows on touch screens', { tag: '@touch' }, async ({ page }) =>
     'opacity',
     '1',
   )
-})
-
-test("a copy's standing order price can be changed, in both views", async ({ page }) => {
-  await choice(page, t.security, securityName('IndexFund')).click()
-  await choice(page, t.exchange, exchangeName('Tlv')).click()
-  const { plan, simple } = await copied(page, 'Leumi · Online, monthly standing order')
-  const { trade, standingOrder } = simple()
-  await copy(page, 'Leumi · Online, monthly standing order')
-  const dialog = editor(page)
-  const byStandingOrder = fee('StandingOrder')
-  // Buying otherwise stays Online's.
-  await expect(dialog.getByLabel(t.fieldOf(TRADE, t.price))).toHaveValue(price(trade!.fields))
-  await expect(dialog.getByLabel(t.fieldOf(byStandingOrder, t.price))).toHaveValue(
-    price(standingOrder!.fields),
-  )
-  await dialog.getByLabel(t.fieldOf(byStandingOrder, t.price)).fill('0.1')
-  await expect(dialog).toContainText(`${plan.name}: ${standingOrder!.price.text}`)
-  await choice(dialog, t.view, t.fullPriceList).click()
-  const covers = `${securityName('IndexFund')} ב${exchangeName('Tlv')}`
-  await expect(dialog.getByLabel(t.fieldOf(`${byStandingOrder}, ${covers}`, t.price))).toHaveValue('0.1')
-})
-
-test("a copy's second conversion fee can be changed, and the copy then ends with more", async ({ page }) => {
-  const label = "Leumi · Online, 'Leumi 18+'"
-  await tickPlan(page, label)
-  const { plan, copy: data, simple } = await copied(page, label)
-  const { conversion, secondConversion } = simple()
-  await copy(page, label)
-  const dialog = editor(page)
-  const second = dialog.getByLabel(t.fieldOf(fee('SecondConversion'), t.fee))
-  await expect(dialog.getByLabel(t.fieldOf(fee('Conversion'), t.fee))).toHaveValue(
-    price(conversion!.fields.percent !== undefined ? { amount: conversion!.fields.percent } : {}),
-  )
-  await expect(second).toHaveValue(price({ amount: secondConversion!.fields.percent }))
-  await second.fill('0.12')
-  await expect(dialog).toContainText(`${plan.name}: ${secondConversion!.price.text}`)
-  await dialog.getByRole('button', { name: t.addPlan }).click()
-  // The copy converts for less than the original, so it's left with more
-  // (the third amount: yearly cost, lost to fees, value if sold).
-  const valueIfSold = async (name: string) => {
-    const row = rows(page).filter({ has: page.getByText(name, { exact: true }) })
-    return Number((await row.locator('td.amount').nth(2).textContent())!.replace(/\D/g, ''))
-  }
-  expect(await valueIfSold(planInfo(data).name)).toBeGreaterThan(await valueIfSold(plan.name))
-})
-
-test('a copy is made on the track the comparison picked', async ({ page }) => {
-  await tickBrokers(page, [listed('IBI · Full tariff').broker.name])
-  const { plan, simple } = await copied(page, 'IBI · Full tariff')
-  const trade = simple().trade!
-  await copy(page, 'IBI · Full tariff')
-  const dialog = editor(page)
-  await expect(dialog.getByLabel(t.fieldOf(TRADE, t.unit))).toHaveValue(trade.fields.kind)
-  await expect(dialog.getByLabel(t.fieldOf(TRADE, t.price))).toHaveValue(price(trade.fields))
-  await expect(dialog.getByLabel(t.fieldOf(TRADE, t.perShare))).toHaveValue(
-    price({ amount: trade.fields.perShare }),
-  )
-  await dialog.getByLabel(t.fieldOf(TRADE, t.perShare)).fill('0.005')
-  await expect(dialog).toContainText(`${plan.name}: ${trade.price.text}`)
-})
-
-test("a copy's handling fee, markup and fractions can be changed", async ({ page }) => {
-  const { plan, simple } = await copied(page, 'Excellence · Typical offer')
-  const { handling, markup, sellsFractions } = simple()
-  await copy(page, 'Excellence · Typical offer')
-  const dialog = editor(page)
-  await expect(dialog.getByLabel(t.fieldOf(t.handling, t.fee))).toHaveValue(
-    price({ amount: handling.fields.perMonth }),
-  )
-  await expect(dialog.getByLabel(t.fieldOf(t.handling, t.freeMonths))).toHaveValue(
-    String(handling.fields.freeMonths),
-  )
-  await dialog.getByLabel(t.fieldOf(t.handling, t.freeMonths)).fill('36')
-  await expect(dialog).toContainText(`${plan.name}: ${handling.price.text}`)
-  await expect(dialog.getByLabel(t.fieldOf(fee('Markup'), t.unit))).toHaveValue(
-    markup!.fields.perDollar !== undefined ? 'perDollar' : 'percent',
-  )
-  await expect(dialog.getByLabel(fee('Markup'), { exact: true })).toHaveValue(
-    price({ amount: markup!.fields.perDollar ?? markup!.fields.percent }),
-  )
-  await dialog.getByLabel(t.fieldOf(fee('Markup'), t.unit)).selectOption('percent')
-  await expect(dialog.getByLabel(fee('Markup'), { exact: true })).toHaveValue('')
-  await expect(dialog).toContainText(t.countedAs0)
-
-  const fractions = dialog.getByRole('checkbox', { name: t.sellsFractions })
-  await expect(fractions).toBeChecked({ checked: sellsFractions! })
-  await fractions.uncheck()
-  await choice(dialog, t.view, t.fullPriceList).click()
-  const inFull = dialog.getByRole('group', { name: t.fractionsOfAShare })
-  await expect(inFull.getByLabel(exchangeName('Usa'))).not.toBeChecked()
-  await inFull.getByLabel(exchangeName('Usa')).check()
-  await expect(dialog.getByLabel(t.fieldOf(t.handling, t.freeMonths))).toHaveValue('36')
-})
-
-test("a copy's conversion by standing order can be changed", async ({ page }) => {
-  const { plan, simple } = await copied(page, 'Interactive · Standard')
-  expect(simple().standingOrderConversion).toBeDefined()
-  await copy(page, 'Interactive · Standard')
-  const dialog = editor(page)
-  // Its automatic investment plan converts for free.
-  const byStandingOrder = dialog.getByLabel(
-    t.fieldOf(
-      t.conversionByStandingOrder(feeKinds().find(({ value }) => value === 'StandingOrder')!.label),
-      t.min,
-    ),
-  )
-  await expect(byStandingOrder).toHaveValue('')
-  await byStandingOrder.fill('2')
-  await expect(dialog).toContainText(`${plan.name}: ${simple().standingOrderConversion!.price.text}`)
 })

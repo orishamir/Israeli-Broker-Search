@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from 'svelte/animate'
   import type { ShortTermOutcomeData } from './core/core'
-  import { percent, shekels, typedPercent } from './format'
+  import { paysAboveTheRate, percent, placeCost, shekels, typedPercent } from './format'
   import { duration, easeOut, SETTLE } from './motion'
   import type { PlaceResult, ShortTermState } from './short-term.svelte'
   import { t } from './text'
@@ -19,9 +19,6 @@
     good?: (outcome: ShortTermOutcomeData) => boolean
   }
 
-  /** Below half a hundredth of a percent, a cost rounds to nothing. */
-  const aboveTheRate = (outcome: ShortTermOutcomeData) => outcome.yearlyCostPercent <= -0.005
-
   /** The amounts, what the table is ranked by first: on a phone only the
    * first two fit beside the place's name, and the rest scroll into view. */
   const columns: Column[] = $derived([
@@ -38,12 +35,8 @@
     {
       title: t.costYearly,
       explanation: t.costYearlyTip,
-      // A negative cost read twice: a bank above the rate says so.
-      text: (outcome) =>
-        aboveTheRate(outcome)
-          ? t.aboveTheRate(percent(-outcome.yearlyCostPercent))
-          : percent(outcome.yearlyCostPercent),
-      good: aboveTheRate,
+      text: (outcome) => placeCost(outcome.yearlyCostPercent),
+      good: (outcome) => paysAboveTheRate(outcome.yearlyCostPercent),
     },
     {
       title: t.tax,

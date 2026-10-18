@@ -128,7 +128,8 @@ test('a first tap on the chart moves neither the page nor its zoom', { tag: '@to
         record()
       }),
   )
-  await page.touchscreen.tap(box.x + box.width * 0.2, box.y + 150)
+  // Near the left edge of the plot, past the axis labels.
+  await page.touchscreen.tap(box.x + box.width * 0.3, box.y + 150)
   expect(await views).toHaveLength(1)
   // Headed by the time, in either view over the years.
   const tooltip = (await page.locator('.chart > div', { hasText: 'אחרי' }).boundingBox())!

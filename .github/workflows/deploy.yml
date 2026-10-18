@@ -1,9 +1,7 @@
 # Tests, then the site on GitHub Pages: every push to main, or by hand from
 # the Actions tab. A failing test stops the deploy. The browser tests run
-# Playwright's desktop project only, without its snapshots: the pictures
-# were recorded on a developer's machine, whose fonts the runner lacks; the
-# phone projects and the performance suite stay local ("Done means" in
-# CLAUDE.md).
+# Playwright's desktop project only; the phone projects and the performance
+# suite stay local ("Done means" in CLAUDE.md).
 name: Test and deploy
 
 on:
@@ -58,7 +56,7 @@ jobs:
       - name: Browser tests
         run: |
           npx playwright install --with-deps chromium
-          npx playwright test --project=desktop --ignore-snapshots
+          npx playwright test --project=desktop
 
       - name: Build the site
         run: npx vite build

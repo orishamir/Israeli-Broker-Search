@@ -81,6 +81,15 @@ const roundPercent = new Intl.NumberFormat('en-IL', {
 /** "0.42%", "12.50%": a yearly cost, from a number of percent (0.42). */
 export const percent = (value: number): string => twoDecimals.format(value / 100)
 
+/** Whether a place's yearly cost, a share of the Bank of Israel's rate it
+ * keeps, is below zero once rounded: a bank paying more than the rate. */
+export const paysAboveTheRate = (costPercent: number): boolean => costPercent <= -0.005
+
+/** A place's yearly cost, "0.17%", or for a bank paying more than the rate
+ * "0.50% מעל הריבית": a negative cost read twice. */
+export const placeCost = (costPercent: number): string =>
+  paysAboveTheRate(costPercent) ? t.aboveTheRate(percent(-costPercent)) : percent(costPercent)
+
 /** A plan's yearly cost as `percent` writes it, but "less than 0.01%" for a
  * cost that rounds to nothing: "0.00%" read as no fees at all. */
 export const yearlyCost = (value: number): string =>

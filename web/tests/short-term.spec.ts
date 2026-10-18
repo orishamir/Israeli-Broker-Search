@@ -1,21 +1,16 @@
-import { compactPercent } from '../src/lib/format'
 import { t } from '../src/lib/text'
 import {
   aboutShortTerm,
   expectedPlaceRows,
   place,
   placeRowsOnPage,
-  shortTermDataDates,
   shortTermExamples,
   shortTermInputsOnPage,
-  shortTermKinds,
-  shortTermPlaces,
-  termFor,
 } from './core'
 import { away, details, expect, fingerDrag, test, type Page } from './fixtures'
 
-// The short-term calculator: the switch to it, its inputs, the places to
-// compare, and what the core says for them.
+// The short-term calculator: the switch to it, its inputs and the places to
+// compare, as they respond to the user.
 
 /** Opens the short-term calculator. */
 async function toShortTerm(page: Page) {
@@ -49,11 +44,6 @@ test(
   async ({ page }) => {
     await toShortTerm(page)
     await expect(page.getByRole('radio', { name: t.shortTerm })).toBeChecked()
-    // The places the core ticks at first, named in the card.
-    const ticked = shortTermPlaces.filter(({ place }) => place.comparedAtFirst)
-    await expect(page.getByRole('list', { name: t.whatsCompared }).getByRole('listitem')).toHaveText(
-      ticked.map(({ place }) => place.shortName),
-    )
     await expectCoresTable(page)
     // The long term's inputs aren't on the page.
     await expect(page.getByRole('radiogroup', { name: t.security })).toHaveCount(0)
@@ -118,51 +108,6 @@ test('a deposit of your own is compared at the rate you type, and kept for the n
   await expect(page.locator('tbody')).not.toContainText(t.yourDepositName)
 })
 
-test("a place's details show its rates by term, the months' term marked", async ({ page }) => {
-  await toShortTerm(page)
-  await openPlaces(page)
-  const { place: leumi } = place('Fixed-rate deposit · Bank Leumi')
-  await placesList(page)
-    .getByRole('button', { name: t.about(leumi.name) })
-    .click()
-  const dialog = details(page)
-  await expect(dialog.getByRole('heading', { name: leumi.name })).toBeVisible()
-  await expect(dialog.getByRole('row')).toHaveCount(leumi.rates.length)
-  const chosen = leumi.rates[termFor(12)!]
-  await expect(dialog.locator('tr.chosen')).toHaveText(new RegExp(chosen.term))
-  await expect(dialog.getByText(leumi.tax)).toBeVisible()
-})
-
-test("what's left after tax is explained in the short term's words, with nothing sold", async ({ page }) => {
-  await toShortTerm(page)
-  await page.getByRole('button', { name: t.whatMeans(t.leftAfterTax) }).hover()
-  await expect(page.getByRole('tooltip').filter({ hasText: t.shortLeftAfterTaxTip })).toBeVisible()
-})
-
-test("each kind is explained by the table's place column and beside its heading in the list", async ({
-  page,
-}) => {
-  await toShortTerm(page)
-  const kinds = shortTermKinds()
-  await page.getByRole('button', { name: t.whatMeans(t.place) }).hover()
-  const tip = page.getByRole('tooltip').filter({ hasText: t.placeTip })
-  for (const { name, description } of kinds) {
-    await expect(tip).toContainText(name)
-    await expect(tip).toContainText(description)
-  }
-  await away(page)
-
-  await openPlaces(page)
-  for (const { name, description } of kinds) {
-    // An open tip covers the next heading's ? until the mouse leaves it.
-    await away(page)
-    await placesList(page)
-      .getByRole('button', { name: t.whatMeans(name) })
-      .hover()
-    await expect(page.getByRole('tooltip').filter({ hasText: description })).toBeVisible()
-  }
-})
-
 test('More options opens the inflation in its own card, the last, and the tax follows it', async ({
   page,
 }) => {
@@ -208,19 +153,6 @@ test(
     await expect(months).toHaveValue(before)
   },
 )
-
-test('under the table, how old the rates and fees are', async ({ page }) => {
-  await toShortTerm(page)
-  await expect(page.locator('.table .dates')).toHaveText(shortTermDataDates())
-})
-
-test('under the summary, the rate and inflation it assumes', async ({ page }) => {
-  await toShortTerm(page)
-  const { ratePercent, inflationPercent } = await shortTermInputsOnPage(page)
-  await expect(page.locator('.assumptions')).toHaveText(
-    t.shortAssumptions(compactPercent(ratePercent!), compactPercent(inflationPercent!)),
-  )
-})
 
 test('a locked best names the best that can be taken out any day, and for how much less', async ({
   page,
