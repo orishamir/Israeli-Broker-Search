@@ -139,7 +139,12 @@ pub fn kind() -> Kind {
         vec![],
     );
     let cheapest = fund(
-        t("Cheapest fund", "הקרן הזולה"),
+        // English stays the key that links and saved copies name it by; the
+        // Hebrew says which fund it is, as it's called in the bank's app.
+        t(
+            "Cheapest fund",
+            "הקרן הזולה: דולפין\u{a0}כספית\u{a0}שקלית",
+        ),
         t(
             "The shekel money market fund that charges the least: Ayalon's Dolphin \
              (דולפין\u{a0}כספית\u{a0}שקלית). Its manager takes nothing: its whole fee, 0.01%, \
@@ -164,7 +169,7 @@ pub fn kind() -> Kind {
         ],
     );
     let dearest = fund(
-        t("Dearest fund", "הקרן היקרה"),
+        t("Dearest fund", "הקרן היקרה: מיטב\u{a0}כספית"),
         t(
             "The shekel money market fund that charges the most: Meitav's \
              (מיטב\u{a0}כספית).",

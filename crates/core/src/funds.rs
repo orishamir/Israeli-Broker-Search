@@ -464,6 +464,7 @@ pub fn investment_gemel() -> Broker {
             .sources(&[&globes_on_the_cap(), &bizportal_on_the_cap()]),
         ],
         plans: vec![average, cheapest, dearest, legal_maximum],
+        exchange_notes: vec![],
         spread: Some(Spread {
             cheapest: Some(1),
             dearest: Some(2),
@@ -607,6 +608,7 @@ pub fn study_fund() -> Broker {
             other_tracks_arent_compared(t("The fund", "הקרן")),
         ],
         plans: vec![average, cheapest, dearest, legal_maximum],
+        exchange_notes: vec![],
         spread: Some(Spread {
             cheapest: Some(1),
             dearest: Some(2),
@@ -733,6 +735,7 @@ pub fn savings_policy() -> Broker {
         plans: vec![average, highest],
         // The regulator reports the insurers' policies together, so there's
         // no cheapest or dearest company to show.
+        exchange_notes: vec![],
         spread: Some(Spread {
             cheapest: None,
             dearest: None,

@@ -1182,6 +1182,50 @@ pub struct Broker {
     /// For a kind of fund, the plans shown beside its average rather than
     /// as plans of their own; `None` for a broker.
     pub spread: Option<Spread>,
+    /// Why this broker doesn't trade on an exchange the others do, where
+    /// that's a fact about the broker rather than a gap in the price list:
+    /// Interactive's Tel Aviv, for institutional clients only.
+    #[serde(default)]
+    pub exchange_notes: Vec<ExchangeNote>,
+}
+
+/// Why a broker offers nothing on an exchange.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct ExchangeNote {
+    pub exchange: Exchange,
+    pub reason: Text,
+}
+
+impl Broker {
+    /// Why `plan` of this broker can't be used for `security` on
+    /// `exchange`: the broker's own reason for the exchange if it has one
+    /// and the plan has nothing there, else [`Plan::not_offered_reason`].
+    #[must_use]
+    pub fn not_offered_reason(
+        &self,
+        plan: &Plan,
+        security: Security,
+        exchange: Exchange,
+        lang: Lang,
+    ) -> String {
+        let note = self
+            .exchange_notes
+            .iter()
+            .find(|note| note.exchange == exchange);
+        match note {
+            Some(note) if !plan.sells_anything_on(exchange) => {
+                // "בבנק X: ..." with the broker's short name, as the plan's own reason does.
+                let reason = &note.reason[lang];
+                let at = &self.short_name[lang];
+                let sentence = match lang {
+                    Lang::En => format!("At {at}, {reason}"),
+                    Lang::He => format!("ב{at} {reason}"),
+                };
+                describe::capitalized(&sentence)
+            }
+            _ => plan.not_offered_reason(security, exchange, Some(&self.short_name[lang]), lang),
+        }
+    }
 }
 
 // ─────────────────────────── Inputs ───────────────────────────

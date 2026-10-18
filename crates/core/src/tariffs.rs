@@ -23,9 +23,9 @@ use time::macros::date;
 use crate::Exchange::{self, Europe, Tlv, Usa};
 use crate::Security::{self, Bond, Etf, IndexFund, Stock};
 use crate::{
-    Broker, BrokerKind, Caveat, ConversionFee, CustodyFee, FeeKind, HandlingFee, Markup, Money,
-    OfferEnds, Page, Percent, PercentFee, Period, Plan, Price, TariffDate, Text, Track, TradeFee,
-    Vehicle, ils, iso, usd,
+    Broker, BrokerKind, Caveat, ConversionFee, CustodyFee, ExchangeNote, FeeKind, HandlingFee,
+    Markup, Money, OfferEnds, Page, Percent, PercentFee, Period, Plan, Price, TariffDate, Text,
+    Track, TradeFee, Vehicle, ils, iso, usd,
 };
 
 /// Every broker the app knows, in the order to offer them, each with what
@@ -65,9 +65,11 @@ pub fn us_estate_tax() -> Caveat {
         "On shares of US companies and on funds registered in the US, wherever you bought \
          them, the US taxes the estate of someone who isn't resident there, at a rising rate \
          of up to 40% on the value above $60,000; Israel has no estate-tax treaty with the \
-         US. Funds registered in Ireland or in Israel, and shares of companies that aren't \
-         American, don't pay it. It isn't counted: the estate pays it, not a sale.",
-        "על מניות של חברות אמריקאיות ועל קרנות שרשומות בארה״ב, בכל בורסה שקניתם אותן, ארה״ב גובה ממי שאינו תושב בה מס עיזבון: בשיעור עולה, עד 40%, על השווי שמעל $60,000. לישראל אין איתה אמנה למס עיזבון. קרנות שרשומות באירלנד או בישראל, ומניות של חברות שאינן אמריקאיות, לא חייבות בו. המחשבון לא כולל אותו, כי הוא משולם מהעיזבון ולא במכירה.",
+         US. It isn't counted: the estate pays it, not a sale. To avoid it, hold the same \
+         index in a fund registered in Ireland or in Israel, such as an Israeli ETF or index \
+         fund, or an Irish ETF listed in Tel Aviv or in Europe; shares of companies that \
+         aren't American don't pay it either.",
+        "על מניות של חברות אמריקאיות ועל קרנות שרשומות בארה״ב, בכל בורסה שקניתם אותן, ארה״ב גובה ממי שאינו תושב בה מס עיזבון: בשיעור עולה, עד 40%, על השווי שמעל $60,000. לישראל אין איתה אמנה למס עיזבון. המחשבון לא כולל אותו, כי הוא משולם מהעיזבון ולא במכירה. כדי להימנע ממנו, אפשר להחזיק את אותו מדד בקרן שרשומה באירלנד או בישראל, למשל קרן סל או קרן מחקה ישראלית, או קרן סל אירית שנסחרת בתל אביב או באירופה; גם מניות של חברות שאינן אמריקאיות לא חייבות בו.",
     ))
     .about(&[Etf, IndexFund, Stock])
     .on(&[Usa])
@@ -584,6 +586,7 @@ pub fn altshuler() -> Broker {
         ],
         plans: vec![full_tariff, new_customers],
         spread: None,
+        exchange_notes: vec![],
     }
 }
 
@@ -1022,6 +1025,7 @@ pub fn leumi() -> Broker {
         caveats: broker_caveats,
         plans: vec![online, plus18, standing_order, pepper, branch],
         spread: None,
+        exchange_notes: vec![],
     }
 }
 
@@ -1280,6 +1284,7 @@ pub fn excellence() -> Broker {
         caveats: vec![],
         plans: vec![full_tariff, typical_offer],
         spread: None,
+        exchange_notes: vec![],
     }
 }
 
@@ -1592,6 +1597,7 @@ pub fn ibi() -> Broker {
         ],
         plans: vec![full_tariff, typical_offer],
         spread: None,
+        exchange_notes: vec![],
     }
 }
 
@@ -1759,6 +1765,13 @@ pub fn interactive() -> Broker {
         ],
         plans: vec![standard],
         spread: None,
+        exchange_notes: vec![ExchangeNote {
+            exchange: Tlv,
+            reason: t(
+                "trading in Tel Aviv is only for institutional clients",
+                "המסחר בבורסה בתל אביב רק ללקוחות מוסדיים",
+            ),
+        }],
     }
 }
 
@@ -2001,6 +2014,7 @@ pub fn meitav() -> Broker {
         ],
         plans: vec![full_tariff, typical_offer],
         spread: None,
+        exchange_notes: vec![],
     }
 }
 
@@ -2292,6 +2306,7 @@ pub fn mizrahi() -> Broker {
         caveats: broker_caveats,
         plans: vec![online, young, branch],
         spread: None,
+        exchange_notes: vec![],
     }
 }
 
@@ -2688,5 +2703,6 @@ pub fn otsar_hahayal() -> Broker {
         caveats: broker_caveats,
         plans: vec![online, standing_order, club, top_trade, branch],
         spread: None,
+        exchange_notes: vec![],
     }
 }

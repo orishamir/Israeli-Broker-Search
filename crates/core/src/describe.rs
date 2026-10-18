@@ -11,6 +11,10 @@ use rusty_money::{Formatter as MoneyFormatter, Params};
 use serde::{Deserialize, Serialize};
 use time::macros::format_description;
 
+mod learn;
+
+pub use learn::{LearnCard, Term, glossary, learn_card};
+
 use crate::simulation::{NotOffered, Outcome, Scenario, USUAL_INFLATION};
 use crate::vehicles::{SURTAX, SURTAX_THRESHOLD};
 use crate::{
@@ -106,6 +110,12 @@ pub trait Explained: Named + Copy {
     fn explanation(self, lang: Lang) -> &'static str;
     fn hebrew_names(self) -> &'static [&'static str];
 
+    /// The learn card about what this is, if there is one: the tip's
+    /// “עוד על זה ›”.
+    fn card(self) -> Option<Term> {
+        None
+    }
+
     /// The English name the page shows under the Hebrew one, where it helps:
     /// "ETF" is what many look up, while "USA" says nothing "ארה״ב" doesn't.
     fn english_name(self) -> Option<&'static str> {
@@ -159,6 +169,14 @@ impl Explained for Security {
             Security::IndexFund => "Index mutual fund",
             security => security.name(Lang::En),
         })
+    }
+
+    fn card(self) -> Option<Term> {
+        match self {
+            Security::Etf => Some(Term::Etf),
+            Security::IndexFund => Some(Term::IndexFund),
+            Security::Bond | Security::Stock => None,
+        }
     }
 
     fn hebrew_names(self) -> &'static [&'static str] {
@@ -242,6 +260,19 @@ impl Explained for Product {
                 "מסלול ההשקעה של הקופה שעוקב אחרי מדד S&P\u{a0}500. עמלות המסחר שלו, המס שהוא מפסיד על דיבידנדים וההוצאות הישירות שלו יורדים מהתשואה, בנוסף לדמי הניהול.",
             ),
         }
+    }
+
+    fn card(self) -> Option<Term> {
+        Some(match self {
+            Product::IsraeliIndexFund => Term::IndexFund,
+            Product::IsraeliEtf
+            | Product::ForeignEtfInTelAviv
+            | Product::UsFund
+            | Product::IrishFund => Term::Etf,
+            Product::StudyFundTrack => Term::StudyFund,
+            Product::InvestmentGemelTrack => Term::InvestmentGemel,
+            Product::SavingsPolicyTrack => Term::SavingsPolicy,
+        })
     }
 
     fn hebrew_names(self) -> &'static [&'static str] {
@@ -359,6 +390,10 @@ impl Explained for Exchange {
                 "בורסה אירופית, כמו Xetra או Euronext. המחירים באירו, ולכן השקלים שלכם מומרים לאירו, ויש שגובים על כך עמלה. כאן נסחרת, למשל, קרן סל אירית על S&P 500 באמסטרדם. בורסת לונדון, שבה קרנות איריות כמו CSPX נסחרות בדולרים, עדיין לא נכללת במחשבון.",
             ),
         }
+    }
+
+    fn card(self) -> Option<Term> {
+        Some(Term::Exchange)
     }
 
     fn hebrew_names(self) -> &'static [&'static str] {
@@ -515,7 +550,7 @@ fn month_name(month: time::Month, lang: Lang) -> &'static str {
 }
 
 /// `text` with a capital first letter, for English that may start a sentence.
-fn capitalized(text: &str) -> String {
+pub(crate) fn capitalized(text: &str) -> String {
     let mut chars = text.chars();
     chars.next().map_or_else(String::new, |first| {
         first.to_uppercase().chain(chars).collect()
@@ -667,6 +702,17 @@ impl Explained for FeeKind {
                 "מה שהקרן שמחזיקה את המדד משאירה לעצמה, עוד לפני שמשהו מגיע אליכם: דמי הניהול שלה, המס שנלקח מהדיבידנדים של המדד ולא מוחזר, וכל מה שגרם לה לפגר אחרי המדד. זה יורד מהמחיר שלה, כך שלא מקבלים על זה חשבון. אותה קרן עולה אותו דבר בכל בנק ובית השקעות, אבל הקרנות שונות זו מזו: קרן סל ישראלית על S&P\u{a0}500 עלתה כ-0.8% בשנה, וקרן מחקה ישראלית כ-0.25%.",
             ),
         }
+    }
+
+    fn card(self) -> Option<Term> {
+        Some(match self {
+            FeeKind::Trade | FeeKind::Track | FeeKind::StandingOrder => Term::TradeCommission,
+            FeeKind::Account => Term::CustodyAndHandling,
+            FeeKind::Conversion | FeeKind::SecondConversion | FeeKind::Markup => {
+                Term::ConversionMarkup
+            }
+            FeeKind::Management | FeeKind::DepositFee | FeeKind::Product => Term::ManagementFee,
+        })
     }
 
     fn hebrew_names(self) -> &'static [&'static str] {
@@ -1067,6 +1113,16 @@ impl Plan {
     /// otherwise "No index funds are offered in Europe". `at`, the broker,
     /// where nothing else says whose plan it is: without it, the words read
     /// as if about the whole market.
+    /// Whether any row of the plan, or of its tracks, prices something on
+    /// `exchange`.
+    #[must_use]
+    pub fn sells_anything_on(&self, exchange: Exchange) -> bool {
+        self.trading
+            .iter()
+            .chain(self.tracks.iter().flat_map(|track| &track.trading))
+            .any(|row| Security::iter().any(|each| row.applies_to(each, exchange)))
+    }
+
     #[must_use]
     pub fn not_offered_reason(
         &self,
@@ -1080,8 +1136,7 @@ impl Plan {
                 .iter()
                 .chain(self.tracks.iter().flat_map(|track| &track.trading))
         };
-        let anything_there =
-            rows().any(|row| Security::iter().any(|each| row.applies_to(each, exchange)));
+        let anything_there = self.sells_anything_on(exchange);
         let anywhere =
             rows().any(|row| Exchange::iter().any(|each| row.applies_to(security, each)));
         let (securities, place) = (plural(security, lang), place(exchange, lang));
@@ -4120,6 +4175,178 @@ pub fn about_short_term(lang: Lang) -> About {
     }
 }
 
+/// The one page on the numbers for the whole site: what the guide does with
+/// your answers, how both kinds of numbers are made, how the history and the
+/// yield curve are read, what isn't counted, and every source. It replaces
+/// the two pages, [`about`] and [`about_short_term`], which it is made of.
+#[must_use]
+#[allow(clippy::too_many_lines, reason = "the page's text")]
+pub fn about_all(lang: Lang) -> About {
+    let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
+    let section = |title: String, paragraphs: Vec<String>| Section {
+        title,
+        paragraphs,
+        items: vec![],
+        sources: vec![],
+    };
+    let take = |about: About| {
+        <[Section; 3]>::try_from(about.sections).expect("a method, what's left out and sources")
+    };
+    let [mut long_method, mut long_left_out, long_sources] = take(about(lang));
+    let [mut short_method, mut short_left_out, short_sources] = take(about_short_term(lang));
+    // Two pages' titles said the same thing: tell them apart.
+    let (for_long, for_short) = (
+        paragraph("long-term investing", "השקעה לטווח ארוך"),
+        paragraph("short-term saving", "חיסכון לטווח קצר"),
+    );
+    long_method.title = format!("{}: {for_long}", long_method.title);
+    short_method.title = format!("{}: {for_short}", short_method.title);
+    long_left_out.title = format!("{}: {for_long}", long_left_out.title);
+    short_left_out.title = format!("{}: {for_short}", short_left_out.title);
+
+    let how_it_chooses = section(
+        paragraph(
+            "What the guide does with your answers",
+            "מה המדריך עושה עם התשובות שלכם",
+        ),
+        vec![
+            paragraph(
+                "The guide follows rules written in the app, and shows them as the reasons \
+                 under each answer. It doesn't know you and isn't personal advice: it says \
+                 what fits money like yours, by these rules.",
+                "המדריך פועל לפי כללים שכתובים במחשבון, ומציג אותם כנימוקים מתחת לכל תשובה. הוא לא מכיר אתכם ולא מחליף ייעוץ אישי: הוא אומר מה מתאים לכסף כמו שלכם, לפי הכללים האלה.",
+            ),
+            paragraph(
+                "The time until you need the money decides the kind of place. Money you may \
+                 need any day, or within a year, goes to a safe place that stays reachable: a \
+                 money market fund. Money for a date one to three years away, to a safe place \
+                 with a known sum: a fixed-rate deposit, a money market fund or a government \
+                 bond held to maturity. Money for a date between three and seven years away \
+                 stays in places whose end sum is known in advance, because a stock index could \
+                 be down exactly then. With a flexible date, from five years, an index fund \
+                 becomes reasonable: if the market is down then, you wait. From seven years, \
+                 the index. For a pension, the index through a provident fund for investment \
+                 when you'll be 60 by then.",
+                "הזמן עד שתצטרכו את הכסף קובע את סוג המקום. כסף שאולי תצטרכו בכל יום, או בתוך שנה, הולך למקום בטוח שנשאר נגיש: קרן כספית. כסף לתאריך בעוד שנה עד שלוש הולך למקום בטוח עם סכום ידוע מראש: פיקדון בריבית קבועה, קרן כספית או אג״ח ממשלתי שמחזיקים עד הפדיון. כסף לתאריך בעוד שלוש עד שבע שנים נשאר במקומות שהסכום בסוף ידוע בהם מראש, כי מדד מניות יכול להיות בירידה דווקא אז. כשהתאריך גמיש, מחמש שנים, קרן על מדד הופכת לסבירה: אם הבורסה בירידה אז, מחכים. משבע שנים, המדד. לפנסיה, המדד דרך קופת גמל להשקעה, כשתהיו בני 60 עד אז.",
+            ),
+            paragraph(
+                "With no date at all, and a monthly amount, the guide asks first whether you \
+                 have a cushion of about three months of expenses, which it fills first from a \
+                 money market fund, and only then puts the monthly amount in the index.",
+                "כשאין תאריך בכלל, ויש סכום חודשי, המדריך שואל קודם אם יש לכם כרית של בערך שלושה חודשי הוצאות, ממלא אותה קודם בקרן כספית, ורק אחר כך מפנה את הסכום החודשי למדד.",
+            ),
+            paragraph(
+                "Places are ranked by what's left after tax, but only against places of the \
+                 same kind of safety: safe places against safe places, and index places \
+                 against index places. The other kind is drawn beside the answer, with its own \
+                 assumptions and risks, and never ranked above or below it.",
+                "המקומות מדורגים לפי מה שנשאר אחרי מס, אבל רק מול מקומות באותה רמת ביטחון: מקומות בטוחים מול בטוחים, ומקומות על מדד מול מקומות על מדד. הסוג האחר מצויר לצד התשובה, עם ההנחות והסיכונים שלו, ולא מדורג מעליה או מתחתיה.",
+            ),
+        ],
+    );
+
+    let history = section(
+        paragraph(
+            "How the index's history is read",
+            "איך קוראים את ההיסטוריה של המדד",
+        ),
+        vec![
+            paragraph(
+                "The band on the chart comes from Robert Shiller's monthly data on the S&P \
+                 500, from January 1926 to June 2023. For each number of years from 1 to 30 \
+                 the app looks at every stretch of that length, starting in any month, and \
+                 takes the yearly return of each: the worst, the best and those in between. \
+                 The numbers are in dollars, before any fund's fee and before tax.",
+                "הרצועה בגרף באה מהנתונים החודשיים של רוברט שילר על ה\u{2011}S&P\u{a0}500, מינואר 1926 עד יוני 2023. לכל מספר שנים בין 1 ל\u{2011}30 המחשבון בודק כל תקופה באורך הזה, שמתחילה בכל חודש, ולוקח את התשואה השנתית של כל אחת: הגרועה ביותר, הטובה ביותר והאחרות שביניהן. המספרים בדולרים, לפני דמי ניהול של קרן ולפני מס.",
+            ),
+            paragraph(
+                "The stretches overlap, so the many 20-year ones are not that many separate \
+                 experiences: the data holds fewer than five separate 20-year stretches. A \
+                 band that applies the worst and best as one steady yearly rate is an \
+                 approximation too: real paths wander, and no investor had the line it draws. \
+                 What happened is no promise of what will.",
+                "התקופות חופפות, ולכן עשרות התקופות בנות 20 שנה הן לא כל כך הרבה חוויות נפרדות: בנתונים יש פחות מחמש תקופות נפרדות של 20 שנה. גם רצועה שמפעילה את הגרוע והטוב ביותר כתשואה שנתית קבועה היא קירוב: במציאות המסלול מתנדנד, ואף משקיע לא חווה את הקו שהיא מציירת. מה שקרה הוא לא הבטחה למה שיקרה.",
+            ),
+        ],
+    );
+    let mut history = history;
+    history.sources = vec![SourceGroup {
+        title: paragraph("The index's history", "ההיסטוריה של המדד"),
+        sources: links(&[crate::history::source()], lang),
+    }];
+
+    let yield_curve = section(
+        paragraph(
+            "How the government bond's yield is read",
+            "איך קוראים את התשואה של אג״ח ממשלתי",
+        ),
+        vec![
+            paragraph(
+                "A bond held until it's repaid gives the yield to maturity that the Bank of \
+                 Israel's yield curve has for the years left, averaged over the month. \
+                 Between two points the curve gives, a straight line. The curve has no \
+                 point under a year, or over fifteen years, so the app offers nothing there.",
+                "אג״ח שמחזיקים עד הפדיון נותן את התשואה לפדיון שעקום התשואות של בנק ישראל נותן לשנים שנותרו, בממוצע של החודש. בין שתי נקודות שהעקום נותן, קו ישר. בעקום אין נקודה מתחת לשנה או מעל חמש עשרה שנה, ולכן המחשבון לא מציע שם כלום.",
+            ),
+            paragraph(
+                "An unlinked bond's gain pays 15% tax, a linked bond's real gain 25%. The \
+                 fee is the broker's own, for a bond on the Tel Aviv exchange; whether it \
+                 charges for the repayment itself isn't in the price lists, so the app says \
+                 so under the result.",
+                "על הרווח באג״ח לא צמוד משלמים מס של 15%, ועל הרווח הריאלי באג״ח צמוד 25%. העמלה היא של הבנק או בית ההשקעות עצמו, על אג״ח בבורסה בתל אביב; האם הם גובים גם על הפדיון עצמו לא כתוב בתעריפונים, ולכן המחשבון אומר את זה מתחת לתוצאה.",
+            ),
+        ],
+    );
+    let mut yield_curve = yield_curve;
+    yield_curve.sources = vec![SourceGroup {
+        title: paragraph("The yield curve", "עקום התשואות"),
+        sources: links(&[learn::boi_yield_curve()], lang),
+    }];
+
+    // One sources section: the long term's paragraph and the short term's,
+    // then every group, then the new ones.
+    let mut sources = long_sources;
+    sources.paragraphs.extend(short_sources.paragraphs);
+    sources.sources.extend(short_sources.sources);
+    sources.sources.extend(history.sources.iter().cloned());
+    sources.sources.extend(yield_curve.sources.iter().cloned());
+    history.sources.clear();
+    yield_curve.sources.clear();
+
+    About {
+        sections: vec![
+            how_it_chooses,
+            long_method,
+            short_method,
+            history,
+            yield_curve,
+            long_left_out,
+            short_left_out,
+            sources,
+        ],
+        accessibility: accessibility(lang),
+    }
+}
+
+/// The two lines at the foot of every page: that the app explains by rules
+/// it shows, not personally, and that it's tied to no bank.
+#[must_use]
+pub fn footer(lang: Lang) -> Vec<String> {
+    vec![
+        lang.pick(
+            "The calculator explains and shows by rules written in it: it doesn't know you \
+             and doesn't replace personal advice.",
+            "המחשבון מסביר ומדגים לפי כללים שכתובים בו: הוא לא מכיר אתכם ולא מחליף ייעוץ אישי.",
+        )
+        .to_owned(),
+        lang.pick(
+            "Not affiliated with any bank, investment house or fund.",
+            "לא קשור לאף בנק, בית השקעות או קופה.",
+        )
+        .to_owned(),
+    ]
+}
+
 #[cfg(test)]
 mod short_term_tests {
     use super::*;
@@ -4200,6 +4427,67 @@ mod short_term_tests {
         for kind in CaveatKind::iter() {
             let text = place_explanation(kind, Lang::He);
             assert!(!text.contains('✎') && !text.contains("תעריפון"), "{kind:?}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod learn_layer_tests {
+    use super::*;
+
+    #[test]
+    fn interactive_says_why_tel_aviv_isnt_offered() {
+        let broker = tariffs::interactive();
+        let plan = &broker.plans[0];
+        let reason =
+            |exchange, lang| broker.not_offered_reason(plan, Security::Etf, exchange, lang);
+        // The broker's own reason, not the price list's silence.
+        assert!(reason(Exchange::Tlv, Lang::He).contains("מוסדיים"));
+        assert!(reason(Exchange::Tlv, Lang::En).contains("institutional"));
+        // Where the plan does sell, the note isn't used.
+        assert_eq!(
+            reason(Exchange::Usa, Lang::En),
+            plan.not_offered_reason(
+                Security::Etf,
+                Exchange::Usa,
+                Some(&broker.short_name.en),
+                Lang::En
+            )
+        );
+    }
+
+    #[test]
+    fn one_about_page_holds_both_calculators() {
+        for lang in [Lang::En, Lang::He] {
+            let page = about_all(lang);
+            let titles: Vec<&str> = page.sections.iter().map(|s| s.title.as_str()).collect();
+            let mut once = titles.clone();
+            once.sort_unstable();
+            once.dedup();
+            assert_eq!(once.len(), titles.len(), "titles repeat: {titles:?}");
+            let sources = page.sections.last().expect("sources come last");
+            let groups: Vec<&str> = sources.sources.iter().map(|g| g.title.as_str()).collect();
+            let mut distinct = groups.clone();
+            distinct.sort_unstable();
+            distinct.dedup();
+            assert_eq!(distinct.len(), groups.len(), "{groups:?}");
+            assert!(
+                sources
+                    .sources
+                    .iter()
+                    .all(|group| !group.sources.is_empty())
+            );
+            assert_eq!(footer(lang).len(), 2);
+        }
+    }
+
+    #[test]
+    fn a_tip_with_a_card_names_one() {
+        assert_eq!(Security::Etf.card(), Some(Term::Etf));
+        assert_eq!(Security::Stock.card(), None);
+        assert_eq!(Exchange::Usa.card(), Some(Term::Exchange));
+        for fee in FeeKind::iter() {
+            assert!(fee.card().is_some(), "{fee:?}");
         }
     }
 }

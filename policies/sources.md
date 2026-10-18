@@ -803,3 +803,121 @@ never filled in. No other bank's page gave a rate with a date, and the
 comparison sites' (TheMarker's Supermarker) pages load their tables by
 script. Fewer than three banks with dates, so the kind isn't added; see
 `not-modeled.md`.
+
+## Learn cards: what each claim rests on
+
+Checked on 19 October 2026, for `crates/core/src/describe/learn.rs` (27
+cards). A card writes no number that moves (a fee, a rate, a ceiling): it
+points at the app's table. Only rules of law are numbers (25% of the real
+gain, 15% of a deposit's interest, six years for a study fund, 60 for the
+pension), and the examples use round numbers that say so; their arithmetic
+is checked in the example's own words. Pages already above (the ordinance,
+Kol Zchut's pages, Maya, the Bank of Israel's deposits, the yield curve, the
+conversion pages, the IRS) aren't repeated; new ones are named here.
+
+- **ETF and index fund** ([TheMarker's comparison](https://www.supermarker.themarker.com/Investments/EtfAndIndexTrackingFunds.aspx)):
+  an ETF trades all day like a share; an index fund is bought and sold once a
+  day at the price set after the close; both follow an index on a best-effort
+  basis, so there's a tracking gap; both pay 25% of the real gain. The 2018
+  change from תעודות סל to funds: [Protocol](https://protocol.co.il/etfs-mutual-funds/)
+  (the Securities Authority's reform, amendment 28, finished by the end of
+  2018). A variable fee charged only on what beats the index: the same
+  article.
+- **Mutual fund (the family):** the same TheMarker page (ETFs and index
+  funds are kinds of mutual fund; money held by a trustee). The Joint
+  Investment Trusts Law itself wasn't opened; the card doesn't quote it.
+- **Money market fund:** the Bank of Israel's page
+  ([moneyfund](https://www.boi.org.il/information/bank-paymnts/savingsandinvestmentproducts/moneyfund/),
+  read only through a search's summary: its site refuses scripts) and
+  [Tradingil](https://tradingil.co.il/קרן-כספית-שקלית/) (read in full): invests
+  in short-term safe instruments, can be sold any trading day, taxed on the
+  real gain, can earn less than inflation. No custody fee: the Bank of Israel
+  rule of November 2012 above.
+- **Makam:** [the Bank of Israel's page](https://boi.org.il/information/bank-paymnts/savingsandinvestmentproducts/makam/):
+  issued by the Bank of Israel (not the Accountant General, as the card for
+  bonds might suggest) for up to a year, sold at a discount, repaid at face
+  value, not linked, traded. Its tax: the ordinance, section 125ג(א) counts
+  the discount as interest, 15% (above, "Money for the short term").
+- **CPI-linked deposit:** the tax on the real gain,
+  [Bizportal](https://www.bizportal.co.il/general/news/article/104576); why
+  it isn't a kind, "CPI-linked deposits" above and `not-modeled.md`.
+- **Government bond:** the name format and the tax, "Government bonds and the
+  yield curve" above.
+- **S&P 500:** [S&P Dow Jones Indices](https://www.spglobal.com/spdji/en/indices/equity/sp-500/)
+  (500 large US companies, weighted by size); "has fallen by large amounts,
+  sometimes for years" is the history above (the 5-year worst of -17% a year,
+  1 window in 8 ending lower).
+- **Provident fund for investment, study fund, savings policy, pension,
+  deposit ceiling:** "Tax and the vehicles" above. A saver who deposits
+  more than a provident fund takes goes to a policy or an account: the
+  card's example says so as an illustration, not a rule.
+- **Provident fund for savings (קופת גמל לחיסכון):** only what
+  `not-modeled.md` already says, with
+  [Meitav on Amendment 190](https://www.meitav.co.il/provident_pension/amendment_190/)
+  and [Kol Zchut](https://www.kolzchut.org.il/he/קופת_גמל) (a search's
+  summary: its pages answer scripts with 403). The card says the money is
+  for retirement, that its rules depend on income and other pension
+  savings, and that the app leaves it out; no tax rate for it is written.
+- **Management fee:** [the SEC's bulletin on fees](https://www.investor.gov/introduction-investing/general-resources/news-alerts/alerts-bulletins/investor-bulletins/updated)
+  for the idea that a fee taken every year compounds against the saver (its
+  own example: $100,000, 20 years at 4%, 0.25% / 0.50% / 1.00% leaves about
+  $208,000 / $198,000 / $179,000). The card's example is its own arithmetic:
+  100,000 × 1.05^20 = 265,330 and 100,000 × 1.04^20 = 219,112.
+- **Custody and handling:** the Bank of Israel rule above, and the
+  regulation on deductions above ("How the rules were read"); `FeeKind`'s
+  own tip for the ₪15 a month and the 0.07% with a ₪3 minimum.
+- **Conversion markup:** "Conversion markups" above (IBI's FAQ, Altshuler's
+  page: no fee, a spread).
+- **Compound interest:** 10,000 × 1.05^20 = 26,533; the fee's effect, the
+  SEC's bulletin above.
+- **Inflation:** the Bank of Israel's target of 1–3% (above); 1.02^20 =
+  1.486, so ₪100 becomes ₪149 and ₪10,000 buys what ₪6,730 buys now.
+- **Capital gains tax:** the ordinance, sections 88 and 91(ב)(1), Meitav's
+  guide and the surtax (all above).
+- **Yield to maturity:** the Bank of Israel's curve (above); the example:
+  100 / 95 − 1 = 5.26%.
+- **The Bank of Israel's rate:** the
+  [Bank's monetary policy page](https://www.boi.org.il/en/economic-roles/monetary-policy/)
+  and its [SHIR page](https://www.boi.org.il/en/economic-roles/financial-markets/shir/):
+  the Monetary Committee sets the rate eight times a year, generally on
+  Mondays.
+- **Cushion:** three to six months of expenses is a rule of thumb from
+  private sites ([Phoenix](https://www.fnx.co.il/gemel/gemel-information/financial-emergency-fund/),
+  and others that a search found); no official source states it. The card
+  says "a rule of thumb, not a law".
+- **Brokerage account and exchange:** the tariffs above, and the Tel Aviv
+  exchange's pages
+  ([securities](https://www.tase.co.il/en/content/knowledge_center/securities_derivatives),
+  [trading days](https://www.tase.co.il/en/content/knowledge_center/trading_vacation_schedule):
+  Monday to Friday from 5 January 2026). Funds abroad costing less than
+  Israeli ETFs: [Calcalist](https://www.calcalist.co.il/market/article/r140625p1g)
+  (above, "Products"); the estate tax, the IRS (above).
+- **Interactive's Tel Aviv reason:** "Tel Aviv trading is for institutional
+  clients only", Interactive's
+  [page](https://www.inter-il.com/israeli-stock-market/), in the Per broker
+  section above; carried by `Broker::exchange_notes`.
+- **The estate-tax note's ending** (hold the index in a fund registered in
+  Ireland or Israel): the caveat's earlier text already said which funds
+  pay no US estate tax, on the IRS pages above; the ending only turns that
+  into advice.
+- **What the cards' "as the bank calls it" and "as ads call it" lines
+  rest on:** the names on Maya, the bond pages, the tariffs and the news
+  pages above; they list the words in use, never a slogan. Where a name
+  couldn't be checked (how a bank's app groups its funds), the card says
+  "under mutual funds" only for what Maya and the tariffs show.
+
+### Dropped, because no source could be found
+
+- Settlement of a money market fund's sale (the money "the next day"): the
+  Bank of Israel and Tradingil say it can be sold "any trading day", not
+  when the money arrives.
+- The fund's average fee range (0.01%–0.26% in the mock), as a number that
+  moves; the card says "ראו בטבלה".
+- Series names of government bonds by kind (שחר, גליל, גילון): no page from
+  the Accountant General's office was found; the card uses the names the
+  TheMarker pages show.
+- How a bank charges for breaking a fixed-rate deposit: it's in each
+  deposit's terms; the card says to read them.
+- The tax rules of קופת גמל לחיסכון beyond what `not-modeled.md` says.
+- Deposit insurance, and the days the Bank of Israel decides on its rate in
+  the next months.
