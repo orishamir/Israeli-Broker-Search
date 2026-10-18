@@ -386,6 +386,7 @@ export class AppState {
   whyNotWords(whyNot: WhyNot | undefined): { cell: string; about: string } {
     if (whyNot === 'OverTheCeiling') return { cell: t.overTheCeiling, about: t.theCeiling }
     if (whyNot === 'Locked') return { cell: t.stillLocked, about: t.theLock }
+    if (whyNot === 'NotCounted') return { cell: t.priceUnclear, about: t.notWorkedOut }
     return { cell: t.notOfferedFor(this.purchase), about: t.notOffered }
   }
 

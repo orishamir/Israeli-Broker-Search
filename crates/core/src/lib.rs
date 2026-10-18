@@ -1095,6 +1095,10 @@ pub struct Broker {
     /// The date on the tariff document the numbers came from, if it has one.
     /// Tariffs change several times a year, so keep it next to the numbers.
     pub tariff_date: Option<TariffDate>,
+    /// The newest appendix the prices come from, where it's later than the
+    /// tariff itself: Mizrahi-Tefahot's online and young customers' prices.
+    #[serde(default)]
+    pub latest_appendix: Option<TariffDate>,
     /// Where the tariff document can be read online.
     #[serde(default)]
     pub source_url: Option<String>,

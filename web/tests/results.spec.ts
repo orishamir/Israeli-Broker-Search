@@ -402,7 +402,7 @@ test(
     // Its rule is said under its name, before it's ticked.
     await openPlans(page)
     await expect(
-      plansList(page).getByText('אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה'),
+      plansList(page).getByText('אין מס על הרווחים אחרי 6 שנים, על הפקדות של עד ₪20,566 בשנה'),
     ).toBeVisible()
     await tickPlan(page, 'Study fund · Average fee')
     const row = rowOf(page, 'Study fund · Average fee')

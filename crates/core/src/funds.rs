@@ -412,6 +412,7 @@ pub fn investment_gemel() -> Broker {
             "קופה שחברה מנהלת משקיעה עבורכם: אתם בוחרים מסלול השקעה ומפקידים, והחברה קונה ומוכרת. כל אחד יכול לפתוח קופה, ואפשר למשוך את הכסף בכל עת. המחשבון משווה את סוג הקופה, ולא כל חברה בנפרד: דמי הניהול נקבעים לכל חוסך בנפרד, והממוצעים של החברות קרובים זה לזה.",
         ),
         tariff_date: Some(DATA_OF),
+        latest_appendix: None,
         source_url: Some(gemel_net.url.clone()),
         caveats: vec![
             Caveat::published(t(
@@ -577,6 +578,7 @@ pub fn study_fund() -> Broker {
             "קרן שחברה מנהלת משקיעה עבורכם, והחיסכון היחיד לטווח של כמה שנים שהרווחים בו פטורים ממס. עצמאים יכולים לפתוח קרן ולהפקיד בה כרצונם. קרן של שכיר תלויה במעסיק, שמפקיד את רוב הכסף, ולכן היא לא חלופה לחשבון מסחר: המחשבון מחשב קרן של עצמאי.",
         ),
         tariff_date: Some(DATA_OF),
+        latest_appendix: None,
         source_url: Some(gemel_net.url.clone()),
         caveats: vec![
             Caveat::published(t(
@@ -584,7 +586,7 @@ pub fn study_fund() -> Broker {
                  The gains on up to ₪20,566 deposited a year (2026) aren't taxed; the gains on \
                  what's deposited beyond that are, by a quarter of what they are beyond the \
                  rise in prices, as at a broker.",
-                "שש שנים אחרי ההפקדה הראשונה אפשר למשוך את הכסף לכל מטרה. הרווחים על עד ₪20,566 שהופקדו בשנה (2026) פטורים ממס; על הרווחים ממה שהופקד מעבר לכך משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר.",
+                "6 שנים אחרי ההפקדה הראשונה אפשר למשוך את הכסף לכל מטרה. הרווחים על הפקדות של עד ₪20,566 בשנה (2026) פטורים ממס; על הרווחים ממה שהופקד מעבר לכך משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר.",
             ))
             .source(&kol_zchut_study_fund_self_employed()),
             Caveat::not_counted(t(
@@ -710,6 +712,7 @@ pub fn savings_policy() -> Broker {
             "חברת ביטוח משקיעה עבורכם את הכסף במסלול השקעה שתבחרו, בדומה לקופת גמל להשקעה. למרות השם, אין בה ביטוח. אין תקרת הפקדה ואין קצבה בסוף, ומעבר לחברת ביטוח אחרת מחייב למשוך את הכסף ולשלם את המס.",
         ),
         tariff_date: Some(DATA_OF),
+        latest_appendix: None,
         source_url: Some(bituach_net.url.clone()),
         caveats: vec![
             Caveat::published(t(

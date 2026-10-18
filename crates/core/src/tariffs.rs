@@ -524,6 +524,7 @@ pub fn altshuler() -> Broker {
                       has three tracks for US stocks and ETFs; new customers get a cheaper \
                       offer instead.", "פלטפורמת המסחר של בית השקעות, לא בנק. בתעריפון המלא שלו שלוש שיטות חיוב למניות וקרנות סל בארה״ב; לקוחות חדשים מקבלים במקום זאת מבצע זול יותר."),
         tariff_date: None, // not stated in the PDF
+        latest_appendix: None,
         source_url: Some(
             "https://www.as-invest.co.il/media/oqdfpafo/\
              %D7%AA%D7%A2%D7%A8%D7%99%D7%A4%D7%95%D7%9F-%D7%9E%D7%9C%D7%90-\
@@ -873,6 +874,7 @@ pub fn leumi() -> Broker {
             "מהבנקים הגדולים בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (אונליין בלאומי טרייד, או בסניף), בקבוצות לקוחות ובאפליקציית פפר, ולכן יש לו כאן כמה מסלולים.",
         ),
         tariff_date: Some(TariffDate::Day(date!(2026 - 10 - 01))),
+        latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, plus18, standing_order, pepper],
@@ -1101,7 +1103,7 @@ pub fn excellence() -> Broker {
             .source(&rules),
             Caveat::not_counted(
                 t("Some sign-up links offer three free years and a refund of commissions; not \
-                 included.", "חלק מקישורי ההצטרפות מציעים שלוש שנים חינם והחזר עמלות; לא נכלל."),
+                 included.", "חלק מקישורי ההצטרפות מציעים 3 שנים חינם והחזר עמלות; לא נכלל."),
             )
             .about_fee(FeeKind::Account)
             .source(&on_gemeltop)
@@ -1122,6 +1124,7 @@ pub fn excellence() -> Broker {
             "זרוע המסחר של בית ההשקעות הפניקס. היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות.",
         ),
         tariff_date: None, // not stated in the PDF
+        latest_appendix: None,
         source_url: Some("https://www.xnes.co.il/media/nwogkoos/taarifon.pdf".into()),
         caveats: vec![],
         plans: vec![full_tariff, typical_offer],
@@ -1373,6 +1376,7 @@ pub fn ibi() -> Broker {
                       are usually offered far less. Opening an account takes at least \
                       ₪15,000.", "פלטפורמת המסחר של בית השקעות (IBI TRADE, עם אפליקציית IBI SMART). היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות. פתיחת חשבון דורשת ₪15,000 לפחות."),
         tariff_date: Some(TariffDate::Day(date!(2026 - 07 - 01))),
+        latest_appendix: None,
         source_url: Some("https://campaign.ibi.co.il/PDF/TRADE/TAARIFON_IBI.pdf".into()),
         caveats: vec![
             Caveat::reading(
@@ -1541,6 +1545,7 @@ pub fn interactive() -> Broker {
                       (regulated in Cyprus, not by the Israel Securities Authority). US and \
                       European exchanges; Tel Aviv only for institutional clients.", "הנציג הישראלי (״ברוקר מציג״) של אינטראקטיב ברוקרס, שמופעל על ידי MEXEM (בפיקוח הרגולטור בקפריסין, לא של רשות ניירות ערך). מסחר בבורסות ארה״ב ואירופה; בתל אביב רק ללקוחות מוסדיים."),
         tariff_date: Some(TariffDate::Day(date!(2026 - 09 - 23))),
+        latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: vec![
             Caveat::published(
@@ -1779,6 +1784,7 @@ pub fn meitav() -> Broker {
                       investment house. It publishes only a full tariff of maximum prices; \
                       new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
         tariff_date: Some(TariffDate::Month(date!(2025 - 01 - 01))),
+        latest_appendix: None,
         source_url: Some("https://www.meitav.co.il/media/z2hkkhku/taarifon.pdf".into()),
         caveats: vec![
             Caveat::reading(
@@ -1945,7 +1951,7 @@ pub fn mizrahi() -> Broker {
              14 to 21½, soldiers and national-service volunteers, discharged soldiers \
              (three years, or to age 30) and students (four years, or to 35). Check your \
              eligibility with the bank.",
-            "מחירי אונליין עם ההנחות שבתעריפון לקבוצות הלקוחות הצעירים: גילאי 14 עד 21½, חיילים ובנות שירות לאומי, חיילים משוחררים (שלוש שנים, או עד גיל 30) וסטודנטים (ארבע שנים, או עד גיל 35). בדקו את זכאותכם מול הבנק.",
+            "מחירי אונליין עם ההנחות שבתעריפון לקבוצות הלקוחות הצעירים: גילאי 14 עד 21½, חיילים ובנות שירות לאומי, חיילים משוחררים (3 שנים, או עד גיל 30) וסטודנטים (4 שנים, או עד גיל 35). בדקו את זכאותכם מול הבנק.",
         ),
         trading: vec![
             trade(
@@ -2021,6 +2027,9 @@ pub fn mizrahi() -> Broker {
             "מהבנקים הגדולים בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי) ובקבוצות לקוחות, ולכן יש לו כאן שני מסלולים. התעריפון שלו מפורסם בחלקים: ניירות ערך (2 באפריל 2024), ערוצים ישירים (12 באוגוסט 2025), קבוצות אוכלוסייה (13 בינואר 2026) ומטבע חוץ.",
         ),
         tariff_date: Some(TariffDate::Day(date!(2024 - 04 - 02))),
+        // The direct channels' appendix (12 August 2025) and the population
+        // groups' (13 January 2026).
+        latest_appendix: Some(TariffDate::Day(date!(2026 - 01 - 13))),
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, young],
@@ -2352,6 +2361,7 @@ pub fn otsar_hahayal() -> Broker {
             "הבנק של כוחות הביטחון, חלק מהבנק הבינלאומי, שמיזג אותו לתוכו ושומר עליו כמותג: התעריפון הוא של הבינלאומי. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי), במועדון שלו למשפחת כוחות הביטחון, ובטופ טרייד לצעירים, ולכן יש לו כאן כמה מסלולים.",
         ),
         tariff_date: Some(TariffDate::Day(date!(2026 - 09 - 16))),
+        latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, standing_order, club, top_trade],

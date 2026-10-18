@@ -252,6 +252,43 @@ fn place(exchange: Exchange, lang: Lang) -> &'static str {
     }
 }
 
+/// "January", "ינואר".
+fn month_name(month: time::Month, lang: Lang) -> &'static str {
+    const EN: [&str; 12] = [
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    ];
+    const HE: [&str; 12] = [
+        "ינואר",
+        "פברואר",
+        "מרץ",
+        "אפריל",
+        "מאי",
+        "יוני",
+        "יולי",
+        "אוגוסט",
+        "ספטמבר",
+        "אוקטובר",
+        "נובמבר",
+        "דצמבר",
+    ];
+    let index = usize::from(u8::from(month)) - 1;
+    match lang {
+        Lang::En => EN[index],
+        Lang::He => HE[index],
+    }
+}
+
 /// `text` with a capital first letter, for English that may start a sentence.
 fn capitalized(text: &str) -> String {
     let mut chars = text.chars();
@@ -591,6 +628,32 @@ pub fn caveat_groups(caveats: &[&Caveat], lang: Lang) -> Vec<CaveatGroup> {
                 explanation: kind.explanation(lang).to_owned(),
                 caveats: texts,
             })
+        })
+        .collect()
+}
+
+/// `caveats` grouped as [`caveat_groups`] does, for a short-term place: a
+/// number on the place's side means less left for the saver, not a fee
+/// that may cost more, and there's no ✎ to change it with.
+#[must_use]
+pub fn place_caveat_groups(caveats: &[&Caveat], lang: Lang) -> Vec<CaveatGroup> {
+    caveat_groups(caveats, lang)
+        .into_iter()
+        .map(|group| match group.kind {
+            CaveatKind::MayCostMore => CaveatGroup {
+                label: lang
+                    .pick("Assumed, may leave less", "הערכה, ייתכן שיישאר פחות")
+                    .to_owned(),
+                explanation: lang
+                    .pick(
+                        "The number is an estimate on the place's side, so what's really \
+                         left for you may be less than shown.",
+                        "המספר הוא הערכה לטובת האפיק, ולכן ייתכן שבפועל יישאר לכם פחות ממה שמוצג.",
+                    )
+                    .to_owned(),
+                ..group
+            },
+            _ => group,
         })
         .collect()
 }
@@ -1028,6 +1091,27 @@ impl Plan {
         })
     }
 
+    /// Why there's no price for `security` on `exchange` where the tariff has
+    /// one but it couldn't be read: a caveat that the trade isn't counted.
+    /// Then the plan isn't "not offered", only not worked out.
+    #[must_use]
+    pub fn unpriced_reason(
+        &self,
+        security: Security,
+        exchange: Exchange,
+        lang: Lang,
+    ) -> Option<&str> {
+        self.caveats
+            .iter()
+            .find(|caveat| {
+                caveat.basis == Basis::NotCounted
+                    && caveat.fee == Some(FeeKind::Trade)
+                    && !caveat.securities.is_empty()
+                    && caveat.applies_to(security, exchange)
+            })
+            .map(|caveat| &caveat.text[lang])
+    }
+
     /// "First deposit: at least ₪10,000", for its details, if the account
     /// needs one: the number the table's warning goes by.
     #[must_use]
@@ -1108,7 +1192,9 @@ impl Vehicle {
                         "No tax on gains after {years} years, on up to {amount} deposited a year"
                     ),
                     Lang::He => {
-                        format!("אין מס על הרווחים אחרי {years} שנים, על עד {amount} שהופקדו בשנה")
+                        format!(
+                            "אין מס על הרווחים אחרי {years} שנים, על הפקדות של עד {amount} בשנה"
+                        )
                     }
                 }
             }
@@ -1274,25 +1360,32 @@ impl Broker {
         }
     }
 
-    /// "Tariff of 01/10/2026", "Tariff of 01/2025", or that the tariff isn't
-    /// dated.
+    /// "Tariff in force from 01/10/2026", "… from January 2025", with its
+    /// latest appendix if it has a later one, or that the tariff isn't
+    /// dated. A tariff can be published ahead of the day it applies from.
     #[must_use]
     pub fn tariff_date_text(&self, lang: Lang) -> String {
-        let date = match self.tariff_date {
-            Some(TariffDate::Day(date)) => date.format(format_description!("[day]/[month]/[year]")),
-            Some(TariffDate::Month(date)) => date.format(format_description!("[month]/[year]")),
-            None => {
-                return lang
-                    .pick("Tariff date not stated", "תאריך התעריפון לא צוין")
-                    .to_owned();
-            }
+        let Some(date) = self.tariff_date else {
+            return lang
+                .pick("Tariff date not stated", "תאריך התעריפון לא צוין")
+                .to_owned();
         };
-        let date = date.expect("a fixed format");
+        let appendix = self.latest_appendix.map_or_else(String::new, |appendix| {
+            let appendix = appendix.text(lang);
+            match lang {
+                Lang::En => format!(", appendices to {appendix}"),
+                Lang::He => format!(", נספחים עד {appendix}"),
+            }
+        });
         match (self.kind, lang) {
-            (BrokerKind::Funds, Lang::En) => format!("Fees paid, by the data of {date}"),
-            (BrokerKind::Funds, Lang::He) => format!("דמי הניהול שנגבו, לפי נתוני {date}"),
-            (_, Lang::En) => format!("Tariff of {date}"),
-            (_, Lang::He) => format!("תעריפון מ\u{2011}{date}"),
+            (BrokerKind::Funds, Lang::En) => {
+                format!("Fees paid, by the data of {}", date.text(lang))
+            }
+            (BrokerKind::Funds, Lang::He) => {
+                format!("דמי הניהול שנגבו, לפי נתוני {}", date.text(lang))
+            }
+            (_, Lang::En) => format!("Tariff in force from {}{appendix}", date.text(lang)),
+            (_, Lang::He) => format!("תעריפון בתוקף {}{appendix}", date.after("מ")),
         }
     }
 
@@ -1307,13 +1400,26 @@ impl Broker {
 }
 
 impl TariffDate {
-    /// "29/06/2026", or "01/2025" when only the month counts.
-    fn text(self) -> String {
+    /// "29/06/2026", or "January 2025" when only the month counts: "01/2025"
+    /// read as a day and a month.
+    fn text(self, lang: Lang) -> String {
         match self {
-            TariffDate::Day(date) => date.format(format_description!("[day]/[month]/[year]")),
-            TariffDate::Month(date) => date.format(format_description!("[month]/[year]")),
+            TariffDate::Day(date) => date
+                .format(format_description!("[day]/[month]/[year]"))
+                .expect("a fixed format"),
+            TariffDate::Month(date) => {
+                format!("{} {}", month_name(date.month(), lang), date.year())
+            }
         }
-        .expect("a fixed format")
+    }
+
+    /// In Hebrew after `prefix`: "מ\u{2011}29/06/2026", joined by a
+    /// non-breaking hyphen before digits, but "מינואר 2025".
+    fn after(self, prefix: &str) -> String {
+        match self {
+            TariffDate::Day(_) => format!("{prefix}\u{2011}{}", self.text(Lang::He)),
+            TariffDate::Month(_) => format!("{prefix}{}", self.text(Lang::He)),
+        }
     }
 
     /// The day it stands for, to put dates in order: a month's first.
@@ -1326,7 +1432,7 @@ impl TariffDate {
 
 /// How old the long term's numbers are, in a line under its table: "Tariffs
 /// of 04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the data of
-/// 08/2026". The brokers' tariffs by their oldest and newest date (two give
+/// August 2026". The brokers' tariffs by their oldest and newest date (two give
 /// none), then the funds' data.
 #[must_use]
 pub fn data_dates(lang: Lang) -> String {
@@ -1334,29 +1440,27 @@ pub fn data_dates(lang: Lang) -> String {
         .iter()
         .filter_map(|broker| broker.tariff_date)
         .collect();
-    let oldest = dates
-        .iter()
-        .min_by_key(|date| date.day())
-        .map(|date| date.text());
-    let newest = dates
-        .iter()
-        .max_by_key(|date| date.day())
-        .map(|date| date.text());
-    let (oldest, newest) = (oldest.unwrap_or_default(), newest.unwrap_or_default());
+    let oldest = dates.iter().min_by_key(|date| date.day()).copied();
+    let newest = dates.iter().max_by_key(|date| date.day()).copied();
+    let from = oldest.map_or_else(String::new, |date| match lang {
+        Lang::En => date.text(lang),
+        Lang::He => date.after("מ"),
+    });
+    let newest = newest.map_or_else(String::new, |date| date.text(lang));
     let checked = tariffs::checked()
         .format(format_description!("[day]/[month]/[year]"))
         .expect("a fixed format");
     let funds = funds::all()
         .first()
         .and_then(|kind| kind.tariff_date)
-        .map_or_default(TariffDate::text);
+        .map_or_default(|date| date.text(lang));
     match lang {
         Lang::En => format!(
-            "Tariffs of {oldest} to {newest}, checked {checked} · Funds' fees by the data of \
+            "Tariffs of {from} to {newest}, checked {checked} · Funds' fees by the data of \
              {funds}"
         ),
         Lang::He => format!(
-            "תעריפונים מ\u{2011}{oldest} עד {newest}, נבדקו ב\u{2011}{checked}\u{a0}· דמי הניהול בקופות לפי נתוני {funds}"
+            "תעריפונים {from} עד {newest}, נבדקו ב\u{2011}{checked}\u{a0}· דמי הניהול בקופות לפי נתוני {funds}"
         ),
     }
 }
@@ -1365,7 +1469,7 @@ pub fn data_dates(lang: Lang) -> String {
 /// Money market funds' fees by the data of 30/09/2026".
 #[must_use]
 pub fn short_term_data_dates(lang: Lang) -> String {
-    let date = |kind: &short_term::Kind| kind.data_of.text();
+    let date = |kind: &short_term::Kind| kind.data_of.text(lang);
     let kinds = short_term::kinds();
     let deposits = kinds.iter().find(|kind| {
         matches!(
@@ -1582,6 +1686,7 @@ impl Priced for HandlingFee {
             (0, _) => monthly,
             (12, Lang::En) => format!("free for the first year, then {monthly}"),
             (12, Lang::He) => format!("חינם בשנה הראשונה, ואז {monthly}"),
+            (24, Lang::He) => format!("חינם בשנתיים הראשונות, ואז {monthly}"),
             (months, Lang::En) if months % 12 == 0 => {
                 format!("free for the first {} years, then {monthly}", months / 12)
             }
@@ -2665,13 +2770,28 @@ mod tests {
         );
         assert_eq!(
             tariffs::leumi().tariff_date_text(Lang::En),
-            "Tariff of 01/10/2026"
+            "Tariff in force from 01/10/2026"
         );
         assert_eq!(
             tariffs::altshuler().tariff_date_text(Lang::En),
             "Tariff date not stated"
         );
         assert_eq!(Broker::checked_text(Lang::En), "Checked 29/09/2026");
+    }
+
+    /// Interactive's tariff prices mutual funds, unclearly: its index funds
+    /// are left out as not counted, not as not offered. Tel Aviv it doesn't
+    /// offer private customers at all.
+    #[test]
+    fn an_unclear_price_is_not_counted_rather_than_not_offered() {
+        let interactive = tariffs::interactive();
+        let plan = &interactive.plans[0];
+        let reason = |security, exchange| plan.unpriced_reason(security, exchange, Lang::En);
+        assert!(
+            reason(Security::IndexFund, Exchange::Usa).is_some_and(|text| text.contains("unclear"))
+        );
+        assert_eq!(reason(Security::Bond, Exchange::Tlv), None);
+        assert_eq!(reason(Security::Etf, Exchange::Usa), None);
     }
 
     /// The details say what the table's warning goes by.
@@ -2726,11 +2846,11 @@ mod tests {
         assert_eq!(
             data_dates(Lang::En),
             "Tariffs of 02/04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the data of \
-             08/2026"
+             August 2026"
         );
         assert_eq!(
             short_term_data_dates(Lang::He),
-            "ריביות הפיקדונות לפי נתוני 09/2026\u{a0}· דמי הניהול בקרנות הכספיות לפי נתוני 30/09/2026"
+            "ריביות הפיקדונות לפי נתוני ספטמבר 2026\u{a0}· דמי הניהול בקרנות הכספיות לפי נתוני 30/09/2026"
         );
         // The footer's accessibility statement: the same for the short term,
         // ending with where to report what doesn't work.
@@ -2900,7 +3020,7 @@ mod tests {
         );
         assert_eq!(
             rule(Vehicle::StudyFund, Lang::He).as_deref(),
-            Some("אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה")
+            Some("אין מס על הרווחים אחרי 6 שנים, על הפקדות של עד ₪20,566 בשנה")
         );
         assert_eq!(
             rule(Vehicle::InvestmentGemel, Lang::En).as_deref(),
@@ -3024,11 +3144,11 @@ mod tests {
         );
         assert_eq!(
             fund.tariff_date_text(Lang::En),
-            "Fees paid, by the data of 08/2026"
+            "Fees paid, by the data of August 2026"
         );
         assert_eq!(
             fund.tariff_date_text(Lang::He),
-            "דמי הניהול שנגבו, לפי נתוני 08/2026"
+            "דמי הניהול שנגבו, לפי נתוני אוגוסט 2026"
         );
         assert_eq!(fund.checked_on_text(Lang::En), "Checked 30/09/2026");
         assert_eq!(
@@ -3322,11 +3442,7 @@ impl short_term::Kind {
     /// 30/09/2026".
     #[must_use]
     pub fn data_of_text(&self, lang: Lang) -> String {
-        let date = match self.data_of {
-            TariffDate::Day(date) => date.format(format_description!("[day]/[month]/[year]")),
-            TariffDate::Month(date) => date.format(format_description!("[month]/[year]")),
-        }
-        .expect("a fixed format");
+        let date = self.data_of.text(lang);
         let deposits = matches!(
             self.places.first().map(|place| place.pays),
             Some(short_term::Pays::Fixed(_))
@@ -3588,7 +3704,7 @@ mod short_term_tests {
             groups,
             [
                 "קרן כספית\u{a0}· דמי הניהול, לפי נתוני 30/09/2026",
-                "פיקדון בריבית קבועה\u{a0}· הריביות שניתנו, לפי נתוני 09/2026",
+                "פיקדון בריבית קבועה\u{a0}· הריביות שניתנו, לפי נתוני ספטמבר 2026",
                 "ריבית בנק ישראל",
             ]
         );
@@ -3640,5 +3756,14 @@ mod short_term_tests {
         let groups = caveat_groups(&[&published, &may_cost_more], Lang::En);
         let kinds: Vec<CaveatKind> = groups.iter().map(|group| group.kind).collect();
         assert_eq!(kinds, [CaveatKind::MayCostMore, CaveatKind::Published]);
+        // A short-term place says what it means for the saver.
+        let place = place_caveat_groups(&[&published, &may_cost_more], Lang::He);
+        assert_eq!(place[0].label, "הערכה, ייתכן שיישאר פחות");
+        assert!(!place[0].explanation.contains('✎'));
+        assert_eq!(place[1], groups_he(&published));
+    }
+
+    fn groups_he(caveat: &Caveat) -> CaveatGroup {
+        caveat_groups(&[caveat], Lang::He).remove(0)
     }
 }

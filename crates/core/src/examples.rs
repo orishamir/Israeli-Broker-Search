@@ -180,7 +180,7 @@ pub fn short_term() -> Vec<ShortTermExample> {
             explanation: Text::new(
                 "₪5,000 a month for three years, towards a flat's first payment. A deposit \
                  takes one sum, so only the funds take money every month.",
-                "₪5,000 בחודש במשך שלוש שנים, לקראת התשלום הראשון על דירה. פיקדון מקבל סכום אחד, ולכן רק הקרנות מקבלות הפקדה חודשית.",
+                "₪5,000 בחודש במשך 3 שנים, לקראת התשלום הראשון על דירה. פיקדון מקבל סכום אחד, ולכן רק הקרנות מקבלות הפקדה חודשית.",
             ),
             first_deposit: dec!(0),
             monthly_deposit: dec!(5000),

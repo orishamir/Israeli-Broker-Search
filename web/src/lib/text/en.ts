@@ -82,8 +82,14 @@ export const en = {
     `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year). What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
   noTax: 'none',
   feesPaid: 'Fees paid',
-  feesPaidTip: (selling: boolean) =>
-    `Every fee charged: purchases, conversions, keeping the account or a fund's management fee${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.`,
+  /** `buying`: the monthly purchases, if there are any. */
+  feesPaidTip: (selling: boolean, buying?: { years: number; everyMonths: number; abroad: boolean }) => {
+    const all = `Every fee charged: purchases, conversions, keeping the account or a fund's management fee${selling ? ', and selling at the end' : ''}.`
+    if (!buying) return all
+    const { years, everyMonths, abroad } = buying
+    const count = Math.floor((years * 12) / everyMonths)
+    return `${all} Buying every ${everyMonths === 1 ? 'month' : `${everyMonths} months`} for ${years} years, that is up to ${count} purchases${abroad ? ` and up to ${count} conversions` : ''}.`
+  },
   valueHeld: 'Value held',
   valueHeldTip: 'What the investment is worth at the end, without selling.',
   inTodaysMoneyNote: ' In today’s money: divided by how much prices will have risen by then.',
@@ -93,6 +99,8 @@ export const en = {
   overTheCeiling: 'Your deposits are over its yearly ceiling',
   theCeiling: 'The ceiling',
   stillLocked: 'Its money is still locked when your years are up',
+  priceUnclear: "Not worked out: the tariff's price is unclear",
+  notWorkedOut: 'Not worked out',
   theLock: 'The lock',
 
   // The charts

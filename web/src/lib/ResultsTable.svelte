@@ -27,6 +27,12 @@
   const columns: Column[] = $derived.by(() => {
     const selling = app.sellAtEnd
     const money = app.inTodaysMoney ? t.inTodaysMoneyNote : ''
+    // How many purchases the monthly deposits make, for the fees' "?".
+    const { years, buyEveryMonths, monthlyDeposit, exchange } = app.inputs
+    const purchases =
+      years && buyEveryMonths && monthlyDeposit
+        ? { years, everyMonths: buyEveryMonths, abroad: exchange !== 'Tlv' }
+        : undefined
     const held: Column = {
       key: 'held',
       title: t.valueHeld,
@@ -48,7 +54,7 @@
     const fees: Column = {
       key: 'fees',
       title: t.feesPaid,
-      explanation: t.feesPaidTip(selling) + money,
+      explanation: t.feesPaidTip(selling, purchases) + money,
       text: (outcome) => shekels(outcome.fees.total),
     }
     if (!selling) return [held, lost, yearly, fees]

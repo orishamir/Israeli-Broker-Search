@@ -185,7 +185,7 @@ pub struct BrokerInfo {
     /// What "usual" means beside the plan a new customer gets: a bank's
     /// online prices, an investment house's joining offer.
     pub usual_plan: String,
-    /// "Tariff of 01/10/2026"
+    /// "Tariff in force from 01/10/2026"
     pub tariff_date: String,
     /// "Checked 28/09/2026": when the numbers were last checked against the
     /// broker's documents and site.
@@ -476,7 +476,7 @@ pub fn about() -> Result<Ts<About>, JsError> {
 
 /// How old the long term's numbers are, in a line under its table: "Tariffs
 /// of 02/04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the
-/// data of 08/2026".
+/// data of August 2026".
 #[wasm_bindgen(js_name = dataDates)]
 #[must_use]
 pub fn data_dates() -> String {
@@ -886,11 +886,33 @@ pub struct Beside {
     pub left: f64,
 }
 
+/// Why `plan` (of `broker`, if listed) can't be used for `scenario`, in a
+/// sentence for its "?", and in a word for its row. A price the tariff has
+/// but couldn't be read is "not counted" rather than "not offered".
+fn why_not_offered(
+    plan: &Plan,
+    broker: Option<&Broker>,
+    reason: NotOffered,
+    scenario: &Scenario,
+) -> (String, WhyNot) {
+    let unpriced = plan.unpriced_reason(scenario.security, scenario.exchange, lang());
+    if let (NotOffered::NoPrice, Some(text)) = (reason, unpriced) {
+        return (text.to_owned(), WhyNot::NotCounted);
+    }
+    let at = broker.map(|broker| &broker.name[lang()]);
+    (
+        plan.why_not_offered(reason, scenario, at, lang()),
+        WhyNot::from(reason),
+    )
+}
+
 /// Why a plan can't be used for the inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Tsify)]
 pub enum WhyNot {
     /// It doesn't sell the security on that exchange.
     NotSold,
+    /// Its tariff prices the security there, but how couldn't be read.
+    NotCounted,
     /// A year's deposits are more than it takes.
     OverTheCeiling,
     /// Its money can't be taken out yet when the years are up.
@@ -1035,6 +1057,15 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                 let plan = plans[compared.index];
                 let key = &inputs.plans[compared.index];
                 let outcome = compared.outcome.as_ref().ok();
+                let broker = match key {
+                    PlanKey::Listed { broker, .. } => Some(&brokers[*broker]),
+                    PlanKey::Yours { .. } => None,
+                };
+                let why_not = compared
+                    .outcome
+                    .as_ref()
+                    .err()
+                    .map(|&reason| why_not_offered(plan, broker, reason, &scenario));
                 let fees_warning =
                     || outcome.and_then(|outcome| outcome.warning(deposited, lang()));
                 let track = outcome.and_then(|outcome| outcome.track);
@@ -1082,14 +1113,8 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                         PlanKey::Yours { .. } => None,
                     },
                     tax_note: outcome.and_then(|_| plan.tax_note(&scenario, lang())),
-                    not_offered: compared.outcome.as_ref().err().map(|&reason| {
-                        let broker = match key {
-                            PlanKey::Listed { broker, .. } => Some(&brokers[*broker].name[lang()]),
-                            PlanKey::Yours { .. } => None,
-                        };
-                        plan.why_not_offered(reason, &scenario, broker, lang())
-                    }),
-                    why_not: compared.outcome.as_ref().err().copied().map(WhyNot::from),
+                    not_offered: why_not.as_ref().map(|(text, _)| text.clone()),
+                    why_not: why_not.map(|(_, why_not)| why_not),
                 }
             })
             .collect(),
@@ -1821,7 +1846,7 @@ impl PlaceInfo {
             tax: place.pays.tax().name(lang).to_owned(),
             liquidity: place.pays.liquidity(),
             liquidity_name: place.pays.liquidity().name(lang).to_owned(),
-            caveats: describe::caveat_groups(&caveats, lang),
+            caveats: describe::place_caveat_groups(&caveats, lang),
             may_cost_more: may_cost_more(&place.caveats, lang),
             sources: place.sources(kind, lang),
             compared_at_first: place.compared_at_first,
@@ -2248,7 +2273,7 @@ mod tests {
         assert!(altshuler.outcome.is_none());
         assert_eq!(
             altshuler.not_offered.as_deref(),
-            Some("Nothing in Europe is offered")
+            Some("At Altshuler Shaham Trade, nothing in Europe is offered")
         );
         let leumi = comparison
             .plans
@@ -2428,7 +2453,7 @@ mod tests {
     #[test]
     fn broker_info_describes_every_plan() {
         let leumi = BrokerInfo::new(&tariffs::leumi(), Lang::En);
-        assert_eq!(leumi.tariff_date, "Tariff of 01/10/2026");
+        assert_eq!(leumi.tariff_date, "Tariff in force from 01/10/2026");
         assert_eq!(leumi.plans.len(), 4);
         assert_eq!(leumi.plans[0].tariff.trading.len(), 2);
         assert_ne!(leumi.plans[3].description, "");
@@ -2691,7 +2716,7 @@ mod tests {
         let gemel = &infos[brokers];
         assert_eq!(gemel.kind, BrokerKind::Funds);
         assert_eq!(gemel.name, "Provident fund for investment");
-        assert_eq!(gemel.tariff_date, "Fees paid, by the data of 08/2026");
+        assert_eq!(gemel.tariff_date, "Fees paid, by the data of August 2026");
         assert_eq!(gemel.checked, "Checked 30/09/2026");
         assert!(gemel.compared_at_first);
         assert_eq!(
@@ -2745,7 +2770,7 @@ mod tests {
         assert_eq!(Choice::new(Exchange::Usa, Lang::He).english_name, None);
         assert_eq!(
             BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
-            "תעריפון מ\u{2011}01/10/2026"
+            "תעריפון בתוקף מ\u{2011}01/10/2026"
         );
     }
 

@@ -4,7 +4,9 @@
 import type { Text } from './en'
 
 // One and two have words of their own: שנה, שנתיים, then 3 שנים.
-const yearsText = (years: number) => (years === 1 ? 'שנה' : years === 2 ? 'שנתיים' : `${years} שנים`)
+// "שנים" up to ten, "שנה" above, as Hebrew counts them: 5 שנים, 20 שנה.
+const yearsText = (years: number) =>
+  years === 1 ? 'שנה' : years === 2 ? 'שנתיים' : years <= 10 ? `${years} שנים` : `${years} שנה`
 const monthsText = (months: number) => (months === 1 ? 'חודש' : months === 2 ? 'חודשיים' : `${months} חודשים`)
 
 export const he: Text = {
@@ -77,8 +79,14 @@ export const he: Text = {
     `מס רווחי הון: 25% מהרווח. את מה ששילמתם בקנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה (${inflation} בשנה), כך שרווח שרק שומר על ערך הכסף לא ממוסה. עמלות הקנייה והמכירה נחשבות חלק מהעלות, ולכן מקטינות את המס; דמי המשמרת והטיפול מוכרים רק בשנת המכירה. לכן, בין שני מסלולים שמשאירים בערך אותו סכום, זה שגובה על קנייה ומכירה משלם פחות מס. קופת גמל להשקעה שנמשכת כקצבה מגיל 60 פטורה ממס.`,
   noTax: 'אין',
   feesPaid: 'עמלות ששולמו',
-  feesPaidTip: (selling) =>
-    `סך כל העמלות ששילמתם: על קניות, על המרות, דמי משמרת וטיפול או דמי הניהול של קופה${selling ? ', ועל המכירה בסוף' : ''}. בקנייה כל חודש במשך 20 שנה אלה 240 קניות, ובחו״ל גם 240 המרות.`,
+  feesPaidTip: (selling, buying) => {
+    const all = `סך כל העמלות ששילמתם: על קניות, על המרות, דמי משמרת וטיפול או דמי הניהול של קופה${selling ? ', ועל המכירה בסוף' : ''}.`
+    if (!buying) return all
+    const { years, everyMonths, abroad } = buying
+    const count = Math.floor((years * 12) / everyMonths)
+    const often = everyMonths === 1 ? 'כל חודש' : `כל ${monthsText(everyMonths)}`
+    return `${all} בקנייה ${often} במשך ${yearsText(years)} אלה עד ${count} קניות${abroad ? `, ובחו״ל גם עד ${count} המרות` : ''}.`
+  },
   valueHeld: 'שווי התיק',
   valueHeldTip: 'כמה התיק שווה בסוף, בלי למכור.',
   inTodaysMoneyNote: ' בכסף של היום: מתורגם לערך הכסף היום, לפי האינפלציה.',
@@ -89,6 +97,8 @@ export const he: Text = {
   theCeiling: 'התקרה',
   stillLocked: 'הכסף עדיין נעול בסוף התקופה',
   theLock: 'הנעילה',
+  priceUnclear: 'לא מחושב: המחיר בתעריפון לא ברור',
+  notWorkedOut: 'לא מחושב',
 
   // The charts
   chart: 'גרף',
