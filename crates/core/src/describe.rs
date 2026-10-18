@@ -3593,7 +3593,13 @@ impl short_term::Kind {
             self.places.first().map(|place| place.pays),
             Some(short_term::Pays::Fixed(_))
         );
+        let bonds = matches!(
+            self.places.first().map(|place| place.pays),
+            Some(short_term::Pays::GovernmentBond(_))
+        );
         match (deposits, lang) {
+            _ if bonds && lang == Lang::En => format!("Yields, by the data of {date}"),
+            _ if bonds => format!("התשואות, לפי נתוני {date}"),
             (true, Lang::En) => format!("Rates given, by the data of {date}"),
             (true, Lang::He) => format!("הריביות שניתנו, לפי נתוני {date}"),
             (false, Lang::En) => format!("Fees, by the data of {date}"),
@@ -3644,6 +3650,13 @@ impl short_term::Place {
     pub fn pays_text(&self, lang: Lang) -> Option<String> {
         match self.pays {
             short_term::Pays::Fixed(_) => None,
+            short_term::Pays::GovernmentBond(_) => Some(
+                lang.pick(
+                    "The state's yield for the wait, fixed when the bond is bought",
+                    "התשואה של המדינה לתקופה, שנקבעת ביום קניית האג״ח",
+                )
+                .to_owned(),
+            ),
             short_term::Pays::TheRateLess(fee) => Some(match lang {
                 Lang::En => format!("The Bank of Israel's rate, less {fee} a year"),
                 Lang::He => format!("ריבית בנק ישראל, פחות {fee} בשנה"),
@@ -3662,6 +3675,23 @@ impl short_term::NotOffered {
                  (תוכנית\u{a0}חיסכון), whose rates the Bank of Israel doesn't publish."
                 .to_owned(),
             (short_term::NotOffered::TakesOneSum, Lang::He) => "פיקדון בריבית קבועה מקבל סכום אחד, ולא הפקדה חודשית: חיסכון חודשי בבנק הוא תוכנית חיסכון, ובנק ישראל לא מפרסם את הריביות שלה.".to_owned(),
+            (short_term::NotOffered::TooLong, Lang::En) => "The Bank of Israel doesn't publish \
+                 rates for deposits longer than 5 years."
+                .to_owned(),
+            (short_term::NotOffered::TooLong, Lang::He) => "הבנק המרכזי לא מפרסם ריביות לפיקדונות ארוכים מ\u{2011}5 שנים.".to_owned(),
+            (short_term::NotOffered::BondTooShort, Lang::En) => "The Bank of Israel's yield \
+                 curve starts at one year. For less, the state sells makam (Bank of Israel \
+                 bills), which isn't compared here."
+                .to_owned(),
+            (short_term::NotOffered::BondTooShort, Lang::He) => "עקום התשואות של בנק ישראל מתחיל משנה. לתקופה קצרה יותר המדינה מוכרת מק״מ, שלא מושווה כאן.".to_owned(),
+            (short_term::NotOffered::BondTooLong, Lang::En) => "The Bank of Israel's yield \
+                 curve ends at 15 years: it publishes no yield for a longer wait."
+                .to_owned(),
+            (short_term::NotOffered::BondTooLong, Lang::He) => "עקום התשואות של בנק ישראל נגמר ב\u{2011}15 שנים: הוא לא מפרסם תשואה לתקופה ארוכה יותר.".to_owned(),
+            (short_term::NotOffered::NoBrokerPlan, Lang::En) => "No bank or investment house \
+                 opens an account with a first deposit this small."
+                .to_owned(),
+            (short_term::NotOffered::NoBrokerPlan, Lang::He) => "אין בנק או בית השקעות שפותח חשבון עם הפקדה ראשונה קטנה כל כך.".to_owned(),
             (short_term::NotOffered::NoRate { term }, Lang::En) => format!(
                 "The Bank of Israel published no rate at this bank for deposits of {}: too \
                  few were opened in the month.",
@@ -3681,6 +3711,16 @@ impl short_term::NotOffered {
             short_term::NotOffered::TakesOneSum => lang.pick("Takes one sum", "מקבל סכום אחד"),
             short_term::NotOffered::NoRate { .. } => {
                 lang.pick("No rate for this term", "אין ריבית לתקופה הזו")
+            }
+            short_term::NotOffered::TooLong => {
+                lang.pick("No rates over 5 years", "אין ריביות מעל 5 שנים")
+            }
+            short_term::NotOffered::BondTooShort => lang.pick("Under a year", "פחות משנה"),
+            short_term::NotOffered::BondTooLong => {
+                lang.pick("Over 15 years", "יותר מ\u{2011}15 שנים")
+            }
+            short_term::NotOffered::NoBrokerPlan => {
+                lang.pick("First deposit too small", "ההפקדה הראשונה קטנה מדי")
             }
         }
     }

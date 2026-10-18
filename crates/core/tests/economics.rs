@@ -2073,6 +2073,9 @@ mod short_term_economics {
                     "{}: {fee}",
                     place.name.en
                 ),
+                // Its yields are checked against the Bank of Israel's in
+                // real_tariffs.rs.
+                Pays::GovernmentBond(_) => {}
             }
         }
     }
@@ -2152,6 +2155,8 @@ mod short_term_economics {
                 match place.pays {
                     Pays::Fixed(_) => prop_assert_eq!(outcome, Err(NotOffered::TakesOneSum), "{}", place.name.en),
                     Pays::TheRateLess(_) => prop_assert!(outcome.is_ok(), "{}", place.name.en),
+                    // A bond takes monthly money, but is offered only for waits of 1 to 15 years.
+                    Pays::GovernmentBond(_) => {}
                 }
             }
         }
@@ -2284,4 +2289,43 @@ fn a_redemption_charges_no_sale_fee() {
     assert!(by_selling.fees.selling > dec!(0));
     assert_eq!(by_redeeming.fees.selling, dec!(0));
     assert!(by_redeeming.after_selling > by_selling.after_selling);
+}
+
+/// What must hold for a government bond held to maturity, whatever the wait.
+mod government_bond_economics {
+    use broker_fees::Percent;
+    use broker_fees::short_term::{self, Scenario, government_bonds};
+    use rust_decimal::Decimal;
+    use rust_decimal_macros::dec;
+
+    /// The money grows month by month, the tax is not negative and never more
+    /// than the gain, and the account whose fees count is named.
+    #[test]
+    fn a_bond_grows_and_is_taxed_on_the_gain() {
+        for place in government_bonds::kind().places {
+            for months in (12..=180).step_by(7) {
+                let scenario = Scenario {
+                    first_deposit: dec!(20000),
+                    monthly_deposit: Decimal::ZERO,
+                    months,
+                    rate: short_term::TODAYS_RATE,
+                    inflation: Percent(dec!(2)),
+                };
+                let outcome = short_term::simulate(&place, &scenario).unwrap();
+                let end = *outcome.value_by_month.last().unwrap();
+                assert!(
+                    outcome
+                        .value_by_month
+                        .windows(2)
+                        .all(|pair| pair[0] <= pair[1] + dec!(0.01))
+                );
+                assert!(
+                    outcome.tax >= Decimal::ZERO
+                        && outcome.tax <= outcome.earned.max(Decimal::ZERO)
+                );
+                assert_eq!(outcome.after_tax, end - outcome.tax);
+                assert!(outcome.via.is_some());
+            }
+        }
+    }
 }
