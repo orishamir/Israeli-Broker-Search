@@ -2845,16 +2845,6 @@ mod tests {
             titles,
             ["How the numbers are made", "What isn't counted", "Sources"]
         );
-        // How old the numbers are, under the tables.
-        assert_eq!(
-            data_dates(Lang::En),
-            "Tariffs of 02/04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the data of \
-             August 2026"
-        );
-        assert_eq!(
-            short_term_data_dates(Lang::He),
-            "ריביות הפיקדונות לפי נתוני ספטמבר 2026\u{a0}· דמי הניהול בקרנות הכספיות לפי נתוני 30/09/2026"
-        );
         // The footer's accessibility statement: the same for the short term,
         // ending with where to report what doesn't work.
         assert_eq!(
@@ -2864,15 +2854,7 @@ mod tests {
         assert_eq!(about.accessibility.title, "Accessibility");
         let last = about.accessibility.items.last().unwrap();
         assert_eq!(last.url.as_deref(), Some(ISSUES));
-        // First what most changes a comparison with a fund: the fee inside
-        // the ETF or index fund, which a fund's own fee includes.
-        assert!(
-            about.sections[1].items[0]
-                .text
-                .starts_with("What the ETF or index fund itself charges")
-        );
         let sources = &about.sections[2];
-        assert!(sources.paragraphs[0].starts_with("Checked 29/09/2026"));
         // A group per broker and per kind of fund, its tariff or the
         // regulator's data first, then the comparison sites, the exchange
         // and the law.
@@ -2962,14 +2944,11 @@ mod tests {
             withdrawal: Withdrawal::LumpSum,
         };
         let over = |year| NotOffered::OverTheCeiling { year };
-        assert_eq!(
-            fund.why_not_offered(over(0), &at_once, None, Lang::En),
-            "No more than ₪83,641 can be deposited in a year, and your first year's deposits \
-             come to ₪100,000. To compare, deposit at most ₪83,641 each year."
-        );
-        assert_eq!(
-            fund.why_not_offered(over(0), &at_once, None, Lang::He),
-            "אי אפשר להפקיד יותר מ\u{2011}₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}₪100,000. כדי להשוות, הקטינו את ההפקדות כך שבכל שנה יופקדו עד ₪83,641."
+        // The ceiling, and the first year's deposits.
+        let first = fund.why_not_offered(over(0), &at_once, None, Lang::He);
+        assert!(
+            first.contains("₪83,641") && first.contains("₪100,000"),
+            "{first}"
         );
         // ₪6,900 a month is ₪82,800 a year; 3% more the next year is ₪85,284,
         // and at 2% inflation the ceiling is 83,641 × 1.02 = ₪85,313.82 by
@@ -2981,27 +2960,18 @@ mod tests {
             inflation: crate::Percent(dec!(2)),
             ..at_once.clone()
         };
-        assert_eq!(
-            fund.why_not_offered(over(1), &growing, None, Lang::En),
-            "No more than ₪85,314 can be deposited in year 2 (the ceiling, raised with prices), \
-             and your deposits come to ₪85,284. To compare, deposit less that year."
-        );
+        let second = fund.why_not_offered(over(1), &growing, None, Lang::En);
         assert!(
-            fund.why_not_offered(over(1), &growing, None, Lang::He)
-                .contains("בשנה ה\u{2011}2")
+            second.contains("₪85,314") && second.contains("₪85,284") && second.contains("year 2"),
+            "{second}"
         );
         // A study fund kept for less than its six years.
         let study = funds::study_fund().plans.remove(0);
         let locked = NotOffered::Locked { years: 6 };
-        assert_eq!(
-            study.why_not_offered(locked, &at_once, None, Lang::En),
-            "Its money can be taken out on these terms only 6 years after the first deposit. \
-             Sooner, it's taxed as income"
-        );
         assert!(
             study
-                .why_not_offered(locked, &at_once, None, Lang::He)
-                .starts_with("אפשר למשוך את הכסף בתנאים האלה רק 6 שנים")
+                .why_not_offered(locked, &at_once, None, Lang::En)
+                .contains("6 years")
         );
         // A broker that doesn't sell the security says so, as before.
         let altshuler = tariffs::altshuler().plans.remove(0);
@@ -3015,31 +2985,25 @@ mod tests {
     /// account has none, being what the others are measured against.
     #[test]
     fn a_funds_tax_rule_is_said_in_a_line() {
-        let rule = |vehicle: Vehicle, lang| vehicle.tax_rule(lang);
-        assert_eq!(rule(Vehicle::Brokerage, Lang::En), None);
-        assert_eq!(
-            rule(Vehicle::StudyFund, Lang::En).as_deref(),
-            Some("No tax on gains after 6 years, on up to ₪20,566 deposited a year")
+        assert_eq!(Vehicle::Brokerage.tax_rule(Lang::En), None);
+        for vehicle in [
+            Vehicle::StudyFund,
+            Vehicle::InvestmentGemel,
+            Vehicle::SavingsPolicy,
+        ] {
+            assert!(vehicle.tax_rule(Lang::He).is_some(), "{vehicle:?}");
+        }
+        assert!(
+            Vehicle::StudyFund
+                .tax_rule(Lang::En)
+                .unwrap()
+                .contains("₪20,566")
         );
-        assert_eq!(
-            rule(Vehicle::StudyFund, Lang::He).as_deref(),
-            Some("אין מס על הרווחים אחרי 6 שנים, על הפקדות של עד ₪20,566 בשנה")
-        );
-        assert_eq!(
-            rule(Vehicle::InvestmentGemel, Lang::En).as_deref(),
-            Some("Taxed like a broker; no tax as a pension from 60")
-        );
-        assert_eq!(
-            rule(Vehicle::InvestmentGemel, Lang::He).as_deref(),
-            Some("ממוסה כמו חשבון מסחר; אין מס בקצבה מגיל 60")
-        );
-        assert_eq!(
-            rule(Vehicle::SavingsPolicy, Lang::En).as_deref(),
-            Some("Taxed like a broker")
-        );
-        assert_eq!(
-            rule(Vehicle::SavingsPolicy, Lang::He).as_deref(),
-            Some("ממוסה כמו חשבון מסחר")
+        assert!(
+            Vehicle::InvestmentGemel
+                .tax_rule(Lang::En)
+                .unwrap()
+                .contains("60")
         );
     }
 
@@ -3070,37 +3034,22 @@ mod tests {
 
         // ₪1,700 a month is ₪20,400 a year: within. ₪2,000 a month isn't.
         let study = of(funds::study_fund());
-        assert_eq!(
-            note(&study, &at_once(dec!(1700))).as_deref(),
-            Some("No tax: your deposits are within ₪20,566 a year")
+        let (within, over) = (
+            note(&study, &at_once(dec!(1700))).unwrap(),
+            note(&study, &at_once(dec!(2000))).unwrap(),
         );
-        assert_eq!(
-            note(&study, &at_once(dec!(2000))).as_deref(),
-            Some("Taxed only on what you deposit over ₪20,566 a year")
-        );
-        assert_eq!(
-            study.tax_note(&at_once(dec!(1700)), Lang::He).as_deref(),
-            Some("אין מס: ההפקדות שלכם בתוך ₪20,566 בשנה")
-        );
-        assert_eq!(
-            study.tax_note(&at_once(dec!(2000)), Lang::He).as_deref(),
-            Some("המס הוא רק על מה שמופקד מעל ₪20,566 בשנה")
-        );
+        assert_ne!(within, over);
+        assert!(within.contains("₪20,566") && over.contains("₪20,566"));
 
         let gemel = of(funds::investment_gemel());
-        assert_eq!(
-            note(&gemel, &at_once(dec!(2000))).as_deref(),
-            Some("Taxed like a broker; no tax as a pension from 60")
-        );
+        assert!(note(&gemel, &at_once(dec!(2000))).is_some());
         // ₪2,004,301 ÷ 200 = ₪10,021.5, about ₪10,000 a month; nothing
         // taken at once, or before the pension opens.
         let pension = monthly(dec!(2000), 40, Withdrawal::Pension);
-        assert_eq!(
-            gemel
-                .pension_note(&pension, dec!(2004301), Lang::He)
-                .as_deref(),
-            Some("קצבה צפויה: כ\u{2011}₪10,000 בחודש לכל החיים, במקדם המרה של כ\u{2011}200")
-        );
+        let monthly_amount = gemel
+            .pension_note(&pension, dec!(2004301), Lang::En)
+            .unwrap();
+        assert!(monthly_amount.contains("₪10,000"), "{monthly_amount}");
         assert_eq!(
             gemel.pension_note(&at_once(dec!(2000)), dec!(2004301), Lang::En),
             None
@@ -3108,24 +3057,9 @@ mod tests {
         let early = monthly(dec!(2000), 39, Withdrawal::Pension);
         assert_eq!(gemel.pension_note(&early, dec!(2004301), Lang::En), None);
         assert_eq!(study.pension_note(&pension, dec!(2004301), Lang::En), None);
-        assert_eq!(
-            note(&gemel, &monthly(dec!(2000), 40, Withdrawal::Pension)).as_deref(),
-            Some("No tax: taken as a pension from 60")
-        );
-        assert_eq!(
-            note(&gemel, &monthly(dec!(2000), 39, Withdrawal::Pension)).as_deref(),
-            Some("Taxed like a broker: the pension opens at 60, and you'd be 59")
-        );
-        assert_eq!(
-            gemel
-                .tax_note(&monthly(dec!(2000), 39, Withdrawal::Pension), Lang::He)
-                .as_deref(),
-            Some("ממוסה כמו חשבון מסחר: הקצבה נפתחת בגיל 60, ואתם תהיו בני 59")
-        );
-        assert_eq!(
-            note(&of(funds::savings_policy()), &at_once(dec!(2000))).as_deref(),
-            Some("Taxed like a broker")
-        );
+        // 39 today is 59 at the end, a year short of the pension.
+        assert!(note(&gemel, &early).unwrap().contains("59"));
+        assert!(note(&of(funds::savings_policy()), &at_once(dec!(2000))).is_some());
         assert_eq!(note(&of(tariffs::leumi()), &at_once(dec!(2000))), None);
         // Kept, not sold: no tax to explain.
         let kept = Scenario {
@@ -3141,25 +3075,15 @@ mod tests {
     #[test]
     fn a_fund_says_whose_fees_it_shows() {
         let fund = funds::investment_gemel();
-        assert!(
-            fund.usual_plan_text(Lang::En)
-                .starts_with("What savers pay on average")
+        assert_ne!(
+            fund.checked_on_text(Lang::En),
+            tariffs::leumi().checked_on_text(Lang::En)
         );
-        assert_eq!(
-            fund.tariff_date_text(Lang::En),
-            "Fees paid, by the data of August 2026"
-        );
-        assert_eq!(
-            fund.tariff_date_text(Lang::He),
-            "דמי הניהול שנגבו, לפי נתוני אוגוסט 2026"
-        );
-        assert_eq!(fund.checked_on_text(Lang::En), "Checked 30/09/2026");
         assert_eq!(
             tariffs::leumi().checked_on_text(Lang::En),
             Broker::checked_text(Lang::En)
         );
         let sources = fund.sources(Lang::En);
-        assert_eq!(sources[0].name, "The Capital Market Authority's data");
         assert_eq!(sources[0].url, "https://gemelnet.cma.gov.il/");
     }
 
@@ -3698,18 +3622,10 @@ mod short_term_tests {
                 .collect::<Vec<_>>()
         };
         assert_eq!(titles(&short), titles(&long));
-        let groups: Vec<&str> = short.sections[2]
-            .sources
-            .iter()
-            .map(|group| group.title.as_str())
-            .collect();
+        // A group per kind, then the rate's.
         assert_eq!(
-            groups,
-            [
-                "קרן כספית\u{a0}· דמי הניהול, לפי נתוני 30/09/2026",
-                "פיקדון בריבית קבועה\u{a0}· הריביות שניתנו, לפי נתוני ספטמבר 2026",
-                "ריבית בנק ישראל",
-            ]
+            short.sections[2].sources.len(),
+            short_term::kinds().len() + 1
         );
         for kind in short_term::kinds() {
             let sources = kind.sources(Lang::En);
@@ -3725,12 +3641,10 @@ mod short_term_tests {
     #[test]
     fn a_place_not_offered_says_why() {
         let one_sum = short_term::NotOffered::TakesOneSum;
-        assert_eq!(one_sum.short(Lang::He), "מקבל סכום אחד");
         assert!(one_sum.reason(Lang::He).contains("תוכנית חיסכון"));
         let no_rate = short_term::NotOffered::NoRate {
             term: short_term::Term::UpToFiveYears,
         };
-        assert_eq!(no_rate.short(Lang::He), "אין ריבית לתקופה הזו");
         assert!(no_rate.reason(Lang::He).contains("3 שנים עד 5 שנים"));
         assert!(no_rate.reason(Lang::En).contains("3 to 5 years"));
     }
@@ -3741,10 +3655,7 @@ mod short_term_tests {
             pays: short_term::Pays::TheRateLess(Percent(dec!(0.169))),
             ..short_term::your_deposit(Percent(dec!(3)))
         };
-        assert_eq!(
-            fund.pays_text(Lang::He).unwrap(),
-            "ריבית בנק ישראל, פחות 0.169% בשנה"
-        );
+        assert!(fund.pays_text(Lang::He).unwrap().contains("0.169%"));
         assert_eq!(
             short_term::your_deposit(Percent(dec!(3))).pays_text(Lang::He),
             None

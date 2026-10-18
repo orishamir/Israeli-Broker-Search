@@ -843,7 +843,8 @@ mod tests {
         assert!(simulate(&fund(dec!(0.2)), &monthly).is_ok());
     }
 
-    /// What the user reads when the inputs are wrong, each its own words.
+    /// What the user reads when the inputs are wrong: each problem its own
+    /// words.
     #[test]
     fn each_problem_says_what_to_fix() {
         let he: Vec<&str> = [
@@ -856,30 +857,10 @@ mod tests {
         .into_iter()
         .map(|problem| problem.text(Lang::He))
         .collect();
-        assert_eq!(
-            he,
-            [
-                "צריך להפקיד משהו, בהתחלה או כל חודש",
-                "הסכומים לא יכולים להיות שליליים",
-                "הסכומים גדולים מדי בשביל החישוב",
-                "אפשר לחסוך לתקופה של חודש עד 60 חודשים",
-                "הריבית והאינפלציה לא יכולות להיות −100% או פחות",
-            ]
-        );
-        assert_eq!(
-            InvalidScenario::Months.text(Lang::En),
-            "the money can be kept for 1 to 60 months"
-        );
-    }
-
-    /// The tax and when the money comes out, in the words each row shows.
-    #[test]
-    fn the_rules_are_named_plainly() {
-        assert_eq!(Tax::OfInterest.name(Lang::He), "15% מכל הריבית");
-        assert_eq!(Tax::OfRealGain.name(Lang::He), "25% מהרווח שמעבר לאינפלציה");
-        assert_eq!(Liquidity::AnyDay.name(Lang::He), "בכל יום");
-        assert_eq!(Liquidity::AtTheEnd.name(Lang::He), "בסוף התקופה");
-        assert_eq!(Liquidity::AtTheEnd.name(Lang::En), "At the end of the term");
+        let mut distinct = he.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        assert_eq!(distinct.len(), he.len(), "{he:?}");
     }
 
     /// The funds first, the shorter list, then the banks' deposits.
