@@ -252,7 +252,15 @@ fn place(exchange: Exchange, lang: Lang) -> &'static str {
     }
 }
 
-/// "an ETF bought in the USA", "an index fund bought in Tel Aviv".
+/// `text` with a capital first letter, for English that may start a sentence.
+fn capitalized(text: &str) -> String {
+    let mut chars = text.chars();
+    chars.next().map_or_else(String::new, |first| {
+        first.to_uppercase().chain(chars).collect()
+    })
+}
+
+/// "an ETF in the USA", "an index fund in Tel Aviv".
 #[must_use]
 pub fn purchase(security: Security, exchange: Exchange, lang: Lang) -> String {
     let security = match security {
@@ -261,8 +269,7 @@ pub fn purchase(security: Security, exchange: Exchange, lang: Lang) -> String {
         Security::Bond => lang.pick("a bond", "אג\u{5f4}ח"),
         Security::Stock => lang.pick("a stock", "מניה"),
     };
-    let bought = lang.pick("bought", "שנקנית");
-    format!("{security} {bought} {}", place(exchange, lang))
+    format!("{security} {}", place(exchange, lang))
 }
 
 /// The kinds of fee a plan charges, to name and explain them. Its name is
@@ -720,9 +727,17 @@ impl Plan {
     /// Why `security` on `exchange` has no price, in the most general terms
     /// that are true: "Nothing in Europe is offered" when nothing there is,
     /// "No index funds are offered anywhere" when the security isn't, and
-    /// otherwise "No index funds are offered in Europe".
+    /// otherwise "No index funds are offered in Europe". `at`, the broker,
+    /// where nothing else says whose plan it is: without it, the words read
+    /// as if about the whole market.
     #[must_use]
-    pub fn not_offered_reason(&self, security: Security, exchange: Exchange, lang: Lang) -> String {
+    pub fn not_offered_reason(
+        &self,
+        security: Security,
+        exchange: Exchange,
+        at: Option<&str>,
+        lang: Lang,
+    ) -> String {
         let rows = || {
             self.trading
                 .iter()
@@ -733,24 +748,37 @@ impl Plan {
         let anywhere =
             rows().any(|row| Exchange::iter().any(|each| row.applies_to(security, each)));
         let (securities, place) = (plural(security, lang), place(exchange, lang));
-        match (anything_there, anywhere, lang) {
-            (false, _, Lang::En) => format!("Nothing {place} is offered"),
-            (false, _, Lang::He) => format!("שום דבר לא מוצע {place}"),
-            (true, false, Lang::En) => format!("No {securities} are offered anywhere"),
-            (true, false, Lang::He) => format!("{securities} לא מוצעות בשום בורסה"),
-            (true, true, Lang::En) => format!("No {securities} are offered {place}"),
-            (true, true, Lang::He) => format!("{securities} לא מוצעות {place}"),
-        }
+        // "At Altshuler, " or "באלטשולר ", before the rest.
+        let at = at.map_or_else(String::new, |broker| match lang {
+            Lang::En => format!("At {broker}, "),
+            Lang::He => format!("ב{broker} "),
+        });
+        let reason = match (anything_there, anywhere, lang) {
+            (false, _, Lang::En) => format!("nothing {place} is offered"),
+            (false, _, Lang::He) => format!("אין מסחר {place}"),
+            (true, false, Lang::En) => format!("no {securities} are offered anywhere"),
+            (true, false, Lang::He) => format!("אין {securities} בשום בורסה"),
+            (true, true, Lang::En) => format!("no {securities} are offered {place}"),
+            (true, true, Lang::He) => format!("אין {securities} {place}"),
+        };
+        capitalized(&format!("{at}{reason}"))
     }
 
     /// Why the plan can't be used for `scenario`: that it doesn't sell the
-    /// security there ([`Plan::not_offered_reason`]), how far a year's
-    /// deposits are over its ceiling, or how long its money is locked.
+    /// security there ([`Plan::not_offered_reason`], `at` the broker), how
+    /// far a year's deposits are over its ceiling, or how long its money is
+    /// locked.
     #[must_use]
-    pub fn why_not_offered(&self, reason: NotOffered, scenario: &Scenario, lang: Lang) -> String {
+    pub fn why_not_offered(
+        &self,
+        reason: NotOffered,
+        scenario: &Scenario,
+        at: Option<&str>,
+        lang: Lang,
+    ) -> String {
         let year = match reason {
             NotOffered::NoPrice => {
-                return self.not_offered_reason(scenario.security, scenario.exchange, lang);
+                return self.not_offered_reason(scenario.security, scenario.exchange, at, lang);
             }
             NotOffered::Locked { years } => {
                 return match lang {
@@ -864,7 +892,12 @@ impl Plan {
         let mut trade = FeeLine::new(
             FeeKind::Trade,
             price.clone().map_or_else(
-                || PriceText::not_offered(self.not_offered_reason(security, exchange, lang), lang),
+                || {
+                    PriceText::not_offered(
+                        self.not_offered_reason(security, exchange, None, lang),
+                        lang,
+                    )
+                },
                 |text| PriceText {
                     text,
                     nothing: false,
@@ -1078,8 +1111,9 @@ impl Plan {
     pub fn who_can_join(&self, lang: Lang) -> Option<&'static str> {
         match self.vehicle {
             Vehicle::StudyFund => Some(lang.pick(
-                "Through an employer, or if self-employed",
-                "דרך מעסיק, או לעצמאים",
+                "Self-employed. An employee's fund depends on the employer, and isn't \
+                 worked out here",
+                "לעצמאים. קרן של שכיר תלויה במעסיק, ולא מחושבת כאן",
             )),
             Vehicle::Brokerage | Vehicle::InvestmentGemel | Vehicle::SavingsPolicy => None,
         }
@@ -1107,11 +1141,11 @@ impl Plan {
         let factor = funds::CONVERSION_FACTOR;
         Some(match lang {
             Lang::En => format!(
-                "A balance for a pension: about {monthly} a month for life, at a conversion \
-                 factor of about {factor}"
+                "Expected pension: about {monthly} a month for life, at a conversion factor \
+                 of about {factor}"
             ),
             Lang::He => format!(
-                "יתרה לקצבה: כ\u{2011}{monthly} בחודש לכל החיים, במקדם המרה של כ\u{2011}{factor}"
+                "קצבה צפויה: כ\u{2011}{monthly} בחודש לכל החיים, במקדם המרה של כ\u{2011}{factor}"
             ),
         })
     }
@@ -1195,8 +1229,8 @@ impl Broker {
     pub fn usual_plan_text(&self, lang: Lang) -> String {
         let name = &self.name[lang];
         let rest = lang.pick(
-            "The usual plans are compared at first; tick others to add them.",
-            "בהתחלה מושווים המסלולים הרגילים; סמנו אחרים כדי להוסיף אותם.",
+            "The plans for a new customer are compared at first; tick others to add them.",
+            "בהתחלה מושווים המסלולים ללקוח חדש; סמנו אחרים כדי להוסיף אותם.",
         );
         match (self.kind, self.plans.len(), lang) {
             (BrokerKind::Funds, _, Lang::En) => format!(
@@ -1206,12 +1240,9 @@ impl Broker {
             (BrokerKind::Funds, _, Lang::He) => format!(
                 "מה שחוסכים משלמים בממוצע: דמי הניהול נקבעים לכל חוסך בנפרד, ולכן אין תעריפון להציג. {rest}"
             ),
-            (_, 1, Lang::En) => {
-                format!("The one plan {name} offers: its published price list. {rest}")
-            }
-            (_, 1, Lang::He) => {
-                format!("המסלול היחיד ש{name} מציעה: התעריפון שהיא מפרסמת. {rest}")
-            }
+            // With one plan, there are no others to tick.
+            (_, 1, Lang::En) => format!("The one plan {name} offers: its published price list."),
+            (_, 1, Lang::He) => format!("המסלול היחיד ש{name} מציעה: התעריפון שהיא מפרסמת."),
             (BrokerKind::Bank, _, Lang::En) => format!(
                 "The plan a new customer of {name} usually gets: its prices for trading online \
                  by yourself, rather than a customer group's or the branch's. {rest}"
@@ -1225,7 +1256,7 @@ impl Broker {
                  most it may charge. {rest}"
             ),
             (BrokerKind::InvestmentHouse, _, Lang::He) => format!(
-                "המסלול שלקוח חדש של {name} מקבל בדרך כלל: מבצע ההצטרפות שלו, ולא התעריפון המלא שהוא מפרסם, שהוא המקסימום שמותר לו לגבות. {rest}"
+                "המסלול שלקוח חדש של {name} מקבל בדרך כלל: מבצע ההצטרפות שלה, ולא התעריפון המלא שהיא מפרסמת, שהוא המקסימום שמותר לה לגבות. {rest}"
             ),
         }
     }
@@ -1922,8 +1953,10 @@ fn accessibility(lang: Lang) -> Section {
             ),
             item(
                 lang,
-                "The charts aren't described in words; every number in them is in the table too.",
-                "הגרפים לא מתוארים במילים; כל מספר שבהם מופיע גם בטבלה.",
+                "The charts aren't described in words. The amounts at the end are in the table \
+                 too, but the fees by kind, the values midway and the chart by deposit are in \
+                 the charts alone.",
+                "הגרפים לא מתוארים במילים. הסכומים שבסוף התקופה מופיעים גם בטבלה, אבל פירוט העמלות לפי סוג, הערכים באמצע התקופה והגרף לפי הפקדה מופיעים רק בגרפים.",
             ),
             item(
                 lang,
@@ -2015,7 +2048,7 @@ pub fn about(lang: Lang) -> About {
                  ₪100 to ₪32,000 a month (or, with no monthly deposit, from ₪1,000 to \
                  ₪4,600,000 at once), to show where their ranking by fees flips: a plan with \
                  minimum fees is dear for small deposits and cheap for large ones.",
-                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ\u{2011}₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ\u{2011}₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
+                "״אבד לעמלות״ הוא ההפרש מול אותן הפקדות בלי עמלות בכלל, בקנייה כל חודש. ״עמלות, כאחוז בשנה״ מציג את אותו הפסד כמו שמציגים דמי ניהול של קרן: האחוז מהתיק שהייתם צריכים לשלם כל שנה כדי להפסיד אותו סכום. קנייה כל שלושה חודשים במקום כל חודש משאירה כסף שמחכה בלי תשואה, וגם זה נספר. הגרף ״לפי הפקדה״, ב״אפשרויות נוספות״, מחשב את המסלולים שאתם משווים גם בהפקדות אחרות משלכם, מ\u{2011}₪100 עד ₪32,000 בחודש (ובלי הפקדה חודשית, הפקדה חד\u{2011}פעמית מ\u{2011}₪1,000 עד ₪4,600,000), כדי להראות איפה מתחלף המסלול הזול בעמלות: מסלול עם עמלת מינימום יקר בהפקדות קטנות וזול בגדולות.",
             ),
             paragraph(
                 "Under \u{201c}More options\u{201d}, deposits can grow each year as a salary \
@@ -2554,8 +2587,9 @@ mod tests {
 
     #[test]
     fn not_offered_says_the_most_general_mismatch() {
-        let reason =
-            |plan: &Plan, security, exchange| plan.not_offered_reason(security, exchange, Lang::En);
+        let reason = |plan: &Plan, security, exchange| {
+            plan.not_offered_reason(security, exchange, None, Lang::En)
+        };
         let interactive = tariffs::interactive();
         let standard = &interactive.plans[0];
         assert_eq!(
@@ -2577,6 +2611,16 @@ mod tests {
             reason(&with_us_funds, Security::IndexFund, Exchange::Europe),
             "No index funds are offered in Europe"
         );
+        // In the table, the broker comes first: alone, the words read as if
+        // about the whole market.
+        let at = |lang| {
+            standard.not_offered_reason(Security::Bond, Exchange::Tlv, Some("Interactive"), lang)
+        };
+        assert_eq!(
+            at(Lang::En),
+            "At Interactive, nothing in Tel Aviv is offered"
+        );
+        assert_eq!(at(Lang::He), "בInteractive אין מסחר בתל אביב");
     }
 
     #[test]
@@ -2600,11 +2644,11 @@ mod tests {
         assert_eq!(plan.trading[0].coverage(Lang::En), "ETF on Tel Aviv");
         assert_eq!(
             purchase(Security::Etf, Exchange::Usa, Lang::En),
-            "an ETF bought in the USA"
+            "an ETF in the USA"
         );
         assert_eq!(
             purchase(Security::IndexFund, Exchange::Tlv, Lang::En),
-            "an index fund bought in Tel Aviv"
+            "an index fund in Tel Aviv"
         );
         assert_eq!(
             tariffs::leumi().tariff_date_text(Lang::En),
@@ -2629,17 +2673,15 @@ mod tests {
         // One plan: nothing to choose between.
         let interactive = text(tariffs::interactive());
         assert!(interactive.starts_with("The one plan Interactive Israel offers"));
+        // With others to tick, it says so.
         for broker in crate::listed() {
-            assert!(
-                broker
-                    .usual_plan_text(Lang::En)
-                    .ends_with("tick others to add them.")
+            let others = broker.plans.len() > 1;
+            let (en, he) = (
+                broker.usual_plan_text(Lang::En),
+                broker.usual_plan_text(Lang::He),
             );
-            assert!(
-                broker
-                    .usual_plan_text(Lang::He)
-                    .ends_with("כדי להוסיף אותם.")
-            );
+            assert_eq!(en.ends_with("tick others to add them."), others, "{en}");
+            assert_eq!(he.ends_with("כדי להוסיף אותם."), others, "{he}");
         }
     }
 
@@ -2773,12 +2815,12 @@ mod tests {
         };
         let over = |year| NotOffered::OverTheCeiling { year };
         assert_eq!(
-            fund.why_not_offered(over(0), &at_once, Lang::En),
+            fund.why_not_offered(over(0), &at_once, None, Lang::En),
             "No more than ₪83,641 can be deposited in a year, and your first year's deposits \
              come to ₪100,000"
         );
         assert_eq!(
-            fund.why_not_offered(over(0), &at_once, Lang::He),
+            fund.why_not_offered(over(0), &at_once, None, Lang::He),
             "אי אפשר להפקיד יותר מ\u{2011}₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}₪100,000"
         );
         // ₪6,900 a month is ₪82,800 a year; 3% more the next year is ₪85,284,
@@ -2792,32 +2834,32 @@ mod tests {
             ..at_once.clone()
         };
         assert_eq!(
-            fund.why_not_offered(over(1), &growing, Lang::En),
+            fund.why_not_offered(over(1), &growing, None, Lang::En),
             "No more than ₪85,314 can be deposited in year 2 (the ceiling, raised with prices), \
              and your deposits come to ₪85,284"
         );
         assert!(
-            fund.why_not_offered(over(1), &growing, Lang::He)
+            fund.why_not_offered(over(1), &growing, None, Lang::He)
                 .contains("בשנה ה\u{2011}2")
         );
         // A study fund kept for less than its six years.
         let study = funds::study_fund().plans.remove(0);
         let locked = NotOffered::Locked { years: 6 };
         assert_eq!(
-            study.why_not_offered(locked, &at_once, Lang::En),
+            study.why_not_offered(locked, &at_once, None, Lang::En),
             "Its money can be taken out on these terms only 6 years after the first deposit. \
              Sooner, it's taxed as income"
         );
         assert!(
             study
-                .why_not_offered(locked, &at_once, Lang::He)
+                .why_not_offered(locked, &at_once, None, Lang::He)
                 .starts_with("אפשר למשוך את הכסף בתנאים האלה רק 6 שנים")
         );
         // A broker that doesn't sell the security says so, as before.
         let altshuler = tariffs::altshuler().plans.remove(0);
         assert_eq!(
-            altshuler.why_not_offered(NotOffered::NoPrice, &at_once, Lang::En),
-            altshuler.not_offered_reason(Security::Etf, Exchange::Europe, Lang::En)
+            altshuler.why_not_offered(NotOffered::NoPrice, &at_once, None, Lang::En),
+            altshuler.not_offered_reason(Security::Etf, Exchange::Europe, None, Lang::En)
         );
     }
 
@@ -2909,7 +2951,7 @@ mod tests {
             gemel
                 .pension_note(&pension, dec!(2004301), Lang::He)
                 .as_deref(),
-            Some("יתרה לקצבה: כ\u{2011}₪10,000 בחודש לכל החיים, במקדם המרה של כ\u{2011}200")
+            Some("קצבה צפויה: כ\u{2011}₪10,000 בחודש לכל החיים, במקדם המרה של כ\u{2011}200")
         );
         assert_eq!(
             gemel.pension_note(&at_once(dec!(2000)), dec!(2004301), Lang::En),
@@ -3165,7 +3207,10 @@ mod tests {
             .flat_map(|broker| broker.plans)
             .find(|plan| plan.vehicle == Vehicle::StudyFund)
             .unwrap();
-        assert_eq!(study.who_can_join(Lang::He), Some("דרך מעסיק, או לעצמאים"));
+        assert_eq!(
+            study.who_can_join(Lang::He),
+            Some("לעצמאים. קרן של שכיר תלויה במעסיק, ולא מחושבת כאן")
+        );
     }
 
     #[test]

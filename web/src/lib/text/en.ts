@@ -26,7 +26,7 @@ export const en = {
   lostAndYearly: (lost: string, yearly: string) => `${lost} lost to fees · ${yearly} a year`,
   yearlyAndLost: (yearly: string, lost: string) => `${yearly} a year · ${lost} lost to fees`,
   /** Under the best plan's amount: what it is, and the tax it's after. */
-  leftAfter: (tax: string | undefined) => (tax ? `left after ${tax} of tax` : 'left, with no tax to pay'),
+  leftAfter: (tax: string | undefined) => (tax ? `after ${tax} of tax` : 'with no tax'),
   // The best plan at other values of the deposit the chart by deposit varies.
   cheapestThroughout: (from: string, to: string, swept: Swept) =>
     swept === 'Monthly'
@@ -54,15 +54,15 @@ export const en = {
   leftAfterTaxTip:
     'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
   underAHundredth: 'less than 0.01%',
-  yearlyCost: 'Yearly fees',
+  yearlyCost: 'Fees, as a yearly %',
   yearlyCostTip:
     'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, which a fund’s fee does. 100% when nothing is left.',
   spreadBetween: (low: string, lowName: string, high: string, highName: string) =>
     `From ${low} (${lowName}) to ${high} (${highName})`,
   spreadAtMost: (name: string, amount: string) => `${name}: ${amount}`,
-  assumptions: (yearly: string, inflation: string, selling: boolean) =>
+  assumptions: (yearly: string, inflation: string, selling: boolean, pension: boolean) =>
     selling
-      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain`
+      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain${pension ? '; a fund taken as a pension: no tax' : ''}`
       : `Assuming a return of ${yearly} a year and inflation of ${inflation}, with nothing sold and no tax`,
   shortAssumptions: (rate: string, inflation: string) =>
     `Assuming the Bank of Israel's rate is ${rate} on average and inflation is ${inflation}`,
@@ -192,9 +192,11 @@ export const en = {
   yearlyReturn: 'Yearly return',
   yearlyReturnTip:
     'How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%; a bond grows by its interest, say 4%.',
-  sharePrice: 'Share price',
-  sharePriceTip:
-    "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return.",
+  sharePrice: (stock: boolean): string => (stock ? 'Share price' : 'Unit price'),
+  sharePriceTip: (stock: boolean): string =>
+    stock
+      ? "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return."
+      : "Today's price of one unit of the fund or the bond. Most brokers sell whole units only, so a deposit too small for a unit waits for the next purchase: at $500 a unit, a ₪2,000 deposit buys one unit and the rest waits. It grows with the yearly return.",
   inflation: 'Inflation',
   inflationTip:
     "How much prices rise a year. Tax is paid only on the gain beyond it, so a higher inflation means less tax. Israel's target is 1–3%, and the app starts from its middle.",
@@ -207,7 +209,7 @@ export const en = {
   sell: 'Sell',
   sellTip:
     'Everything is sold at the end and, abroad, converted back to shekels: one more trade fee and one more conversion. The table ranks by what that leaves after tax.',
-  keep: 'Keep',
+  keep: 'Hold',
   keepTip:
     "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling or as tax. For money you'll draw on slowly, or pass on.",
   whatsCompared: "What's compared",
@@ -239,7 +241,7 @@ export const en = {
     `You'd be ${then} at the end: old enough for the pension, which opens at ${from}.`,
   tooYoung: (then: number, from: number) =>
     `You'd be ${then} at the end. The pension opens at ${from}, so the fund is taxed as if taken all at once.`,
-  usual: 'usual',
+  usual: 'for a new customer',
   mayCostMoreAt: (broker: string) => `May cost more at ${broker}: see why`,
   about: (name: string) => `About ${name}`,
   changeACopy: (label: string) => `Change a copy of ${label}'s fees`,
@@ -312,6 +314,7 @@ export const en = {
   broker: 'Broker',
   optional: 'optional',
   cancel: 'Cancel',
+  saveTheCopy: 'Save the copy',
   addPlan: 'Add plan',
   deleteQuestion: (name: string) => `Delete “${name}”?`,
   delete: 'Delete',

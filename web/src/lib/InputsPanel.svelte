@@ -159,8 +159,11 @@
     </div>
 
     {#if app.sharePriceSymbol}
+      {@const stock = app.security === 'Stock'}
       <span>
-        <label for="share-price">{t.sharePrice}</label><Tip about={t.sharePrice}>{t.sharePriceTip}</Tip>
+        <label for="share-price">{t.sharePrice(stock)}</label><Tip about={t.sharePrice(stock)}
+          >{t.sharePriceTip(stock)}</Tip
+        >
       </span>
       <NumberField id="share-price" prefix={app.sharePriceSymbol} bind:value={app.sharePrice} />
     {/if}

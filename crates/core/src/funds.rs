@@ -377,7 +377,7 @@ pub fn investment_gemel() -> Broker {
         ),
     );
     let legal_maximum = managed(
-        t("Legal maximum", "המקסימום המותר"),
+        t("Legal maximum", "דמי הניהול המרביים המותרים"),
         t(
             "The most the regulations let a fund take, from each deposit and from the \
              balance. A company may agree to less, and then can't raise the fee for two \
@@ -543,7 +543,7 @@ pub fn study_fund() -> Broker {
         ),
     );
     let legal_maximum = managed(
-        t("Legal maximum", "המקסימום המותר"),
+        t("Legal maximum", "דמי הניהול המרביים המותרים"),
         t(
             "The most the regulations let a study fund take from the balance. A company may \
              agree to less.",

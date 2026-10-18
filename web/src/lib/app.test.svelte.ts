@@ -69,7 +69,7 @@ test("each broker's usual plan and the provident fund's average are ticked at fi
       .map(({ outcome }) => outcome?.afterTax ?? -Infinity)
     expect(left).toEqual(left.toSorted((a, b) => b - a))
   }
-  expect(app.purchase).toBe('קרן סל שנקנית בארה״ב')
+  expect(app.purchase).toBe('קרן סל בארה״ב')
 })
 
 test('the card names each ticked plan as briefly as it can be told apart, in the list’s order', () => {
@@ -202,7 +202,7 @@ test('a page opened with bad inputs has no results to show, only why', () => {
   expect(app.buying.largestTrade).toBeNull()
 })
 
-test("a plan's rank is its row's number, counting only the plans with an outcome", () => {
+test("a plan's rank is its row's number, counting only the plans with an outcome the first deposit opens", () => {
   const app = start()
   app.setSelected(
     app.plans.map(({ id }) => id),
@@ -210,11 +210,15 @@ test("a plan's rank is its row's number, counting only the plans with an outcome
   )
   app.exchange = 'Europe'
   const all = results(app)
-  const offered = all.filter(({ outcome }) => outcome)
-  expect(offered.length).toBeLessThan(all.length)
-  expect(offered.map(({ rank }) => rank)).toEqual(offered.map((_, index) => index + 1))
-  expect(all.filter(({ outcome }) => !outcome).every(({ rank }) => rank === undefined)).toBe(true)
-  for (const { plan, rank } of all) expect(app.rankOf(plan.id)).toBe(rank)
+  const ranked = all.filter(({ outcome, fits }) => outcome && fits)
+  // IBI needs ₪15,000 at first, more than the ₪10,000 deposited.
+  const unopened = all.filter(({ outcome, fits }) => outcome && !fits)
+  expect(ranked.length).toBeLessThan(all.length)
+  expect(unopened.length).toBeGreaterThan(0)
+  expect(ranked.map(({ rank }) => rank)).toEqual(ranked.map((_, index) => index + 1))
+  expect(all.filter((result) => !ranked.includes(result)).every(({ rank }) => rank === undefined)).toBe(true)
+  for (const { plan, rank, outcome } of all)
+    expect(app.rowOf(plan.id)).toEqual(outcome ? { rank } : undefined)
 })
 
 test('the share price is asked for only where it matters', () => {

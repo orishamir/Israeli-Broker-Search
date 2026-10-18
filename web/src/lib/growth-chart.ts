@@ -21,7 +21,7 @@ export interface Line {
   label: string
   color: string
   /** Its row's number in the table. */
-  rank: number
+  rank: number | undefined
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean
   values: number[]

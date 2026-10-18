@@ -218,7 +218,8 @@
           </p>
           {@const { caveats, others } = app.feesFor(plan)}
           {#if caveats.length > 0}
-            <h3>{t.caveatsFor(app.purchase)}</h3>
+            <!-- A fund's caveats are about the fund, whatever it holds. -->
+            <h3>{tariff.management ? t.caveats : t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
           <!-- A fund's fee is all it charges, and it's shown above. -->
@@ -318,7 +319,7 @@
           <p>{broker.description}</p>
           {@const caveats = app.brokerCaveats(broker)}
           {#if caveats.length > 0}
-            <h3>{t.caveatsFor(app.purchase)}</h3>
+            <h3>{broker.kind === 'Funds' ? t.caveats : t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
           <h3>{t.plans}</h3>

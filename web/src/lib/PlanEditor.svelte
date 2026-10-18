@@ -139,7 +139,7 @@
       onclick={() => {
         app.addYourPlan(yours)
         close()
-      }}>{t.addPlan}</button
+      }}>{original ? t.saveTheCopy : t.addPlan}</button
     >
   {:else if confirmingDelete}
     <span class="confirm">{t.deleteQuestion(info.name)}</span>

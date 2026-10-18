@@ -91,8 +91,8 @@ export interface Result {
   note: string | undefined
   /** Who can open it, if not anyone: "Through an employer, or if self-employed". */
   whoCanJoin: string | undefined
-  /** As a pension, the monthly amount the balance buys: "A balance for a
-   * pension: about ₪10,000 a month for life, at a conversion factor of about 200". */
+  /** As a pension, the monthly amount the balance buys: "Expected pension:
+   * about ₪10,000 a month for life, at a conversion factor of about 200". */
   pensionNote: string | undefined
   /** For a kind of fund's average, what's left at its cheapest and dearest
    * company and at the most allowed. */
@@ -377,8 +377,17 @@ export class AppState {
    * objects as in `brokers` and `plans` (not proxies), to find them there. */
   details = $state.raw<Details | null>(null)
 
-  /** "an ETF bought in the USA" */
+  /** "an ETF in the USA" */
   purchase = $derived(core.purchasePhrase(this.security, this.exchange))
+
+  /** Why a plan has no numbers, in the few words its row says, and what its
+   * ? is about; the core's sentence is in the tip. The fee chart's note
+   * says it the same way. */
+  whyNotWords(whyNot: WhyNot | undefined): { cell: string; about: string } {
+    if (whyNot === 'OverTheCeiling') return { cell: t.overTheCeiling, about: t.theCeiling }
+    if (whyNot === 'Locked') return { cell: t.stillLocked, about: t.theLock }
+    return { cell: t.notOfferedFor(this.purchase), about: t.notOffered }
+  }
 
   /** A plan's fees for what the user buys, in words: on the track the
    * comparison picked, if it picked one. */
@@ -741,6 +750,8 @@ export class AppState {
         error: error instanceof Error ? error.message : String(error),
       }
     }
+    // A plan the first deposit can't open isn't ranked, unless none can be.
+    const anyFits = data.plans.some(({ outcome, fits }) => outcome && fits)
     return {
       deposited: data.deposited,
       noFees: data.noFees,
@@ -768,7 +779,7 @@ export class AppState {
         ) => ({
           plan: this.plansById.get(planId(key))!,
           outcome,
-          rank: outcome ? index + 1 : undefined,
+          rank: outcome && (fits || !anyFits) ? index + 1 : undefined,
           track,
           warning,
           fits,
@@ -807,20 +818,23 @@ export class AppState {
     'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
   )
 
-  /** Each plan's row number in the table, by id, for the chart by deposit:
-   * its sweep answers a moment after the table, which it may not match. */
-  private ranks: ReadonlyMap<string, number> = $derived(
+  /** The plans with numbers in the table, by id, each with its row number
+   * (none for a plan the first deposit can't open), for the chart by
+   * deposit: its sweep answers a moment after the table, which it may not
+   * match. */
+  private ranks: ReadonlyMap<string, { rank: number | undefined }> = $derived(
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
     new Map(
       'error' in this.comparison
         ? []
-        : this.comparison.results.flatMap(({ plan, rank }) =>
-            rank === undefined ? [] : [[plan.id, rank] as const],
+        : this.comparison.results.flatMap(({ plan, outcome, rank }) =>
+            outcome ? [[plan.id, { rank }] as const] : [],
           ),
     ),
   )
 
-  rankOf(id: string): number | undefined {
+  /** A plan's place in the table, if it has numbers there. */
+  rowOf(id: string): { rank: number | undefined } | undefined {
     return this.ranks.get(id)
   }
 

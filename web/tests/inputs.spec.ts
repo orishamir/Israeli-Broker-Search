@@ -24,7 +24,7 @@ import { choice, expect, fingerDrag, openPlans, planInList, plansList, rows, tes
 test('Tel Aviv needs no exchange rates or share price', { tag: '@phone' }, async ({ page }) => {
   await choice(page, t.exchange, exchangeName('Tlv')).click()
   await expect(page.getByText('$1 = ₪')).toBeHidden()
-  await expect(page.getByLabel(t.sharePrice)).toBeHidden()
+  await expect(page.locator('#share-price')).toBeHidden()
   await expect(rows(page).first()).toBeVisible()
 })
 
@@ -35,7 +35,7 @@ test("where it's traded is explained for an index fund without an ETF for its ex
 })
 
 test('the share price is asked for only where the core says it matters', async ({ page }) => {
-  const sharePrice = page.getByLabel(t.sharePrice, { exact: true })
+  const sharePrice = page.locator('#share-price')
   const unit = page.locator('.field').filter({ has: sharePrice }).locator('.unit')
   for (const security of ['Etf', 'IndexFund', 'Bond'] as Security[]) {
     for (const exchange of ['Usa', 'Europe', 'Tlv'] as Exchange[]) {

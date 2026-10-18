@@ -434,7 +434,7 @@ pub fn altshuler() -> Broker {
     // rules). Anything it doesn't mention is priced as the full tariff,
     // which its fine print refers to.
     let new_customers = Plan {
-        name: t("New customers", "לקוחות חדשים"),
+        name: t("New customers", "מבצע הצטרפות"),
         description: t(
             "Altshuler's offer for opening a new account with at least ₪5,000. It has no \
              end date.",
@@ -729,10 +729,7 @@ pub fn leumi() -> Broker {
     // compared with buying the same funds by one-off orders. The note is
     // only about buying: selling costs what it does on Online.
     let standing_order = Plan {
-        name: t(
-            "Online, monthly standing order",
-            "אונליין, הוראת קבע חודשית",
-        ),
+        name: t("Online, monthly standing order", "אונליין, הוראת קבע"),
         description: t(
             "Not a separate account: an Online customer buying Tel Aviv index funds by \
              monthly standing order, which the tariff prices lower. Everything else is \
@@ -1438,7 +1435,7 @@ pub fn interactive() -> Broker {
         markup: Markup::MarketRate,
     };
     let standard = Plan {
-        name: t("Standard", "רגיל"),
+        name: t("Standard", "תעריפון"),
         description: t(
             "Interactive Israel's only price list. Opening an account takes no minimum \
              deposit.",

@@ -1079,11 +1079,13 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                         PlanKey::Yours { .. } => None,
                     },
                     tax_note: outcome.and_then(|_| plan.tax_note(&scenario, lang())),
-                    not_offered: compared
-                        .outcome
-                        .as_ref()
-                        .err()
-                        .map(|&reason| plan.why_not_offered(reason, &scenario, lang())),
+                    not_offered: compared.outcome.as_ref().err().map(|&reason| {
+                        let broker = match key {
+                            PlanKey::Listed { broker, .. } => Some(&brokers[*broker].name[lang()]),
+                            PlanKey::Yours { .. } => None,
+                        };
+                        plan.why_not_offered(reason, &scenario, broker, lang())
+                    }),
                     why_not: compared.outcome.as_ref().err().copied().map(WhyNot::from),
                 }
             })

@@ -2,21 +2,13 @@
   import { tick } from 'svelte'
   import { flip } from 'svelte/animate'
   import type { AppState, Result } from './app.svelte'
-  import type { OutcomeData, WhyNot } from './core/core'
+  import type { OutcomeData } from './core/core'
   import { shekels, typedPercent, yearlyCost } from './format'
   import { duration, easeOut, reducedMotion, SETTLE } from './motion'
   import { t } from './text'
   import Tip from './Tip.svelte'
 
   let { app, results }: { app: AppState; results: Result[] } = $props()
-
-  /** A plan without numbers, in the few words its row says, and what its ?
-   * is about; the core's sentence is in the tip. */
-  const whyNotWords = (whyNot: WhyNot | undefined) => {
-    if (whyNot === 'OverTheCeiling') return { cell: t.overTheCeiling, about: t.theCeiling }
-    if (whyNot === 'Locked') return { cell: t.stillLocked, about: t.theLock }
-    return { cell: t.notOfferedFor(app.purchase), about: t.notOffered }
-  }
 
   interface Column {
     /** The same in every language, for the fees column's link. */
@@ -179,7 +171,7 @@
           {/each}
         {:else}
           <td class="amount" colspan={columns.length}
-            >{whyNotWords(whyNot).cell}<Tip about={whyNotWords(whyNot).about}>{notOffered}</Tip></td
+            >{app.whyNotWords(whyNot).cell}<Tip about={app.whyNotWords(whyNot).about}>{notOffered}</Tip></td
           >
         {/if}
       </tr>

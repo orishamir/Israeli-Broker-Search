@@ -12,10 +12,17 @@
     const lines: CostLine[] = (sweep?.plans ?? []).flatMap(({ key, costs }) => {
       const plan = app.plansById.get(planId(key))
       // Plans that can't be used at the user's own deposit have no line.
-      const rank = app.rankOf(planId(key))
-      if (!plan || rank === undefined) return []
+      const row = app.rowOf(planId(key))
+      if (!plan || !row) return []
       return [
-        { id: plan.id, label: plan.label, color: plan.color, rank, dotted: plan.yours !== undefined, costs },
+        {
+          id: plan.id,
+          label: plan.label,
+          color: plan.color,
+          rank: row.rank,
+          dotted: plan.yours !== undefined,
+          costs,
+        },
       ]
     })
     return crossoverOption({

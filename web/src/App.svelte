@@ -99,7 +99,10 @@
   const longAssumptions = $derived.by(() => {
     const { yearlyReturnPercent: yearly, inflationPercent: inflation } = app.inputs
     if (yearly == null || inflation == null) return lastLong
-    lastLong = t.assumptions(typedPercent(yearly), typedPercent(inflation), app.sellAtEnd)
+    // A fund taken as a pension pays no tax, which the line would deny.
+    const pension =
+      'results' in app.comparison && app.comparison.results.some(({ pensionNote }) => pensionNote)
+    lastLong = t.assumptions(typedPercent(yearly), typedPercent(inflation), app.sellAtEnd, pension)
     return lastLong
   })
   let lastShort = ''

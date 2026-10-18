@@ -6,9 +6,9 @@ import { readableOn } from './format'
 /** The line's row number from the table, on a badge in its color, then its
  * value in that color. The number tells two plans apart where they share a
  * color (there are more plans than colors that differ enough), and links
- * the line to its row. */
+ * the line to its row; a plan the table doesn't rank has "–", as its row. */
 export function endLabel(
-  line: { rank: number; color: string },
+  line: { rank: number | undefined; color: string },
   faded: boolean,
   value: (params: { value: unknown }) => string,
 ): LineSeriesOption['endLabel'] {
@@ -17,7 +17,7 @@ export function endLabel(
     // Counts up as the line draws itself in; and a label with no place yet
     // to glide from (see the chart attachment) isn't faded in instead.
     valueAnimation: true,
-    formatter: (params) => `{rank|${line.rank}} ${value(params as { value: unknown })}`,
+    formatter: (params) => `{rank|${line.rank ?? '–'}} ${value(params as { value: unknown })}`,
     color: faded ? undefined : line.color,
     opacity: faded ? 0.6 : 1,
     rich: {

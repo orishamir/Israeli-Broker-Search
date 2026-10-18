@@ -17,7 +17,7 @@ import {
   securityName,
   usualPlans,
 } from './core'
-import { compactPercent, dateText, shekels } from '../src/lib/format'
+import { dateText, shekels, typedPercent } from '../src/lib/format'
 import { t } from '../src/lib/text'
 import {
   away,
@@ -161,10 +161,11 @@ test('under the summary, what its amounts assume, following the inputs', async (
   const line = page.locator('.assumptions')
   const { yearlyReturnPercent, inflationPercent } = await inputsOnPage(page)
   await expect(line).toHaveText(
-    t.assumptions(compactPercent(yearlyReturnPercent!), compactPercent(inflationPercent!), true),
+    t.assumptions(typedPercent(yearlyReturnPercent!), typedPercent(inflationPercent!), true, false),
   )
-  await page.getByLabel(t.yearlyReturn, { exact: true }).fill('7')
-  await expect(line).toHaveText(t.assumptions(compactPercent(7), compactPercent(inflationPercent!), true))
+  // As typed, not rounded: 7.25%, not 7.3%.
+  await page.getByLabel(t.yearlyReturn, { exact: true }).fill('7.25')
+  await expect(line).toHaveText(t.assumptions('7.25%', typedPercent(inflationPercent!), true, false))
 })
 
 test('the US estate tax is said once, under the table, while a broker holds enough of a US security', async ({
