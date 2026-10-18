@@ -25,7 +25,7 @@ use broker_fees::yours::{
 };
 use broker_fees::{
     Broker, BrokerKind, Buying, Exchange, ExchangeRates, IntoEnumIterator, Lang, Money, Named,
-    Percent, Period, Plan, Security, Spread, TradeFee, Vehicle, Withdrawal, ils,
+    Percent, Period, Plan, Product, Security, Spread, TradeFee, Vehicle, Withdrawal, ils,
 };
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -436,6 +436,9 @@ impl Purchase {
         let buying = Buying {
             security: self.security,
             exchange: self.exchange,
+            product: Product::for_purchase(self.security, self.exchange)
+                .first()
+                .copied(),
             largest_trade,
         };
         let rates = rates.unwrap_or_else(|| {
@@ -752,6 +755,9 @@ fn scenario(inputs: &Inputs, plans: &[&Plan]) -> Result<Scenario, InvalidInputs>
     let scenario = Scenario {
         security: inputs.security,
         exchange: inputs.exchange,
+        product: Product::for_purchase(inputs.security, inputs.exchange)
+            .first()
+            .copied(),
         first_deposit: amount(inputs.first_deposit, Field::FirstDeposit)?,
         monthly_deposit: amount(inputs.monthly_deposit, Field::MonthlyDeposit)?,
         deposit_growth: Percent(filled_in(
@@ -935,6 +941,8 @@ pub enum WhyNot {
     OverTheCeiling,
     /// Its money can't be taken out yet when the years are up.
     Locked,
+    /// A fund's only track compared holds an index, not one share or bond.
+    NoMatchingTrack,
 }
 
 impl From<NotOffered> for WhyNot {
@@ -943,6 +951,7 @@ impl From<NotOffered> for WhyNot {
             NotOffered::NoPrice => WhyNot::NotSold,
             NotOffered::OverTheCeiling { .. } => WhyNot::OverTheCeiling,
             NotOffered::Locked { .. } => WhyNot::Locked,
+            NotOffered::NoMatchingTrack => WhyNot::NoMatchingTrack,
         }
     }
 }
@@ -1011,6 +1020,8 @@ pub struct FeeAmounts {
     /// amount, since no plan charges both, so ranking by it puts brokers and
     /// funds side by side.
     pub holding: f64,
+    /// What the fund that holds the index kept back on its own.
+    pub product: f64,
     pub selling: f64,
     pub total: f64,
 }
@@ -1021,6 +1032,7 @@ impl From<&Fees> for FeeAmounts {
             purchases: number(fees.purchases),
             conversions: number(fees.conversions),
             holding: number(fees.custody + fees.handling + fees.management),
+            product: number(fees.product),
             selling: number(fees.selling),
             total: number(fees.total()),
         }
@@ -1073,6 +1085,7 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
     let buying = Buying {
         security,
         exchange,
+        product: scenario.product,
         largest_trade: Some(Money::from_decimal(
             no_fees.largest_trade,
             exchange.currency(),
@@ -2462,7 +2475,7 @@ mod tests {
         // Its fees count keeping the account: custody and the handling fee.
         let fees = &altshuler.outcome.as_ref().unwrap().fees;
         assert!(fees.holding > 0.0);
-        let parts = fees.purchases + fees.conversions + fees.holding + fees.selling;
+        let parts = fees.purchases + fees.conversions + fees.holding + fees.product + fees.selling;
         assert!((parts - fees.total).abs() < 0.01);
         // A copy made from the comparison is on that track, and so is the
         // listed plan it's compared with.
@@ -2555,8 +2568,9 @@ mod tests {
             .as_ref()
             .unwrap()
             .fees;
-        assert!(fees.holding > 0.0);
-        assert!((fees.holding - fees.total).abs() < 0.01);
+        // What its track keeps back is apart, as a broker's fund's is.
+        assert!(fees.holding > 0.0 && fees.product > 0.0);
+        assert!((fees.holding + fees.product - fees.total).abs() < 0.01);
     }
 
     /// Taken at once, a fund pays the tax a broker does and ranks by its
