@@ -713,6 +713,72 @@ pub fn leumi() -> Broker {
         caveats: leumi_trade.to_vec(),
     };
 
+    // The tariff's main rows (part 4 and appendix 5a), what a clerk charges
+    // for an order given at a branch or by phone; the Online column is the
+    // appendix on direct channels. Custody is one row for both.
+    let branch = Plan {
+        name: t("Branch or through a banker", "בסניף או דרך בנקאי"),
+        description: t(
+            "Leumi's prices when a banker or a branch clerk takes your order, instead of \
+             you placing it in Leumi Trade, on the website or in the app. The way for \
+             someone who already has an account at Leumi and trades through it the old \
+             way.",
+            "המחירים של לאומי כשבנקאי או פקיד בסניף מבצע את הפקודה, ולא אתם בלאומי טרייד, באתר או באפליקציה. הדרך של מי שכבר יש לו חשבון בלאומי וסוחר דרכו כמו פעם.",
+        ),
+        // Part 4(a)(1): stocks and bonds, with ETFs and index funds counted
+        // back in by its footnote 4; part 4(a)(4) abroad.
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.65)),
+                    min: Some(ils(dec!(27))),
+                    max: Some(ils(dec!(7000))),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.9)),
+                    min: Some(usd(dec!(25))),
+                    max: Some(usd(dec!(7500))),
+                },
+            ),
+        ],
+        // Appendix 5a, row 1: the exchange fee for shekels to dollars.
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.2)),
+                min: Some(usd(dec!(7.2))),
+                max: Some(usd(dec!(3000))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        caveats: vec![
+            Caveat::published(t(
+                "These are the tariff's main prices, charged when a banker or a clerk \
+                 takes the order; trading yourself in Leumi Trade, on the website or in \
+                 the app is priced by the Online plan.",
+                "אלה המחירים הראשיים של התעריפון, כשבנקאי או פקיד מבצע את הפקודה; מסחר עצמאי בלאומי טרייד, באתר או באפליקציה מתומחר במסלול אונליין.",
+            ))
+            .source(&tariff),
+            Caveat::at_most(t(
+                "Buying Tel Aviv index funds by monthly standing order has a lower price \
+                 in the tariff (part 4, note 10). Whether it is open through a banker \
+                 isn't said, so every purchase is priced as an ordinary order.",
+                "לקנייה של קרנות מחקות בתל אביב בהוראת קבע חודשית יש בתעריפון מחיר נמוך יותר (חלק 4, הערה 10). לא כתוב אם היא פתוחה גם דרך בנקאי, ולכן כל קנייה מתומחרת כפקודה רגילה.",
+            ))
+            .about_fee(FeeKind::StandingOrder)
+            .about(&[IndexFund])
+            .on(&[Tlv])
+            .source(&tariff),
+        ],
+        ..online.clone()
+    };
+
     // Customer group from Nispach Alef. Only the parts that differ from Online.
     let plus18 = Plan {
         name: t("Online, 'Leumi 18+'", "אונליין, ״לאומי 18+״"),
@@ -954,7 +1020,7 @@ pub fn leumi() -> Broker {
         latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
-        plans: vec![online, plus18, standing_order, pepper],
+        plans: vec![online, plus18, standing_order, pepper, branch],
         spread: None,
     }
 }
@@ -2074,6 +2140,60 @@ pub fn mizrahi() -> Broker {
         ],
     };
 
+    // Part 4's own rows (4.1.1, 4.4.1) and part 5's (5.1.1): what a clerk
+    // charges for an order given at a branch or by phone. Appendix E's
+    // website column is Online.
+    let branch = Plan {
+        name: t("Branch or through a banker", "בסניף או דרך בנקאי"),
+        description: t(
+            "Mizrahi-Tefahot's prices when a banker or a branch clerk takes your order, \
+             instead of you placing it on its website or in its capital-market app. The \
+             way for someone who already has an account at the bank and trades through \
+             it the old way.",
+            "המחירים של מזרחי\u{2011}טפחות כשבנקאי או פקיד בסניף מבצע את הפקודה, ולא אתם באתר או באפליקציית שוק ההון. הדרך של מי שכבר יש לו חשבון בבנק וסוחר דרכו כמו פעם.",
+        ),
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.64)),
+                    min: Some(ils(dec!(50))),
+                    max: Some(ils(dec!(10_750))),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.89)),
+                    min: Some(usd(dec!(75))),
+                    max: Some(usd(dec!(7500))),
+                },
+            ),
+        ],
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.19)),
+                min: Some(usd(dec!(6))),
+                max: Some(usd(dec!(2500))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        caveats: vec![
+            Caveat::published(t(
+                "These are the tariff's main prices, charged when a banker or a clerk \
+                 takes the order; trading yourself on the website or in the app is \
+                 priced by the Online plan.",
+                "אלה המחירים הראשיים של התעריפון, כשבנקאי או פקיד מבצע את הפקודה; מסחר עצמאי באתר או באפליקציה מתומחר במסלול אונליין.",
+            ))
+            .source(&tariff),
+            online.caveats[0].clone(),
+        ],
+        ..online.clone()
+    };
+
     // Appendix A: the same benefits for four groups. The 0.4% is "not less
     // than the minimum fee", read as the tariff's ₪50; whether Online's ₪45
     // applies too isn't said.
@@ -2170,7 +2290,7 @@ pub fn mizrahi() -> Broker {
         latest_appendix: Some(TariffDate::Day(date!(2026 - 01 - 13))),
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
-        plans: vec![online, young],
+        plans: vec![online, young, branch],
         spread: None,
     }
 }
@@ -2304,6 +2424,59 @@ pub fn otsar_hahayal() -> Broker {
             .about_fee(FeeKind::Account)
             .source(&tariff),
         ],
+    };
+
+    // Part 4 (4.1.1, 4.4.1) and part 5 (5.1.1): the clerk's column, what an
+    // order given at a branch costs. The same rows have columns for the
+    // website and the app, which is Online.
+    let branch = Plan {
+        name: t("Branch or through a banker", "בסניף או דרך בנקאי"),
+        description: t(
+            "The bank's prices when a banker or a branch clerk takes your order, instead \
+             of you placing it on its website or in its app. The way for someone who \
+             already has an account at the bank and trades through it the old way.",
+            "המחירים של הבנק כשבנקאי או פקיד בסניף מבצע את הפקודה, ולא אתם באתר או באפליקציה. הדרך של מי שכבר יש לו חשבון בבנק וסוחר דרכו כמו פעם.",
+        ),
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.64)),
+                    min: Some(ils(dec!(40))),
+                    max: Some(ils(dec!(7000))),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.85)),
+                    min: Some(usd(dec!(40))),
+                    max: Some(usd(dec!(7000))),
+                },
+            ),
+        ],
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.175)),
+                min: Some(usd(dec!(6.25))),
+                max: Some(usd(dec!(2750))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        caveats: vec![
+            Caveat::published(t(
+                "These are the tariff's clerk prices, charged when a banker or a branch \
+                 clerk takes the order; trading yourself on the website or in the app is \
+                 priced by the Online plan.",
+                "אלה מחירי הפקיד שבתעריפון, כשבנקאי או פקיד בסניף מבצע את הפקודה; מסחר עצמאי באתר או באפליקציה מתומחר במסלול אונליין.",
+            ))
+            .source(&tariff),
+            online.caveats[0].clone(),
+        ],
+        ..online.clone()
     };
 
     // Part 4, note 13 on the Tel Aviv row and note 10 on the foreign one:
@@ -2513,7 +2686,7 @@ pub fn otsar_hahayal() -> Broker {
         latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
-        plans: vec![online, standing_order, club, top_trade],
+        plans: vec![online, standing_order, club, top_trade, branch],
         spread: None,
     }
 }

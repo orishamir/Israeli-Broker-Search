@@ -258,3 +258,17 @@ What `short_term.rs` leaves out (October 2026). The sources are in
   a month: a caveat says so. tradingil's ₪100 gift and minimum deposit of
   ₪4,500 until 10 October 2026, and gemeltop's refund of commissions, aren't
   published by Excellence.
+
+## Branch plans
+
+- **Banks that aren't in the app** (Hapoalim, Discount, the First
+  International for its own customers, and the rest): there is no tariff PDF
+  for them in `policies`, so no branch plan. REDESIGN.md §6.8 stands in the dearest branch
+  plan of the three that are.
+- **Otsar Hahayal's "other channels" column** (trading systems and the
+  telephone dealing room, cheaper than the clerk's): left out; the clerk's
+  column is the branch plan and the website's is Online.
+- **The investment houses** (Altshuler, Excellence, IBI, Meitav, Interactive)
+  are not banks and their tariffs have no branch column (they list a Full tariff and offers), so they have no branch plan.
+- **Leumi's standing order through a banker**: priced as an ordinary order
+  (see `sources.md`, "Branch tariffs").

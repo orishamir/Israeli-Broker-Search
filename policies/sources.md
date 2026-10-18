@@ -245,6 +245,41 @@ and the banks' unpublished markups, come from these:
   ₪3.4636, ₪3.5266 and ₪3.4951 for the euro. Read as a markup of 0.9% each
   way. The page is served in Windows-1255.
 
+## Branch tariffs
+
+The plan "Branch or through a banker" (בסניף או דרך בנקאי) of Leumi,
+Mizrahi-Tefahot and Otsar Hahayal is the bank's own main price list, what a
+clerk charges for an order given at a branch or by phone, from the same PDF
+the bank's Online plan comes from (REDESIGN.md §4.10). It is never ticked at
+first (only the bank's `new_customer_plan` is); it is what the situation
+"I already have a portfolio at a bank" ticks. Read 19 October 2026 from the
+PDFs in this folder; custody is one row for both channels, so the plan keeps
+Online's. The conversion markup is the bank's published-rate reading above,
+the same for every plan. Each plan says in a published caveat that it is the
+clerk's price and that trading yourself is priced by Online.
+
+| Bank | Tel Aviv (stocks, bonds; ETFs and index funds counted in by the row's note) | Abroad | Conversion (shekel to dollar) |
+|---|---|---|---|
+| Leumi, part 4(a)(1) and (4), appendix 5a | 0.65%, ₪27 to ₪7,000 | 0.9%, $25 to $7,500 | 0.2%, $7.20 to $3,000 |
+| Mizrahi-Tefahot, part 4 §4.1.1 and §4.4.1, part 5 §5.1.1 | 0.64%, ₪50 to ₪10,750 | 0.89%, $75 to $7,500 | 0.19%, $6 to $2,500 |
+| Otsar Hahayal (First International), part 4 §4.1.1 and §4.4.1, part 5 §5.1.1: the "clerk" (פקיד) column | 0.64%, ₪40 to ₪7,000 | 0.85%, $40 to $7,000 | 0.175%, $6.25 to $2,750 |
+
+- These agree with what earlier comments already said about the branch
+  (Leumi: 18+ halves a 0.2% branch conversion fee at a $7.20 minimum;
+  Mizrahi: "0.64% and 0.89%", groups' half of 0.19%; Otsar: "0.64% and
+  0.85%", the website's 0.0875% is half of 0.175%).
+- Otsar's table has columns for the clerk, "other channels" (trading
+  systems), the automatic machine, the app and the website. The clerk's is
+  the branch; the cheaper "other channels" column is not modeled.
+- Leumi's note 10 (standing order for an index fund: 0.225%, at least ₪5)
+  sits in the same row as the branch price, but whether a banker takes such
+  an order isn't said: the plan prices every purchase as an ordinary order
+  and says so (`at_most`). The Leumi Trade-only notes (bulk buying, half the
+  custody in the app's first year) are not on this plan.
+- Leumi's Tel Aviv minimum of ₪27 and Mizrahi's ₪50 are "not more than 30%
+  (Leumi) or 25% (Mizrahi) of the value": irrelevant above a few hundred
+  shekels.
+
 ## Readings of unclear rows
 
 - A typical offer prices only what the comparison sites list. gemeltop lists

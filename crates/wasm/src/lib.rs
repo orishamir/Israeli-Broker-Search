@@ -2508,7 +2508,7 @@ mod tests {
     fn broker_info_describes_every_plan() {
         let leumi = BrokerInfo::new(&tariffs::leumi(), Lang::En);
         assert_eq!(leumi.tariff_date, "Tariff in force from 01/10/2026");
-        assert_eq!(leumi.plans.len(), 4);
+        assert_eq!(leumi.plans.len(), 5);
         assert_eq!(leumi.plans[0].tariff.trading.len(), 2);
         assert_ne!(leumi.plans[3].description, "");
         let standing_order = &leumi.plans[2].tariff;

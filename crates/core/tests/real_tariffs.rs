@@ -2053,3 +2053,129 @@ mod short_term_cases {
         assert_eq!(he, ["עד חודש", "6 חודשים עד שנה", "3 שנים עד 5 שנים"]);
     }
 }
+
+// ─────────────────────────── The banks' branch plans ───────────────────────────
+
+/// The branch plan's trades and conversion, worked out from the tariff's
+/// own rows; the three banks share the shape, so one helper checks it.
+/// Rates: $1 = ₪3.70, so a ₪ minimum and a $ one compare by hand.
+fn branch_prices(
+    bank: Broker,
+    tel_aviv: [(Decimal, Decimal); 3],
+    abroad: [(Decimal, Decimal); 3],
+    conversion: [(Decimal, Decimal); 2],
+) {
+    let name = bank.name.en.to_string();
+    let p = plan(bank.clone(), "Branch or through a banker");
+    // Not ticked at first: the bank's Online plan is the one that is.
+    assert_ne!(
+        bank.plans[bank.new_customer_plan].name.en, p.name.en,
+        "{name}"
+    );
+    for (value, fee) in tel_aviv {
+        assert_eq!(
+            trade_fee(&p, Etf, Tlv, dec!(1), ils(value)),
+            Some(ils(fee)),
+            "{name} Tel Aviv {value}"
+        );
+    }
+    for (value, fee) in abroad {
+        assert_eq!(
+            trade_fee(&p, Etf, Usa, dec!(10), usd(value)),
+            Some(usd(fee)),
+            "{name} abroad {value}"
+        );
+    }
+    for (value, fee) in conversion {
+        assert_eq!(
+            p.conversion_fee(usd(value), &rates()),
+            usd(fee),
+            "{name} {value}"
+        );
+    }
+    // Never cheaper than the same bank's Online plan on a Tel Aviv order.
+    let online = plan(bank, "Online");
+    let order = ils(dec!(100000));
+    let amount = |p: &Plan| {
+        trade_fee(p, Etf, Tlv, dec!(1), order)
+            .unwrap()
+            .amount()
+            .to_owned()
+    };
+    assert!(amount(&p) > amount(&online), "{name}");
+    // Custody is one row online and at a branch.
+    assert_eq!(p.custody, online.custody, "{name}");
+}
+
+/// Leumi, part 4(a)(1) and (4): Tel Aviv 0.65%, ₪27 to ₪7,000; abroad
+/// 0.9%, $25 to $7,500; appendix 5a: 0.2%, $7.20 to $3,000, and a markup of
+/// 0.9%.
+#[test]
+fn leumi_branch() {
+    branch_prices(
+        leumi(),
+        // ₪1,000 is ₪6.50 → minimum; ₪100,000 is ₪650; ₪2M is ₪13,000 → maximum.
+        [
+            (dec!(1000), dec!(27)),
+            (dec!(100000), dec!(650)),
+            (dec!(2000000), dec!(7000)),
+        ],
+        // $1,000 is $9 → minimum; $5,000 is $45; $1M is $9,000 → maximum.
+        [
+            (dec!(1000), dec!(25)),
+            (dec!(5000), dec!(45)),
+            (dec!(1000000), dec!(7500)),
+        ],
+        // $1,000: 0.2% is $2 → $7.20, plus $9 markup. $10,000: $20 plus $90.
+        [(dec!(1000), dec!(16.2)), (dec!(10000), dec!(110))],
+    );
+}
+
+/// Mizrahi-Tefahot, part 4 §4.1.1 and §4.4.1: Tel Aviv 0.64%, ₪50 to
+/// ₪10,750; abroad 0.89%, $75 to $7,500; part 5 §5.1.1: 0.19%, $6 to
+/// $2,500, and a markup of 0.8%.
+#[test]
+fn mizrahi_branch() {
+    branch_prices(
+        mizrahi(),
+        // ₪1,000 is ₪6.40 → minimum; ₪100,000 is ₪640; ₪2M is ₪12,800 → maximum.
+        [
+            (dec!(1000), dec!(50)),
+            (dec!(100000), dec!(640)),
+            (dec!(2000000), dec!(10750)),
+        ],
+        // $5,000 is $44.50 → minimum; $20,000 is $178; $1M is $8,900 → maximum.
+        [
+            (dec!(5000), dec!(75)),
+            (dec!(20000), dec!(178)),
+            (dec!(1000000), dec!(7500)),
+        ],
+        // $1,000: 0.19% is $1.90 → $6, plus $8 markup. $10,000: $19 plus $80.
+        [(dec!(1000), dec!(14)), (dec!(10000), dec!(99))],
+    );
+}
+
+/// Otsar Hahayal, part 4 §4.1.1 and §4.4.1, the clerk's column: Tel Aviv
+/// 0.64%, ₪40 to ₪7,000; abroad 0.85%, $40 to $7,000; part 5 §5.1.1:
+/// 0.175%, $6.25 to $2,750, and a markup of 0.9%.
+#[test]
+fn otsar_branch() {
+    branch_prices(
+        otsar_hahayal(),
+        // ₪1,000 is ₪6.40 → minimum; ₪100,000 is ₪640; ₪2M is ₪12,800 → maximum.
+        [
+            (dec!(1000), dec!(40)),
+            (dec!(100000), dec!(640)),
+            (dec!(2000000), dec!(7000)),
+        ],
+        // $1,000 is $8.50 → minimum; $5,000 is $42.50; $1M is $8,500 → maximum.
+        [
+            (dec!(1000), dec!(40)),
+            (dec!(5000), dec!(42.5)),
+            (dec!(1000000), dec!(7000)),
+        ],
+        // $1,000: 0.175% is $1.75 → $6.25, plus $9 markup. $10,000: $17.50
+        // plus $90.
+        [(dec!(1000), dec!(15.25)), (dec!(10000), dec!(107.5))],
+    );
+}
