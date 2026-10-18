@@ -163,7 +163,7 @@ test('a study fund is locked for six years, and taxes only the gains on what is 
   app.monthlyDeposit = 1_500
   expect(taxOf(study.id)).toBe(0)
   // The fund says its rule under its name, and its row what became of it.
-  expect(study.broker!.taxRule).toBe('אין מס על הרווחים אחרי 6 שנים, על עד ₪20,566 שהופקדו בשנה')
+  expect(study.broker!.taxRule).toBe('אין מס על הרווחים אחרי 6 שנים, על הפקדות של עד ₪20,566 בשנה')
   expect(rowOf().taxNote).toBe('אין מס: ההפקדות שלכם בתוך ₪20,566 בשנה')
   app.monthlyDeposit = 2_000
   expect(rowOf().taxNote).toBe('המס הוא רק על מה שמופקד מעל ₪20,566 בשנה')

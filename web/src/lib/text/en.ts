@@ -437,7 +437,8 @@ export const en = {
     'What you end up with, and what the table is ranked by: what you put in, with what it earned in the deposit or the fund (after the fund’s fee), less the tax.',
   costYearly: 'Cost a year',
   costYearlyTip:
-    "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. Below zero, the bank pays more than the rate.",
+    "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. A bank paying more than the rate is marked \"above the rate\".",
+  aboveTheRate: (rate: string) => `${rate} above the rate`,
   shortTaxTip: (inflation: string) =>
     `A deposit pays 15% of all its interest. A fund pays 25% of its gain beyond inflation (${inflation} a year), when it's sold.`,
   whenOut: 'When it can come out',

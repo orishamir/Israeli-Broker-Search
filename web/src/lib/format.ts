@@ -30,8 +30,13 @@ const dayMonthYear = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '
 /** "28/09/2026", as Israelis write dates, from an ISO date ("2026-09-28"). */
 export const dateText = (iso: string): string => dayMonthYear.format(new Date(`${iso}T00:00:00`))
 
-/** "₪1.42M", "₪889K", "₪42K": short enough for chart labels. */
-export const compactShekels = (amount: number): string => compact[0].format(amount)
+/** The browser's "K" and "M" in Hebrew words: "₪242 אלף", "₪1.42 מיליון". */
+const inWords: Record<string, string> = { K: '\u00a0אלף', M: '\u00a0מיליון', B: '\u00a0מיליארד' }
+const compactIn = (format: Intl.NumberFormat) => (amount: number) =>
+  format.format(amount).replace(/[KMB]$/, (unit) => inWords[unit])
+
+/** "₪1.42 מיליון", "₪889 אלף", "₪42 אלף": short enough for chart labels. */
+export const compactShekels = (amount: number): string => compactIn(compact[0])(amount)
 
 /** Of `formats`, from the shortest, the first that prints `values` that
  * differ differently: lines ending at ₪103,196 and ₪102,930 both read
@@ -39,15 +44,16 @@ export const compactShekels = (amount: number): string => compact[0].format(amou
 function fewestApart(values: number[], formats: Intl.NumberFormat[]): (value: number) => string {
   const kinds = (format: Intl.NumberFormat) => new Set(values.map((value) => format.format(value))).size
   const most = kinds(formats.at(-1)!)
-  const format = formats.find((format) => kinds(format) === most)!
-  return (value) => format.format(value)
+  return formats.find((format) => kinds(format) === most)!.format
 }
 
 /** Compact amounts, with a digit more (up to five) wherever two of `amounts`
  * would otherwise read the same: "₪103.20K", "₪102.93K". For labels that
  * stand side by side, such as where lines end. */
-export const compactShekelsApart = (amounts: number[]): ((amount: number) => string) =>
-  fewestApart(amounts, compact)
+export const compactShekelsApart = (amounts: number[]): ((amount: number) => string) => {
+  const format = fewestApart(amounts, compact)
+  return (amount) => format(amount).replace(/[KMB]$/, (unit) => inWords[unit])
+}
 
 /** Black or white, whichever reads better on `color` (a "#rrggbb"). */
 export function readableOn(color: string): string {

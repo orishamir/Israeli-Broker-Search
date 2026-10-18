@@ -15,7 +15,12 @@
     title: string
     explanation: string
     text: (outcome: ShortTermOutcomeData) => string
+    /** In words, for the saver: a bank paying above the rate. */
+    good?: (outcome: ShortTermOutcomeData) => boolean
   }
+
+  /** Below half a hundredth of a percent, a cost rounds to nothing. */
+  const aboveTheRate = (outcome: ShortTermOutcomeData) => outcome.yearlyCostPercent <= -0.005
 
   /** The amounts, what the table is ranked by first: on a phone only the
    * first two fit beside the place's name, and the rest scroll into view. */
@@ -33,7 +38,12 @@
     {
       title: t.costYearly,
       explanation: t.costYearlyTip,
-      text: (outcome) => percent(outcome.yearlyCostPercent),
+      // A negative cost read twice: a bank above the rate says so.
+      text: (outcome) =>
+        aboveTheRate(outcome)
+          ? t.aboveTheRate(percent(-outcome.yearlyCostPercent))
+          : percent(outcome.yearlyCostPercent),
+      good: aboveTheRate,
     },
     {
       title: t.tax,
@@ -102,7 +112,9 @@
         </td>
         {#if outcome}
           {#each columns as column (column.title)}
-            <td class="amount number">{column.text(outcome)}</td>
+            {@const good = column.good?.(outcome) ?? false}
+            <!-- Words read right to left, numbers left to right. -->
+            <td class="amount" class:number={!good} class:good>{column.text(outcome)}</td>
           {/each}
         {:else}
           <td class="amount" colspan={columns.length}
@@ -304,6 +316,9 @@
   }
   .not-offered {
     color: var(--weak);
+  }
+  .good {
+    color: var(--good);
   }
   .best {
     font-weight: 700;
