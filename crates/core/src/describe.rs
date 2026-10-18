@@ -14,9 +14,9 @@ use time::macros::format_description;
 use crate::simulation::{NotOffered, Outcome, Scenario, USUAL_INFLATION};
 use crate::{
     Basis, Broker, BrokerKind, Buying, Caveat, ConversionFee, CustodyFee, Errs, Exchange,
-    ExchangeRates, HandlingFee, IntoEnumIterator, Lang, ManagementFee, Markup, Money, Named, Page,
-    PercentFee, Period, Plan, Price, Security, TariffDate, Text, TradeFee, Vehicle, Withdrawal,
-    funds, ils, short_term, tariffs,
+    ExchangeRates, HandlingFee, IntoEnumIterator, Lang, ManagementFee, Markup, Money, Named,
+    OfferEnds, Page, PercentFee, Period, Plan, Price, Security, TariffDate, Text, TradeFee,
+    Vehicle, Withdrawal, funds, ils, short_term, tariffs,
 };
 
 /// A price in words, and whether it's nothing, so that every view dims the
@@ -1158,6 +1158,28 @@ impl Plan {
         })
     }
 
+    /// Until when a joining offer can be had, for its details: "For new
+    /// customers whose first deposit is made by 30/10/2026", "No end date".
+    #[must_use]
+    pub fn offer_ends_text(&self, lang: Lang) -> Option<String> {
+        self.offer_ends.as_ref().map(|ends| match ends {
+            OfferEnds::By { date, to_qualify } => {
+                let date = date
+                    .format(format_description!("[day]/[month]/[year]"))
+                    .expect("a fixed format");
+                format!(
+                    "{} {}\u{a0}{date}",
+                    &to_qualify[lang],
+                    lang.pick("by", "עד")
+                )
+            }
+            OfferEnds::NoEndDate => lang.pick("No end date", "ללא תאריך סיום").to_owned(),
+            OfferEnds::NotPublished => lang
+                .pick("End date not published", "תאריך הסיום לא פורסם")
+                .to_owned(),
+        })
+    }
+
     /// "Needs a one-time deposit of at least ₪5,000", if `first_deposit` is less
     /// than the plan's minimum.
     #[must_use]
@@ -1559,7 +1581,8 @@ fn on(securities: &[Security], exchanges: &[Exchange], lang: Lang) -> String {
 }
 
 impl Price {
-    /// "0.3%, min $24, max $6,750", "$0.01 per share, min $9", "$4 per order".
+    /// "0.3%, min $24, max $6,750", "$0.01 per share, min $9", "$4 per order",
+    /// "up to $8,000: $4 per order; above: 0.3%, min $24, max $6,750".
     #[must_use]
     pub fn text(&self, lang: Lang) -> String {
         let per_share = lang.pick("per share", "למניה");
@@ -1590,6 +1613,18 @@ impl Price {
                 "{percent} + {} {per_share}{}",
                 format_money(*amount),
                 bounds(*min, *max, lang)
+            ),
+            Price::UpTo {
+                up_to,
+                price,
+                above,
+            } => format!(
+                "{}\u{a0}{}: {}; {}: {}",
+                lang.pick("up to", "עד"),
+                format_money(*up_to),
+                price.text(lang),
+                lang.pick("above", "מעל"),
+                above.text(lang)
             ),
         }
     }
@@ -1742,8 +1777,8 @@ impl Priced for HandlingFee {
     }
 }
 
-/// "0.15% a quarter (0.6% a year)", "0.15% a year, charged monthly, min ₪75 a
-/// month", or "none" if it never charges anything.
+/// "0.15% a quarter (0.6% a year), max ₪3,700 a quarter", "0.15% a year,
+/// charged monthly, min ₪75 a month", or "none" if it never charges anything.
 impl Priced for CustodyFee {
     fn is_nothing(&self) -> bool {
         self.is_free()
@@ -1772,15 +1807,19 @@ impl Priced for CustodyFee {
             )
             .expect("a String");
         }
-        if let Some(min) = self.min {
-            write!(
-                text,
-                ", {} {} {}",
-                lang.pick("min", "מינימום"),
-                format_money(min),
-                self.billed.each(lang)
-            )
-            .expect("a String");
+        for (bound, name) in [
+            (self.min, lang.pick("min", "מינימום")),
+            (self.max, lang.pick("max", "מקסימום")),
+        ] {
+            if let Some(bound) = bound {
+                write!(
+                    text,
+                    ", {name} {} {}",
+                    format_money(bound),
+                    self.billed.each(lang)
+                )
+                .expect("a String");
+            }
         }
         text
     }
@@ -2453,7 +2492,10 @@ mod tests {
             lines,
             [
                 ("Buy or sell", "0.3%, min $24, max $6,750"),
-                ("Keeping the account", "0.2% a quarter (0.8% a year)"),
+                (
+                    "Keeping the account",
+                    "0.2% a quarter (0.8% a year), max ₪7,400 a quarter"
+                ),
                 ("Conversion", "0.16%, min $5.76, max $2,400"),
             ]
         );
@@ -2473,7 +2515,9 @@ mod tests {
         assert_eq!(mark.text, "our reading");
         assert_eq!(mark.caveats.len(), 1);
         assert!(mark.caveats[0].support.is_some());
-        assert_eq!(fees.fees[0].mark, None);
+        // Bulk purchase, cheaper and left out, is marked beside the trade fee.
+        let trade = fees.fees[0].mark.as_ref().unwrap();
+        assert_eq!(trade.kind, CaveatKind::NotCounted);
         assert_eq!(fees.caveats[0].kind, CaveatKind::Reading);
         assert_eq!(fees.caveats[0].label, "Our reading");
         assert!(fees.caveats[0].explanation.contains("unclear or silent"));
@@ -2633,17 +2677,23 @@ mod tests {
         assert_eq!(flag(Exchange::Usa, Some(usd(dec!(7000)))), None);
         assert_eq!(
             flag(Exchange::Usa, Some(usd(dec!(9000)))).as_deref(),
-            Some("May cost more: $4 is stated only for orders up to $8,000")
+            Some("May cost more: orders above $8,000 are priced as Leumi online")
         );
         assert_eq!(flag(Exchange::Tlv, Some(ils(dec!(1000)))), None);
 
         // A markup stated as a maximum can only overstate: nothing to flag.
         let altshuler = tariffs::altshuler();
-        let offer = &altshuler.plans[1];
         let buying = buying(Security::Etf, Exchange::Usa);
         assert_eq!(
-            altshuler.may_cost_more(offer, buying, &rates(), Lang::En),
+            altshuler.may_cost_more(&altshuler.plans[0], buying, &rates(), Lang::En),
             None
+        );
+        // Its offer's waiver needs frequent trading, whatever is bought.
+        assert_eq!(
+            altshuler
+                .may_cost_more(&altshuler.plans[1], buying, &rates(), Lang::En)
+                .as_deref(),
+            Some("May cost more: the waiver is given only to an account that trades often")
         );
     }
 

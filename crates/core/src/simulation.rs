@@ -284,12 +284,7 @@ pub fn share_price_matters(security: Security, exchange: Exchange, plans: &[&Pla
             .chain(&plan.standing_orders);
         let per_share = rows
             .filter(|row| row.applies_to(security, exchange))
-            .any(|row| {
-                matches!(
-                    row.price,
-                    Price::PerShare { .. } | Price::PercentPlusPerShare { .. }
-                )
-            });
+            .any(|row| row.price.is_per_share());
         let whole = whole_shares(security, exchange) && !plan.sells_fractions_on(exchange);
         whole || per_share
     })
@@ -1177,6 +1172,7 @@ pub fn free_plan() -> Plan {
         management: None,
         fractions_on: Exchange::iter().collect(),
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![],
     }
 }

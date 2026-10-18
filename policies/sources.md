@@ -34,21 +34,44 @@ Meitav's 0.15% is a quarter (0.6% a year).
 - **Altshuler Shaham Trade:** `תעריפון מלא אלטשולר שחם טרייד.pdf` (last changed
   25 May 2025, identical to the site's); new-customer offer from
   [trading_benefits](https://www.as-invest.co.il/trade/trading_benefits/) and
-  its rules, `תקנון מבצע הצטרפות אלטשולר שחם טרייד.pdf` (January 2026). Its
-  [FAQ](https://www.as-invest.co.il/trade/faq/): trading on the Israeli and
-  US exchanges only, so nothing in Europe is offered, the tariff's "foreign
-  bonds and funds" row included. The exchange's June 2026 averages show its
-  customers paying 0% custody, which backs reading the offer's "no
-  management fees" as covering custody.
+  its rules, `תקנון מבצע הצטרפות אלטשולר שחם טרייד.pdf` (January 2026: from
+  1 January 2026 "until the company decides otherwise", so no end date). The
+  rules give the lasting waiver of the account's fees only to an account
+  with "frequent trading" (§2.4, §3.2), at the company's discretion, and
+  never to one without activity for over a year; the minimum must stay in
+  the account at all times (§2.1), and the offer is for those without an
+  account there in the last 12 months (§2.2). The waiver is assumed, flagged
+  as may cost more: without it the full tariff charges at least ₪155 a
+  month. Its [trading page](https://www.as-invest.co.il/trade/) (its FAQ,
+  read 18 October 2026): trading on the Israeli and US exchanges only, so
+  nothing in Europe is offered, the tariff's "foreign bonds and funds" row
+  included; the separate [FAQ page](https://www.as-invest.co.il/trade/faq/)
+  doesn't say so. The tariff's part 4, row 7: third parties' charges (SEC,
+  TAF, ECN, ORF, taxes) on top, and 1¢ a share more outside trading hours or
+  through an ECN or a market maker (not counted). The exchange's June 2026
+  averages show its customers paying 0% custody, which backs reading the
+  offer's "no management fees" as covering custody.
 - **Bank Leumi:** `תעריפוני עמלות לאומי.pdf`, dated 1 October 2026, the
   current one. Its securities rows are the same as the 29 June tariff's
   (only rows about returned cheques were added, and rows moved). Leumi Trade is the bank's online channel: its prices are the
   tariff's appendix E (direct channels); customer groups (18+) and Pepper
   are appendix A. [Pepper's site](https://www.pepper.co.il/) (its FAQ) states
   the same ₪4 and $4 up to ₪30,000 and $8,000 an order, says larger orders
-  are priced "by the tariff", and custody of 0.15% a quarter. Its March
-  2026 package (a year without trade, minimum and currency fees, for
-  customers who move their salary) isn't counted.
+  are priced "by the tariff", and custody of 0.15% a quarter. Larger orders
+  are priced at the online rows (p.13–14: 0.4%, ₪26 to ₪6,300; 0.3%, $24 to
+  $6,750), the least the tariff charges for them, flagged as may cost more
+  (a banker's rows are higher). Its March 2026 package (a year without
+  trade, minimum and currency fees, for customers who move their salary)
+  isn't counted.
+  Custody (p.32, and Pepper's p.11) stops at ₪3,700 a quarter per Tel Aviv
+  security and ₪11,500 per account, abroad ₪7,400 and ₪23,000; the lower
+  binds (note 5), which on one security is the per-security cap. "Leumi
+  18+" halves the rate (p.4); its cap is taken to stay the main row's.
+  Not counted, as they make Leumi cheaper: buying by "קניה מרוכזת לתיק" in
+  Leumi Trade at the percentage with no minimum (p.30 note 15, p.31 note
+  12; whether it can buy a single fund isn't said), and at most half the
+  custody in the first year after a deposit is opened in the app (p.32 note
+  8).
 - **Interactive Israel:** `אינטרקטיב ישראל תעריפון-עמלות-23.09.2026-1.pdf`, the
   current one, and [its commission page](https://www.inter-il.com/commission/):
   conversion ₪10 for up to ₪500,000 "and at the live rate" (ולפי שער רציף),
@@ -60,8 +83,14 @@ Meitav's 0.15% is a quarter (0.6% a year).
   says it passes market quotes through with "no mark-ups on quotes" and
   charges a separate commission, and that its automatic conversion service
   instead moves the rate by up to 0.03%; ILS is among its 28 spot currencies.
+  Every page of the tariff words it as a personal offer, valid if the account
+  is opened, with its deposit, within 30 days of accepting it.
 - **IBI:** `תעריפון עמלות אי.בי.אי.pdf`, dated 1 July 2026. The site: minimum
-  deposit ₪15,000, fractional US shares, no trade fee on managed funds of 12
+  deposit ₪15,000 and trading in Israel and the US only through the app
+  ([IBI SMART's FAQ](https://www.ibi.co.il/solutions/trading/ibi-smart-super-app/),
+  drawn by JavaScript, read 18 October 2026; whether Europe, which the
+  tariff prices, can be traded in View Trade isn't said), fractional US
+  shares, no trade fee on managed funds of 12
   fund managers (managed: "not index funds, ETFs or foreign funds listed on
   the exchange"), and "no custody on any fund in the system, index funds
   included", as a benefit for every IBI TRADE customer
@@ -72,7 +101,10 @@ Meitav's 0.15% is a quarter (0.6% a year).
   fee taken off by the month's trade fees; two free years (its own deal,
   not counted); no custody, no conversion fee (spread only). The exchange's
   tariff listing shows IBI's custody as ₪50 a month, which is the document's
-  handling fee; the document's 0.1% a quarter is followed.
+  handling fee; the document's 0.1% a quarter is followed. Its part 4, row
+  5: third parties' charges (SEC, TAF, ECN, ORF, taxes) may come on top (not
+  counted). IBI's own pages show only the ₪300 gift, so the offer's end date
+  isn't published.
 - **Meitav Trade:** `תעריפון מלא מיטב טרייד.pdf`, version 01/2025, linked as the
   current one. The exchange's tariff listing (July 2026) has 0.3% for its
   trades outside the US against the document's 0.25%; the document is
@@ -80,7 +112,11 @@ Meitav's 0.15% is a quarter (0.6% a year).
   ₪5,000. Typical offer (gemeltop, tradingil): index ETFs 0.07%, stocks and
   bonds 0.08%, min ₪4.65; managed funds free; US 1¢ a share, min $5 (IB
   system) or $7.50 (ViewTrade); ₪15 a month, free for the first 2 years,
-  taken off by the month's trade fees (broker.co.il).
+  taken off by the month's trade fees (broker.co.il). Meitav's own page
+  lists no trading prices. Its fine print (18 October 2026): "the benefit
+  for new customers who made a first deposit by 30.10.26", beside the
+  trading course's terms; taken as the offer's end, which may be the
+  course's alone.
 - **Excellence Trade:** `תעריפון מלא אקסלנס טרייד.pdf` (July 2026). Row 6's
   third US track is "0.3% + עמלת ברוקר", the foreign broker's fee unstated
   anywhere: the track is `leaves_out_a_fee`, picked only where no other
@@ -88,23 +124,31 @@ Meitav's 0.15% is a quarter (0.6% a year).
   fractional foreign shares, conversion at 2 agorot a dollar, "at most ₪200
   on $10,000"
   ([article](https://www.xnes.co.il/academy/trading/account-fees/), 7 July
-  2025). Its joining package
-  ([page](https://lp.xnes.co.il/bursa_xnes_trade/join-package2/), 29
-  September 2026) states outright: no non-execution fee, no currency fee and
-  no custody, and, apart from those, two years without the handling fee,
-  "₪180 a year". The two years' rules,
-  `תקנון פטור מדמי טיפול לשנתיים אקסלנס טרייד.pdf` (12 October 2025 to 31
-  December 2026, linked from
-  [its disclosure page](https://www.xnes.co.il/trading/full-disclosure/),
-  drawn by JavaScript): "no monthly handling fee" for 24 months, for a first
-  deposit of ₪15,000, every other fee in the customer's fee appendix
-  unchanged; a deposit above ₪15,000 within 30 days adds a third year (not
-  counted). Typical offer (gemeltop, tradingil): 0.07%, min ₪3, for stocks,
-  ETFs and index funds; bonds 0.06%, min ₪3; traditional funds ₪16; US 1¢ a
-  share, min $6 (or $5 on a partner broker's system); ₪15 a month, which
-  "can be offset" by trade fees; minimum deposit ₪10,000 (the two years'
-  rules say ₪15,000, tradingil ₪4,500 until 10 October 2026; neither
-  counted). broker.co.il and Hasolidit call the ₪15 "דמי ניהול", which reads
+  2025). Its joining page ([page](https://lp.xnes.co.il/trade/), where the
+  old join-package2 link now leads; 18 October 2026) states outright: no
+  non-execution fee, no currency fee and no custody, and the handling fee
+  waived "for life". Both offers' rules are written out on
+  [its disclosure page](https://www.xnes.co.il/trading/full-disclosure/)
+  (drawn by JavaScript; the text is in its `__NUXT__` script), where the old
+  PDF link now leads:
+  - "פטור מדמי טיפול לכל חיי החשבון", dated 1.10.26, saved as
+    `תקנון מבצע פטור מדמי טיפול לכל חיי החשבון אקסלנס טרייד.txt`: no
+    monthly handling fee until the account is closed, for new private
+    customers who open an account and deposit ₪10,000 in it by 31 December
+    2026; not trade fees, custody, third parties' or conversion costs.
+    Modelled.
+  - "פטור מדמי טיפול לשנתיים" (12 October 2025 to 31 December 2027), the
+    earlier `תקנון פטור מדמי טיפול לשנתיים אקסלנס טרייד.pdf`: 24 months
+    without the handling fee for a deposit of ₪10,000, 36 if more than
+    ₪10,000 is deposited within 30 days; every other fee in the customer's
+    fee appendix unchanged. What those joining after 2026 get, named in the
+    caveat.
+
+  Typical offer (gemeltop, tradingil): 0.07%, min ₪3, for stocks, ETFs and
+  index funds; bonds 0.06%, min ₪3; traditional funds ₪16; US 1¢ a share,
+  min $6 (or $5 on a partner broker's system, a reading of tradingil, which
+  Excellence's own pages don't price); minimum deposit ₪10,000 (tradingil
+  said ₪4,500 until 10 October 2026, not counted). broker.co.il and Hasolidit call the ₪15 "דמי ניהול", which reads
   like custody: it's the handling fee.
 
 - **Mizrahi-Tefahot Bank:** `תעריפון מזרחי טפחות - ניירות ערך, ערוצים ישירים, קבוצות אוכלוסייה, מטבע חוץ.pdf`:
@@ -116,7 +160,8 @@ Meitav's 0.15% is a quarter (0.6% a year).
   as `smallbusiness4.pdf`, `arutzyashir.pdf`, `specials.pdf` and
   `smallbusiness5.pdf`. Online is appendix E's website column (its "PC
   service" column differs a little: conversion 0.1425%); the branch prices
-  are part 4's. Custody has no online discount. Appendix A gives the same
+  are part 4's. Custody has no online discount, and stops at ₪10,750 a
+  quarter (part 4, §4.5). Appendix A gives the same
   securities discounts to four groups (the young, soldiers, discharged
   soldiers, students): Tel Aviv at 0.4% "not less than the minimum fee",
   half the conversion fee, and a rate benefit of 3 pro mille; pensioners get
@@ -127,20 +172,25 @@ Meitav's 0.15% is a quarter (0.6% a year).
   portfolio size: well under the tariff, as at every bank.
 - **Bank Otsar Hahayal:** `תעריפון הבינלאומי ליחידים (אוצר החייל) 16.09.2026.pdf`,
   the First International Bank's tariff for individuals and small businesses
-  of 16 September 2026, linked from
+  of September 2026 (its cover gives only the month; the 16th is in the
+  file's name), linked from
   [Otsar's tariff page](https://www.bankotsar.co.il/private/general/commissionsrate/individuals/)
   (Otsar Hahayal was merged into the First International, which keeps it as
   a brand; the same file is on fibi.co.il). Online is appendix E, which part
   4's note 9 repeats for Tel Aviv: the website, app and trading-systems
   columns agree. Standing orders: part 4, note 13 (index funds on Tel Aviv,
   minimum ₪7) and note 10 (ETFs abroad, minimum $4.50), which give only the
-  minimum. That page also links a securities part headed "tariff for large
+  minimum. Custody (p.17, §4.5) stops at ₪4,000 a quarter per security and
+  ₪10,000 per account. That page also links a securities part headed "tariff for large
   businesses" (`ניירות-ערך-31.pdf`, 0.7% and other rates); the full
   document is followed. The
   [Otzar Habitachon club page](https://www.bankotsar.co.il/private/account/armedforces/defense/securitiesbenefits/)
   (the security forces' family, until 30 November 2030): Tel Aviv 0.2% by
   a banker or 0.175% in direct channels, both at least ₪10; abroad 0.3%, at
-  least $18; custody waived; no double benefits. The
+  least $18; custody waived; no double benefits. It also lists a
+  "custodian's fee" of 0.01% (at least ₪15, at most ₪450), the tariff's row
+  4.11.1 (0.1%, ₪50 to ₪5,000 a security) discounted; the tariff charges it
+  on the day of an action it doesn't name, so it isn't counted. The
   [Top Trade page](https://www.bankotsar.co.il/private/capitalmarket/toptrade/)
   (its fine print: ages 18–30, a portfolio of up to ₪200,000, independent
   and not advised; the bank may change or end it): ₪5 an order on Tel Aviv,
@@ -174,8 +224,8 @@ and the banks' unpublished markups, come from these:
   ([page](https://www.bankleumi.co.il/vgnprod/shearim.asp), 28 September
   2026): transfers-and-checks buy ₪3.0395 and sell ₪3.0960 against a
   representative ₪3.0660 for the dollar (0.86% under, 0.98% over), and
-  ₪3.4575, ₪3.5218 and ₪3.4877 for the euro. Read as a markup of 0.9% each
-  way for every Leumi plan, a dated reading instead of the earlier "not
+  ₪3.4575, ₪3.5218 and ₪3.4877 for the euro; on 16 October 2026, 1.02% over
+  and 0.82% under. Read as a markup of 0.9% each way for every Leumi plan, a dated reading instead of the earlier "not
   published, counted as 0". Its digital channels can quote an agreed rate
   during trading hours, which may be a little better.
 

@@ -274,6 +274,52 @@ fn leumi_custody_by_exchange() {
     assert_eq!(p.custody_per_year(&holdings, &rates()), ils(dec!(1496)));
 }
 
+/// The banks' custody stops at a most per quarter for each security (Leumi
+/// p.32, Pepper p.11, Mizrahi part 4 §4.5, FIBI p.17 §4.5); the most per
+/// account is higher and never binds on one security.
+#[test]
+fn the_banks_custody_is_capped_per_security() {
+    let quarter = |b, name, exchange, value| {
+        ils(*custody_year(&plan(b, name), Etf, exchange, value).amount() / dec!(4))
+    };
+    // Leumi Tel Aviv: 0.15% of ₪2,000,000 is ₪3,000, under ₪3,700.
+    assert_eq!(
+        quarter(leumi(), "Online", Tlv, ils(dec!(2000000))),
+        ils(dec!(3000))
+    );
+    // 0.15% of ₪3,000,000 is ₪4,500: ₪3,700.
+    assert_eq!(
+        quarter(leumi(), "Online", Tlv, ils(dec!(3000000))),
+        ils(dec!(3700))
+    );
+    // Abroad: 0.2% of $2,000,000 (₪7,400,000) is ₪14,800: ₪7,400.
+    assert_eq!(
+        quarter(leumi(), "Online", Usa, usd(dec!(2000000))),
+        ils(dec!(7400))
+    );
+    // "Leumi 18+" halves the rate, not the cap: 0.1% of $3,000,000
+    // (₪11,100,000) is ₪11,100: ₪7,400.
+    assert_eq!(
+        quarter(leumi(), "Online, 'Leumi 18+'", Usa, usd(dec!(3000000))),
+        ils(dec!(7400))
+    );
+    // Pepper abroad: 0.15% of $1,000,000 (₪3,700,000) is ₪5,550: ₪3,700.
+    assert_eq!(
+        quarter(leumi(), "Pepper", Usa, usd(dec!(1000000))),
+        ils(dec!(3700))
+    );
+    // Mizrahi: 0.175% of ₪10,000,000 is ₪17,500: ₪10,750.
+    assert_eq!(
+        quarter(mizrahi(), "Online", Tlv, ils(dec!(10000000))),
+        ils(dec!(10750))
+    );
+    // Otsar Hahayal: 0.195% of ₪3,000,000 is ₪5,850: ₪4,000.
+    assert_eq!(
+        quarter(otsar_hahayal(), "Online", Tlv, ils(dec!(3000000))),
+        ils(dec!(4000))
+    );
+}
+
 #[test]
 fn conversion_fee_vs_spread() {
     let fee = |b, name| plan(b, name).conversion_fee(usd(dec!(1000)), &rates());
@@ -494,6 +540,21 @@ fn leumi_pepper_tase_flat_except_index_funds() {
     };
     assert_eq!(fee(Security::Etf), ils(dec!(4)));
     assert_eq!(fee(Security::IndexFund), ils(dec!(26))); // Online: 0.4% = ₪8 → minimum
+}
+
+/// Pepper's ₪4 and $4 are stated for orders up to ₪30,000 and $8,000
+/// (p.11); larger ones follow the tariff, taken at its online rows (p.13–14).
+#[test]
+fn leumi_pepper_prices_large_orders_as_online() {
+    let p = plan(leumi(), "Pepper");
+    let fee = |exchange, value| trade_fee(&p, Etf, exchange, dec!(1), value).unwrap();
+    assert_eq!(fee(Tlv, ils(dec!(30000))), ils(dec!(4)));
+    assert_eq!(fee(Tlv, ils(dec!(100000))), ils(dec!(400))); // 0.4%
+    assert_eq!(fee(Tlv, ils(dec!(2000000))), ils(dec!(6300))); // 0.4% = ₪8,000 → maximum
+    assert_eq!(fee(Usa, usd(dec!(8000))), usd(dec!(4)));
+    assert_eq!(fee(Usa, usd(dec!(8100))), usd(dec!(24.3))); // 0.3%, over the $24 minimum
+    assert_eq!(fee(Usa, usd(dec!(420000))), usd(dec!(1260))); // 0.3%
+    assert_eq!(fee(Usa, usd(dec!(3000000))), usd(dec!(6750))); // 0.3% = $9,000 → maximum
 }
 
 #[test]
@@ -741,11 +802,12 @@ fn excellence_typical_offer() {
     let conversion = |amount| cents(p.conversion_fee(amount, &rates()));
     assert_eq!(conversion(usd(dec!(1850))), usd(dec!(10)));
     assert_eq!(conversion(eur(dec!(1850))), eur(dec!(10)));
-    // No custody, as Excellence's own package page and the two free years'
-    // rules state (published, not a reading of the comparison sites); ₪15 a
-    // month after two free years, less the month's trade fees: a month that
-    // paid ₪3 in them pays ₪12.
+    // No custody, as Excellence's own joining page states, and no monthly fee
+    // for the account's whole life, by the rules of 1 October 2026 for those
+    // who join by 31/12/2026 (published, not a reading of the comparison
+    // sites).
     assert_eq!(custody_year(&p, Etf, Tlv, ils(dec!(100000))), ils(dec!(0)));
+    assert_eq!(p.handling, None);
     let published = p
         .caveats
         .iter()
@@ -758,15 +820,44 @@ fn excellence_typical_offer() {
             .iter()
             .all(|s| s.url.contains("xnes.co.il"))
     );
-    assert_eq!(handling(&p, 23), dec!(0));
-    assert_eq!(handling(&p, 24), dec!(15));
-    let fee = p.handling.unwrap();
-    assert_eq!(fee.for_month(24, dec!(3)), dec!(12));
-    assert_eq!(fee.for_month(24, dec!(20)), dec!(0));
     assert_eq!(
         p.first_deposit_warning(ils(dec!(9999)), Lang::En)
             .as_deref(),
         Some("Needs a one-time deposit of at least ₪10,000")
+    );
+    assert_eq!(
+        p.offer_ends_text(Lang::He).as_deref(),
+        Some("למצטרפים שפותחים חשבון ומפקידים בו ₪10,000 עד\u{a0}31/12/2026")
+    );
+}
+
+/// Every joining offer says until when it can be had, and none has ended:
+/// once one does, its terms have likely changed, so check them again.
+#[test]
+fn every_joining_offer_says_when_it_ends_and_none_has() {
+    let today = time::OffsetDateTime::now_utc().date();
+    let offers: Vec<Plan> = broker_fees::tariffs::all()
+        .into_iter()
+        .filter(|b| b.kind == BrokerKind::InvestmentHouse)
+        .flat_map(|b| b.plans)
+        .filter(|p| p.name.he == "מבצע הצטרפות")
+        .collect();
+    assert_eq!(offers.len(), 4);
+    for offer in offers {
+        match offer.offer_ends {
+            Some(OfferEnds::By { date, .. }) => assert!(
+                date >= today,
+                "{}'s offer ended on {date}: check its terms again",
+                offer.name.en
+            ),
+            Some(OfferEnds::NoEndDate | OfferEnds::NotPublished) => {}
+            None => panic!("{} doesn't say when it ends", offer.name.en),
+        }
+    }
+    let altshuler = plan(altshuler(), "New customers");
+    assert_eq!(
+        altshuler.offer_ends_text(Lang::En).as_deref(),
+        Some("No end date")
     );
 }
 
@@ -1413,6 +1504,7 @@ fn only_the_last_years_custody_comes_off_the_gain() {
             per: Period::Year,
             billed: Period::Month,
             min: None,
+            max: None,
         }],
         ..free_plan()
     };

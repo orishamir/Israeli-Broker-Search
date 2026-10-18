@@ -274,9 +274,10 @@ pub struct CustodyFields {
     pub percent: Option<Amount>,
     /// The period `percent` is quoted per.
     pub per: Period,
-    /// How often it's charged; `min` is per charge.
+    /// How often it's charged; `min` and `max` are per charge.
     pub billed: Period,
     pub min: Option<Amount>,
+    pub max: Option<Amount>,
 }
 
 /// The conversion fee, without the markup.
@@ -513,8 +514,11 @@ fn usual_currency(exchanges: &[Exchange]) -> &'static Currency {
 }
 
 impl Price {
+    /// The fields of its price for most trades: a price up to an amount is
+    /// edited below that amount, and keeps its price above.
     fn fields(&self) -> TradeFields {
         let (kind, amount, per_share, min, max) = match *self {
+            Price::UpTo { ref price, .. } => return price.fields(),
             Price::Percent { percent, min, max } => {
                 (PriceKind::Percent, Some(Amount(percent.0)), None, min, max)
             }
@@ -554,6 +558,23 @@ impl Price {
                 Some(per_share.currency())
             }
             Price::Flat(amount) => Some(amount.currency()),
+            Price::UpTo { price, .. } => price.currency(),
+        }
+    }
+
+    /// This price with `fields` in place of what [`Price::fields`] shows.
+    fn with_fields(
+        &self,
+        fields: &TradeFields,
+        currency: &'static Currency,
+    ) -> Result<Self, InvalidFee> {
+        match self {
+            Price::UpTo { up_to, above, .. } => Ok(Price::UpTo {
+                up_to: *up_to,
+                price: Box::new(Price::from_fields(fields, currency)?),
+                above: above.clone(),
+            }),
+            _ => Price::from_fields(fields, currency),
         }
     }
 
@@ -609,11 +630,14 @@ impl CustodyFee {
             per: Period::Year,
             billed: Period::Quarter,
             min: None,
+            max: None,
         }
     }
 
     fn currency(&self) -> &'static Currency {
-        self.min.map_or(iso::ILS, |min| min.currency())
+        self.min
+            .or(self.max)
+            .map_or(iso::ILS, |bound| bound.currency())
     }
 
     fn fee(&self, lang: Lang) -> Fee<CustodyFields> {
@@ -622,16 +646,18 @@ impl CustodyFee {
             per: self.per,
             billed: self.billed,
             min: field(self.min),
+            max: field(self.max),
         };
         Fee::new(fields, self.currency(), self.price_text(lang))
     }
 
     fn set(&mut self, fields: &CustodyFields) -> Result<(), InvalidFee> {
-        let (min, _) = bounds(fields.min, None, self.currency())?;
+        let (min, max) = bounds(fields.min, fields.max, self.currency())?;
         self.percent = Percent(amount_or_zero(fields.percent)?);
         self.per = fields.per;
         self.billed = fields.billed;
         self.min = min;
+        self.max = max;
         Ok(())
     }
 }
@@ -752,6 +778,7 @@ impl Plan {
         Plan {
             name,
             description,
+            offer_ends: None,
             caveats: vec![],
             ..self.on_track(index).most_specific_first()
         }
@@ -788,6 +815,7 @@ impl Plan {
             management: None,
             fractions_on: vec![],
             min_first_deposit: None,
+            offer_ends: None,
             caveats: vec![],
         }
     }
@@ -903,7 +931,7 @@ impl Plan {
             .position(|row| row.applies_to(security, exchange));
         if let Some(index) = index {
             let row = &mut self.trading[index];
-            row.price = Price::from_fields(fields, row.currency())?;
+            row.price = row.price.with_fields(fields, row.currency())?;
         } else {
             let exchanges = vec![exchange];
             self.trading.push(TradeFee {
@@ -929,7 +957,7 @@ impl Plan {
             .iter_mut()
             .find(|row| row.applies_to(security, exchange))
             .ok_or(InvalidFee::NoSuchRow)?;
-        row.price = Price::from_fields(fields, row.currency())?;
+        row.price = row.price.with_fields(fields, row.currency())?;
         Ok(())
     }
 
@@ -1437,8 +1465,15 @@ mod tests {
         assert_eq!(copy.name.he, "פפר, העסקה שלכם");
         assert_eq!(copy.caveats, []);
         assert_eq!(prices(&copy), prices(&pepper));
+        // A deal of your own isn't the offer, so it says nothing of its end.
+        let offer = &crate::tariffs::excellence().plans[1];
+        assert!(offer.offer_ends.is_some());
+        assert_eq!(offer.copy_of(None).offer_ends, None);
         let simple = copy.simple_fees(Security::Etf, Exchange::Usa, Some(&pepper), Lang::En);
-        assert_eq!(simple.trade.unwrap().price.text, "$4 per order");
+        assert_eq!(
+            simple.trade.unwrap().price.text,
+            "up to\u{a0}$8,000: $4 per order; above: 0.3%, min $24, max $6,750"
+        );
         assert!(simple.custody.was.is_none());
     }
 
@@ -1460,14 +1495,22 @@ mod tests {
             .trade
             .unwrap();
         assert_eq!(trade.fields, fields);
-        assert_eq!(trade.price.text, "0.1%, min $2");
-        assert_eq!(trade.was.unwrap().price.text, "$4 per order");
+        // Only Pepper's price up to $8,000 is edited; larger orders keep theirs.
+        assert_eq!(
+            trade.price.text,
+            "up to\u{a0}$8,000: 0.1%, min $2; above: 0.3%, min $24, max $6,750"
+        );
+        assert_eq!(
+            trade.was.unwrap().price.text,
+            "up to\u{a0}$8,000: $4 per order; above: 0.3%, min $24, max $6,750"
+        );
 
         let custody = CustodyFields {
             percent: Some(Amount(dec!(0.1))),
             per: Period::Quarter,
             billed: Period::Month,
             min: Some(Amount(dec!(20))),
+            max: Some(Amount(dec!(400))),
         };
         copy.set_custody(Security::Etf, Exchange::Usa, &custody)
             .unwrap();
@@ -1780,6 +1823,7 @@ mod tests {
             per: Period::Quarter,
             billed: Period::Quarter,
             min: None,
+            max: None,
         };
         let rows = [
             row(vec![Stock, Etf], vec![Tlv, Europe]),
@@ -1934,6 +1978,7 @@ mod tests {
             per: Period::Year,
             billed: Period::Month,
             min: Some(Amount(dec!(5))),
+            max: None,
         };
         plan.set_custody_row(0, &[Security::Etf], &[Exchange::Usa], &fields)
             .unwrap();
@@ -1941,6 +1986,14 @@ mod tests {
         assert_eq!(plan.custody[0].percent, Percent(dec!(0.2)));
         assert_eq!(plan.custody[0].billed, Period::Month);
         assert_eq!(plan.custody[0].min, Some(crate::ils(dec!(5))));
+        let min_above_max = CustodyFields {
+            max: Some(Amount(dec!(4))),
+            ..fields.clone()
+        };
+        assert_eq!(
+            plan.set_custody_row(0, &[], &[], &min_above_max),
+            Err(InvalidFee::MinAboveMax)
+        );
         assert_eq!(
             plan.set_custody_row(5, &[], &[], &fields),
             Err(InvalidFee::NoSuchRow)
@@ -1986,6 +2039,7 @@ mod tests {
                 per: Period::Quarter,
                 billed: Period::Quarter,
                 min: None,
+                max: None,
             },
         )
         .unwrap();
@@ -2004,7 +2058,10 @@ mod tests {
         let list = copy.price_list(Some(&online), Lang::En);
         assert_eq!(
             was(&list.custody),
-            [Some("0.15% a quarter (0.6% a year)".into()), None]
+            [
+                Some("0.15% a quarter (0.6% a year), max ₪3,700 a quarter".into()),
+                None
+            ]
         );
         assert_eq!(
             was(&list.trading),

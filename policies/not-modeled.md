@@ -167,24 +167,25 @@ What `short_term.rs` leaves out (October 2026). The sources are in
 
 - T-bills (מק"מ): 0.1%, min ₪3.5. Options, futures, hedge funds (0.3%,
   min ₪100). Off-exchange trades: min ₪50.
-- The new-customer offer requires an *active* account and a balance of at
-  least ₪5,000 at all times; after a year without activity the benefits may
-  be withdrawn (offer rules, January 2026). Shown as a caveat only.
+- The new-customer offer's lasting waiver needs an account with "frequent
+  trading", at the company's discretion, and a balance of at least ₪5,000 at
+  all times; after a year without activity it's withdrawn (offer rules,
+  January 2026). The waiver is assumed, flagged as may cost more.
 
 ## Bank Leumi (Leumi Trade)
 
-- Custody caps: ₪3,700 a security a quarter, ₪11,500 a deposit (Tel Aviv);
-  ₪7,400 and ₪23,000 abroad. Matter from about ₪2.5 million a security.
 - A minimum fee is never more than 27% (online) or 30% (branch) of the trade.
-- The first year opened through the app: custody at most 50% of the tariff.
+- The first year opened through the app: custody at most 50% of the tariff
+  (a caveat says so).
 - "Concentrated purchase to portfolio" in Leumi Trade: a percentage fee with
-  no minimum.
+  no minimum; whether it can buy a single fund isn't said (a caveat says so).
 - Leumi 18+ bonds are modelled as 0.35% within Online's bounds; the true
   "better of the group's and Online's price" differs by at most ₪1, on
   orders between ₪6,500 and ₪7,700.
 - Pepper: ₪4 and $4 are stated only for orders up to ₪30,000 and $8,000; its
   site says larger orders are priced by the tariff, without saying which
-  row. Flagged in the table; a tiered price would model it.
+  row. They're priced at the online rows, the least the tariff allows, and
+  flagged in the table; a banker's rows cost more.
 - Pepper's package of March 2026: a year without trade, minimum and currency
   fees and a grant of up to ₪1,500, for customers who move their salary to
   Pepper. One year only.
@@ -252,9 +253,9 @@ What `short_term.rs` leaves out (October 2026). The sources are in
 - US: at most 2% of the trade; the 0.3% track adds the broker's fee.
 - Traditional (active) mutual funds: ₪16 a trade. Hedge funds 0.15%–0.35%,
   min 50.
-- A third year without the handling fee: the rules of Excellence's two free
-  years give it for a deposit above ₪15,000 within 30 days of opening, and
-  some sign-up links offer 3 years outright. tradingil's ₪100 gift and
-  minimum deposit of ₪4,500 until 10 October 2026, and gemeltop's refund of
-  commissions, aren't published by Excellence. The offset of the fee by
-  trade fees is modelled.
+- The handling fee is waived for the account's whole life for those who
+  join by 31 December 2026 (modelled). Those who join later get two free
+  years, or three for more than ₪10,000 deposited within 30 days, then ₪15
+  a month: a caveat says so. tradingil's ₪100 gift and minimum deposit of
+  ₪4,500 until 10 October 2026, and gemeltop's refund of commissions, aren't
+  published by Excellence.

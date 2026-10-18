@@ -24,8 +24,8 @@ use crate::Exchange::{self, Europe, Tlv, Usa};
 use crate::Security::{self, Bond, Etf, IndexFund, Stock};
 use crate::{
     Broker, BrokerKind, Caveat, ConversionFee, CustodyFee, FeeKind, HandlingFee, Markup, Money,
-    Page, Percent, PercentFee, Period, Plan, Price, TariffDate, Text, Track, TradeFee, Vehicle,
-    ils, iso, usd,
+    OfferEnds, Page, Percent, PercentFee, Period, Plan, Price, TariffDate, Text, Track, TradeFee,
+    Vehicle, ils, iso, usd,
 };
 
 /// Every broker the app knows, in the order to offer them, each with what
@@ -132,8 +132,15 @@ fn per_share(per_share: Money, min: Money) -> Price {
     }
 }
 
-/// Custody on everything: `percent` a `per`, charged every `billed`.
-fn custody(percent: Decimal, per: Period, billed: Period, min: Option<Money>) -> CustodyFee {
+/// Custody on everything: `percent` a `per`, charged every `billed`, within
+/// `min` and `max` a charge.
+fn custody(
+    percent: Decimal,
+    per: Period,
+    billed: Period,
+    min: Option<Money>,
+    max: Option<Money>,
+) -> CustodyFee {
     CustodyFee {
         securities: vec![],
         exchanges: vec![],
@@ -141,6 +148,7 @@ fn custody(percent: Decimal, per: Period, billed: Period, min: Option<Money>) ->
         per,
         billed,
         min,
+        max,
     }
 }
 
@@ -342,9 +350,9 @@ pub fn altshuler() -> Broker {
          %D7%AA%D7%A7%D7%A0%D7%95%D7%9F-%D7%90%D7%9C%D7%98%D7%A9%D7%95%D7%9C%D7%A8-\
          %D7%A9%D7%97%D7%9D-%D7%98%D7%A8%D7%99%D7%99%D7%93.pdf",
     );
-    let faq = source(
-        t("Altshuler's FAQ", "שאלות ותשובות באתר אלטשולר"),
-        "https://www.as-invest.co.il/trade/faq/",
+    let trade_page = source(
+        t("Altshuler Shaham Trade's page", "עמוד אלטשולר שחם טרייד"),
+        "https://www.as-invest.co.il/trade/",
     );
     let currency_page = source(
         t("Altshuler's currency page", "עמוד המט״ח באתר אלטשולר"),
@@ -411,6 +419,7 @@ pub fn altshuler() -> Broker {
             Period::Year,
             Period::Month,
             Some(ils(dec!(75))),
+            None,
         )],
         conversion: markup_only(Markup::UpTo(Percent(dec!(0.7)))),
         // Part 9: "periodic management fees, up to ₪80 a month".
@@ -418,6 +427,7 @@ pub fn altshuler() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![
             Caveat::at_most(
                 t("A \"periodic management fee\" of up to ₪80 a month is listed, without saying \
@@ -440,9 +450,8 @@ pub fn altshuler() -> Broker {
     let new_customers = Plan {
         name: t("New customers", "מבצע הצטרפות"),
         description: t(
-            "Altshuler's offer for opening a new account with at least ₪5,000. It has no \
-             end date.",
-            "מבצע ההצטרפות של אלטשולר לפתיחת חשבון חדש עם ₪5,000 לפחות. אין לו תאריך סיום.",
+            "Altshuler's offer for opening a new account with at least ₪5,000.",
+            "מבצע ההצטרפות של אלטשולר לפתיחת חשבון חדש עם ₪5,000 לפחות.",
         ),
         vehicle: Vehicle::Brokerage,
         trading: [
@@ -472,6 +481,7 @@ pub fn altshuler() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: Some(ils(dec!(5000))),
+        offer_ends: Some(OfferEnds::NoEndDate),
         caveats: vec![
             Caveat::published(
                 t("The 0.07% is for index funds (קרנות\u{a0}מחקות); active and money-market \
@@ -505,9 +515,19 @@ pub fn altshuler() -> Broker {
             .source(&offer)
             .source(&rules)
             .source(&exchange_calculator()),
+            Caveat::may_cost_more(
+                t("The offer's rules waive the account's fees for good only where the account \
+                 trades often (\u{201c}ביצוע\u{a0}תדיר\u{a0}של\u{a0}עסקאות\u{201d}), as \
+                 the company judges, and never after a year without activity. Without the \
+                 waiver the full tariff charges at least ₪155 a month: ₪75 custody and ₪80 \
+                 for handling.", "תקנון המבצע נותן את הפטור הקבוע מדמי ניהול רק לחשבון שמתבצעות בו עסקאות לעיתים קרובות (״ביצוע\u{a0}תדיר\u{a0}של\u{a0}עסקאות״), לפי שיקול דעת החברה, ולעולם לא אחרי שנה ללא פעילות. בלי הפטור, התעריפון המלא גובה לפחות ₪155 לחודש: ₪75 דמי משמרת ו\u{2011}₪80 דמי טיפול."),
+                t("the waiver is given only to an account that trades often", "הפטור ניתן רק לחשבון עם מסחר תדיר"),
+            )
+            .about_fee(FeeKind::Account)
+            .source(&rules),
             Caveat::published(
-                t("The offer needs an active account with at least ₪5,000 in it; after a year \
-                 without activity its benefits may be withdrawn.", "המבצע דורש חשבון פעיל עם ₪5,000 לפחות; אחרי שנה ללא פעילות ייתכן שההטבות יבוטלו."),
+                t("The offer is for those who had no account at Altshuler in the last 12 \
+                 months, and needs at least ₪5,000 in the account at all times.", "המבצע מיועד למי שלא היה לו חשבון באלטשולר ב\u{2011}12 החודשים האחרונים, ודורש ₪5,000 לפחות בחשבון בכל עת."),
             )
             .source(&rules),
             Caveat::not_counted(t("The ₪200 gift for opening an account isn't included.", "מתנת ₪200 על פתיחת חשבון לא נכללה."))
@@ -552,7 +572,14 @@ pub fn altshuler() -> Broker {
             )
             .about_fee(FeeKind::Trade)
             .on(&[Europe])
-            .source(&faq),
+            .source(&trade_page),
+            Caveat::not_counted(
+                t("US trades also pay third parties' charges on top, as billed (SEC, TAF, ECN, \
+                 ORF, taxes and more), and 1¢ a share more outside trading hours or through \
+                 an ECN or a market maker (part 4, row 7).", "עסקאות בארה״ב משלמות בנוסף חיובים של צדדים שלישיים, לפי החיוב בפועל (SEC, TAF, ECN, ORF, מיסים ועוד), ועוד 1¢ למניה מחוץ לשעות המסחר או דרך ECN או עושה שוק (חלק 4, שורה 7)."),
+            )
+            .about_fee(FeeKind::Trade)
+            .on(&[Usa]),
         ],
         plans: vec![full_tariff, new_customers],
         spread: None,
@@ -581,10 +608,10 @@ pub fn leumi() -> Broker {
     );
     let broker_caveats = vec![
         Caveat::reading(
-            t("Leumi converts at its published transfers-and-checks rate, about 0.9% from \
-             the representative rate each way: a conversion markup of up to 0.9%, on top \
-             of the fee. A rate agreed live in the app during trading hours may be a \
-             little better.", "לאומי ממיר לפי שער ההעברות והשקים שהוא מפרסם, כ\u{2011}0.9% מהשער היציג לכל כיוון: מרווח המרה של עד 0.9%, בנוסף לעמלה. שער שנסגר באפליקציה בזמן אמת בשעות המסחר עשוי להיות מעט טוב יותר."),
+            t("Leumi converts at its published transfers-and-checks rate, about 1% over the \
+             representative rate when buying dollars and 0.86% under it when selling \
+             them: a conversion markup of 0.9% each way is used, on top of the fee. A \
+             rate agreed live in the app during trading hours may be a little better.", "לאומי ממיר לפי שער ההעברות והשקים שהוא מפרסם, כ\u{2011}1% מעל השער היציג בקניית דולרים ו\u{2011}0.86% מתחתיו במכירתם: המחשבון לוקח מרווח המרה של 0.9% לכל כיוון, בנוסף לעמלה. שער שנסגר באפליקציה בזמן אמת בשעות המסחר עשוי להיות מעט טוב יותר."),
             t("Leumi's exchange rates for 28 September 2026: it bought dollars at ₪3.0395 \
              and sold them at ₪3.0960 against a representative ₪3.0660 (0.86% under and \
              0.98% over), and euros at ₪3.4575 and ₪3.5218 against ₪3.4877", "שערי לאומי ל\u{2011}28 בספטמבר 2026: מי שקנה דולרים שילם ₪3.0960, ומי שמכר קיבל ₪3.0395, לעומת שער יציג של ₪3.0660 (0.98% מעל ו\u{2011}0.86% מתחת); באירו, ₪3.5218 בקנייה ו\u{2011}₪3.4575 במכירה, לעומת ₪3.4877"),
@@ -597,9 +624,9 @@ pub fn leumi() -> Broker {
             .about(&[IndexFund])
             .on(&[Tlv]),
     ];
-    let quarterly = |exchanges: &[Exchange], rate: Decimal| CustodyFee {
+    let quarterly = |exchanges: &[Exchange], rate: Decimal, max: Decimal| CustodyFee {
         exchanges: exchanges.to_vec(),
-        ..custody(rate, Period::Quarter, Period::Quarter, None)
+        ..custody(rate, Period::Quarter, Period::Quarter, None, Some(ils(max)))
     };
 
     // Measured from the bank's published rates (the caveat above).
@@ -611,6 +638,27 @@ pub fn leumi() -> Broker {
         min: Some(usd(dec!(5.76))),
         max: Some(usd(dec!(2400))),
     };
+    // What trading in Leumi Trade and its app can cost less, left out:
+    // whether bulk buying works for one fund isn't said, and the first
+    // year's discount depends on where the deposit is opened.
+    let leumi_trade = [
+        Caveat::not_counted(t(
+            "Buying through \u{201c}bulk purchase for the portfolio\u{201d} \
+             (קניה\u{a0}מרוכזת\u{a0}לתיק) in Leumi Trade costs the percentage with no \
+             minimum (part 4, notes 15 and 12); whether it can buy a single fund isn't \
+             said.",
+            "קנייה בפעולת ״קניה מרוכזת לתיק״ בלאומי טרייד עולה את האחוז בלי מינימום (חלק 4, הערות 15 ו\u{2011}12); לא כתוב אם אפשר לקנות בה נייר ערך אחד.",
+        ))
+        .about_fee(FeeKind::Trade)
+        .source(&tariff),
+        Caveat::not_counted(t(
+            "In the first year after a securities deposit is opened in the app, custody \
+             is at most half the listed rate (part 4, custody, note 8).",
+            "בשנה הראשונה אחרי פתיחת פיקדון ניירות ערך באפליקציה, דמי המשמרת הם לכל היותר חצי מהמחיר הנקוב (חלק 4, דמי ניהול, הערה 8).",
+        ))
+        .about_fee(FeeKind::Account)
+        .source(&tariff),
+    ];
     let online = Plan {
         name: t("Online", "אונליין"),
         description: t(
@@ -648,8 +696,8 @@ pub fn leumi() -> Broker {
         standing_orders: vec![],
         standing_order_conversion: None,
         custody: vec![
-            quarterly(&[Tlv], dec!(0.15)),
-            quarterly(&[Usa, Europe], dec!(0.2)),
+            quarterly(&[Tlv], dec!(0.15), dec!(3700)),
+            quarterly(&[Usa, Europe], dec!(0.2), dec!(7400)),
         ],
         conversion: ConversionFee {
             fee: online_conversion,
@@ -660,7 +708,8 @@ pub fn leumi() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: None,
-        caveats: vec![],
+        offer_ends: None,
+        caveats: leumi_trade.to_vec(),
     };
 
     // Customer group from Nispach Alef. Only the parts that differ from Online.
@@ -689,8 +738,8 @@ pub fn leumi() -> Broker {
         ]
         .concat(),
         custody: vec![
-            quarterly(&[Tlv], dec!(0.075)),
-            quarterly(&[Usa, Europe], dec!(0.1)),
+            quarterly(&[Tlv], dec!(0.075), dec!(3700)),
+            quarterly(&[Usa, Europe], dec!(0.1), dec!(7400)),
         ],
         // 50% off the branch fee, but not below its minimum. Benefits don't
         // add up: each fee is the better of the group's and the online one
@@ -725,6 +774,8 @@ pub fn leumi() -> Broker {
             .on(&[Usa, Europe])
             // The maximum only binds above $3M; halved, above $1.5M.
             .when_above(usd(dec!(1_500_000))),
+            leumi_trade[0].clone(),
+            leumi_trade[1].clone(),
         ],
         ..online.clone()
     };
@@ -757,6 +808,8 @@ pub fn leumi() -> Broker {
                 "רק קניית קרנות מחקות בתל אביב בהוראת קבע זולה יותר; כל השאר עולה כמו באונליין.",
             ))
             .about_fee(FeeKind::StandingOrder),
+            leumi_trade[0].clone(),
+            leumi_trade[1].clone(),
         ],
         ..online.clone()
     };
@@ -774,15 +827,32 @@ pub fn leumi() -> Broker {
                 securities: vec![IndexFund],
                 ..online.trading[0].clone()
             },
-            trade(&[], &[Tlv], Price::Flat(ils(dec!(4)))),
-            trade(&[], &[Usa, Europe], Price::Flat(usd(dec!(4)))),
+            // Larger orders "follow the tariff": its online rows.
+            trade(
+                &[],
+                &[Tlv],
+                Price::UpTo {
+                    up_to: ils(dec!(30_000)),
+                    price: Box::new(Price::Flat(ils(dec!(4)))),
+                    above: Box::new(online.trading[0].price.clone()),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::UpTo {
+                    up_to: usd(dec!(8000)),
+                    price: Box::new(Price::Flat(usd(dec!(4)))),
+                    above: Box::new(online.trading[1].price.clone()),
+                },
+            ),
         ],
         tracks: vec![],
         standing_orders: vec![],
         standing_order_conversion: None,
         custody: vec![
             online.custody[0].clone(),
-            quarterly(&[Usa, Europe], dec!(0.15)),
+            quarterly(&[Usa, Europe], dec!(0.15), dec!(3700)),
         ],
         // 50% off the branch fee (0.2%, maximum $3,000), minimum $3. Less
         // than the online fee on any amount, so it needs no `or_if_less`.
@@ -799,26 +869,31 @@ pub fn leumi() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![
             Caveat::may_cost_more(
                 t("₪4 is only stated for orders up to ₪30,000; Pepper's site says larger \
-                 orders are priced by the tariff, without saying which row. They're \
-                 assumed to cost ₪4 too.", "המחיר ₪4 כתוב רק לפקודות של עד ₪30,000; לפי אתר פפר, פקודות גדולות יותר מתומחרות לפי התעריפון, בלי לומר לפי איזו שורה. המחשבון מניח שגם הן עולות ₪4."),
-                t("₪4 is stated only for orders up to ₪30,000", "המחיר ₪4 כתוב רק לפקודות של עד ₪30,000"),
+                 orders are priced by the tariff, without saying which row. They're priced \
+                 as in Leumi's online prices, the least the tariff charges for them; \
+                 through a banker they cost more.", "המחיר ₪4 כתוב רק לפקודות של עד ₪30,000; לפי אתר פפר, פקודות גדולות יותר מתומחרות לפי התעריפון, בלי לומר לפי איזו שורה. המחשבון מתמחר אותן כמו במחירי האונליין של לאומי, הנמוכים ביותר בתעריפון; דרך בנקאי הן עולות יותר."),
+                t("orders above ₪30,000 are priced as Leumi online", "פקודות מעל ₪30,000 מתומחרות כמו בלאומי אונליין"),
             )
             .about_fee(FeeKind::Trade)
             .on(&[Tlv])
             .when_above(ils(dec!(30_000)))
+            .source(&tariff)
             .source(&pepper_site),
             Caveat::may_cost_more(
                 t("$4 is only stated for orders up to $8,000; Pepper's site says larger \
-                 orders are priced by the tariff, without saying which row. They're \
-                 assumed to cost $4 too.", "המחיר $4 כתוב רק לפקודות של עד $8,000; לפי אתר פפר, פקודות גדולות יותר מתומחרות לפי התעריפון, בלי לומר לפי איזו שורה. המחשבון מניח שגם הן עולות $4."),
-                t("$4 is stated only for orders up to $8,000", "המחיר $4 כתוב רק לפקודות של עד $8,000"),
+                 orders are priced by the tariff, without saying which row. They're priced \
+                 as in Leumi's online prices, the least the tariff charges for them; \
+                 through a banker they cost more.", "המחיר $4 כתוב רק לפקודות של עד $8,000; לפי אתר פפר, פקודות גדולות יותר מתומחרות לפי התעריפון, בלי לומר לפי איזו שורה. המחשבון מתמחר אותן כמו במחירי האונליין של לאומי, הנמוכים ביותר בתעריפון; דרך בנקאי הן עולות יותר."),
+                t("orders above $8,000 are priced as Leumi online", "פקודות מעל $8,000 מתומחרות כמו בלאומי אונליין"),
             )
             .about_fee(FeeKind::Trade)
             .on(&[Usa, Europe])
             .when_above(usd(dec!(8000)))
+            .source(&tariff)
             .source(&pepper_site),
             Caveat::reading(
                 t("Pepper's ₪4 row names stocks, T-bills and bonds; ETFs are taken to be \
@@ -895,18 +970,18 @@ pub fn excellence() -> Broker {
         ),
         "https://www.xnes.co.il/academy/trading/account-fees/",
     );
-    // The joining package it advertises, and the rules of its two free years
-    // (linked from its disclosure page).
+    // The joining page it advertises, and the rules of its offers, written
+    // out on its disclosure page.
     let package = source(
-        t("Excellence's joining package", "חבילת ההצטרפות של אקסלנס"),
-        "https://lp.xnes.co.il/bursa_xnes_trade/join-package2/",
+        t("Excellence's joining page", "עמוד ההצטרפות של אקסלנס"),
+        "https://lp.xnes.co.il/trade/",
     );
     let rules = source(
         t(
-            "The two free years' rules (PDF)",
-            "תקנון פטור מדמי טיפול לשנתיים (PDF)",
+            "The offers' rules, on Excellence's disclosure page",
+            "תקנוני המבצעים, בעמוד הגילוי הנאות של אקסלנס",
         ),
-        "https://www.xnes.co.il/media/fw0l5mrv/management26.pdf",
+        "https://www.xnes.co.il/trading/full-disclosure/",
     );
     let on_gemeltop = gemeltop("excellence-trade-amlot");
     let on_tradingil = tradingil(
@@ -962,6 +1037,7 @@ pub fn excellence() -> Broker {
             Period::Quarter,
             Period::Month,
             Some(ils(dec!(40))),
+            None,
         )],
         // 0.1%, plus a markup the tariff leaves to the customer's agreement
         // and the site puts at 2 agorot a dollar.
@@ -978,6 +1054,7 @@ pub fn excellence() -> Broker {
         management: None,
         fractions_on: vec![Usa],
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![
             Caveat::not_counted(
                 t("US trades cost at most 2% of their value; the 0.3% track adds the foreign \
@@ -1039,10 +1116,18 @@ pub fn excellence() -> Broker {
         custody: vec![],
         // "2 agorot a dollar", as its site states the cost of converting.
         conversion: markup_only(Markup::PerDollar(ils(dec!(0.02)))),
-        handling: Some(handling_less_trade_fees(dec!(15), 24)),
+        // Waived for the account's whole life, by the rules of 1 October 2026.
+        handling: None,
         management: None,
         fractions_on: vec![Usa],
         min_first_deposit: Some(ils(dec!(10000))),
+        offer_ends: Some(OfferEnds::By {
+            date: date!(2026 - 12 - 31),
+            to_qualify: t(
+                "For new customers who open an account and deposit ₪10,000 in it",
+                "למצטרפים שפותחים חשבון ומפקידים בו ₪10,000",
+            ),
+        }),
         caveats: vec![
             typical_offer_caveat(
                 &t("Excellence", "אקסלנס"),
@@ -1068,11 +1153,6 @@ pub fn excellence() -> Broker {
             .on(&[Usa, Europe])
             .source(&article)
             .source(&package),
-            handling_less_trade_fees_caveat(
-                t("tradingil.co.il says the handling fee \u{201c}can be offset\u{201d} by trade \
-                 fees in its joining offer (September 2026)", "tradingil.co.il אומר שדמי הטיפול ״ניתנים לקיזוז״ מול עמלות מסחר במבצע ההצטרפות שלו (ספטמבר 2026)"),
-                &[&on_tradingil],
-            ),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
@@ -1086,25 +1166,28 @@ pub fn excellence() -> Broker {
             .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
-            Caveat::published(t("Some of its trading systems charge at least $5 instead of $6.", "חלק ממערכות המסחר שלה גובות מינימום $5 במקום $6."))
+            Caveat::reading(
+                t("Some of its trading systems charge at least $5 instead of $6.", "חלק ממערכות המסחר שלה גובות מינימום $5 במקום $6."),
+                t("tradingil.co.il lists both minimums for its joining offer (September 2026)", "tradingil.co.il מציין את שני המינימומים במבצע ההצטרפות שלו (ספטמבר 2026)"),
+            )
                 .about_fee(FeeKind::Trade)
                 .about(&[Stock, Etf])
                 .on(&[Usa])
                 .source(&on_tradingil),
-            // Its package page says "no custody" outright, and its rules define
-            // the two free years as the monthly fee's: published, not a
-            // reading of the comparison sites.
+            // Its joining page says "no custody" outright, and the rules waive
+            // the monthly fee for the account's whole life.
             Caveat::published(
-                t("Free for the first two years, then ₪15 a month, as Excellence's joining \
-                 package and its rules state; nothing is charged as a share of what you \
-                 hold.", "חינם בשנתיים הראשונות, ואז ₪15 לחודש, כפי שחבילת ההצטרפות של אקסלנס והתקנון שלה מציינים; אין דמי משמרת."),
+                t("No monthly handling fee for the account's whole life, for new customers \
+                 who open an account and deposit ₪10,000 in it by 31/12/2026. Those who \
+                 join later get two free years (three, with more than ₪10,000 deposited in \
+                 the first 30 days), then ₪15 a month. Nothing is charged as a share of \
+                 what you hold.", "פטור מדמי טיפול לכל חיי החשבון, למצטרפים שפותחים חשבון ומפקידים בו ₪10,000 עד 31/12/2026. מי שמצטרף אחר כך: שנתיים חינם (3 שנים בהפקדה של יותר מ\u{2011}₪10,000 ב\u{2011}30 הימים הראשונים), ואז ₪15 לחודש. אין דמי משמרת."),
             )
             .about_fee(FeeKind::Account)
-            .source(&package)
-            .source(&rules),
+            .source(&rules)
+            .source(&package),
             Caveat::not_counted(
-                t("Some sign-up links offer three free years and a refund of commissions; not \
-                 included.", "חלק מקישורי ההצטרפות מציעים 3 שנים חינם והחזר עמלות; לא נכלל."),
+                t("Some sign-up links offer a refund of commissions; not included.", "חלק מקישורי ההצטרפות מציעים החזר עמלות; לא נכלל."),
             )
             .about_fee(FeeKind::Account)
             .source(&on_gemeltop)
@@ -1145,6 +1228,10 @@ pub fn ibi() -> Broker {
     let currency_faq = source(
         t("IBI's currency FAQ", "שאלות ותשובות על מט״ח באתר IBI"),
         "https://www.ibi.co.il/solutions/trading/forms-important-information/foreign-currency-faq/",
+    );
+    let app_page = source(
+        t("IBI SMART's page", "עמוד IBI SMART"),
+        "https://www.ibi.co.il/solutions/trading/ibi-smart-super-app/",
     );
     let on_gemeltop = gemeltop("ibi-trade-amlot");
     let on_tradingil = tradingil(
@@ -1243,15 +1330,16 @@ pub fn ibi() -> Broker {
             CustodyFee {
                 securities: vec![IndexFund],
                 exchanges: vec![Tlv],
-                ..custody(dec!(0), Period::Quarter, Period::Quarter, None)
+                ..custody(dec!(0), Period::Quarter, Period::Quarter, None, None)
             },
-            custody(dec!(0.1), Period::Quarter, Period::Quarter, None),
+            custody(dec!(0.1), Period::Quarter, Period::Quarter, None, None),
         ],
         conversion: conversion.clone(),
         handling: Some(handling(dec!(50), 0)),
         management: None,
         fractions_on: vec![Usa],
         min_first_deposit: Some(ils(dec!(15000))),
+        offer_ends: None,
         caveats: vec![
             Caveat::at_most(t(
                 "The tariff's prices are maximums (\"up to\"); the ₪50 a month is taken \
@@ -1305,6 +1393,7 @@ pub fn ibi() -> Broker {
         management: None,
         fractions_on: vec![Usa],
         min_first_deposit: Some(ils(dec!(15000))),
+        offer_ends: Some(OfferEnds::NotPublished),
         caveats: vec![
             typical_offer_caveat(
                 &t("IBI", "IBI"),
@@ -1399,6 +1488,25 @@ pub fn ibi() -> Broker {
             .on(&[Usa, Europe])
             .when_above(usd(dec!(15_000)))
             .source(&tradingil_conversions()),
+            Caveat::published(t(
+                "Opening an account takes at least ₪15,000, as IBI's app page says.",
+                "פתיחת חשבון דורשת ₪15,000 לפחות, כפי שעמוד האפליקציה של IBI מציין.",
+            ))
+            .source(&app_page),
+            Caveat::published(
+                t("IBI's app trades in Israel and the US only, as its page says. The tariff \
+                 prices European trades, but whether they can be made otherwise, as in the \
+                 View Trade system in a browser, isn't said.", "האפליקציה של IBI סוחרת רק בישראל ובארה״ב, כפי שעמוד האפליקציה מציין. התעריפון מתמחר עסקאות באירופה, אבל לא כתוב אם אפשר לבצע אותן בדרך אחרת, כמו במערכת View Trade בדפדפן."),
+            )
+            .about_fee(FeeKind::Trade)
+            .on(&[Europe])
+            .source(&app_page),
+            Caveat::not_counted(
+                t("US trades may also pay third parties' charges on top, as billed (SEC, TAF, \
+                 ECN, ORF, taxes and more; part 4, row 5).", "עסקאות בארה״ב עשויות לשלם בנוסף חיובים של צדדים שלישיים, לפי החיוב בפועל (SEC, TAF, ECN, ORF, מיסים ועוד; חלק 4, שורה 5)."),
+            )
+            .about_fee(FeeKind::Trade)
+            .on(&[Usa]),
             Caveat::published(
                 t("Managed (active) funds of 12 fund managers cost nothing to trade; index \
                  funds aren't among them.", "קרנות מנוהלות (אקטיביות) של 12 מנהלי קרנות נסחרות ללא עמלה; קרנות מחקות אינן ביניהן."),
@@ -1498,6 +1606,7 @@ pub fn interactive() -> Broker {
         management: None,
         fractions_on: vec![Usa],
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![
             Caveat::reading(
                 t("Its automatic investment plan converts for free; taken as buying every \
@@ -1549,6 +1658,12 @@ pub fn interactive() -> Broker {
         latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: vec![
+            Caveat::published(t(
+                "The tariff is worded as a personal offer: its prices hold if the account is \
+                 opened, and money deposited in it, within 30 days of accepting it.",
+                "התעריפון מנוסח כהצעה אישית: המחירים בו תקפים אם פתיחת החשבון, כולל ההפקדה, הושלמה תוך 30 יום מקבלת ההצעה.",
+            ))
+            .source(&tariff),
             Caveat::published(
                 t("Converting is at the live market rate (שער\u{a0}רציף), as its site says, for \
                  up to ₪500,000: the fee is the whole cost the broker adds.", "ההמרה היא לפי שער השוק בזמן אמת (שער רציף), כפי שכתוב באתר, עד ₪500,000: העמלה היא כל מה שאינטראקטיב מוסיפה."),
@@ -1653,6 +1768,7 @@ pub fn meitav() -> Broker {
             Period::Quarter,
             Period::Quarter,
             Some(ils(dec!(270))),
+            None,
         )],
         conversion: ConversionFee {
             fee: PercentFee {
@@ -1667,6 +1783,7 @@ pub fn meitav() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: Some(ils(dec!(5000))),
+        offer_ends: None,
         caveats: vec![
             Caveat::reading(
                 t("The share of your holdings is 0.15% a quarter (0.6% a year).", "דמי המשמרת הם 0.15% לרבעון (0.6% לשנה)."),
@@ -1724,6 +1841,13 @@ pub fn meitav() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: Some(ils(dec!(5000))),
+        offer_ends: Some(OfferEnds::By {
+            date: date!(2026 - 10 - 30),
+            to_qualify: t(
+                "For new customers whose first deposit is made",
+                "למצטרפים שמפקידים לראשונה",
+            ),
+        }),
         caveats: vec![
             typical_offer_caveat(
                 &t("Meitav", "מיטב"),
@@ -1752,7 +1876,10 @@ pub fn meitav() -> Broker {
                 t("broker.co.il says so for Meitav's joining offer (2026)", "broker.co.il אומר זאת על מבצע ההצטרפות של מיטב (2026)"),
                 &[&broker_co_il()],
             ),
-            Caveat::published(t("Some of its trading systems charge at least $7.50 instead of $5.", "חלק ממערכות המסחר שלה גובות מינימום $7.50 במקום $5."))
+            Caveat::reading(
+                t("Some of its trading systems charge at least $7.50 instead of $5.", "חלק ממערכות המסחר שלה גובות מינימום $7.50 במקום $5."),
+                t("tradingil.co.il lists both minimums for its joining offer (September 2026)", "tradingil.co.il מציין את שני המינימומים במבצע ההצטרפות שלו (ספטמבר 2026)"),
+            )
                 .about_fee(FeeKind::Trade)
                 .about(&[Stock, Etf])
                 .on(&[Usa])
@@ -1772,6 +1899,13 @@ pub fn meitav() -> Broker {
                 .on(&[Europe]),
             Caveat::not_counted(t("The ₪100 gift for opening an account isn't included.", "מתנת ₪100 על פתיחת חשבון לא נכללה."))
                 .source(&on_gemeltop),
+            Caveat::reading(
+                t("The offer is taken to end on 30/10/2026; Meitav's site gives the date \
+                 beside the trading course's terms, so it may be the course's alone.", "המבצע נלקח כמסתיים ב\u{2011}30/10/2026; אתר מיטב מציין את התאריך ליד תנאי קורס המסחר, כך שייתכן שהוא חל על הקורס בלבד."),
+                t("its fine print reads \u{201c}the benefit for new customers who made a first \
+                 deposit by 30.10.26\u{201d}, then goes on to the course", "באותיות הקטנות כתוב ״ההטבה למצטרפים חדשים אשר ביצעו הפקדה ראשונה לחשבונם עד לתאריך ה\u{2011}30.10.26״, ומיד אחר כך תנאי הקורס"),
+            )
+            .source(&site),
         ],
     };
 
@@ -1864,9 +1998,9 @@ pub fn mizrahi() -> Broker {
         .on(&[Usa, Europe])
         .source(&tariff),
     ];
-    let quarterly = |exchanges: &[Exchange], rate: Decimal| CustodyFee {
+    let quarterly = |exchanges: &[Exchange], rate: Decimal, max: Decimal| CustodyFee {
         exchanges: exchanges.to_vec(),
-        ..custody(rate, Period::Quarter, Period::Quarter, None)
+        ..custody(rate, Period::Quarter, Period::Quarter, None, Some(ils(max)))
     };
 
     // Measured from the bank's published rates (the caveat above).
@@ -1912,8 +2046,8 @@ pub fn mizrahi() -> Broker {
         standing_order_conversion: None,
         // Part 4, rows 4.5.1 and 4.5.2: the same online and at a branch.
         custody: vec![
-            quarterly(&[Tlv], dec!(0.175)),
-            quarterly(&[Usa, Europe], dec!(0.195)),
+            quarterly(&[Tlv], dec!(0.175), dec!(10750)),
+            quarterly(&[Usa, Europe], dec!(0.195), dec!(10750)),
         ],
         conversion: ConversionFee {
             fee: online_conversion,
@@ -1924,6 +2058,7 @@ pub fn mizrahi() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![
             Caveat::published(t(
                 "The share of your holdings is the tariff's, online or not: 0.175% a \
@@ -2103,9 +2238,9 @@ pub fn otsar_hahayal() -> Broker {
         .about_fee(FeeKind::Trade)
         .source(&tariff),
     ];
-    let quarterly = |exchanges: &[Exchange], rate: Decimal| CustodyFee {
+    let quarterly = |exchanges: &[Exchange], rate: Decimal, max: Decimal| CustodyFee {
         exchanges: exchanges.to_vec(),
-        ..custody(rate, Period::Quarter, Period::Quarter, None)
+        ..custody(rate, Period::Quarter, Period::Quarter, None, Some(ils(max)))
     };
 
     // Measured from the parent bank's published rates (the caveat above).
@@ -2144,8 +2279,8 @@ pub fn otsar_hahayal() -> Broker {
         standing_order_conversion: None,
         // Part 4, rows 4.5.1 and 4.5.2: the same online and at a branch.
         custody: vec![
-            quarterly(&[Tlv], dec!(0.195)),
-            quarterly(&[Usa, Europe], dec!(0.199)),
+            quarterly(&[Tlv], dec!(0.195), dec!(4000)),
+            quarterly(&[Usa, Europe], dec!(0.199), dec!(4000)),
         ],
         conversion: ConversionFee {
             fee: online_conversion,
@@ -2156,6 +2291,7 @@ pub fn otsar_hahayal() -> Broker {
         management: None,
         fractions_on: vec![],
         min_first_deposit: None,
+        offer_ends: None,
         caveats: vec![
             Caveat::published(t(
                 "The share of your holdings is the tariff's, online or not: 0.195% a \
@@ -2280,6 +2416,15 @@ pub fn otsar_hahayal() -> Broker {
             .on(&[Usa, Europe])
             .source(&club_page)
             .source(&tariff),
+            // The tariff's own row (4.11.1, 0.1%, ₪50 to ₪5,000 a security) is
+            // charged on the day of an action it doesn't name.
+            Caveat::not_counted(t(
+                "The club's page lists a custodian's fee of 0.01% (at least ₪15, at most \
+                 ₪450), charged on the day of an action the tariff doesn't name.",
+                "עמוד המועדון מציין עמלת קסטודיאן של 0.01% (מינימום ₪15, מקסימום ₪450), שנגבית ביום ביצוע פעולה שהתעריפון לא מפרט.",
+            ))
+            .source(&club_page)
+            .source(&tariff),
         ],
         ..online.clone()
     };
@@ -2361,7 +2506,8 @@ pub fn otsar_hahayal() -> Broker {
              here.",
             "הבנק של כוחות הביטחון, חלק מהבנק הבינלאומי, שמיזג אותו לתוכו ושומר עליו כמותג: התעריפון הוא של הבינלאומי. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי), במועדון שלו למשפחת כוחות הביטחון, ובטופ טרייד לצעירים, ולכן יש לו כאן כמה מסלולים.",
         ),
-        tariff_date: Some(TariffDate::Day(date!(2026 - 09 - 16))),
+        // "September 2026" on its cover; the 16th only in the file's name.
+        tariff_date: Some(TariffDate::Month(date!(2026 - 09 - 01))),
         latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,

@@ -212,6 +212,7 @@
           {@const tariff = plan.info.tariff}
           <p>{plan.info.description}</p>
           {#if plan.info.firstDeposit}<p>{plan.info.firstDeposit}</p>{/if}
+          {#if plan.info.offerEnds}<p>{plan.info.offerEnds}</p>{/if}
           <section class="fees">
             <FeesForInputs {app} {plan} />
           </section>

@@ -245,6 +245,10 @@ pub struct PlanInfo {
     pub description: String,
     /// "First deposit: at least ₪10,000", where the account needs one.
     pub first_deposit: Option<String>,
+    /// Until when a joining offer can be had: "For new customers whose first
+    /// deposit is made by 30/10/2026", "No end date". Missing for a plan
+    /// that isn't an offer.
+    pub offer_ends: Option<String>,
     /// The age from which it can be taken as a monthly pension, taxed
     /// differently: 60 for a provident fund for investment. Missing where
     /// there's no such way out.
@@ -274,6 +278,7 @@ impl PlanInfo {
             english_name: plan.name.en.to_string(),
             description: plan.description[lang].to_owned(),
             first_deposit: plan.first_deposit_text(lang),
+            offer_ends: plan.offer_ends_text(lang),
             pension_from_age: plan.vehicle.rules().pension.map(|pension| pension.from_age),
             // Filled in by the broker, which knows its tariff and its caveats.
             sources: vec![],

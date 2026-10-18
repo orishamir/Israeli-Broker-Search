@@ -5,7 +5,7 @@
   import { t } from './text'
 
   /** The share-of-holdings (custody) fields, one per line. `full` lets the billing period change;
-   * otherwise it's only named, after the minimum it applies to. */
+   * otherwise it's only named, after the minimum and maximum it applies to. */
   let {
     fields,
     currency,
@@ -58,6 +58,18 @@
       />
     </div>
     <!-- The minimum is per charge, so it's named with the billing period. -->
+    <span>{billed?.each}</span>
+  </div>
+  <label class="label" for="{id}-max">{t.max}</label>
+  <div class="control">
+    <div class="number">
+      <NumberField
+        id="{id}-max"
+        label={t.fieldOf(t.custody, t.max)}
+        prefix={currency}
+        bind:value={() => fields.max ?? null, (max) => onchange({ ...fields, max: max ?? undefined })}
+      />
+    </div>
     <span>{billed?.each}</span>
   </div>
   {#if full}

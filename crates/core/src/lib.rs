@@ -316,9 +316,29 @@ pub enum Price {
         /// The fee is never more than this.
         max: Option<Money>,
     },
+    /// One price for trades worth up to an amount, another above it.
+    /// Pepper's $4 is stated for orders of up to $8,000; larger ones are
+    /// priced by the tariff, at Leumi's online row.
+    UpTo {
+        /// The largest trade `price` is for, in any currency.
+        up_to: Money,
+        price: Box<Price>,
+        above: Box<Price>,
+    },
 }
 
 impl Price {
+    /// True if it charges by the share, at least for some trades: then only
+    /// whole shares are bought, as the broker counts them.
+    #[must_use]
+    pub fn is_per_share(&self) -> bool {
+        match self {
+            Price::PerShare { .. } | Price::PercentPlusPerShare { .. } => true,
+            Price::Percent { .. } | Price::Flat(_) => false,
+            Price::UpTo { price, above, .. } => price.is_per_share() || above.is_per_share(),
+        }
+    }
+
     /// The fee for trade `t`, in the trade's currency.
     #[must_use]
     pub fn apply(&self, t: &Trade, rates: &ExchangeRates) -> Money {
@@ -348,6 +368,17 @@ impl Price {
                 let fee =
                     percent.of(*t.value.amount()) + rates.convert(per_shares, currency).amount();
                 clamp(Money::from_decimal(fee, currency), *min, *max, rates)
+            }
+            Price::UpTo {
+                up_to,
+                price,
+                above,
+            } => {
+                if t.value.amount() <= rates.convert(*up_to, currency).amount() {
+                    price.apply(t, rates)
+                } else {
+                    above.apply(t, rates)
+                }
             }
         }
     }
@@ -384,6 +415,11 @@ pub struct CustodyFee {
     /// together. Altshuler's ₪75 a month means a ₪100,000 portfolio pays 0.9%
     /// a year instead of 0.15%.
     pub min: Option<Money>,
+    /// The most charged each billing period. The banks cap it per security
+    /// and per account (Leumi: ₪3,700 a quarter per Tel Aviv security,
+    /// ₪11,500 per account); a comparison holds one security, so the cap
+    /// per security is the one that binds.
+    pub max: Option<Money>,
 }
 
 impl CustodyFee {
@@ -423,6 +459,9 @@ impl CustodyFee {
         }
         let charges = Decimal::from(self.billed.times_per_year());
         let mut per_charge = self.percent_per_year().of(value) / charges;
+        if let Some(max) = self.max {
+            per_charge = per_charge.min(*rates.convert(max, iso::ILS).amount());
+        }
         if let Some(min) = self.min {
             per_charge = per_charge.max(*rates.convert(min, iso::ILS).amount());
         }
@@ -615,6 +654,9 @@ pub struct Plan {
     /// minimum.
     #[serde(default)]
     pub min_first_deposit: Option<Money>,
+    /// Until when a joining offer takes new customers. Only offers have one.
+    #[serde(default)]
+    pub offer_ends: Option<OfferEnds>,
     /// Assumptions and gaps in the tariff that affect this plan's numbers.
     /// Ones that apply to every plan go in [`Broker::caveats`].
     #[serde(default)]
@@ -1028,6 +1070,19 @@ pub enum TariffDate {
     Month(Date),
 }
 
+/// Until when a joining offer can be had, as its terms state it. Offers
+/// change often, so a test fails once a date passes, to have it checked.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub enum OfferEnds {
+    /// What a new customer must do by `date`: Excellence's "open an account
+    /// and deposit ₪10,000 in it", by 31 December 2026.
+    By { date: Date, to_qualify: Text },
+    /// Its terms say it has no end date.
+    NoEndDate,
+    /// The broker doesn't publish the offer, so nor when it ends.
+    NotPublished,
+}
+
 /// A bank or an investment house. It decides what a new customer usually
 /// gets: a bank's online prices, an investment house's joining offer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -1261,11 +1316,73 @@ mod tests {
             per: Period::Quarter,
             billed: Period::Quarter,
             min: None,
+            max: None,
         };
         assert_eq!(leumi.percent_per_year(), Percent(dec!(0.6)));
         assert_eq!(
             leumi.cost_per_year(ils(dec!(200000)), &rates()),
             ils(dec!(1200))
+        );
+    }
+
+    #[test]
+    fn a_price_up_to_an_amount_switches_above_it() {
+        // Pepper abroad: $4 up to $8,000, then Leumi online's 0.3%, min $24.
+        let flat = Price::Flat(usd(dec!(4)));
+        let online = Price::Percent {
+            percent: Percent(dec!(0.3)),
+            min: Some(usd(dec!(24))),
+            max: None,
+        };
+        let pepper = Price::UpTo {
+            up_to: usd(dec!(8000)),
+            price: Box::new(flat.clone()),
+            above: Box::new(online),
+        };
+        let order = |value| Trade {
+            security: Security::Etf,
+            exchange: Exchange::Usa,
+            shares: dec!(1),
+            value: usd(value),
+        };
+        assert_eq!(pepper.apply(&order(dec!(8000)), &rates()), usd(dec!(4)));
+        assert_eq!(pepper.apply(&order(dec!(10000)), &rates()), usd(dec!(30)));
+        assert!(!pepper.is_per_share());
+        // Per share on either side means whole shares.
+        let per_share = Price::PerShare {
+            per_share: usd(dec!(0.01)),
+            min: None,
+            max: None,
+        };
+        let above_per_share = Price::UpTo {
+            up_to: usd(dec!(8000)),
+            price: Box::new(flat),
+            above: Box::new(per_share),
+        };
+        assert!(above_per_share.is_per_share());
+    }
+
+    #[test]
+    fn custody_maximum_per_billing_period() {
+        // Leumi abroad: 0.2% a quarter, at most ₪7,400 a quarter.
+        let leumi = CustodyFee {
+            securities: vec![],
+            exchanges: vec![Exchange::Usa],
+            percent: Percent(dec!(0.2)),
+            per: Period::Quarter,
+            billed: Period::Quarter,
+            min: None,
+            max: Some(ils(dec!(7400))),
+        };
+        // ₪1,000,000: ₪2,000 a quarter, under the cap.
+        assert_eq!(
+            leumi.cost_per_year(ils(dec!(1000000)), &rates()),
+            ils(dec!(8000))
+        );
+        // ₪5,000,000: ₪10,000 a quarter, capped at ₪7,400.
+        assert_eq!(
+            leumi.cost_per_year(ils(dec!(5000000)), &rates()),
+            ils(dec!(29600))
         );
     }
 
@@ -1279,6 +1396,7 @@ mod tests {
             per: Period::Year,
             billed: Period::Month,
             min: Some(ils(dec!(75))),
+            max: None,
         };
         assert_eq!(altshuler.percent_per_year(), Percent(dec!(0.15)));
         assert_eq!(

@@ -84,6 +84,7 @@ fn managed(
         management: Some(management),
         fractions_on: Exchange::iter().collect(),
         min_first_deposit: None,
+        offer_ends: None,
         caveats,
     }
 }

@@ -276,6 +276,7 @@ fn percentage_fees_scale_with_the_money() {
             per: Period::Year,
             billed: Period::Month,
             min: None,
+            max: None,
         }],
         conversion: ConversionFee {
             fee: PercentFee {
@@ -364,6 +365,7 @@ fn the_ranking_flips_where_the_fees_cross() {
 }
 
 /// `base`, with each kind of fee raised on its own.
+#[allow(clippy::too_many_lines, reason = "one plan for each fee")]
 fn each_fee_raised(base: &Plan) -> Vec<(&'static str, Plan)> {
     let trading = |price| priced(price).trading;
     vec![
@@ -395,6 +397,16 @@ fn each_fee_raised(base: &Plan) -> Vec<(&'static str, Plan)> {
                 custody: vec![CustodyFee {
                     percent: Percent(dec!(0.8)),
                     min: Some(ils(dec!(75))),
+                    ..base.custody[0].clone()
+                }],
+                ..base.clone()
+            },
+        ),
+        (
+            "custody maximum",
+            Plan {
+                custody: vec![CustodyFee {
+                    max: Some(ils(dec!(400))),
                     ..base.custody[0].clone()
                 }],
                 ..base.clone()
@@ -471,6 +483,8 @@ fn raising_any_fee_never_helps() {
             per: Period::Year,
             billed: Period::Quarter,
             min: Some(ils(dec!(10))),
+            // Reached on ₪200,000, well within the default deposits.
+            max: Some(ils(dec!(100))),
         }],
         conversion: ConversionFee {
             fee: PercentFee {
@@ -889,6 +903,7 @@ fn custody_on_a_lump_sum_costs_its_months_fee_on_the_end_value() {
             per: Period::Year,
             billed: Period::Month,
             min: None,
+            max: None,
         }],
         ..free_plan()
     };
