@@ -221,9 +221,22 @@ pub fn compare_ways(
     candidates: &[Candidate<'_>],
     rates: &ExchangeRates,
 ) -> Vec<WayOutcome> {
-    let mut ways: Vec<WayOutcome> = Way::for_index()
-        .into_iter()
-        .map(|way| compare_way(way, base, candidates, rates))
+    compare_chosen_ways(&Way::for_index(), base, candidates, rates)
+}
+
+/// [`compare_ways`] for some of the ways only: the guide asks about the ones
+/// that can be opened any time, or about a single one, and a way costs a
+/// run of every plan that can hold it.
+#[must_use]
+pub fn compare_chosen_ways(
+    chosen: &[Way],
+    base: &Scenario,
+    candidates: &[Candidate<'_>],
+    rates: &ExchangeRates,
+) -> Vec<WayOutcome> {
+    let mut ways: Vec<WayOutcome> = chosen
+        .iter()
+        .map(|&way| compare_way(way, base, candidates, rates))
         .collect();
     ways.sort_by_key(|way| {
         let after_tax = way.after_tax();

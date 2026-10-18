@@ -24,6 +24,8 @@ use crate::{
     TradeFee, Vehicle, Withdrawal, funds, ils, short_term, tariffs,
 };
 
+pub mod reasons;
+
 /// A price in words, and whether it's nothing, so that every view dims the
 /// same ones.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

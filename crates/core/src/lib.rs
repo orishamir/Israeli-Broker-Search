@@ -42,14 +42,15 @@
 //! long-term ETF investor.
 
 pub mod describe;
-pub mod examples;
 pub mod funds;
+pub mod guide;
 pub mod history;
 pub mod money;
 mod percent;
 pub mod products;
 pub mod short_term;
 pub mod simulation;
+pub mod situations;
 pub mod tariffs;
 pub mod vehicles;
 pub mod ways;
