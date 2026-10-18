@@ -18,7 +18,7 @@
   import ValueChart from './lib/ValueChart.svelte'
   import WarningSign from './lib/WarningSign.svelte'
   import { askSweep } from './lib/sweeper'
-  import { compactPercent, dateText, percent, shekels } from './lib/format'
+  import { dateText, percent, shekels, typedPercent, yearlyCost } from './lib/format'
   import { HeldWhileTyping } from './lib/held.svelte'
   import { duration, easeOut, glideHeight, reducedMotion, reveal, SETTLE } from './lib/motion'
   import { t } from './lib/text'
@@ -57,7 +57,6 @@
     },
   ]
 
-  /** The short-term calculator's views: where the interest goes, and the value over the months. */
   const shortViews: Choice<ShortTermView>[] = [
     {
       value: 'split',
@@ -80,9 +79,7 @@
   const short = app.short
   /** The chart by deposit is for experts: offered with More options only. */
   const views = $derived(allViews.filter((view) => view.value !== 'crossover' || app.moreOptions))
-  /** The growth chart's views: over the years, with a zoom. */
   const overYears = $derived(app.chartView === 'value' || app.chartView === 'lost')
-  /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
   const best = $derived(app.best)
   /** How old the numbers are, under each table: the core's line, and
@@ -99,14 +96,17 @@
   const longAssumptions = $derived.by(() => {
     const { yearlyReturnPercent: yearly, inflationPercent: inflation } = app.inputs
     if (yearly == null || inflation == null) return lastLong
-    lastLong = t.assumptions(compactPercent(yearly), compactPercent(inflation), app.sellAtEnd)
+    // A fund taken as a pension pays no tax, which the line would deny.
+    const pension =
+      'results' in app.comparison && app.comparison.results.some(({ pensionNote }) => pensionNote)
+    lastLong = t.assumptions(typedPercent(yearly), typedPercent(inflation), app.sellAtEnd, pension)
     return lastLong
   })
   let lastShort = ''
   const shortAssumptions = $derived.by(() => {
     const { ratePercent: rate, inflationPercent: inflation } = short.inputs
     if (rate == null || inflation == null) return lastShort
-    lastShort = t.shortAssumptions(compactPercent(rate), compactPercent(inflation))
+    lastShort = t.shortAssumptions(typedPercent(rate), typedPercent(inflation))
     return lastShort
   })
   /** Where to report a mistake: the accessibility statement's last link. */
@@ -167,7 +167,6 @@
   const bestTax = rolling(() => best?.outcome?.tax)
   const bestLost = rolling(() => best?.outcome?.lostToFees)
 
-  // The same for the short term's summary.
   const shortComparison = () => ('results' in short.comparison ? short.comparison : undefined)
   const shortBest = $derived(short.best)
   const shortDeposited = rolling(() => shortComparison()?.deposited)
@@ -181,7 +180,6 @@
         kind.mayCostMore && results.some(({ place, outcome }) => outcome && place.kindName === kind.name),
     )
 
-  /** The best plan or place, for the bar along a phone's screen. */
   const bar = $derived.by(() => {
     if (app.family === 'short') {
       if (!shortBest?.outcome) return undefined
@@ -196,7 +194,7 @@
     return {
       color: best.plan.color,
       label: best.plan.label,
-      note: t.yearlyAndLost(percent(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees)),
+      note: t.yearlyAndLost(yearlyCost(best.outcome.yearlyCostPercent), shekels(best.outcome.lostToFees)),
     }
   })
 </script>
@@ -269,7 +267,7 @@
                     <span class="note"
                       >{t.lostAndYearly(
                         shekels(bestLost.current),
-                        percent(best.outcome.yearlyCostPercent),
+                        yearlyCost(best.outcome.yearlyCostPercent),
                       )}</span
                     >
                     <span class="note around" class:gone={!around.current.shown}>{around.current.text}</span>
@@ -454,7 +452,6 @@
   </div>
 {/if}
 
-<!-- What the page is and isn't, and how to reach whoever made it. -->
 <footer class="page-footer">
   <span>{t.notAdvice}</span>
   <span>{t.notAffiliated}</span>
@@ -759,14 +756,12 @@
     margin: 0;
     text-align: end;
   }
-  /* Share, at the end of the title's row. */
   .actions {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-inline-start: auto;
   }
-  /* Mouse or finger, whichever this screen mostly uses. */
   @media (pointer: coarse) {
     .mouse {
       display: none;

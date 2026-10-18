@@ -2,7 +2,7 @@
   import type { ECharts } from 'echarts/core'
   import { MediaQuery } from 'svelte/reactivity'
   import type { AppState, Result } from './app.svelte'
-  import type { OutcomeData } from './core/core'
+  import type { OutcomeData, WhyNot } from './core/core'
   import { chart } from './echarts.svelte'
   import {
     barsHeight,
@@ -28,10 +28,18 @@
   let focus = $state<Focus>('all')
   /** Picks a fee to compare by, or all of them again if it's picked. */
   const toggle = (key: FeeType) => (focus = focus === key ? 'all' : key)
-  /** Each fee button's explanation, shown on hover. */
   const popovers = $state<HTMLElement[]>([])
 
-  const notOffered = $derived(results.filter(({ outcome }) => !outcome))
+  /** The plans without numbers, grouped by why, in the table's order. */
+  const missing = $derived.by(() => {
+    const groups: { whyNot: WhyNot | undefined; plans: Result[] }[] = []
+    for (const result of results.filter(({ outcome }) => !outcome)) {
+      const group = groups.find(({ whyNot }) => whyNot === result.whyNot)
+      if (group) group.plans.push(result)
+      else groups.push({ whyNot: result.whyNot, plans: [result] })
+    }
+    return groups
+  })
   const offered = $derived(
     results.filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined),
   )
@@ -140,14 +148,16 @@
   ></div>
 </div>
 
-{#if notOffered.length > 0}
+<!-- The plans left out, a line for each reason, in the table's words. -->
+{#each missing as { whyNot, plans } (whyNot)}
+  {@const words = app.whyNotWords(whyNot)}
   <p class="hint">
-    {t.notOfferedFor(app.purchase)}:
-    {#each notOffered as { plan, notOffered: reason }, index (plan.id)}
-      {index > 0 ? ', ' : ''}{plan.label}<Tip about={t.notOffered}>{reason}</Tip>
+    {words.cell}:
+    {#each plans as { plan, notOffered: reason }, index (plan.id)}
+      {index > 0 ? ', ' : ''}{plan.label}<Tip about={words.about}>{reason}</Tip>
     {/each}
   </p>
-{/if}
+{/each}
 
 <h4>
   <!-- No space before the hint, which starts with its separator: a line

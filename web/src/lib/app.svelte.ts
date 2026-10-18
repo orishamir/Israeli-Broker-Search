@@ -49,7 +49,6 @@ export interface YourPlan {
  * ticked, so the ticked plans' colors differ as much as they can. */
 export interface Plan {
   key: PlanKey
-  /** For sets and keyed lists. */
   id: string
   info: PlanInfo
   color: string
@@ -61,15 +60,12 @@ export interface Plan {
   /** The label in English, the same in every language: how links name
    * listed plans. */
   englishLabel: string
-  /** A listed plan's broker. */
   broker?: BrokerInfo
-  /** One of the user's own. */
   yours?: YourPlan
   /** The listed plan it's a copy of, if it's still listed. */
   original?: Plan
 }
 
-/** One plan's line in the results, best first. */
 export interface Result {
   plan: Plan
   /** Missing if the plan doesn't offer the security on that exchange. */
@@ -89,10 +85,10 @@ export interface Result {
   mayCostMore: string | undefined
   /** What makes sense of its numbers: "A standing order buys every month, so it isn't used here". */
   note: string | undefined
-  /** Who can open it, if not anyone: "Through an employer, or if self-employed". */
+  /** Who can open it, if not anyone: "Self-employed". */
   whoCanJoin: string | undefined
-  /** As a pension, the monthly amount the balance buys: "A balance for a
-   * pension: about ₪10,000 a month for life, at a conversion factor of about 200". */
+  /** As a pension, the monthly amount the balance buys: "Expected pension:
+   * about ₪10,000 a month for life, at a conversion factor of about 200". */
   pensionNote: string | undefined
   /** For a kind of fund's average, what's left at its cheapest and dearest
    * company and at the most allowed. */
@@ -106,14 +102,11 @@ export interface Result {
   whyNot: WhyNot | undefined
 }
 
-/** The two calculators: investing for the long term, saving for the short. */
 export type Family = 'long' | 'short'
 
 export type ChartView = 'value' | 'lost' | 'crossover' | 'breakdown'
-/** The chart shown at first: what the fees cost, over the years. */
 const FIRST_VIEW: ChartView = 'lost'
 
-/** What happens at the end of the years: everything is sold, or kept. */
 export type AtEnd = 'sell' | 'hold'
 
 /** How the money is taken out at the end: all at once, or as a monthly
@@ -186,17 +179,13 @@ export class AppState {
   /** How much prices are taken to rise a year, in percent, unless the user
    * says otherwise: the core's, since the tax is worked out with it. */
   readonly usualInflation: number = core.usualInflationPercent()
-  /** How the numbers are made, what isn't counted, and the sources. */
   readonly about = core.about()
-  /** The chosen calculator's page on its numbers. */
   get aboutShown() {
     return this.family === 'short' ? this.short.about : this.about
   }
-  /** How old the numbers are, in a line under the table. */
   readonly dataDates: string = core.dataDates()
   readonly securities: Choice<Security>[] = core.securities()
   readonly exchanges: Choice<Exchange>[] = core.exchanges()
-  /** Ready-made investing patterns, each setting every basic input. */
   readonly examples: ExampleData[] = core.examples()
   /** Every plan the list offers. A kind of fund's cheapest and dearest
    * company and its maximum aren't among them: they're shown beside its
@@ -239,7 +228,6 @@ export class AppState {
   /** The user's own plans, oldest first. Raw: they're replaced, not changed. */
   yourPlans = $state.raw<YourPlan[]>(loadYourPlans())
 
-  /** Listed plans, then the user's own. */
   plans: Plan[] = $derived.by(() => {
     const yours = this.yourPlans.map((yours): Plan => {
       const original = this.originalOf(yours)
@@ -292,7 +280,6 @@ export class AppState {
   buyEveryMonths = $state(1)
   /** How much prices rise a year: the tax is on the gain beyond it. */
   inflationPercent = $state<number | null>(this.usualInflation)
-  /** Whether amounts are shown in today's money, as the box is ticked. */
   todaysMoney = $state(false)
   atEnd = $state<AtEnd>('sell')
   /** How the money is taken out, as chosen; asked only while a ticked plan
@@ -351,7 +338,6 @@ export class AppState {
     })
   })
 
-  /** The editor's view, as last chosen. */
   editorView = $state<EditorView>(load<EditorView>('editor-view', 'simple'))
 
   private chosenView = $state<ChartView>(FIRST_VIEW)
@@ -365,9 +351,7 @@ export class AppState {
   }
   /** Plans clicked in the table or the chart; they stay highlighted. */
   pinned = new SvelteSet<string>()
-  /** The plan under the mouse, in the table or the chart. */
   hovered = $state<string | null>(null)
-  /** Plans to make stand out: the pinned ones and the hovered one. */
   highlighted: ReadonlySet<string> = $derived(
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
     new Set([...this.pinned, ...(this.hovered ? [this.hovered] : [])]),
@@ -377,8 +361,17 @@ export class AppState {
    * objects as in `brokers` and `plans` (not proxies), to find them there. */
   details = $state.raw<Details | null>(null)
 
-  /** "an ETF bought in the USA" */
   purchase = $derived(core.purchasePhrase(this.security, this.exchange))
+
+  /** Why a plan has no numbers, in the few words its row says, and what its
+   * ? is about; the core's sentence is in the tip. The fee chart's note
+   * says it the same way. */
+  whyNotWords(whyNot: WhyNot | undefined): { cell: string; about: string } {
+    if (whyNot === 'OverTheCeiling') return { cell: t.overTheCeiling, about: t.theCeiling }
+    if (whyNot === 'Locked') return { cell: t.stillLocked, about: t.theLock }
+    if (whyNot === 'NotCounted') return { cell: t.priceUnclear, about: t.notWorkedOut }
+    return { cell: t.notOfferedFor(this.purchase), about: t.notOffered }
+  }
 
   /** A plan's fees for what the user buys, in words: on the track the
    * comparison picked, if it picked one. */
@@ -396,7 +389,6 @@ export class AppState {
     return comparison.results.find((result) => result.plan.id === plan.id)?.track
   }
 
-  /** The listed plan `yours` is a copy of, if it's still listed. */
   originalOf(yours: YourPlan): Plan | undefined {
     const { basedOn } = yours
     // Named in English, the same in every language.
@@ -484,7 +476,6 @@ export class AppState {
     }
   }
 
-  /** Clicking a pinned plan unpins it. */
   togglePin(id: string) {
     if (!this.pinned.delete(id)) this.pinned.add(id)
   }
@@ -497,9 +488,7 @@ export class AppState {
     this.pinned.add(id)
   }
 
-  /** Whether everything is sold at the end, as the core is told. */
   sellAtEnd: boolean = $derived(!this.moreOptions || this.atEnd === 'sell')
-  /** Whether the amounts shown are in today's money. */
   inTodaysMoney: boolean = $derived(
     this.moreOptions && this.todaysMoney && (this.inflationPercent ?? 0) !== 0,
   )
@@ -513,10 +502,8 @@ export class AppState {
       .flatMap((plan) => plan.info.pensionFromAge ?? [])
     return ages.length > 0 ? Math.min(...ages) : undefined
   })
-  /** Whether the money is taken as a pension, as the core is told. */
   asPension: boolean = $derived(this.pensionFromAge !== undefined && this.wayOut === 'pension')
 
-  /** Everything the core compares the plans by. */
   inputs: Inputs = $derived(this.inputsWith(this.firstDeposit, this.monthlyDeposit))
 
   /** The inputs with the deposits given: the comparison's own, or the
@@ -581,9 +568,11 @@ export class AppState {
       return core.around({
         sweep: answer.sweep,
         deposit: (this.swept === 'Monthly' ? this.monthlyDeposit : this.firstDeposit) ?? 0,
-        costs: this.comparison.results.map(({ plan, outcome }) => ({
+        // A plan the first deposit can't open isn't in the running, as in
+        // the sweep.
+        costs: this.comparison.results.map(({ plan, outcome, fits }) => ({
           key: plan.key,
-          cost: outcome?.yearlyCostPercent ?? null,
+          cost: fits ? (outcome?.yearlyCostPercent ?? null) : null,
         })),
       })
     } catch {
@@ -729,7 +718,6 @@ export class AppState {
     }
   })
 
-  /** The chosen plans, best first, or why they couldn't be compared. */
   private latest = $derived.by((): Comparison => {
     let data: ComparisonData
     try {
@@ -739,6 +727,8 @@ export class AppState {
         error: error instanceof Error ? error.message : String(error),
       }
     }
+    // A plan the first deposit can't open isn't ranked, unless none can be.
+    const anyFits = data.plans.some(({ outcome, fits }) => outcome && fits)
     return {
       deposited: data.deposited,
       noFees: data.noFees,
@@ -766,7 +756,7 @@ export class AppState {
         ) => ({
           plan: this.plansById.get(planId(key))!,
           outcome,
-          rank: outcome ? index + 1 : undefined,
+          rank: outcome && (fits || !anyFits) ? index + 1 : undefined,
           track,
           warning,
           fits,
@@ -783,7 +773,6 @@ export class AppState {
     }
   })
 
-  /** The last comparison that worked. */
   private lastWorked: Comparison | undefined
 
   /** What the page shows: the comparison, or while the inputs can't be
@@ -795,7 +784,6 @@ export class AppState {
     return this.lastWorked ?? this.latest
   })
 
-  /** Why the inputs can't be compared, while they can't. */
   inputError: string | undefined = $derived('error' in this.latest ? this.latest.error : undefined)
 
   /** The table's first plan, which the first deposit can open: the core
@@ -805,20 +793,22 @@ export class AppState {
     'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
   )
 
-  /** Each plan's row number in the table, by id, for the chart by deposit:
-   * its sweep answers a moment after the table, which it may not match. */
-  private ranks: ReadonlyMap<string, number> = $derived(
+  /** The plans with numbers in the table, by id, each with its row number
+   * (none for a plan the first deposit can't open), for the chart by
+   * deposit: its sweep answers a moment after the table, which it may not
+   * match. */
+  private ranks: ReadonlyMap<string, { rank: number | undefined }> = $derived(
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
     new Map(
       'error' in this.comparison
         ? []
-        : this.comparison.results.flatMap(({ plan, rank }) =>
-            rank === undefined ? [] : [[plan.id, rank] as const],
+        : this.comparison.results.flatMap(({ plan, outcome, rank }) =>
+            outcome ? [[plan.id, { rank }] as const] : [],
           ),
     ),
   )
 
-  rankOf(id: string): number | undefined {
+  rowOf(id: string): { rank: number | undefined } | undefined {
     return this.ranks.get(id)
   }
 

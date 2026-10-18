@@ -142,7 +142,8 @@
         </p>
         <p>{place.info.description}</p>
         <section class="fees">
-          <h4>{t.whatItPays}</h4>
+          <!-- A fund (קרן) charges a fee, a bank pays interest. -->
+          <h4>{place.info.feePercent == null ? t.whatItPays : t.whatItCharges}</h4>
           {#if place.yours}
             <p>{t.yourRateIs(place.yours.ratePercent === null ? '?' : percent(place.yours.ratePercent))}</p>
           {:else if place.info.pays}
@@ -210,6 +211,7 @@
           {@const plan = shown.plan}
           {@const tariff = plan.info.tariff}
           <p>{plan.info.description}</p>
+          {#if plan.info.firstDeposit}<p>{plan.info.firstDeposit}</p>{/if}
           <section class="fees">
             <FeesForInputs {app} {plan} />
           </section>
@@ -218,7 +220,8 @@
           </p>
           {@const { caveats, others } = app.feesFor(plan)}
           {#if caveats.length > 0}
-            <h3>{t.caveatsFor(app.purchase)}</h3>
+            <!-- A fund's caveats are about the fund, whatever it holds. -->
+            <h3>{tariff.management ? t.caveats : t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
           <!-- A fund's fee is all it charges, and it's shown above. -->
@@ -318,7 +321,7 @@
           <p>{broker.description}</p>
           {@const caveats = app.brokerCaveats(broker)}
           {#if caveats.length > 0}
-            <h3>{t.caveatsFor(app.purchase)}</h3>
+            <h3>{broker.kind === 'Funds' ? t.caveats : t.caveatsFor(app.purchase)}</h3>
             <CaveatGroups groups={caveats} />
           {/if}
           <h3>{t.plans}</h3>

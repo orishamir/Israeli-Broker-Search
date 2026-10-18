@@ -1,7 +1,7 @@
 <script lang="ts">
   import { flip } from 'svelte/animate'
   import type { ShortTermOutcomeData } from './core/core'
-  import { compactPercent, percent, shekels } from './format'
+  import { paysAboveTheRate, percent, placeCost, shekels, typedPercent } from './format'
   import { duration, easeOut, SETTLE } from './motion'
   import type { PlaceResult, ShortTermState } from './short-term.svelte'
   import { t } from './text'
@@ -15,6 +15,8 @@
     title: string
     explanation: string
     text: (outcome: ShortTermOutcomeData) => string
+    /** In words, for the saver: a bank paying above the rate. */
+    good?: (outcome: ShortTermOutcomeData) => boolean
   }
 
   /** The amounts, what the table is ranked by first: on a phone only the
@@ -33,11 +35,12 @@
     {
       title: t.costYearly,
       explanation: t.costYearlyTip,
-      text: (outcome) => percent(outcome.yearlyCostPercent),
+      text: (outcome) => placeCost(outcome.yearlyCostPercent),
+      good: (outcome) => paysAboveTheRate(outcome.yearlyCostPercent),
     },
     {
       title: t.tax,
-      explanation: t.shortTaxTip(compactPercent(short.inputs.inflationPercent ?? 0)),
+      explanation: t.shortTaxTip(typedPercent(short.inputs.inflationPercent ?? 0)),
       text: (outcome) => (outcome.tax === 0 ? t.noTax : shekels(outcome.tax)),
     },
   ])
@@ -102,7 +105,9 @@
         </td>
         {#if outcome}
           {#each columns as column (column.title)}
-            <td class="amount number">{column.text(outcome)}</td>
+            {@const good = column.good?.(outcome) ?? false}
+            <!-- Words read right to left, numbers left to right. -->
+            <td class="amount" class:number={!good} class:good>{column.text(outcome)}</td>
           {/each}
         {:else}
           <td class="amount" colspan={columns.length}
@@ -131,7 +136,6 @@
     text-align: start;
     white-space: nowrap;
   }
-  /* Its share of the table (see `width`). */
   th.place,
   th.amount,
   th.when {
@@ -304,6 +308,9 @@
   }
   .not-offered {
     color: var(--weak);
+  }
+  .good {
+    color: var(--good);
   }
   .best {
     font-weight: 700;

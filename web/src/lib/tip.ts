@@ -15,6 +15,8 @@ const warm = () => performance.now() - lastClosed < 300
  * its own trigger is pressed, and the click then reopens it.
  *
  * `below` places it under the element rather than above, as menus are.
+ * `closeOnClick` closes a hover tip when its button is pressed: a preset's
+ * description would otherwise cover the results the press just changed.
  * `onClose` is called when the user closes it (not when it's removed). */
 export const tip =
   (
@@ -23,8 +25,15 @@ export const tip =
       onClick = true,
       hover = true,
       below = false,
+      closeOnClick = false,
       onClose,
-    }: { onClick?: boolean; hover?: boolean; below?: boolean; onClose?: () => void } = {},
+    }: {
+      onClick?: boolean
+      hover?: boolean
+      below?: boolean
+      closeOnClick?: boolean
+      onClose?: () => void
+    } = {},
   ): Attachment<HTMLElement> =>
   (trigger) => {
     let stopPositioning: (() => void) | null = null
@@ -111,6 +120,9 @@ export const tip =
       open()
       clicked = true
     }
+    function onClickToClose() {
+      close()
+    }
     function onFocus() {
       if (hover && trigger.matches(':focus-visible, :has(:focus-visible)')) open()
     }
@@ -124,6 +136,7 @@ export const tip =
     trigger.addEventListener('focusin', onFocus)
     trigger.addEventListener('focusout', onBlur)
     if (onClick) trigger.addEventListener('click', onClickTrigger)
+    else if (closeOnClick) trigger.addEventListener('click', onClickToClose)
     return () => {
       close({ byUser: false })
       trigger.removeEventListener('pointerenter', onPointerEnter)
@@ -131,5 +144,6 @@ export const tip =
       trigger.removeEventListener('focusin', onFocus)
       trigger.removeEventListener('focusout', onBlur)
       trigger.removeEventListener('click', onClickTrigger)
+      trigger.removeEventListener('click', onClickToClose)
     }
   }

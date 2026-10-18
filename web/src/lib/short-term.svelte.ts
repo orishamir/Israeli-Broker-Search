@@ -33,7 +33,6 @@ export interface YourDeposit {
  * handed out when it's ticked, as a plan's is. */
 export interface Place {
   key: PlaceKey
-  /** For sets and keyed lists. */
   id: string
   info: PlaceInfo
   /** Its kind's name, under its own in the table: "Money market fund". */
@@ -46,11 +45,9 @@ export interface Place {
   /** How links name a listed place: "Fixed-rate deposit · Bank Leumi". */
   englishLabel: string
   color: string
-  /** One of the saver's own. */
   yours?: YourDeposit
 }
 
-/** One place's line in the results, best first. */
 export interface PlaceResult {
   place: Place
   /** Missing where the money can't be kept, as the inputs are. */
@@ -62,7 +59,6 @@ export interface PlaceResult {
   notOfferedReason: string | undefined
 }
 
-/** The places compared, best first, or why they couldn't be. */
 export type ShortTermComparison =
   { deposited: number; atTheRate: number[]; term: string; results: PlaceResult[] } | { error: string }
 
@@ -71,7 +67,6 @@ export type ShortTermView = 'split' | 'value'
 export const placeId = (key: PlaceKey): string =>
   key.kind === 'listed' ? `${key.group}:${key.place}` : `yours:${key.id}`
 
-/** The shape of one of your deposits, from storage or a link. */
 export function looksLikeYourDeposit(value: unknown): value is YourDeposit {
   if (typeof value !== 'object' || value === null) return false
   const { id, name, ratePercent } = value as Record<string, unknown>
@@ -94,17 +89,12 @@ export class ShortTermState {
   readonly kinds: KindInfo[] = core.shortTermKinds()
   /** Deposits: the kind whose places pay a rate by term. */
   private readonly depositsKind = this.kinds.find((kind) => kind.places.some(({ rates }) => rates.length > 0))
-  /** Your own deposit's description, tax and lock. */
   private readonly yoursInfo: PlaceInfo = core.yourDepositInfo()
-  /** How the numbers are made, what isn't counted, and the sources. */
   readonly about: About = core.aboutShortTerm()
-  /** How old the numbers are, in a line under the table. */
   readonly dataDates: string = core.shortTermDataDates()
-  /** Ready-made patterns, each setting the amounts and the months. */
   readonly examples: ShortTermExampleData[] = core.shortTermExamples()
   /** The Bank of Israel's rate when the numbers were checked, in percent. */
   readonly todaysRate: number = core.todaysRatePercent()
-  /** The longest the money can be kept, in months. */
   readonly longest: number = core.shortTermLongest()
   readonly usualInflation: number = core.usualInflationPercent()
 
@@ -130,7 +120,6 @@ export class ShortTermState {
   /** Your own deposits, oldest first. Raw: they're replaced, not changed. */
   yourDeposits = $state.raw<YourDeposit[]>(loadYourDeposits())
 
-  /** Listed places, then your own. */
   places: Place[] = $derived([
     ...this.listedPlaces,
     ...this.yourDeposits.map((yours) => {
@@ -180,15 +169,12 @@ export class ShortTermState {
     return this.colors.get(id) ?? UNTICKED_COLOR
   }
 
-  /** The ticked places, in the list's order. */
   compared: Place[] = $derived(this.places.filter((place) => this.selected.has(place.id)))
 
   chartView = $state<ShortTermView>('split')
   /** Places clicked in the table or the chart; they stay highlighted. */
   pinned = new SvelteSet<string>()
-  /** The place under the mouse, in the table or the chart. */
   hovered = $state<string | null>(null)
-  /** Places to make stand out: the pinned ones and the hovered one. */
   highlighted: ReadonlySet<string> = $derived(
     // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
     new Set([...this.pinned, ...(this.hovered ? [this.hovered] : [])]),
@@ -220,7 +206,6 @@ export class ShortTermState {
     yourDeposits: this.yourDeposits.map(({ id, ratePercent }) => ({ id, ratePercent })),
   })
 
-  /** The ticked places, best first, or why they couldn't be compared. */
   private latest: ShortTermComparison = $derived.by(() => {
     let data: ShortTermComparisonData
     try {
@@ -242,7 +227,6 @@ export class ShortTermState {
     }
   })
 
-  /** The last comparison that worked. */
   private lastWorked: ShortTermComparison | undefined
 
   /** What the page shows: the comparison, or while the inputs can't be
@@ -252,10 +236,8 @@ export class ShortTermState {
     return this.lastWorked ?? this.latest
   })
 
-  /** Why the inputs can't be compared, while they can't. */
   inputError: string | undefined = $derived('error' in this.latest ? this.latest.error : undefined)
 
-  /** The table's first place. */
   best: PlaceResult | undefined = $derived(
     'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
   )
@@ -281,7 +263,6 @@ export class ShortTermState {
     }
   }
 
-  /** Clicking a pinned place unpins it. */
   togglePin(id: string) {
     if (!this.pinned.delete(id)) this.pinned.add(id)
   }
@@ -364,7 +345,6 @@ export class ShortTermState {
     }
   }
 
-  /** `shared`: what a link says, if the page was opened from one. */
   constructor(expert: () => boolean, shared: SharedShort = {}) {
     this.expert = expert
     this.applyShared(shared)

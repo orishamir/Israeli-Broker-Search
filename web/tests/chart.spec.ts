@@ -128,7 +128,8 @@ test('a first tap on the chart moves neither the page nor its zoom', { tag: '@to
         record()
       }),
   )
-  await page.touchscreen.tap(box.x + box.width * 0.2, box.y + 150)
+  // Near the left edge of the plot, past the axis labels.
+  await page.touchscreen.tap(box.x + box.width * 0.3, box.y + 150)
   expect(await views).toHaveLength(1)
   // Headed by the time, in either view over the years.
   const tooltip = (await page.locator('.chart > div', { hasText: 'אחרי' }).boundingBox())!
@@ -165,7 +166,6 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
 test('the chart by deposit draws the plans, follows the pins, and its marker follows the deposit', async ({
   page,
 }) => {
-  // An expert's chart: offered with More options only.
   await expect(choice(page, t.chart, t.byDepositView)).toHaveCount(0)
   await page.getByLabel(t.moreOptions, { exact: true }).check()
   await choice(page, t.chart, t.byDepositView).click()

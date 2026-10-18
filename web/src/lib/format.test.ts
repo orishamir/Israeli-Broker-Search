@@ -14,9 +14,9 @@ import {
 test('shekels are whole, with separators; compact ones fit chart labels', () => {
   expect(shekels(1_415_944.4)).toBe('₪1,415,944')
   expect(shekels(0)).toBe('₪0')
-  expect(compactShekels(1_415_944)).toBe('₪1.42M')
-  expect(compactShekels(889_000)).toBe('₪889K')
-  expect(compactShekels(42_000)).toBe('₪42K')
+  expect(compactShekels(1_415_944)).toBe('₪1.42\u00a0מיליון')
+  expect(compactShekels(889_000)).toBe('₪889\u00a0אלף')
+  expect(compactShekels(42_000)).toBe('₪42\u00a0אלף')
 })
 
 test('black on light colors, white on dark', () => {
@@ -27,7 +27,7 @@ test('black on light colors, white on dark', () => {
 test("a chart's time is in years and months", () => {
   expect(elapsed(0)).toBe('אחרי 0 שנים')
   expect(elapsed(1)).toBe('אחרי שנה')
-  expect(elapsed(15 + 5 / 12)).toBe('אחרי 15 שנים ו-5 חודשים')
+  expect(elapsed(15 + 5 / 12)).toBe('אחרי 15 שנה ו\u20115 חודשים')
   expect(elapsed(2 + 1 / 12)).toBe('אחרי שנתיים וחודש')
   expect(elapsed(3 + 2 / 12)).toBe('אחרי 3 שנים וחודשיים')
 })
@@ -51,12 +51,16 @@ test('labels side by side get the digits that tell them apart, and no more', () 
   // Lines ending ₪103,196, ₪102,930 and ₪103,188 all read "₪103K" at three
   // digits, and two still read "₪103.2K" at four.
   const short = compactShekelsApart([103_196, 102_930, 103_188])
-  expect([103_196, 102_930, 103_188].map(short)).toEqual(['₪103.20K', '₪102.93K', '₪103.19K'])
+  expect([103_196, 102_930, 103_188].map(short)).toEqual([
+    '₪103.20\u00a0אלף',
+    '₪102.93\u00a0אלף',
+    '₪103.19\u00a0אלף',
+  ])
   // Apart already at three: as compactShekels writes them.
   const apart = compactShekelsApart([1_415_944, 889_000])
-  expect([1_415_944, 889_000].map(apart)).toEqual(['₪1.42M', '₪889K'])
+  expect([1_415_944, 889_000].map(apart)).toEqual(['₪1.42\u00a0מיליון', '₪889\u00a0אלף'])
   // Equal amounts stay equal, rather than reaching for digits that can't help.
-  expect(compactShekelsApart([42_000, 42_000])(42_000)).toBe('₪42K')
+  expect(compactShekelsApart([42_000, 42_000])(42_000)).toBe('₪42\u00a0אלף')
   // Yearly costs: a decimal more where "0.11%" repeats.
   const costs = percentApart([0.112, 0.114, 0.98])
   expect([0.112, 0.114, 0.98].map(costs)).toEqual(['0.112%', '0.114%', '0.980%'])

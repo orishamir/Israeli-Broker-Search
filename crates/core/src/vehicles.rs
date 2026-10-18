@@ -67,7 +67,6 @@ impl Vehicle {
         Vehicle::Brokerage
     }
 
-    /// The law's rules for this vehicle.
     #[must_use]
     pub fn rules(self) -> Rules {
         let a_quarter_of_the_real_gain = GainsTax::OfRealGain(Percent(dec!(25)));

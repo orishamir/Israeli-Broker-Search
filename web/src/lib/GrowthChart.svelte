@@ -21,9 +21,7 @@
   const option = () =>
     growthOption({
       lines: results
-        .filter(
-          (result): result is Result & { outcome: OutcomeData; rank: number } => result.outcome !== undefined,
-        )
+        .filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined)
         .map(({ plan, outcome, rank }): Line => ({
           id: plan.id,
           label: plan.label,

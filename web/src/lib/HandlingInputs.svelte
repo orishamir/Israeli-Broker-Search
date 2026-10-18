@@ -33,7 +33,7 @@
         }
       />
     </div>
-    <span>{t.aMonth}</span>
+    <span>{t.perMonth}</span>
   </div>
   {#if fields.perMonth !== undefined}
     <label class="label" for="{id}-free">{t.freeFor}</label>

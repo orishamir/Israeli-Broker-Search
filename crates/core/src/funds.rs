@@ -198,7 +198,7 @@ pub fn income_tax_ordinance() -> Page {
     source(
         t(
             "The Income Tax Ordinance, sections 88 and 91 (Hebrew Wikisource)",
-            "פקודת מס הכנסה, סעיפים 88 ו-91 (ויקיטקסט)",
+            "פקודת מס הכנסה, סעיפים 88 ו\u{2011}91 (ויקיטקסט)",
         ),
         "https://he.wikisource.org/wiki/%D7%A4%D7%A7%D7%95%D7%93%D7%AA_%D7%9E%D7%A1_%D7%94%D7%9B%D7%A0%D7%A1%D7%94",
     )
@@ -335,7 +335,7 @@ pub fn investment_gemel() -> Broker {
              companies anyone can join, each fund counted by the money it holds. Your own fee \
              is what you agree with the company, which may give a discount: to compare with \
              yours, change a copy of this one.",
-            "מה שחוסכים בקופת גמל להשקעה משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קופה משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
+            "מה שחוסכים בקופת גמל להשקעה משלמים בממוצע, ב\u{2011}11 החברות שכל אחד יכול להצטרף אליהן, כשכל קופה משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::InvestmentGemel,
         fee(dec!(0.62), dec!(0)),
@@ -377,7 +377,7 @@ pub fn investment_gemel() -> Broker {
         ),
     );
     let legal_maximum = managed(
-        t("Legal maximum", "המקסימום המותר"),
+        t("Legal maximum", "דמי הניהול המרביים המותרים"),
         t(
             "The most the regulations let a fund take, from each deposit and from the \
              balance. A company may agree to less, and then can't raise the fee for two \
@@ -412,6 +412,7 @@ pub fn investment_gemel() -> Broker {
             "קופה שחברה מנהלת משקיעה עבורכם: אתם בוחרים מסלול השקעה ומפקידים, והחברה קונה ומוכרת. כל אחד יכול לפתוח קופה, ואפשר למשוך את הכסף בכל עת. המחשבון משווה את סוג הקופה, ולא כל חברה בנפרד: דמי הניהול נקבעים לכל חוסך בנפרד, והממוצעים של החברות קרובים זה לזה.",
         ),
         tariff_date: Some(DATA_OF),
+        latest_appendix: None,
         source_url: Some(gemel_net.url.clone()),
         caveats: vec![
             Caveat::published(t(
@@ -428,7 +429,7 @@ pub fn investment_gemel() -> Broker {
                      usual conversion factor. The insurer or pension fund the money moves to \
                      sets its own at retirement, by age, sex and terms: from about 189 to 214 \
                      in Bizportal's examples, so the pension may be about 5% more or 7% less.",
-                    "בקצבה, הסכום החודשי שמוצג הוא היתרה חלקי 200, מקדם המרה מקובל. חברת הביטוח או קרן הפנסיה שאליה עובר הכסף קובעת מקדם משלה בפרישה, לפי גיל, מין ותנאים: בדוגמאות של ביזפורטל בין כ-189 לכ-214, ולכן הקצבה עשויה להיות גבוהה בכ-5% או נמוכה בכ-7%.",
+                    "בקצבה, הסכום החודשי שמוצג הוא היתרה חלקי 200, מקדם המרה מקובל. חברת הביטוח או קרן הפנסיה שאליה עובר הכסף קובעת מקדם משלה בפרישה, לפי גיל, מין ותנאים: בדוגמאות של ביזפורטל בין כ\u{2011}189 לכ\u{2011}214, ולכן הקצבה עשויה להיות גבוהה בכ\u{2011}5% או נמוכה בכ\u{2011}7%.",
                 ),
                 t(
                     "Bizportal's examples of conversion factors",
@@ -440,7 +441,7 @@ pub fn investment_gemel() -> Broker {
                 "No more than ₪83,641 can be deposited in a calendar year (2026), in all of \
                  one person's funds together. The ceiling follows the price index every \
                  January.",
-                "אי אפשר להפקיד יותר מ-₪83,641 בשנה קלנדרית (2026), בכל הקופות של אותו אדם יחד. התקרה מתעדכנת לפי האינפלציה בכל ינואר.",
+                "אי אפשר להפקיד יותר מ\u{2011}₪83,641 בשנה קלנדרית (2026), בכל הקופות של אותו אדם יחד. התקרה מתעדכנת לפי האינפלציה בכל ינואר.",
             ))
             .source(&kol_zchut_fund()),
             earns_what_the_security_does(t("The fund", "הקופה")),
@@ -456,7 +457,7 @@ pub fn investment_gemel() -> Broker {
                 "In June 2026 a Finance Ministry committee recommended limiting the tax-free \
                  gain to ₪200,000 a saver. It isn't law, and the app counts the whole gain as \
                  tax-free.",
-                "ביוני 2026 המליצה ועדה במשרד האוצר להגביל את הרווח הפטור ממס ל-₪200,000 לחוסך. ההמלצה עדיין לא חוק, והמחשבון מחשיב את כל הרווח כפטור.",
+                "ביוני 2026 המליצה ועדה במשרד האוצר להגביל את הרווח הפטור ממס ל\u{2011}₪200,000 לחוסך. ההמלצה עדיין לא חוק, והמחשבון מחשיב את כל הרווח כפטור.",
             ))
             .sources(&[&globes_on_the_cap(), &bizportal_on_the_cap()]),
         ],
@@ -501,7 +502,7 @@ pub fn study_fund() -> Broker {
              join, each fund counted by the money it holds. Your own fee is what you agree \
              with the company, which may give a discount: to compare with yours, change a \
              copy of this one.",
-            "מה שחוסכים בקרן השתלמות משלמים בממוצע, ב-11 החברות שכל אחד יכול להצטרף אליהן, כשכל קרן משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
+            "מה שחוסכים בקרן השתלמות משלמים בממוצע, ב\u{2011}11 החברות שכל אחד יכול להצטרף אליהן, כשכל קרן משפיעה על הממוצע לפי כמות הכסף שבה. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::StudyFund,
         fee(dec!(0.61), dec!(0)),
@@ -543,7 +544,7 @@ pub fn study_fund() -> Broker {
         ),
     );
     let legal_maximum = managed(
-        t("Legal maximum", "המקסימום המותר"),
+        t("Legal maximum", "דמי הניהול המרביים המותרים"),
         t(
             "The most the regulations let a study fund take from the balance. A company may \
              agree to less.",
@@ -577,6 +578,7 @@ pub fn study_fund() -> Broker {
             "קרן שחברה מנהלת משקיעה עבורכם, והחיסכון היחיד לטווח של כמה שנים שהרווחים בו פטורים ממס. עצמאים יכולים לפתוח קרן ולהפקיד בה כרצונם. קרן של שכיר תלויה במעסיק, שמפקיד את רוב הכסף, ולכן היא לא חלופה לחשבון מסחר: המחשבון מחשב קרן של עצמאי.",
         ),
         tariff_date: Some(DATA_OF),
+        latest_appendix: None,
         source_url: Some(gemel_net.url.clone()),
         caveats: vec![
             Caveat::published(t(
@@ -584,7 +586,7 @@ pub fn study_fund() -> Broker {
                  The gains on up to ₪20,566 deposited a year (2026) aren't taxed; the gains on \
                  what's deposited beyond that are, by a quarter of what they are beyond the \
                  rise in prices, as at a broker.",
-                "שש שנים אחרי ההפקדה הראשונה אפשר למשוך את הכסף לכל מטרה. הרווחים על עד ₪20,566 שהופקדו בשנה (2026) פטורים ממס; על הרווחים ממה שהופקד מעבר לכך משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר.",
+                "6 שנים אחרי ההפקדה הראשונה אפשר למשוך את הכסף לכל מטרה. הרווחים על הפקדות של עד ₪20,566 בשנה (2026) פטורים ממס; על הרווחים ממה שהופקד מעבר לכך משלמים מס רווחי הון, 25% מהרווח שמעבר לאינפלציה, כמו בחשבון מסחר.",
             ))
             .source(&kol_zchut_study_fund_self_employed()),
             Caveat::not_counted(t(
@@ -710,6 +712,7 @@ pub fn savings_policy() -> Broker {
             "חברת ביטוח משקיעה עבורכם את הכסף במסלול השקעה שתבחרו, בדומה לקופת גמל להשקעה. למרות השם, אין בה ביטוח. אין תקרת הפקדה ואין קצבה בסוף, ומעבר לחברת ביטוח אחרת מחייב למשוך את הכסף ולשלם את המס.",
         ),
         tariff_date: Some(DATA_OF),
+        latest_appendix: None,
         source_url: Some(bituach_net.url.clone()),
         caveats: vec![
             Caveat::published(t(

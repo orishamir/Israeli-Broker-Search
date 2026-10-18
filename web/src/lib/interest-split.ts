@@ -24,7 +24,6 @@ const SURFACE = '#151820'
  * the saver's part touches the tax. */
 export const PART_COLORS = { yours: '#199e70', kept: '#9b7bf0', tax: '#d95926' }
 
-/** One place's bar. */
 export interface Split {
   id: string
   label: string
@@ -81,7 +80,6 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
     barGap: BAR_GAP,
     data: splits.map((split) => ({ value: value(split), itemStyle: { opacity: opacity(split.id) } })),
     color: PART_COLORS[id],
-    // A thin gap between the parts of a bar.
     itemStyle: { borderColor: SURFACE, borderWidth: 1 },
     // Amounts only where they fit; the saver's part is the total beside the bar.
     label: {
@@ -166,7 +164,6 @@ export function splitOption({ splits, atTheRate, pinned, width, measure }: Split
         emphasis: { disabled: true },
         label: {
           show: true,
-          // From where the bar starts.
           position: 'right',
           distance: 0,
           color: TEXT,

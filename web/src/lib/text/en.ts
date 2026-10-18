@@ -26,7 +26,7 @@ export const en = {
   lostAndYearly: (lost: string, yearly: string) => `${lost} lost to fees · ${yearly} a year`,
   yearlyAndLost: (yearly: string, lost: string) => `${yearly} a year · ${lost} lost to fees`,
   /** Under the best plan's amount: what it is, and the tax it's after. */
-  leftAfter: (tax: string | undefined) => (tax ? `left after ${tax} of tax` : 'left, with no tax to pay'),
+  leftAfter: (tax: string | undefined) => (tax ? `after ${tax} of tax` : 'with no tax'),
   // The best plan at other values of the deposit the chart by deposit varies.
   cheapestThroughout: (from: string, to: string, swept: Swept) =>
     swept === 'Monthly'
@@ -53,15 +53,16 @@ export const en = {
   leftAfterTax: 'Left after tax',
   leftAfterTaxTip:
     'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
-  yearlyCost: 'Yearly fees',
+  underAHundredth: 'less than 0.01%',
+  yearlyCost: 'Fees, as a yearly %',
   yearlyCostTip:
     'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, which a fund’s fee does. 100% when nothing is left.',
   spreadBetween: (low: string, lowName: string, high: string, highName: string) =>
     `From ${low} (${lowName}) to ${high} (${highName})`,
   spreadAtMost: (name: string, amount: string) => `${name}: ${amount}`,
-  assumptions: (yearly: string, inflation: string, selling: boolean) =>
+  assumptions: (yearly: string, inflation: string, selling: boolean, pension: boolean) =>
     selling
-      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain`
+      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain${pension ? '; a fund taken as a pension: no tax' : ''}`
       : `Assuming a return of ${yearly} a year and inflation of ${inflation}, with nothing sold and no tax`,
   shortAssumptions: (rate: string, inflation: string) =>
     `Assuming the Bank of Israel's rate is ${rate} on average and inflation is ${inflation}`,
@@ -81,8 +82,14 @@ export const en = {
     `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year). What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
   noTax: 'none',
   feesPaid: 'Fees paid',
-  feesPaidTip: (selling: boolean) =>
-    `Every fee charged: purchases, conversions, keeping the account or a fund's management fee${selling ? ', and selling at the end' : ''}. Over 20 years of buying every month, that is 240 purchases and, abroad, 240 conversions.`,
+  /** `buying`: the monthly purchases, if there are any. */
+  feesPaidTip: (selling: boolean, buying?: { years: number; everyMonths: number; abroad: boolean }) => {
+    const all = `Every fee charged: purchases, conversions, keeping the account or a fund's management fee${selling ? ', and selling at the end' : ''}.`
+    if (!buying) return all
+    const { years, everyMonths, abroad } = buying
+    const count = Math.floor((years * 12) / everyMonths)
+    return `${all} Buying every ${everyMonths === 1 ? 'month' : `${everyMonths} months`} for ${years} years, that is up to ${count} purchases${abroad ? ` and up to ${count} conversions` : ''}.`
+  },
   valueHeld: 'Value held',
   valueHeldTip: 'What the investment is worth at the end, without selling.',
   inTodaysMoneyNote: ' In today’s money: divided by how much prices will have risen by then.',
@@ -92,11 +99,13 @@ export const en = {
   overTheCeiling: 'Your deposits are over its yearly ceiling',
   theCeiling: 'The ceiling',
   stillLocked: 'Its money is still locked when your years are up',
+  priceUnclear: "Not worked out: the tariff's price is unclear",
+  notWorkedOut: 'Not worked out',
   theLock: 'The lock',
 
   // The charts
   chart: 'Chart',
-  valueView: 'Value',
+  valueView: 'Portfolio value',
   valueViewTip: 'What each plan is worth, year by year, before selling.',
   lostView: 'Lost to fees',
   lostViewTip:
@@ -118,6 +127,7 @@ export const en = {
   you: (deposit: string) => `You: ${deposit}`,
   depositAMonth: 'Deposit a month',
   oneTimeDeposit: 'One-time deposit',
+  perMonth: 'a month',
   aMonth: 'a month',
   aYear: 'a year',
   atOnce: 'at once',
@@ -144,7 +154,7 @@ export const en = {
   compareBy: 'Compare the plans by',
   barsAria: 'Fees paid by each plan over the whole period, by kind',
   yearByYear: 'Year by year:',
-  hoverOrPin: '· hover or pin another plan to see it',
+  hoverOrPin: '. To see another plan, hover over it or pin it.',
   tapAnotherBar: "· tap another plan's bar to see it",
   overTimeAria: (label: string) => `${label}'s fees piling up year by year, by kind`,
 
@@ -191,9 +201,11 @@ export const en = {
   yearlyReturn: 'Yearly return',
   yearlyReturnTip:
     'How much the security grows a year, in its own currency. The S&P 500 has averaged about 10%; a bond grows by its interest, say 4%.',
-  sharePrice: 'Share price',
-  sharePriceTip:
-    "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return.",
+  sharePrice: (stock: boolean): string => (stock ? 'Share price' : 'Unit price'),
+  sharePriceTip: (stock: boolean): string =>
+    stock
+      ? "Today's price of one share. Most brokers sell whole shares only, so a deposit too small for a share waits for the next purchase: at $500 a share, a ₪2,000 deposit buys one share and the rest waits. It grows with the yearly return."
+      : "Today's price of one unit of the fund or the bond. Most brokers sell whole units only, so a deposit too small for a unit waits for the next purchase: at $500 a unit, a ₪2,000 deposit buys one unit and the rest waits. It grows with the yearly return.",
   inflation: 'Inflation',
   inflationTip:
     "How much prices rise a year. Tax is paid only on the gain beyond it, so a higher inflation means less tax. Israel's target is 1–3%, and the app starts from its middle.",
@@ -206,7 +218,7 @@ export const en = {
   sell: 'Sell',
   sellTip:
     'Everything is sold at the end and, abroad, converted back to shekels: one more trade fee and one more conversion. The table ranks by what that leaves after tax.',
-  keep: 'Keep',
+  keep: 'Hold',
   keepTip:
     "Nothing is sold: the table ranks by what the holdings are worth, and nothing is paid for selling or as tax. For money you'll draw on slowly, or pass on.",
   whatsCompared: "What's compared",
@@ -217,6 +229,7 @@ export const en = {
   addOrRemove: 'Add or remove',
   comparedOf: (count: number, total: number) => `${count} of ${total} plans`,
   doneComparing: (count: number) => `Done · ${count} compared`,
+  placesOf: (count: number, total: number) => `${count} of ${total} places`,
   countOf: (count: number, total: number) => `${count} of ${total}`,
   banksAndHouses: 'Banks and investment houses',
   banksAndHousesTip:
@@ -229,7 +242,7 @@ export const en = {
     `A provident fund for investment can be taken all at once, like selling at a broker, or from the age of ${age} as a monthly pension, which isn't taxed. A broker, a study fund and a savings policy pay no pension: for them nothing changes.`,
   allAtOnce: 'All at once',
   allAtOnceTip: 'Everything is taken out when the years are up, and the gain is taxed.',
-  asAPension: 'As a pension',
+  asAPension: 'As an annuity',
   asAPensionTip: (age: number) =>
     `From ${age}, the money in a provident fund for investment can move to a fund that pays a monthly pension: the gain isn't taxed, and neither is the pension. The table counts what is moved.`,
   yourAge: 'Your age today',
@@ -238,7 +251,7 @@ export const en = {
     `You'd be ${then} at the end: old enough for the pension, which opens at ${from}.`,
   tooYoung: (then: number, from: number) =>
     `You'd be ${then} at the end. The pension opens at ${from}, so the fund is taxed as if taken all at once.`,
-  usual: 'usual',
+  usual: 'for a new customer',
   mayCostMoreAt: (broker: string) => `May cost more at ${broker}: see why`,
   about: (name: string) => `About ${name}`,
   changeACopy: (label: string) => `Change a copy of ${label}'s fees`,
@@ -262,7 +275,7 @@ export const en = {
 
   // Names in the other language
   inEnglish: 'In English',
-  alsoCalled: 'Also called',
+  alsoCalled: (count: number): string => (count === 1 ? 'Also called' : 'Other names'),
   whatMeans: (about: string) => `What “${about}” means`,
   why: 'Why:',
   sources: 'Sources',
@@ -311,6 +324,7 @@ export const en = {
   broker: 'Broker',
   optional: 'optional',
   cancel: 'Cancel',
+  saveTheCopy: 'Save the copy',
   addPlan: 'Add plan',
   deleteQuestion: (name: string) => `Delete “${name}”?`,
   delete: 'Delete',
@@ -403,6 +417,7 @@ export const en = {
   noRate: 'no rate for these months',
   monthlyNotForDeposits: "A fixed-rate deposit takes one sum: with money every month, it isn't compared.",
   mayLeaveLess: (name: string) => `${name}: may leave you less. Why?`,
+  whatItCharges: 'What it charges',
   whatItPays: 'What it pays',
   ratesByTerm: 'Its rates, by how long the deposit is',
   yourRateIs: (rate: string) => `The rate you typed: ${rate} a year, for any term.`,
@@ -425,7 +440,8 @@ export const en = {
     'What you end up with, and what the table is ranked by: what you put in, with what it earned in the deposit or the fund (after the fund’s fee), less the tax.',
   costYearly: 'Cost a year',
   costYearlyTip:
-    "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. Below zero, the bank pays more than the rate.",
+    "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. A bank paying more than the rate is marked \"above the rate\".",
+  aboveTheRate: (rate: string) => `${rate} above the rate`,
   shortTaxTip: (inflation: string) =>
     `A deposit pays 15% of all its interest. A fund pays 25% of its gain beyond inflation (${inflation} a year), when it's sold.`,
   whenOut: 'When it can come out',

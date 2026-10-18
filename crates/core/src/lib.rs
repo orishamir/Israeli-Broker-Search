@@ -445,7 +445,6 @@ pub struct PercentFee {
 }
 
 impl PercentFee {
-    /// Never charges anything.
     pub const FREE: PercentFee = PercentFee {
         percent: Percent(Decimal::ZERO),
         min: None,
@@ -459,7 +458,6 @@ impl PercentFee {
         clamp(fee, self.min, self.max, rates)
     }
 
-    /// True if it never charges anything.
     #[must_use]
     pub fn is_free(&self) -> bool {
         self.percent.is_zero() && self.min.is_none_or(|min| min.is_zero())
@@ -633,6 +631,12 @@ pub struct Track {
     pub name: Text,
     /// Trade rows used before the plan's own, for what they cover.
     pub trading: Vec<TradeFee>,
+    /// It adds a fee that isn't published, so its price leaves part out
+    /// (Excellence's "0.3% plus the broker's fee"): it's picked only where
+    /// no track priced in full prices the trade, or it would win by what's
+    /// missing. Saved before there was such a track, a plan has none.
+    #[serde(default)]
+    pub leaves_out_a_fee: bool,
 }
 
 /// A fee for keeping the account, charged every month (Dmei Tipul): "₪15 a
@@ -1089,6 +1093,10 @@ pub struct Broker {
     /// The date on the tariff document the numbers came from, if it has one.
     /// Tariffs change several times a year, so keep it next to the numbers.
     pub tariff_date: Option<TariffDate>,
+    /// The newest appendix the prices come from, where it's later than the
+    /// tariff itself: Mizrahi-Tefahot's online and young customers' prices.
+    #[serde(default)]
+    pub latest_appendix: Option<TariffDate>,
     /// Where the tariff document can be read online.
     #[serde(default)]
     pub source_url: Option<String>,

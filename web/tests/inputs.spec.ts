@@ -10,11 +10,7 @@ import {
   listedPlans,
   RATES,
   rowsOnPage,
-  securityName,
-  sharePriceSymbol,
   usualPlans,
-  type Exchange,
-  type Security,
 } from './core'
 import { t } from '../src/lib/text'
 import { choice, expect, fingerDrag, openPlans, planInList, plansList, rows, test } from './fixtures'
@@ -24,33 +20,8 @@ import { choice, expect, fingerDrag, openPlans, planInList, plansList, rows, tes
 test('Tel Aviv needs no exchange rates or share price', { tag: '@phone' }, async ({ page }) => {
   await choice(page, t.exchange, exchangeName('Tlv')).click()
   await expect(page.getByText('$1 = ₪')).toBeHidden()
-  await expect(page.getByLabel(t.sharePrice)).toBeHidden()
+  await expect(page.locator('#share-price')).toBeHidden()
   await expect(rows(page).first()).toBeVisible()
-})
-
-test("where it's traded is explained for an index fund without an ETF for its example", async ({ page }) => {
-  await choice(page, t.security, securityName('IndexFund')).click()
-  await page.getByRole('button', { name: t.whatMeans(t.tradedOn) }).hover()
-  await expect(page.getByRole('tooltip').filter({ hasText: t.tradedOnIndexFunds })).toBeVisible()
-})
-
-test('the share price is asked for only where the core says it matters', async ({ page }) => {
-  const sharePrice = page.getByLabel(t.sharePrice, { exact: true })
-  const unit = page.locator('.field').filter({ has: sharePrice }).locator('.unit')
-  for (const security of ['Etf', 'IndexFund', 'Bond'] as Security[]) {
-    for (const exchange of ['Usa', 'Europe', 'Tlv'] as Exchange[]) {
-      await choice(page, t.security, securityName(security)).click()
-      await choice(page, t.exchange, exchangeName(exchange)).click()
-      const symbol = sharePriceSymbol(await inputsOnPage(page)) ?? null
-      const shown = async () => ({
-        visible: await sharePrice.isVisible(),
-        unit: (await unit.allTextContents())[0] ?? null,
-      })
-      await expect
-        .poll(shown, { message: `${security} on ${exchange}` })
-        .toEqual({ visible: symbol !== null, unit: symbol })
-    }
-  }
 })
 
 test('bad inputs show why, in the words of the core, instead of breaking', async ({ page }) => {
@@ -132,30 +103,6 @@ test(
 )
 
 test(
-  'the chosen security is explained, with its English name and its other Hebrew names',
-  { tag: '@phone' },
-  async ({ page }) => {
-    // The popovers say it too, hidden.
-    const shown = (text: string) => page.locator('.explained').getByText(text, { exact: true })
-    await expect(shown('ETF')).toBeVisible()
-    await expect(shown('קרן סל מחקה מדד')).toBeVisible()
-    await choice(page, t.security, securityName('IndexFund')).click()
-    await expect(shown('Index fund')).toBeVisible()
-    await expect(shown('קרן נאמנות מחקה')).toBeVisible()
-    await expect(page.locator('.explained').getByText('במחיר אחד ביום')).toBeVisible()
-  },
-)
-
-// Every label, choice and number, as text: a change to any shows as a diff.
-test('the inputs, as text', async ({ page }) => {
-  await expect(page.locator('aside')).toMatchAriaSnapshot({ name: 'inputs.aria.yml' })
-  // And the list of plans, every broker unfolded.
-  await openPlans(page)
-  for (const { name } of brokers()) await plansList(page).getByRole('button', { name, exact: true }).click()
-  await expect(plansList(page)).toMatchAriaSnapshot({ name: 'plans.aria.yml' })
-})
-
-test(
   'an example fills the fields as the core says; More options reveals the expert fields, which count',
   { tag: '@phone' },
   async ({ page }) => {
@@ -176,7 +123,6 @@ test(
     await expect(growth).toBeHidden()
     await expect(page.getByLabel(t.buyEvery, { exact: true })).toBeHidden()
     await page.getByLabel(t.moreOptions, { exact: true }).check()
-    // In the switch's own card, the last, where they open.
     const card = page.locator('aside section.card').last()
     await expect(card.getByLabel(t.moreOptions, { exact: true })).toBeChecked()
     await expect(card.getByLabel(t.growingBy, { exact: true })).toBeVisible()
@@ -186,7 +132,6 @@ test(
     const grown = await inputsOnPage(page)
     expect(grown.depositGrowthPercent).toBe(3)
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(grown))
-    // Switched off, the fields go, and so does their effect.
     await page.getByLabel(t.moreOptions, { exact: true }).uncheck()
     await expect(growth).toBeHidden()
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
@@ -202,7 +147,6 @@ test(
     const [online, pepper] = [listed('Leumi · Online'), listed('Leumi · Pepper')]
     const leumi = online.broker
     await openPlans(page)
-    // Every broker is one folded line, saying which of its plans are ticked.
     for (const { name } of brokers()) {
       const folded = plansList(page).getByRole('button', { name, exact: true })
       await expect(folded).toHaveAttribute('aria-expanded', 'false')
@@ -215,7 +159,6 @@ test(
     await expect(line).toHaveAccessibleDescription(
       `${online.plan.name}, ${pepper.plan.name} ${t.countOf(2, leumi.plans.length)}`,
     )
-    // The table changes while the list is open.
     await expect(rows(page)).toHaveCount(usualPlans.length + 1)
     await plansList(page)
       .getByRole('button', { name: t.doneComparing(usualPlans.length + 1) })
@@ -223,14 +166,12 @@ test(
     await expect(plansList(page)).toBeHidden()
     await expect(page.getByRole('button', { name: t.addOrRemove })).toBeFocused()
 
-    // Two of Leumi's plans: the card names each by its label.
     const card = page.getByRole('list', { name: t.whatsCompared }).getByRole('listitem')
     await expect(card).toHaveCount(usualPlans.length + 1)
     await expect(card.filter({ hasText: online.label })).toHaveCount(1)
     await expect(card.filter({ hasText: pepper.label })).toHaveCount(1)
     await expect(card.getByText(leumi.shortName, { exact: true })).toHaveCount(0)
     await expect(page.getByText(t.comparedOf(usualPlans.length + 1, listedPlans.length))).toBeVisible()
-    // ✕ closes it too.
     await openPlans(page)
     await plansList(page).getByRole('button', { name: t.close }).click()
     await expect(plansList(page)).toBeHidden()

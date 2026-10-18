@@ -66,7 +66,7 @@ pub fn us_estate_tax() -> Caveat {
          registered in the US, the US taxes your estate on them, at up to 40%, and Israel has \
          no estate-tax treaty with the US. ETFs registered in Ireland, traded in Tel Aviv or in \
          Europe, aren't US assets. It isn't counted: the estate pays it, not a sale.",
-        "מי שנפטר כשיש לו יותר מ\u{2011}$60,000 בניירות ערך אמריקאיים, כמו קרן סל או מניה שרשומות בארה״ב, ארה״ב גובה מס עיזבון עליהם, עד 40%, ולישראל אין עם ארה״ב אמנה למס עיזבון. קרנות סל שרשומות באירלנד, שנסחרות בתל אביב או באירופה, אינן נכס אמריקאי. המחשבון לא סופר אותו: הוא משולם מהעיזבון, ולא במכירה.",
+        "על ניירות ערך אמריקאיים (כמו קרן סל או מניה שרשומות בארה״ב) של מי שנפטר והחזיק בהם יותר מ\u{2011}$60,000, ארה״ב גובה מס עיזבון של עד 40%; לישראל אין איתה אמנה למס עיזבון. קרנות סל שרשומות באירלנד, גם כשהן נסחרות בתל אביב או באירופה, לא חייבות במס הזה. המחשבון לא כולל אותו, כי הוא משולם מהעיזבון ולא במכירה.",
     ))
     .about(&[Etf, IndexFund, Stock])
     .on(&[Usa])
@@ -276,12 +276,13 @@ fn typical_offer_caveat(broker: &Text, sites: &str, offer_pages: &[&Page]) -> Ca
     Caveat::reading(
         Text::owned(
             format!(
-                "Not published by {}: the terms comparison sites list for joining \
-                 ({sites}, September 2026). Ask for them when you open the account.",
+                "Mostly not published by {}: the terms comparison sites list for joining \
+                 ({sites}, September 2026); what it does publish is marked \u{201c}as \
+                 published\u{201d}. Ask for them when you open the account.",
                 broker.en
             ),
             format!(
-                "לא פורסם על ידי {}: התנאים שאתרי ההשוואה מציגים למצטרפים ({sites}, ספטמבר 2026). בקשו אותם בפתיחת החשבון.",
+                "רוב התנאים לא פורסמו על ידי {}: אלה התנאים שאתרי ההשוואה מציגים למצטרפים ({sites}, ספטמבר 2026), ומה שהיא כן מפרסמת מסומן ״כפי שפורסם״. בקשו אותם בפתיחת החשבון.",
                 broker.he
             ),
         ),
@@ -305,7 +306,7 @@ fn not_in_the_offer(text: Text) -> Caveat {
 fn handling_less_trade_fees_caveat(support: Text, sources: &[&Page]) -> Caveat {
     Caveat::reading(
         t("The month's trade fees are taken off the ₪15, so a month that pays ₪15 or more \
-         in them pays nothing for the account.", "עמלות המסחר של החודש מקוזזות מה-₪15, כך שבחודש שבו שולמו ₪15 או יותר בעמלות מסחר לא משלמים על החשבון דבר."),
+         in them pays nothing for the account.", "עמלות המסחר של החודש מקוזזות מה\u{2011}₪15, כך שבחודש שבו שולמו ₪15 או יותר בעמלות מסחר לא משלמים על החשבון דבר."),
         support,
     )
     .about_fee(FeeKind::Account)
@@ -320,7 +321,7 @@ fn only_the_monthly_fee_in_the_offer(text: Text, sources: &[&Page]) -> Caveat {
         text,
         t("the comparison sites list a holding cost wherever there is one (\u{201c}plus \
          custody\u{201d} for the banks), and the ₪15 a month is the only one they list \
-         for the offer", "אתרי ההשוואה מציינים עלות החזקה בכל מקום שיש כזו (״בתוספת דמי משמרת״ אצל הבנקים), ו-₪15 לחודש הם העלות היחידה שהם מציינים למבצע"),
+         for the offer", "אתרי ההשוואה מציינים עלות החזקה בכל מקום שיש כזו (״בתוספת דמי משמרת״ אצל הבנקים), ו\u{2011}₪15 לחודש הם העלות היחידה שהם מציינים למבצע"),
     )
     .about_fee(FeeKind::Account)
     .sources(sources)
@@ -379,16 +380,18 @@ pub fn altshuler() -> Broker {
         // Tariff 4(a)(7)(a): US stocks and ETFs on one of three tracks.
         tracks: vec![
             Track {
-                name: t("1¢ a share", "1¢ למניה"),
+                name: t("1¢ a share", "$0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
                     per_share(usd(dec!(0.01)), usd(dec!(9))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("$11 per order", "$11 לפקודה"),
                 trading: vec![trade(&[Stock, Etf], &[Usa], Price::Flat(usd(dec!(11))))],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.15%", "0.15%"),
@@ -397,6 +400,7 @@ pub fn altshuler() -> Broker {
                     &[Usa],
                     percent(dec!(0.15), Some(usd(dec!(9)))),
                 )],
+                leaves_out_a_fee: false,
             },
         ],
         standing_orders: vec![],
@@ -417,7 +421,7 @@ pub fn altshuler() -> Broker {
         caveats: vec![
             Caveat::at_most(
                 t("A \"periodic management fee\" of up to ₪80 a month is listed, without saying \
-                 when it applies; the full ₪80 is assumed.", "״דמי ניהול תקופתיים״ של עד ₪80 לחודש מופיעים בתעריפון בלי לומר מתי הם חלים; המחשבון לוקח את מלוא ה-₪80."),
+                 when it applies; the full ₪80 is assumed.", "״דמי ניהול תקופתיים״ של עד ₪80 לחודש מופיעים בתעריפון בלי לומר מתי הם חלים; המחשבון לוקח את מלוא ה\u{2011}₪80."),
             )
             .about_fee(FeeKind::Account),
             Caveat::reading(
@@ -434,7 +438,7 @@ pub fn altshuler() -> Broker {
     // rules). Anything it doesn't mention is priced as the full tariff,
     // which its fine print refers to.
     let new_customers = Plan {
-        name: t("New customers", "לקוחות חדשים"),
+        name: t("New customers", "מבצע הצטרפות"),
         description: t(
             "Altshuler's offer for opening a new account with at least ₪5,000. It has no \
              end date.",
@@ -471,7 +475,7 @@ pub fn altshuler() -> Broker {
         caveats: vec![
             Caveat::published(
                 t("The 0.07% is for index funds (קרנות\u{a0}מחקות); active and money-market \
-                 funds cost nothing to trade.", "ה-0.07% חל על קרנות מחקות; קרנות אקטיביות וקרנות כספיות נסחרות ללא עמלה."),
+                 funds cost nothing to trade.", "ה\u{2011}0.07% חל על קרנות מחקות; קרנות אקטיביות וקרנות כספיות נסחרות ללא עמלה."),
             )
             .about_fee(FeeKind::Trade)
             .about(&[IndexFund])
@@ -519,8 +523,9 @@ pub fn altshuler() -> Broker {
         compared_at_first: true,
         description: t("An investment house's trading platform, not a bank. Its full tariff \
                       has three tracks for US stocks and ETFs; new customers get a cheaper \
-                      offer instead.", "פלטפורמת המסחר של בית השקעות, לא בנק. בתעריפון המלא שלו שלוש שיטות חיוב למניות וקרנות סל בארה״ב; לקוחות חדשים מקבלים במקום זאת מבצע זול יותר."),
+                      offer instead.", "פלטפורמת המסחר של בית השקעות, לא בנק. בתעריפון המלא שלה שלוש שיטות חיוב למניות וקרנות סל בארה״ב; לקוחות חדשים מקבלים במקום זאת מבצע זול יותר."),
         tariff_date: None, // not stated in the PDF
+        latest_appendix: None,
         source_url: Some(
             "https://www.as-invest.co.il/media/oqdfpafo/\
              %D7%AA%D7%A2%D7%A8%D7%99%D7%A4%D7%95%D7%9F-%D7%9E%D7%9C%D7%90-\
@@ -532,10 +537,10 @@ pub fn altshuler() -> Broker {
             Caveat::reading(
                 t("The tariff says the conversion markup is up to 0.7%, and 0.7% is what it \
                  charges: no fee, and the rate shown when converting includes the markup, \
-                 as its site says.", "התעריפון אומר שמרווח ההמרה הוא עד 0.7%, ו-0.7% הוא מה שנגבה בפועל: ללא עמלה, והשער המוצג בהמרה כולל את המרווח, כפי שאתר החברה אומר."),
+                 as its site says.", "התעריפון אומר שמרווח ההמרה הוא עד 0.7%, ו\u{2011}0.7% הוא מה שנגבה בפועל: ללא עמלה, והשער המוצג בהמרה כולל את המרווח, כפי שאתר החברה אומר."),
                 t("tradingil.co.il's comparison of conversion costs lists Altshuler's markup \
                  as 0.7% (September 2026), and Altshuler's currency page says the shown \
-                 rate is final, the market's rate plus the markup, with no fee", "השוואת עלויות ההמרה באתר tradingil.co.il מציינת את המרווח של אלטשולר כ-0.7% (ספטמבר 2026), ועמוד המט״ח של אלטשולר אומר שהשער המוצג סופי: שער השוק בתוספת המרווח, ללא עמלה"),
+                 rate is final, the market's rate plus the markup, with no fee", "השוואת עלויות ההמרה באתר tradingil.co.il מציינת את המרווח של אלטשולר כ\u{2011}0.7% (ספטמבר 2026), ועמוד המט״ח של אלטשולר אומר שהשער המוצג סופי: שער השוק בתוספת המרווח, ללא עמלה"),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -579,10 +584,10 @@ pub fn leumi() -> Broker {
             t("Leumi converts at its published transfers-and-checks rate, about 0.9% from \
              the representative rate each way: a conversion markup of up to 0.9%, on top \
              of the fee. A rate agreed live in the app during trading hours may be a \
-             little better.", "לאומי ממיר לפי שער ההעברות והשקים שהוא מפרסם, כ-0.9% מהשער היציג לכל כיוון: מרווח המרה של עד 0.9%, בנוסף לעמלה. שער שנסגר באפליקציה בזמן אמת בשעות המסחר עשוי להיות מעט טוב יותר."),
+             little better.", "לאומי ממיר לפי שער ההעברות והשקים שהוא מפרסם, כ\u{2011}0.9% מהשער היציג לכל כיוון: מרווח המרה של עד 0.9%, בנוסף לעמלה. שער שנסגר באפליקציה בזמן אמת בשעות המסחר עשוי להיות מעט טוב יותר."),
             t("Leumi's exchange rates for 28 September 2026: it bought dollars at ₪3.0395 \
              and sold them at ₪3.0960 against a representative ₪3.0660 (0.86% under and \
-             0.98% over), and euros at ₪3.4575 and ₪3.5218 against ₪3.4877", "שערי לאומי ל-28 בספטמבר 2026: קנה דולרים ב-₪3.0395 ומכר ב-₪3.0960 לעומת שער יציג של ₪3.0660 (0.86% מתחת ו-0.98% מעל), ואירו ב-₪3.4575 ו-₪3.5218 לעומת ₪3.4877"),
+             0.98% over), and euros at ₪3.4575 and ₪3.5218 against ₪3.4877", "שערי לאומי ל\u{2011}28 בספטמבר 2026: מי שקנה דולרים שילם ₪3.0960, ומי שמכר קיבל ₪3.0395, לעומת שער יציג של ₪3.0660 (0.98% מעל ו\u{2011}0.86% מתחת); באירו, ₪3.5218 בקנייה ו\u{2011}₪3.4575 במכירה, לעומת ₪3.4877"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])
@@ -706,7 +711,7 @@ pub fn leumi() -> Broker {
                 t("the group's price is 0.35% with the branch's bounds (at least ₪27, at most \
                  ₪7,000), and the tariff's first page gives each fee the better of the \
                  group's and the online price; the better of those two is within ₪1 of \
-                 this on any order", "מחיר הקבוצה הוא 0.35% עם גבולות הסניף (מינימום ₪27, מקסימום ₪7,000), והעמוד הראשון בתעריפון נותן לכל עמלה את הטוב מבין מחיר הקבוצה ומחיר אונליין; הטוב מבין השניים נמצא בטווח של ₪1 מזה בכל פקודה"),
+                 this on any order", "מחיר הקבוצה הוא 0.35% עם גבולות הסניף (מינימום ₪27, מקסימום ₪7,000), והעמוד הראשון בתעריפון נותן לכל עמלה את הזול מבין מחיר הקבוצה ומחיר אונליין. המחיר במחשבון רחוק מהזול מבין השניים ב\u{2011}₪1 לכל היותר בכל פקודה"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Bond])
@@ -729,10 +734,7 @@ pub fn leumi() -> Broker {
     // compared with buying the same funds by one-off orders. The note is
     // only about buying: selling costs what it does on Online.
     let standing_order = Plan {
-        name: t(
-            "Online, monthly standing order",
-            "אונליין, הוראת קבע חודשית",
-        ),
+        name: t("Online, monthly standing order", "אונליין, הוראת קבע"),
         description: t(
             "Not a separate account: an Online customer buying Tel Aviv index funds by \
              monthly standing order, which the tariff prices lower. Everything else is \
@@ -820,7 +822,7 @@ pub fn leumi() -> Broker {
             .source(&pepper_site),
             Caveat::reading(
                 t("Pepper's ₪4 row names stocks, T-bills and bonds; ETFs are taken to be \
-                 included.", "שורת ה-₪4 של פפר מונה מניות, מק״מ ואג״ח; הבנו שגם קרנות סל נכללות."),
+                 included.", "שורת ה\u{2011}₪4 של פפר מונה מניות, מק״מ ואג״ח; הבנו שגם קרנות סל נכללות."),
                 t("the tariff's own \u{201c}stocks and bonds\u{201d} row counts ETFs and index \
                  funds in (part 4, footnote 4), and Pepper's row uses the same words", "שורת ״מניות ואג״ח״ של התעריפון עצמו כוללת קרנות סל וקרנות מחקות (חלק 4, הערה 4), ושורת פפר משתמשת באותן מילים"),
             )
@@ -830,7 +832,7 @@ pub fn leumi() -> Broker {
             .source(&tariff),
             Caveat::at_most(
                 t("Pepper's ₪4 covers stocks, T-bills and bonds. Index funds on Tel Aviv \
-                 aren't mentioned, so they're given the Online price.", "ה-₪4 של פפר חלים על מניות, מק״מ ואג״ח. קרנות מחקות בתל אביב לא מוזכרות, ולכן הן מתומחרות כמו באונליין."),
+                 aren't mentioned, so they're given the Online price.", "ה\u{2011}₪4 של פפר חלים על מניות, מק״מ ואג״ח. קרנות מחקות בתל אביב לא מוזכרות, ולכן הן מתומחרות כמו באונליין."),
             )
             .about_fee(FeeKind::Trade)
             .about(&[IndexFund])
@@ -873,6 +875,7 @@ pub fn leumi() -> Broker {
             "מהבנקים הגדולים בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (אונליין בלאומי טרייד, או בסניף), בקבוצות לקוחות ובאפליקציית פפר, ולכן יש לו כאן כמה מסלולים.",
         ),
         tariff_date: Some(TariffDate::Day(date!(2026 - 10 - 01))),
+        latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, plus18, standing_order, pepper],
@@ -913,20 +916,23 @@ pub fn excellence() -> Broker {
     let us_tracks = |securities: &[Security]| {
         vec![
             Track {
-                name: t("3¢ a share", "3¢ למניה"),
+                name: t("3¢ a share", "$0.03 למניה"),
                 trading: vec![trade(
                     securities,
                     &[Usa],
                     per_share(usd(dec!(0.03)), usd(dec!(8))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("$11 per order", "$11 לפקודה"),
                 trading: vec![trade(securities, &[Usa], Price::Flat(usd(dec!(11))))],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.3% plus the broker's fee", "0.3% ועוד עמלת הברוקר בחו״ל"),
                 trading: vec![trade(securities, &[Usa], percent(dec!(0.3), None))],
+                leaves_out_a_fee: true,
             },
         ]
     };
@@ -974,20 +980,21 @@ pub fn excellence() -> Broker {
         min_first_deposit: None,
         caveats: vec![
             Caveat::not_counted(
-                t("US trades cost at most 2% of their value; the 0.3% track adds the broker's \
-                 fee, which isn't included.", "עסקאות בארה״ב עולות לכל היותר 2% משוויין; שיטת החיוב של 0.3% מוסיפה את עמלת הברוקר בחו״ל, שלא נכללה."),
+                t("US trades cost at most 2% of their value; the 0.3% track adds the foreign \
+                 broker's fee, which isn't published, so it's used only where no other track \
+                 prices the trade.", "עסקאות בארה״ב עולות לכל היותר 2% משוויין; שיטת החיוב של 0.3% מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת."),
             )
             .about_fee(FeeKind::Trade)
             .on(&[Usa]),
             Caveat::at_most(
                 t("Accounts that hold assets rather than trade actively may be charged 0.1% a \
-                 quarter for custody instead; the general 0.6% is used.", "חשבונות שמחזיקים נכסים ולא סוחרים באופן פעיל עשויים לשלם במקום זאת דמי משמרת של 0.1% לרבעון; המחשבון לוקח את ה-0.6% הרגילים."),
+                 quarter for custody instead; the general 0.6% is used.", "חשבונות שמחזיקים נכסים ולא סוחרים באופן פעיל עשויים לשלם במקום זאת דמי משמרת של 0.1% לרבעון; המחשבון לוקח את ה\u{2011}0.6% הרגילים."),
             )
             .about_fee(FeeKind::Account),
             Caveat::published(
                 t("The tariff leaves the conversion markup to each customer's agreement; \
                  Excellence's site puts it at 2 agorot a dollar, at most ₪200 on $10,000, \
-                 which is used.", "התעריפון משאיר את מרווח ההמרה להסכם עם כל לקוח; אתר אקסלנס מציין 2 אגורות לדולר, לכל היותר ₪200 על $10,000, וזה המחיר שבמחשבון."),
+                 which is used.", "התעריפון משאיר את מרווח ההמרה להסכם עם כל לקוח; אתר אקסלנס מציין ₪0.02 לדולר, לכל היותר ₪200 על $10,000, וזה המחיר שבמחשבון."),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -995,7 +1002,7 @@ pub fn excellence() -> Broker {
             Caveat::at_most(
                 t("The tariff's 0.1% conversion fee is charged on top of the 2 agorot; \
                  Excellence's site describes the 2 agorot as the whole cost, so the fee \
-                 may not apply.", "עמלת ההמרה 0.1% שבתעריפון נגבית בנוסף ל-2 האגורות; אתר אקסלנס מתאר את 2 האגורות כעלות כולה, כך שייתכן שהעמלה לא חלה."),
+                 may not apply.", "עמלת ההמרה 0.1% שבתעריפון נגבית בנוסף ל\u{2011}₪0.02 לדולר; אתר אקסלנס מתאר את ה\u{2011}₪0.02 לדולר כעלות כולה, כך שייתכן שהעמלה לא חלה."),
             )
             .about_fee(FeeKind::Conversion)
             .on(&[Usa, Europe])
@@ -1046,7 +1053,7 @@ pub fn excellence() -> Broker {
                 t("Index funds cost the offer's 0.07% and bonds 0.06%, at least ₪3 each; \
                  gemeltop.co.il lists only stocks and ETFs.", "קרנות מחקות עולות במבצע 0.07% ואג״ח 0.06%, מינימום ₪3 לכל אחת; gemeltop.co.il מציין רק מניות וקרנות סל."),
                 t("tradingil.co.il lists index funds (קרן\u{a0}מחקה) with stocks and ETFs at \
-                 0.07%, and bonds at 0.06%, for its joining offer (September 2026)", "tradingil.co.il מציין קרנות מחקות עם מניות וקרנות סל ב-0.07%, ואג״ח ב-0.06%, במבצע ההצטרפות שלו (ספטמבר 2026)"),
+                 0.07%, and bonds at 0.06%, for its joining offer (September 2026)", "tradingil.co.il מציין קרנות מחקות עם מניות וקרנות סל ב\u{2011}0.07%, ואג״ח ב\u{2011}0.06%, במבצע ההצטרפות שלו (ספטמבר 2026)"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Bond, IndexFund])
@@ -1055,7 +1062,7 @@ pub fn excellence() -> Broker {
             Caveat::published(
                 t("Converting costs 2 agorot a dollar and nothing else: Excellence's article \
                  puts it at most ₪200 on $10,000, and its joining package says there's no \
-                 currency fee.", "המרה עולה 2 אגורות לדולר ולא יותר: המאמר של אקסלנס מציין לכל היותר ₪200 על $10,000, וחבילת ההצטרפות שלה מציינת שאין עמלת מט״ח."),
+                 currency fee.", "המרה עולה ₪0.02 לדולר ולא יותר: המאמר של אקסלנס מציין לכל היותר ₪200 על $10,000, וחבילת ההצטרפות שלה מציינת שאין עמלת מט״ח."),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -1069,6 +1076,14 @@ pub fn excellence() -> Broker {
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
+            Caveat::not_counted(t(
+                "The full tariff's 0.3% track adds the foreign broker's fee, which isn't \
+                 published, so it's used only where no other track prices the trade.",
+                "שיטת החיוב של 0.3% בתעריפון המלא מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת.",
+            ))
+            .about_fee(FeeKind::Trade)
+            .about(&[Bond, IndexFund])
+            .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
             Caveat::published(t("Some of its trading systems charge at least $5 instead of $6.", "חלק ממערכות המסחר שלה גובות מינימום $5 במקום $6."))
@@ -1089,7 +1104,7 @@ pub fn excellence() -> Broker {
             .source(&rules),
             Caveat::not_counted(
                 t("Some sign-up links offer three free years and a refund of commissions; not \
-                 included.", "חלק מקישורי ההצטרפות מציעים שלוש שנים חינם והחזר עמלות; לא נכלל."),
+                 included.", "חלק מקישורי ההצטרפות מציעים 3 שנים חינם והחזר עמלות; לא נכלל."),
             )
             .about_fee(FeeKind::Account)
             .source(&on_gemeltop)
@@ -1110,6 +1125,7 @@ pub fn excellence() -> Broker {
             "זרוע המסחר של בית ההשקעות הפניקס. היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות.",
         ),
         tariff_date: None, // not stated in the PDF
+        latest_appendix: None,
         source_url: Some("https://www.xnes.co.il/media/nwogkoos/taarifon.pdf".into()),
         caveats: vec![],
         plans: vec![full_tariff, typical_offer],
@@ -1181,16 +1197,18 @@ pub fn ibi() -> Broker {
         // US stocks and ETFs, on one of four tracks.
         tracks: vec![
             Track {
-                name: t("1¢ a share", "1¢ למניה"),
+                name: t("1¢ a share", "$0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
                     per_share(usd(dec!(0.01)), usd(dec!(10))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("$14 per order", "$14 לפקודה"),
                 trading: vec![trade(&[Stock, Etf], &[Usa], Price::Flat(usd(dec!(14))))],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.15%", "0.15%"),
@@ -1199,9 +1217,10 @@ pub fn ibi() -> Broker {
                     &[Usa],
                     percent(dec!(0.15), Some(usd(dec!(10)))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
-                name: t("0.15% + 1¢ a share", "0.15% + 1¢ למניה"),
+                name: t("0.15% + 1¢ a share", "0.15% + $0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
@@ -1212,6 +1231,7 @@ pub fn ibi() -> Broker {
                         max: None,
                     },
                 )],
+                leaves_out_a_fee: false,
             },
         ],
         standing_orders: vec![],
@@ -1236,7 +1256,7 @@ pub fn ibi() -> Broker {
             Caveat::at_most(t(
                 "The tariff's prices are maximums (\"up to\"); the ₪50 a month is taken \
                  in full.",
-                "מחירי התעריפון הם מקסימום (״עד״); דמי הטיפול נלקחו במלוא ה-₪50.",
+                "מחירי התעריפון הם מקסימום (״עד״); דמי הטיפול נלקחו במלוא ה\u{2011}₪50.",
             ))
             .about_fee(FeeKind::Account),
             Caveat::published(t(
@@ -1302,10 +1322,10 @@ pub fn ibi() -> Broker {
             .on(&[Tlv])
             .source(&on_tradingil),
             Caveat::reading(
-                t("1¢ a share, at least $7.50: gemeltop.co.il states only the minimum.", "1¢ למניה, מינימום $7.50: gemeltop.co.il מציין רק את המינימום."),
+                t("1¢ a share, at least $7.50: gemeltop.co.il states only the minimum.", "$0.01 למניה, מינימום $7.50: gemeltop.co.il מציין רק את המינימום."),
                 t("the tariff's first US track is 1¢ a share with a minimum, and \
                  tradingil.co.il spells out 1¢ a share with a $7.50 minimum for its joining \
-                 offer (September 2026)", "שיטת החיוב הראשונה לארה״ב בתעריפון היא 1¢ למניה עם מינימום, ו-tradingil.co.il מפרט 1¢ למניה עם מינימום $7.50 במבצע ההצטרפות שלו (ספטמבר 2026)"),
+                 offer (September 2026)", "שיטת החיוב הראשונה לארה״ב בתעריפון היא $0.01 למניה עם מינימום, ו-tradingil.co.il מפרט $0.01 למניה עם מינימום $7.50 במבצע ההצטרפות שלו (ספטמבר 2026)"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Stock, Etf])
@@ -1326,11 +1346,19 @@ pub fn ibi() -> Broker {
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
+            Caveat::not_counted(t(
+                "The full tariff's 0.3% track adds the foreign broker's fee, which isn't \
+                 published, so it's used only where no other track prices the trade.",
+                "שיטת החיוב של 0.3% בתעריפון המלא מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת.",
+            ))
+            .about_fee(FeeKind::Trade)
+            .about(&[Bond, IndexFund])
+            .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
             only_the_monthly_fee_in_the_offer(
                 t("The account costs only the ₪15 a month the comparison sites list, nothing as \
-                 a share of what you hold; IBI's site says so for every fund.", "החשבון עולה רק את ה-₪15 לחודש שאתרי ההשוואה מציינים, בלי דמי משמרת; אתר IBI מציין שאין דמי משמרת על אף קרן."),
+                 a share of what you hold; IBI's site says so for every fund.", "החשבון עולה רק את ה\u{2011}₪15 לחודש שאתרי ההשוואה מציינים, בלי דמי משמרת; אתר IBI מציין שאין דמי משמרת על אף קרן."),
                 &[&on_gemeltop, &on_tradingil, &fund_page],
             ),
             Caveat::not_counted(t("The ₪300 gift for opening an account isn't included.", "מתנת ₪300 על פתיחת חשבון לא נכללה."))
@@ -1349,6 +1377,7 @@ pub fn ibi() -> Broker {
                       are usually offered far less. Opening an account takes at least \
                       ₪15,000.", "פלטפורמת המסחר של בית השקעות (IBI TRADE, עם אפליקציית IBI SMART). היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות. פתיחת חשבון דורשת ₪15,000 לפחות."),
         tariff_date: Some(TariffDate::Day(date!(2026 - 07 - 01))),
+        latest_appendix: None,
         source_url: Some("https://campaign.ibi.co.il/PDF/TRADE/TAARIFON_IBI.pdf".into()),
         caveats: vec![
             Caveat::reading(
@@ -1356,7 +1385,7 @@ pub fn ibi() -> Broker {
                  spread written in each customer's fee appendix, and works its example at \
                  0.7%.", "מרווח ההמרה הוא 0.7%: אתר IBI אומר שאין עמלה, רק מרווח שנכתב בנספח העמלות של כל לקוח, ומחשב את הדוגמה שלו לפי 0.7%."),
                 t("IBI's currency FAQ (2026), and tradingil.co.il's comparison of conversion \
-                 costs (September 2026), which lists 0.7% below $15,000", "השאלות והתשובות על מט״ח באתר IBI (2026), והשוואת עלויות ההמרה באתר tradingil.co.il (ספטמבר 2026), שמציינת 0.7% מתחת ל-$15,000"),
+                 costs (September 2026), which lists 0.7% below $15,000", "השאלות והתשובות על מט״ח באתר IBI (2026), והשוואת עלויות ההמרה באתר tradingil.co.il (ספטמבר 2026), שמציינת 0.7% מתחת ל\u{2011}$15,000"),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -1438,7 +1467,7 @@ pub fn interactive() -> Broker {
         markup: Markup::MarketRate,
     };
     let standard = Plan {
-        name: t("Standard", "רגיל"),
+        name: t("Standard", "תעריפון"),
         description: t(
             "Interactive Israel's only price list. Opening an account takes no minimum \
              deposit.",
@@ -1515,8 +1544,9 @@ pub fn interactive() -> Broker {
         compared_at_first: true,
         description: t("The Israeli introducing broker for Interactive Brokers, run by MEXEM \
                       (regulated in Cyprus, not by the Israel Securities Authority). US and \
-                      European exchanges; Tel Aviv only for institutional clients.", "הנציג הישראלי (״ברוקר מציג״) של אינטראקטיב ברוקרס, שמופעל על ידי MEXEM (בפיקוח הרגולטור בקפריסין, לא של רשות ניירות ערך). מסחר בבורסות ארה״ב ואירופה; בתל אביב רק ללקוחות מוסדיים."),
+                      European exchanges; Tel Aviv only for institutional clients.", "הנציג הישראלי (״ברוקר מציג״) של אינטראקטיב ברוקרס, שמופעל על ידי MEXEM (בפיקוח הרגולטור בקפריסין, ולא בפיקוח רשות ניירות ערך). מסחר בבורסות ארה״ב ואירופה; בתל אביב רק ללקוחות מוסדיים."),
         tariff_date: Some(TariffDate::Day(date!(2026 - 09 - 23))),
+        latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: vec![
             Caveat::published(
@@ -1596,12 +1626,13 @@ pub fn meitav() -> Broker {
         trading: [vec![tel_aviv(&[])], abroad.clone()].concat(),
         tracks: vec![
             Track {
-                name: t("1¢ a share", "1¢ למניה"),
+                name: t("1¢ a share", "$0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
                     per_share(usd(dec!(0.01)), usd(dec!(12))),
                 )],
+                leaves_out_a_fee: false,
             },
             Track {
                 name: t("0.7%", "0.7%"),
@@ -1610,6 +1641,7 @@ pub fn meitav() -> Broker {
                     &[Usa],
                     percent(dec!(0.7), Some(usd(dec!(12)))),
                 )],
+                leaves_out_a_fee: false,
             },
         ],
         standing_orders: vec![],
@@ -1650,7 +1682,7 @@ pub fn meitav() -> Broker {
             .about(&[IndexFund])
             .on(&[Usa, Europe]),
             Caveat::at_most(
-                t("The monthly fee is listed as up to ₪90; the full ₪90 is assumed.", "דמי הטיפול מופיעים כ״עד ₪90 לחודש״; המחשבון לוקח את מלוא ה-₪90."),
+                t("The monthly fee is listed as up to ₪90; the full ₪90 is assumed.", "דמי הטיפול מופיעים כ״עד ₪90 לחודש״; המחשבון לוקח את מלוא ה\u{2011}₪90."),
             )
             .about_fee(FeeKind::Account),
         ],
@@ -1704,7 +1736,7 @@ pub fn meitav() -> Broker {
             Caveat::reading(
                 t("Bonds cost the offer's 0.08%, at least ₪4.65; gemeltop.co.il lists only \
                  ETFs and stocks.", "אג״ח עולות במבצע 0.08%, מינימום ₪4.65; gemeltop.co.il מציין רק קרנות סל ומניות."),
-                t("tradingil.co.il lists bonds at 0.08% for its joining offer (September 2026)", "tradingil.co.il מציין אג״ח ב-0.08% במבצע ההצטרפות שלו (ספטמבר 2026)"),
+                t("tradingil.co.il lists bonds at 0.08% for its joining offer (September 2026)", "tradingil.co.il מציין אג״ח ב\u{2011}0.08% במבצע ההצטרפות שלו (ספטמבר 2026)"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Bond])
@@ -1728,6 +1760,14 @@ pub fn meitav() -> Broker {
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .about(&[Bond, IndexFund])
                 .on(&[Usa]),
+            Caveat::not_counted(t(
+                "The full tariff's 0.3% track adds the foreign broker's fee, which isn't \
+                 published, so it's used only where no other track prices the trade.",
+                "שיטת החיוב של 0.3% בתעריפון המלא מוסיפה את עמלת הברוקר בחו״ל, שלא פורסמה, ולכן המחשבון בוחר בה רק כשאין שיטה אחרת.",
+            ))
+            .about_fee(FeeKind::Trade)
+            .about(&[Bond, IndexFund])
+            .on(&[Usa]),
             not_in_the_offer(t("Not in the offer, so the full tariff's prices are used.", "לא במבצע, ולכן נלקחו מחירי התעריפון המלא."))
                 .on(&[Europe]),
             Caveat::not_counted(t("The ₪100 gift for opening an account isn't included.", "מתנת ₪100 על פתיחת חשבון לא נכללה."))
@@ -1743,13 +1783,14 @@ pub fn meitav() -> Broker {
         compared_at_first: true,
         description: t("The largest exchange member that isn't a bank, part of the Meitav \
                       investment house. It publishes only a full tariff of maximum prices; \
-                      new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
+                      new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. מיטב טרייד מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
         tariff_date: Some(TariffDate::Month(date!(2025 - 01 - 01))),
+        latest_appendix: None,
         source_url: Some("https://www.meitav.co.il/media/z2hkkhku/taarifon.pdf".into()),
         caveats: vec![
             Caveat::reading(
                 t("The tariff says the conversion markup is up to 0.7%; 2.1 agorot a dollar \
-                 is charged, about 0.7% at ₪3 a dollar, so the full 0.7% is used.", "התעריפון אומר שמרווח ההמרה הוא עד 0.7%; בפועל נגבות 2.1 אגורות לדולר, כ-0.7% בשער של ₪3 לדולר, ולכן המחשבון לוקח את מלוא ה-0.7%."),
+                 is charged, about 0.7% at ₪3 a dollar, so the full 0.7% is used.", "התעריפון אומר שמרווח ההמרה הוא עד 0.7%; בפועל נגבות ₪0.021 לדולר, כ\u{2011}0.7% בשער של ₪3 לדולר, ולכן המחשבון לוקח את מלוא ה\u{2011}0.7%."),
                 t("tradingil.co.il's comparison of conversion costs, September 2026", "השוואת עלויות ההמרה באתר tradingil.co.il, ספטמבר 2026"),
             )
             .about_fee(FeeKind::Markup)
@@ -1795,11 +1836,11 @@ pub fn mizrahi() -> Broker {
         Caveat::reading(
             t("Mizrahi-Tefahot converts at its published transfers-and-checks rate, about \
              0.8% from the representative rate each way: a conversion markup of up to \
-             0.8%, on top of the fee.", "מזרחי\u{2011}טפחות ממיר לפי שער ההעברות וההמחאות שהוא מפרסם, כ-0.8% מהשער היציג לכל כיוון: מרווח המרה של עד 0.8%, בנוסף לעמלה."),
+             0.8%, on top of the fee.", "מזרחי\u{2011}טפחות ממיר לפי שער ההעברות וההמחאות שהוא מפרסם, כ\u{2011}0.8% מהשער היציג לכל כיוון: מרווח המרה של עד 0.8%, בנוסף לעמלה."),
             t("Mizrahi-Tefahot's exchange rates for 29 September 2026: it bought dollars \
              at ₪3.0462 and sold them at ₪3.0953 against a representative ₪3.0720 (0.84% \
              under and 0.76% over), and euros at ₪3.4539 and ₪3.5098 against ₪3.4857 \
-             (0.91% under and 0.69% over)", "שערי מזרחי\u{2011}טפחות ל-29 בספטמבר 2026: קנה דולרים ב-₪3.0462 ומכר ב-₪3.0953 לעומת שער יציג של ₪3.0720 (0.84% מתחת ו-0.76% מעל), ואירו ב-₪3.4539 ו-₪3.5098 לעומת ₪3.4857 (0.91% מתחת ו-0.69% מעל)"),
+             (0.91% under and 0.69% over)", "שערי מזרחי\u{2011}טפחות ל\u{2011}29 בספטמבר 2026: מי שקנה דולרים שילם ₪3.0953, ומי שמכר קיבל ₪3.0462, לעומת שער יציג של ₪3.0720 (0.76% מעל ו\u{2011}0.84% מתחת); באירו, ₪3.5098 בקנייה ו\u{2011}₪3.4539 במכירה, לעומת ₪3.4857 (0.69% מעל ו\u{2011}0.91% מתחת)"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])
@@ -1888,7 +1929,7 @@ pub fn mizrahi() -> Broker {
                 "The share of your holdings is the tariff's, online or not: 0.175% a \
                  quarter on Tel Aviv holdings and 0.195% on foreign ones, charged every \
                  quarter for the days held.",
-                "דמי המשמרת הם של התעריפון, באונליין או לא: 0.175% לרבעון על החזקות בתל אביב ו-0.195% על החזקות בחו״ל, ונגבים כל רבעון לפי ימי ההחזקה.",
+                "דמי המשמרת הם של התעריפון, באונליין או לא: 0.175% לרבעון על החזקות בתל אביב ו\u{2011}0.195% על החזקות בחו״ל, ונגבים כל רבעון לפי ימי ההחזקה.",
             ))
             .about_fee(FeeKind::Account)
             .source(&tariff)
@@ -1911,7 +1952,7 @@ pub fn mizrahi() -> Broker {
              14 to 21½, soldiers and national-service volunteers, discharged soldiers \
              (three years, or to age 30) and students (four years, or to 35). Check your \
              eligibility with the bank.",
-            "מחירי אונליין עם ההנחות שבתעריפון לקבוצות הלקוחות הצעירים: גילאי 14 עד 21½, חיילים ובנות שירות לאומי, חיילים משוחררים (שלוש שנים, או עד גיל 30) וסטודנטים (ארבע שנים, או עד גיל 35). בדקו את זכאותכם מול הבנק.",
+            "מחירי אונליין עם ההנחות שבתעריפון לקבוצות הלקוחות הצעירים: גילאי 14 עד 21½, חיילים ובנות שירות לאומי, חיילים משוחררים (3 שנים, או עד גיל 30) וסטודנטים (4 שנים, או עד גיל 35). בדקו את זכאותכם מול הבנק.",
         ),
         trading: vec![
             trade(
@@ -1935,9 +1976,9 @@ pub fn mizrahi() -> Broker {
         caveats: vec![
             Caveat::at_most(t(
                 "Tel Aviv costs the groups' 0.4% with the tariff's ₪50 minimum. Whether \
-                 Online's ₪45 minimum applies as well isn't stated; on orders under ₪9,600 \
+                 Online's ₪45 minimum applies as well isn't stated; on orders under ₪12,500 \
                  that would be up to ₪5 less.",
-                "בתל אביב המחיר הוא 0.4%, מחיר הקבוצות, עם המינימום שבתעריפון, ₪50. לא כתוב אם המינימום של אונליין, ₪45, חל גם כאן; בפקודות של פחות מ-₪9,600 זה היה חוסך עד ₪5.",
+                "בתל אביב המחיר הוא 0.4%, מחיר הקבוצות, עם המינימום שבתעריפון, ₪50. לא כתוב אם המינימום של אונליין, ₪45, חל גם כאן; בפקודות של פחות מ\u{2011}₪12,500 זה היה חוסך עד ₪5.",
             ))
             .about_fee(FeeKind::Trade)
             .on(&[Tlv])
@@ -1953,10 +1994,10 @@ pub fn mizrahi() -> Broker {
             .source(&groups),
             Caveat::reading(
                 t("The groups' exchange-rate benefit of 3 pro mille takes the markup down \
-                 from 0.8% to 0.5%.", "הטבת השער של הקבוצות, 3 פרומיל, מורידה את מרווח ההמרה מ-0.8% ל-0.5%."),
+                 from 0.8% to 0.5%.", "הטבת השער של הקבוצות, 0.3%, מורידה את מרווח ההמרה מ\u{2011}0.8% ל\u{2011}0.5%."),
                 t("appendix A gives these groups \u{201c}a rate benefit of 3 pro mille on \
                  buying and converting foreign currency\u{201d}, and the markup measured \
-                 from the bank's published rates is 0.8%", "נספח א׳ נותן לקבוצות האלה ״הטבת שער ברכישה ובהמרת מט״ח״ של 3 פרומיל, והמרווח שנמדד משערי הבנק שפורסמו הוא 0.8%"),
+                 from the bank's published rates is 0.8%", "נספח א׳ נותן לקבוצות האלה ״הטבת שער ברכישה ובהמרת מט״ח״ של 0.3%, והמרווח שנמדד משערי הבנק שפורסמו הוא 0.8%"),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -1987,6 +2028,9 @@ pub fn mizrahi() -> Broker {
             "מהבנקים הגדולים בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי) ובקבוצות לקוחות, ולכן יש לו כאן שני מסלולים. התעריפון שלו מפורסם בחלקים: ניירות ערך (2 באפריל 2024), ערוצים ישירים (12 באוגוסט 2025), קבוצות אוכלוסייה (13 בינואר 2026) ומטבע חוץ.",
         ),
         tariff_date: Some(TariffDate::Day(date!(2024 - 04 - 02))),
+        // The direct channels' appendix (12 August 2025) and the population
+        // groups' (13 January 2026).
+        latest_appendix: Some(TariffDate::Day(date!(2026 - 01 - 13))),
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, young],
@@ -2030,11 +2074,11 @@ pub fn otsar_hahayal() -> Broker {
         Caveat::reading(
             t("The bank converts at the First International's published transfers-and-checks \
              rate, about 0.9% from its mid-rate each way: a conversion markup of up to \
-             0.9%, on top of the fee.", "הבנק ממיר לפי שער ההעברות וההמחאות שהבינלאומי מפרסם, כ-0.9% משער האמצע שלו לכל כיוון: מרווח המרה של עד 0.9%, בנוסף לעמלה."),
+             0.9%, on top of the fee.", "הבנק ממיר לפי שער ההעברות וההמחאות שהבינלאומי מפרסם, כ\u{2011}0.9% משער האמצע שלו לכל כיוון: מרווח המרה של עד 0.9%, בנוסף לעמלה."),
             t("the First International's exchange rates for 29 September 2026: it bought \
              dollars at ₪3.0493 and sold them at ₪3.1047 around a mid-rate of ₪3.0770 \
              (0.9% each way; the representative rate was ₪3.0720), and euros at ₪3.4636 \
-             and ₪3.5266 around ₪3.4951", "שערי הבינלאומי ל-29 בספטמבר 2026: קנה דולרים ב-₪3.0493 ומכר ב-₪3.1047 סביב שער אמצע של ₪3.0770 (0.9% לכל כיוון; השער היציג היה ₪3.0720), ואירו ב-₪3.4636 ו-₪3.5266 סביב ₪3.4951"),
+             and ₪3.5266 around ₪3.4951", "שערי הבינלאומי ל\u{2011}29 בספטמבר 2026: מי שקנה דולרים שילם ₪3.1047, ומי שמכר קיבל ₪3.0493, סביב שער אמצע של ₪3.0770 (0.9% לכל כיוון; השער היציג היה ₪3.0720); באירו, ₪3.5266 בקנייה ו\u{2011}₪3.4636 במכירה, סביב ₪3.4951"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])
@@ -2043,7 +2087,7 @@ pub fn otsar_hahayal() -> Broker {
             "ETFs and index funds on Tel Aviv are priced as stocks and bonds: the row \
              leaves mutual funds out but counts index funds and listed funds back in \
              (part 4, notes 3 and 14).",
-            "קרנות סל וקרנות מחקות בתל אביב מתומחרות כמו מניות ואג״ח: השורה מוציאה קרנות נאמנות, אבל מחזירה פנימה קרנות מחקות וקרנות שיחידותיהן רשומות בבורסה (חלק 4, הערות 3 ו-14).",
+            "קרנות סל וקרנות מחקות בתל אביב מתומחרות כמו מניות ואג״ח: השורה מוציאה קרנות נאמנות, אבל מחזירה פנימה קרנות מחקות וקרנות שיחידותיהן רשומות בבורסה (חלק 4, הערות 3 ו\u{2011}14).",
         ))
         .about_fee(FeeKind::Trade)
         .about(&[Etf, IndexFund])
@@ -2117,7 +2161,7 @@ pub fn otsar_hahayal() -> Broker {
                 "The share of your holdings is the tariff's, online or not: 0.195% a \
                  quarter on Tel Aviv holdings and 0.199% on foreign ones, charged on the \
                  15th of the first month of each quarter for the days held.",
-                "דמי המשמרת הם של התעריפון, באונליין או לא: 0.195% לרבעון על החזקות בתל אביב ו-0.199% על החזקות בחו״ל, ונגבים ב-15 בחודש הראשון של כל רבעון לפי ימי ההחזקה.",
+                "דמי המשמרת הם של התעריפון, באונליין או לא: 0.195% לרבעון על החזקות בתל אביב ו\u{2011}0.199% על החזקות בחו״ל, ונגבים ב\u{2011}15 בחודש הראשון של כל רבעון לפי ימי ההחזקה.",
             ))
             .about_fee(FeeKind::Account)
             .source(&tariff),
@@ -2161,7 +2205,7 @@ pub fn otsar_hahayal() -> Broker {
             Caveat::may_cost_more(
                 t("The tariff lowers only the standing order's minimum (₪7 for index funds, \
                  $4.50 for ETFs) without saying which rate goes with it. Online's is \
-                 assumed (0.3% and 0.25%); through a banker it would be 0.64% and 0.85%.", "התעריפון מוריד רק את המינימום של הוראת הקבע (₪7 לקרנות מחקות, $4.50 לקרנות סל), בלי לומר איזה שיעור הולך איתו. המחשבון לוקח את השיעור של אונליין (0.3% ו-0.25%); דרך בנקאי השיעור היה 0.64% ו-0.85%."),
+                 assumed (0.3% and 0.25%); through a banker it would be 0.64% and 0.85%.", "התעריפון מוריד רק את המינימום של הוראת הקבע (₪7 לקרנות מחקות, $4.50 לקרנות סל), בלי לומר איזה שיעור הולך איתו. המחשבון לוקח את השיעור של אונליין (0.3% ו\u{2011}0.25%); דרך בנקאי השיעור היה 0.64% ו\u{2011}0.85%."),
                 t("the standing order's rate isn't stated", "שיעור העמלה בהוראת קבע לא כתוב"),
             )
             .about_fee(FeeKind::StandingOrder)
@@ -2217,9 +2261,9 @@ pub fn otsar_hahayal() -> Broker {
             .source(&club_page),
             Caveat::at_most(t(
                 "Abroad, the club's 0.3% (at least $18) is used throughout. On orders above \
-                 $15,600 Online's 0.25% would be less, but the club's terms allow no \
-                 double benefits.",
-                "בחו״ל המחשבון לוקח את מחיר המועדון, 0.3% (מינימום $18), בכל הפקודות. בפקודות של יותר מ-$15,600 המחיר של אונליין, 0.25%, היה זול יותר, אבל תנאי המועדון לא מאפשרים כפל הטבות.",
+                 $13,000 Online's 0.25% (at least $39) would be less, but the club's terms \
+                 allow no double benefits.",
+                "בחו״ל המחשבון לוקח את מחיר המועדון, 0.3% (מינימום $18), בכל הפקודות. בפקודות של יותר מ\u{2011}$13,000 המחיר של אונליין, 0.25% (מינימום $39), היה זול יותר, אבל תנאי המועדון לא מאפשרים כפל הטבות.",
             ))
             .about_fee(FeeKind::Trade)
             .on(&[Usa, Europe])
@@ -2268,7 +2312,7 @@ pub fn otsar_hahayal() -> Broker {
                  bonds abroad; ETFs and index funds are taken to be included.", "השורות של טופ טרייד מונות מניות ואג״ח בתל אביב, ומניות, קרנות ואג״ח בחו״ל; הבנו שגם קרנות סל וקרנות מחקות נכללות."),
                 t("the tariff's own \u{201c}stocks and bonds\u{201d} row counts index funds \
                  and listed funds in (part 4, notes 3 and 14), and Top Trade's row uses the \
-                 same words", "שורת ״מניות ואג״ח״ של התעריפון עצמו כוללת קרנות מחקות וקרנות רשומות (חלק 4, הערות 3 ו-14), ושורת טופ טרייד משתמשת באותן מילים"),
+                 same words", "שורת ״מניות ואג״ח״ של התעריפון עצמו כוללת קרנות מחקות וקרנות רשומות (חלק 4, הערות 3 ו\u{2011}14), ושורת טופ טרייד משתמשת באותן מילים"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Etf, IndexFund])
@@ -2318,6 +2362,7 @@ pub fn otsar_hahayal() -> Broker {
             "הבנק של כוחות הביטחון, חלק מהבנק הבינלאומי, שמיזג אותו לתוכו ושומר עליו כמותג: התעריפון הוא של הבינלאומי. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי), במועדון שלו למשפחת כוחות הביטחון, ובטופ טרייד לצעירים, ולכן יש לו כאן כמה מסלולים.",
         ),
         tariff_date: Some(TariffDate::Day(date!(2026 - 09 - 16))),
+        latest_appendix: None,
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, standing_order, club, top_trade],

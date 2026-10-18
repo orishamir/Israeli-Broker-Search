@@ -14,7 +14,7 @@
       type="button"
       class="chip"
       onclick={() => apply(example)}
-      {@attach popover && tip(popover, { onClick: false })}>{example.name}</button
+      {@attach popover && tip(popover, { onClick: false, closeOnClick: true })}>{example.name}</button
     >
   {/each}
 </div>

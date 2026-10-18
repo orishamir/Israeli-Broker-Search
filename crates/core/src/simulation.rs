@@ -110,7 +110,6 @@ pub const USUAL_INFLATION: Percent = Percent(rust_decimal_macros::dec!(2));
 /// that fees and conversions on it can't overflow.
 const LARGEST_VALUE: f64 = 1e15;
 
-/// Why a scenario can't be simulated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum InvalidScenario {
     #[error("the yearly return can't be below −100%")]
@@ -133,7 +132,7 @@ impl InvalidScenario {
             ),
             InvalidScenario::DepositGrowthBelowMinus100 => lang.pick(
                 "the deposits can't shrink by more than 100% a year",
-                "ההפקדות לא יכולות לקטון ביותר מ-100% בשנה",
+                "ההפקדות לא יכולות לקטון ביותר מ\u{2011}100% בשנה",
             ),
             InvalidScenario::TooLarge => lang.pick(
                 "the deposits would grow too large to calculate",
@@ -504,14 +503,26 @@ pub fn simulate(
     } else {
         // The first of the cheapest: tracks that don't price this trade cost
         // the same, and give the first track, reported as none.
-        let (index, mut outcome) = (0..plan.tracks.len())
-            .filter_map(|index| {
-                Some((
-                    index,
-                    simulate_prices(&plan.on_track(index), scenario, rates)?,
-                ))
-            })
-            .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))
+        let cheapest = |tracks: &mut dyn Iterator<Item = usize>| {
+            tracks
+                .filter_map(|index| {
+                    Some((
+                        index,
+                        simulate_prices(&plan.on_track(index), scenario, rates)?,
+                    ))
+                })
+                .min_by_key(|(_, outcome)| std::cmp::Reverse(outcome.after_selling))
+        };
+        // A track that leaves a fee out of this trade's price is tried only
+        // if no other prices it: it would win by what's missing.
+        let in_full = |&index: &usize| {
+            !plan.tracks[index].leaves_out_a_fee
+                || plan
+                    .track_for(index, scenario.security, scenario.exchange)
+                    .is_none()
+        };
+        let (index, mut outcome) = cheapest(&mut (0..plan.tracks.len()).filter(in_full))
+            .or_else(|| cheapest(&mut (0..plan.tracks.len())))
             .ok_or(NotOffered::NoPrice)?;
         outcome.track = plan
             .track_for(index, scenario.security, scenario.exchange)
@@ -958,13 +969,16 @@ pub struct Sweep {
     pub amounts: Vec<Decimal>,
     /// By plan, in the order given to [`sweep`], then by amount. `None`
     /// where the plan can't be used: it doesn't offer the security on that
-    /// exchange, at any amount, or the deposits are over its ceiling.
+    /// exchange, at any amount, the deposits are over its ceiling, or the
+    /// one-time deposit is under its minimum.
     pub costs: Vec<Vec<Option<Percent>>>,
 }
 
 /// Runs each of `plans` on `scenario` with the `swept` deposit at each of
 /// [`Swept::amounts`], leaving out amounts the scenario's growth would take
-/// beyond what can be calculated.
+/// beyond what can be calculated. A plan has no cost where its account
+/// can't be opened with the one-time deposit: the line about other deposits
+/// mustn't call it the cheapest there.
 #[must_use]
 pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept: Swept) -> Sweep {
     let amounts: Vec<Decimal> = swept
@@ -978,7 +992,11 @@ pub fn sweep(plans: &[&Plan], scenario: &Scenario, rates: &ExchangeRates, swept:
             amounts
                 .iter()
                 .map(|&amount| {
-                    simulate(plan, &swept.scenario_with(scenario, amount), rates)
+                    let scenario = swept.scenario_with(scenario, amount);
+                    if !plan.opens_with(scenario.first_deposit) {
+                        return None;
+                    }
+                    simulate(plan, &scenario, rates)
                         .map(|outcome| outcome.yearly_cost)
                         .ok()
                 })

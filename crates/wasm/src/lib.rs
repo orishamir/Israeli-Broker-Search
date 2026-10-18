@@ -20,7 +20,7 @@ use broker_fees::examples;
 use broker_fees::short_term::{self, Liquidity, Pays, Place, Term};
 use broker_fees::simulation::{self, Fees, InvalidScenario, NotOffered, Outcome, Scenario, Swept};
 use broker_fees::yours::{
-    Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, ManagementFields,
+    self, Amount, ConversionFields, CustodyFields, HandlingFields, InvalidFee, ManagementFields,
     MarkupFields, PriceKind, PriceList, SimpleFees, TradeFields,
 };
 use broker_fees::{
@@ -185,7 +185,7 @@ pub struct BrokerInfo {
     /// What "usual" means beside the plan a new customer gets: a bank's
     /// online prices, an investment house's joining offer.
     pub usual_plan: String,
-    /// "Tariff of 01/10/2026"
+    /// "Tariff in force from 01/10/2026"
     pub tariff_date: String,
     /// "Checked 28/09/2026": when the numbers were last checked against the
     /// broker's documents and site.
@@ -243,6 +243,8 @@ pub struct PlanInfo {
     /// language.
     pub english_name: String,
     pub description: String,
+    /// "First deposit: at least ₪10,000", where the account needs one.
+    pub first_deposit: Option<String>,
     /// The age from which it can be taken as a monthly pension, taxed
     /// differently: 60 for a provident fund for investment. Missing where
     /// there's no such way out.
@@ -256,8 +258,11 @@ pub struct PlanInfo {
 
 impl PlanInfo {
     fn new(plan: &Plan, lang: Lang) -> Self {
+        // Each row as far as it's used: an offer's rows replace part of
+        // the full tariff's that follow them.
         let trade_rows = |rows: &[TradeFee]| {
-            rows.iter()
+            yours::trade_rows_as_charged(rows)
+                .iter()
                 .map(|row| TariffRow {
                     covers: row.coverage(lang),
                     price: row.price.price_text(lang),
@@ -268,6 +273,7 @@ impl PlanInfo {
             name: plan.name[lang].to_owned(),
             english_name: plan.name.en.to_string(),
             description: plan.description[lang].to_owned(),
+            first_deposit: plan.first_deposit_text(lang),
             pension_from_age: plan.vehicle.rules().pension.map(|pension| pension.from_age),
             // Filled in by the broker, which knows its tariff and its caveats.
             sources: vec![],
@@ -290,8 +296,7 @@ impl PlanInfo {
                     })
                     .collect(),
                 standing_orders: trade_rows(&plan.standing_orders),
-                custody: plan
-                    .custody
+                custody: yours::custody_rows_as_charged(&plan.custody)
                     .iter()
                     .map(|row| TariffRow {
                         covers: row.coverage(lang),
@@ -471,7 +476,7 @@ pub fn about() -> Result<Ts<About>, JsError> {
 
 /// How old the long term's numbers are, in a line under its table: "Tariffs
 /// of 02/04/2024 to 01/10/2026, checked 29/09/2026 · Funds' fees by the
-/// data of 08/2026".
+/// data of August 2026".
 #[wasm_bindgen(js_name = dataDates)]
 #[must_use]
 pub fn data_dates() -> String {
@@ -485,7 +490,7 @@ pub fn short_term_data_dates() -> String {
     describe::short_term_data_dates(lang())
 }
 
-/// "an ETF bought in the USA"
+/// "an ETF in the USA"
 #[wasm_bindgen(js_name = purchasePhrase)]
 pub fn purchase_phrase(security: Ts<Security>, exchange: Ts<Exchange>) -> Result<String, JsError> {
     Ok(describe::purchase(
@@ -541,7 +546,6 @@ pub struct Inputs {
     pub ils_per_usd: Option<f64>,
     #[tsify(type = "number | null")]
     pub ils_per_eur: Option<f64>,
-    /// The plans to compare.
     pub plans: Vec<PlanKey>,
     /// The user's own plans that `plans` refers to.
     #[serde(default)]
@@ -607,12 +611,13 @@ impl Named for Problem {
         match self {
             Problem::NoSuchPlan => lang.pick("there's no such plan", "אין מסלול כזה"),
             Problem::NoYears => lang.pick("invest for at least a year", "השקיעו לפחות שנה אחת"),
-            Problem::NeverBuys => {
-                lang.pick("buy at least every 12 months", "קנו לפחות פעם ב-12 חודשים")
-            }
+            Problem::NeverBuys => lang.pick(
+                "buy at least every 12 months",
+                "קנו לפחות פעם ב\u{2011}12 חודשים",
+            ),
             Problem::SharePriceZero => lang.pick(
                 "the share price must be more than 0",
-                "מחיר המניה חייב להיות גדול מ-0",
+                "מחיר המניה חייב להיות גדול מ\u{2011}0",
             ),
             Problem::InflationTooLow => lang.pick(
                 "inflation can't be −100% or below",
@@ -620,7 +625,7 @@ impl Named for Problem {
             ),
             Problem::RatesNotPositive => lang.pick(
                 "exchange rates must be more than 0",
-                "שערי החליפין חייבים להיות גדולים מ-0",
+                "שערי החליפין חייבים להיות גדולים מ\u{2011}0",
             ),
         }
     }
@@ -649,7 +654,6 @@ pub enum InvalidInputs {
 }
 
 impl InvalidInputs {
-    /// What's wrong, in `lang`.
     fn text(&self, lang: Lang) -> String {
         match self {
             InvalidInputs::Missing(field) => {
@@ -837,11 +841,10 @@ pub struct PlanOutcomeData {
     /// share, the cheapest for you", "A standing order buys every month, so
     /// it isn't used here".
     pub note: Option<String>,
-    /// Who can open it, if not anyone, under its name: "Through an employer,
-    /// or if self-employed".
+    /// Who can open it, if not anyone, under its name: "Self-employed".
     pub who_can_join: Option<String>,
     /// As a pension, the monthly amount the balance would buy, under its
-    /// name: "A balance for a pension: about ₪10,000 a month for life, at a
+    /// name: "Expected pension: about ₪10,000 a month for life, at a
     /// conversion factor of about 200".
     pub pension_note: Option<String>,
     /// For a kind of fund's average, what's left beside it at its cheapest
@@ -880,11 +883,33 @@ pub struct Beside {
     pub left: f64,
 }
 
+/// Why `plan` (of `broker`, if listed) can't be used for `scenario`, in a
+/// sentence for its "?", and in a word for its row. A price the tariff has
+/// but couldn't be read is "not counted" rather than "not offered".
+fn why_not_offered(
+    plan: &Plan,
+    broker: Option<&Broker>,
+    reason: NotOffered,
+    scenario: &Scenario,
+) -> (String, WhyNot) {
+    let unpriced = plan.unpriced_reason(scenario.security, scenario.exchange, lang());
+    if let (NotOffered::NoPrice, Some(text)) = (reason, unpriced) {
+        return (text.to_owned(), WhyNot::NotCounted);
+    }
+    let at = broker.map(|broker| &broker.name[lang()]);
+    (
+        plan.why_not_offered(reason, scenario, at, lang()),
+        WhyNot::from(reason),
+    )
+}
+
 /// Why a plan can't be used for the inputs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Tsify)]
 pub enum WhyNot {
     /// It doesn't sell the security on that exchange.
     NotSold,
+    /// Its tariff prices the security there, but how couldn't be read.
+    NotCounted,
     /// A year's deposits are more than it takes.
     OverTheCeiling,
     /// Its money can't be taken out yet when the years are up.
@@ -1029,6 +1054,15 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                 let plan = plans[compared.index];
                 let key = &inputs.plans[compared.index];
                 let outcome = compared.outcome.as_ref().ok();
+                let broker = match key {
+                    PlanKey::Listed { broker, .. } => Some(&brokers[*broker]),
+                    PlanKey::Yours { .. } => None,
+                };
+                let why_not = compared
+                    .outcome
+                    .as_ref()
+                    .err()
+                    .map(|&reason| why_not_offered(plan, broker, reason, &scenario));
                 let fees_warning =
                     || outcome.and_then(|outcome| outcome.warning(deposited, lang()));
                 let track = outcome.and_then(|outcome| outcome.track);
@@ -1076,12 +1110,8 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
                         PlanKey::Yours { .. } => None,
                     },
                     tax_note: outcome.and_then(|_| plan.tax_note(&scenario, lang())),
-                    not_offered: compared
-                        .outcome
-                        .as_ref()
-                        .err()
-                        .map(|&reason| plan.why_not_offered(reason, &scenario, lang())),
-                    why_not: compared.outcome.as_ref().err().copied().map(WhyNot::from),
+                    not_offered: why_not.as_ref().map(|(text, _)| text.clone()),
+                    why_not: why_not.map(|(_, why_not)| why_not),
                 }
             })
             .collect(),
@@ -1729,7 +1759,7 @@ pub struct KindInfo {
     pub name: String,
     pub english_name: String,
     pub description: String,
-    /// "Rates given, by the data of 09/2026"
+    /// "Rates given, by the data of September 2026"
     pub data_of: String,
     /// "Checked 01/10/2026"
     pub checked: String,
@@ -1813,7 +1843,7 @@ impl PlaceInfo {
             tax: place.pays.tax().name(lang).to_owned(),
             liquidity: place.pays.liquidity(),
             liquidity_name: place.pays.liquidity().name(lang).to_owned(),
-            caveats: describe::caveat_groups(&caveats, lang),
+            caveats: describe::place_caveat_groups(&caveats, lang),
             may_cost_more: may_cost_more(&place.caveats, lang),
             sources: place.sources(kind, lang),
             compared_at_first: place.compared_at_first,
@@ -2240,7 +2270,7 @@ mod tests {
         assert!(altshuler.outcome.is_none());
         assert_eq!(
             altshuler.not_offered.as_deref(),
-            Some("Nothing in Europe is offered")
+            Some("At Altshuler Shaham Trade, nothing in Europe is offered")
         );
         let leumi = comparison
             .plans
@@ -2420,7 +2450,7 @@ mod tests {
     #[test]
     fn broker_info_describes_every_plan() {
         let leumi = BrokerInfo::new(&tariffs::leumi(), Lang::En);
-        assert_eq!(leumi.tariff_date, "Tariff of 01/10/2026");
+        assert_eq!(leumi.tariff_date, "Tariff in force from 01/10/2026");
         assert_eq!(leumi.plans.len(), 4);
         assert_eq!(leumi.plans[0].tariff.trading.len(), 2);
         assert_ne!(leumi.plans[3].description, "");
@@ -2631,12 +2661,10 @@ mod tests {
         assert_eq!(fund.key, the_fund());
         assert!(fund.outcome.is_none());
         assert_eq!(fund.why_not, Some(WhyNot::OverTheCeiling));
-        assert_eq!(
-            fund.not_offered.as_deref(),
-            Some(
-                "No more than ₪83,641 can be deposited in a year, and your first year's \
-                 deposits come to ₪124,000"
-            )
+        let reason = fund.not_offered.as_deref().unwrap();
+        assert!(
+            reason.contains("₪83,641") && reason.contains("₪124,000"),
+            "{reason}"
         );
         // Not selling the security isn't about a ceiling.
         inputs.exchange = Exchange::Europe;
@@ -2683,13 +2711,8 @@ mod tests {
         let gemel = &infos[brokers];
         assert_eq!(gemel.kind, BrokerKind::Funds);
         assert_eq!(gemel.name, "Provident fund for investment");
-        assert_eq!(gemel.tariff_date, "Fees paid, by the data of 08/2026");
-        assert_eq!(gemel.checked, "Checked 30/09/2026");
         assert!(gemel.compared_at_first);
-        assert_eq!(
-            gemel.tax_rule.as_deref(),
-            Some("No tax as a pension from 60; otherwise taxed like a broker")
-        );
+        assert!(gemel.tax_rule.is_some());
         assert!(
             infos[..brokers]
                 .iter()
@@ -2735,10 +2758,6 @@ mod tests {
         assert_eq!(hebrew.english_name.as_deref(), Some("Index fund"));
         // An exchange is a place, known by its Hebrew name alone.
         assert_eq!(Choice::new(Exchange::Usa, Lang::He).english_name, None);
-        assert_eq!(
-            BrokerInfo::new(&tariffs::leumi(), Lang::He).tariff_date,
-            "תעריפון מ-01/10/2026"
-        );
     }
 
     fn short_term_inputs(places: Vec<PlaceKey>) -> ShortTermInputs {

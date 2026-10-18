@@ -27,8 +27,7 @@ export interface CostLine {
   id: string
   label: string
   color: string
-  /** Its row's number in the table. */
-  rank: number
+  rank: number | undefined
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean
   /** Missing where the plan can't be used: a year's deposits at that amount

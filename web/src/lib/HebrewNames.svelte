@@ -14,7 +14,7 @@
       <dd><bdi lang="en">{english}</bdi></dd>
     {/if}
     {#if others.length > 0}
-      <dt>{t.alsoCalled}</dt>
+      <dt>{t.alsoCalled(others.length)}</dt>
       <!-- One per line: side by side, Hebrew names read in the wrong order. -->
       <dd class="others">
         {#each others as other (other)}<bdi lang="he">{other}</bdi>{/each}

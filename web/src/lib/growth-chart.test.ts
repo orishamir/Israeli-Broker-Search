@@ -62,7 +62,7 @@ test("a line's end label is its rank on a badge in its color, then its value", (
   const [, a] = series(growthOption(view({ lines: [{ ...line('a'), rank: 7, color: '#fd2e1c' }] })))
   const label = a.endLabel!
   const formatter = label.formatter as (params: { value: unknown }) => string
-  expect(formatter({ value: [1, 1500] })).toBe('{rank|7} ₪1.5K')
+  expect(formatter({ value: [1, 1500] })).toBe('{rank|7} ₪1.5\u00a0אלף')
   expect(label.rich?.rank).toMatchObject({ backgroundColor: '#fd2e1c', color: '#fff' })
 })
 
@@ -126,7 +126,7 @@ test('end labels of lines that end close together still read differently', () =>
   const [noFees, a, b] = series(growthOption(view({ lines: close, noFees: [100_000, 103_250] })))
   const end = (one: LineSeriesOption, value: number) =>
     (one.endLabel!.formatter as (params: { value: number[] }) => string)({ value: [1, value] })
-  expect(end(a, 103_196)).toContain('₪103.20K')
-  expect(end(b, 103_188)).toContain('₪103.19K')
-  expect(end(noFees, 103_250)).toBe('₪103.25K')
+  expect(end(a, 103_196)).toContain('₪103.20\u00a0אלף')
+  expect(end(b, 103_188)).toContain('₪103.19\u00a0אלף')
+  expect(end(noFees, 103_250)).toBe('₪103.25\u00a0אלף')
 })

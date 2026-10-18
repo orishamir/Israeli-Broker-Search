@@ -529,7 +529,8 @@ fn raising_any_fee_never_helps() {
 }
 
 /// A plan with tracks costs what its cheapest track does: no track, taken on
-/// its own, ends with more.
+/// its own, ends with more. A track whose price leaves a fee out counts
+/// only where no other prices the trade: it would win by what's missing.
 #[test]
 fn the_track_used_is_the_cheapest() {
     for (name, plan) in listed_plans() {
@@ -545,7 +546,18 @@ fn the_track_used_is_the_cheapest() {
                 let Ok(chosen) = simulate(&plan, &scenario, &rates()) else {
                     continue;
                 };
+                let prices = |index| plan.track_for(index, security, exchange).is_some();
+                let others_in_full = (0..plan.tracks.len())
+                    .any(|index| prices(index) && !plan.tracks[index].leaves_out_a_fee);
                 for (index, track) in plan.tracks.iter().enumerate() {
+                    if track.leaves_out_a_fee && prices(index) && others_in_full {
+                        assert_ne!(
+                            chosen.track,
+                            Some(index),
+                            "{name}, {security:?} on {exchange:?}"
+                        );
+                        continue;
+                    }
                     let alone = simulate(&plan.on_track(index), &scenario, &rates()).unwrap();
                     assert!(
                         alone.after_selling <= chosen.after_selling,
@@ -559,6 +571,28 @@ fn the_track_used_is_the_cheapest() {
             }
         }
     }
+}
+
+/// Excellence's "0.3% plus the broker's fee" leaves the foreign broker's
+/// unpublished fee out, so it isn't picked while a track priced in full
+/// prices the trade: an index fund in the US, on its offer, costs $11 an
+/// order or 3¢ a share instead.
+#[test]
+fn a_track_that_leaves_a_fee_out_isnt_picked() {
+    let plans = listed_plans();
+    let offer = plan_of(&plans, "Excellence · Typical offer");
+    let partial = offer
+        .tracks
+        .iter()
+        .position(|track| track.leaves_out_a_fee)
+        .expect("the 0.3% track");
+    let scenario = defaults(Security::IndexFund, Exchange::Usa);
+    let chosen = simulate(offer, &scenario, &rates()).unwrap();
+    assert!(chosen.track.is_some());
+    assert_ne!(chosen.track, Some(partial));
+    // Alone, it would have ended with more.
+    let alone = simulate(&offer.on_track(partial), &scenario, &rates()).unwrap();
+    assert!(alone.after_selling > chosen.after_selling);
 }
 
 /// Waiting for a whole share costs only growth: with none, a broker selling
@@ -1444,16 +1478,23 @@ fn the_sweep_matches_the_table_at_each_deposit() {
             };
             let outcome = simulate(plan, &at_amount, &rates()).ok();
             assert_eq!(
-                outcome.map(|outcome| outcome.yearly_cost),
+                outcome
+                    .filter(|_| plan.opens_with(scenario.first_deposit))
+                    .map(|outcome| outcome.yearly_cost),
                 cost,
                 "{name} at ₪{amount} a month"
             );
         }
-        // A broker takes any deposit. The provident fund's line ends at its
-        // ceiling: with the ₪10,000 of the first year's one-time deposit,
+        // A broker the one-time ₪10,000 opens takes any monthly deposit; IBI
+        // needs ₪15,000, so it has none. The provident fund's line ends at
+        // its ceiling: with the ₪10,000 of the first year's one-time deposit,
         // (83,641 − 10,000) / 12 = ₪6,136.75 a month is the most that fits.
         let takes_every_amount = costs.iter().all(Option::is_some);
         let has_ceiling = plan.vehicle.rules().deposit_ceiling.is_some();
+        if !plan.opens_with(scenario.first_deposit) {
+            assert!(name.starts_with("IBI") && takes_nothing(costs), "{name}");
+            continue;
+        }
         assert_eq!(takes_every_amount, !has_ceiling, "{name}");
         if has_ceiling {
             let taken = costs.iter().filter(|cost| cost.is_some()).count();
@@ -1478,15 +1519,18 @@ fn the_sweep_matches_the_table_at_each_deposit() {
             };
             let outcome = simulate(plan, &at_amount, &rates()).ok();
             assert_eq!(
-                outcome.map(|outcome| outcome.yearly_cost),
+                outcome
+                    .filter(|_| plan.opens_with(amount))
+                    .map(|outcome| outcome.yearly_cost),
                 cost,
                 "{name} at ₪{amount} once"
             );
         }
-        // A broker's fixed fees weigh less on a larger sum; a manager's
-        // share is the same at any size.
+        // A broker's fixed fees weigh less on a larger sum, from the least
+        // its account opens with; a manager's share is the same at any size.
+        let taken: Vec<_> = costs.iter().flatten().collect();
         if plan.management.is_none() {
-            assert!(costs.first() > costs.last(), "{name}: {costs:?}");
+            assert!(taken.first() > taken.last(), "{name}: {costs:?}");
         }
     }
 
@@ -1498,6 +1542,36 @@ fn the_sweep_matches_the_table_at_each_deposit() {
     };
     let none = sweep(&[altshuler], &europe, &rates(), Swept::Monthly);
     assert_eq!(none.costs, [vec![None; none.amounts.len()]]);
+}
+
+/// A plan whose account needs a larger first deposit has no point in the
+/// sweep below it, though the table shows its numbers, flagged: the line
+/// about other deposits mustn't call it the cheapest there.
+#[test]
+fn the_sweep_leaves_out_deposits_under_a_minimum() {
+    let scenario = defaults(Security::Etf, Exchange::Usa);
+    let lump_sum = Scenario {
+        monthly_deposit: Decimal::ZERO,
+        ..scenario.clone()
+    };
+    let plans = usual_plans();
+    // Altshuler's offer needs ₪5,000: of the one-time amounts, ₪1,000 to
+    // ₪4,600 go.
+    let offer = plan_of(&plans, "Altshuler");
+    assert_eq!(offer.min_first_deposit, Some(ils(dec!(5000))));
+    let offered = sweep(&[offer], &lump_sum, &rates(), Swept::OneTime);
+    for (&amount, cost) in offered.amounts.iter().zip(&offered.costs[0]) {
+        assert_eq!(cost.is_some(), amount >= dec!(5000), "₪{amount}");
+    }
+    assert!(offered.amounts.contains(&dec!(4600)));
+    // Swept monthly, the one-time deposit stays the user's: under the
+    // minimum, the plan has no point at all.
+    let small = Scenario {
+        first_deposit: dec!(1000),
+        ..scenario.clone()
+    };
+    let monthly = sweep(&[offer], &small, &rates(), Swept::Monthly);
+    assert_eq!(monthly.costs, [vec![None; monthly.amounts.len()]]);
 }
 
 /// Around the user's deposit, the cheapest plan's lead ends where another
@@ -1762,6 +1836,10 @@ fn about(a: Decimal, b: Decimal) -> bool {
 }
 
 /// The listed plan of the broker whose short name starts `name`.
+fn takes_nothing(costs: &[Option<Percent>]) -> bool {
+    costs.iter().all(Option::is_none)
+}
+
 fn plan_of<'a>(plans: &'a [(String, Plan)], name: &str) -> &'a Plan {
     &plans
         .iter()

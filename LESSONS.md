@@ -127,13 +127,6 @@ all. Read those three first.
 - The system Python has no Pillow: `uv run --with pillow python script.py`.
 - The Cargo packages are `broker-fees` (the core) and `broker-fees-wasm` (the
   bindings): `cargo test -p broker-fees`.
-- `toMatchAriaSnapshot` passes on a page that has more than the snapshot:
-  `inputs-desktop.aria.yml` went two brokers behind unnoticed. After adding
-  to the inputs, re-record it (`--update-snapshots=all -g "as text"`);
-  `--update-snapshots=changed` re-records only the pictures that differ.
-- `npx playwright test --update-snapshots tests/x.spec.ts` fails: the flag
-  takes an optional mode and swallows the path. Write
-  `--update-snapshots=all tests/x.spec.ts`.
 - When the permission classifier blocked Bash and WebSearch, the user allowed
   them in `.claude/settings.local.json`.
 - `pkill -f <pattern>` kills the shell running the command itself when the
@@ -550,6 +543,12 @@ all. Read those three first.
   eight pictures of the dialog, the editor and the breakdown on the two
   extreme screens. Inside a canvas only a picture sees anything; the bars'
   word-fit is checked by measuring the names in the page's font instead.
+- 2026-10-18: the user found most tests "not useful and waste time". The
+  pictures and aria snapshots went, and so did the browser tests that
+  re-checked the core's words, the five extra layout devices and the Rust
+  and unit tests asserting whole sentences: a wording change had broken a
+  dozen of them and caught nothing. A full run went from 4.7 min (320 runs)
+  to about a minute (182).
 - With the core loaded in Node, a browser test can read the page's inputs
   back and ask the core what the page should show (`inputsOnPage`,
   `expectedRows`, `feesFor`): the test then checks the wiring, and the
@@ -558,11 +557,6 @@ all. Read those three first.
 - On the iPhone project a tap is a mouse click, so a hover stays behind
   (`app.hovered`): move the mouse away before asserting anything a hover
   changes.
-- Look at the real failures before the screenshots: filter the line
-  reporter's `Error:` lines, leaving out `toHaveScreenshot` and
-  `toMatchAriaSnapshot`.
-- An aria snapshot matches partially: adding a name (an `aria-label`) doesn't
-  fail it.
 
 - A click that "intercepts pointer events" on another element and then
   succeeds on a retry can hide a real jump: Playwright scrolls again before

@@ -53,7 +53,7 @@ pub fn all() -> Vec<Example> {
                  the S&P 500, on Tel Aviv, expecting 10% a year (the index's long-run average). \
                  Over 30 years, custody, charged every year on everything held, matters far more \
                  than the fee on each purchase.",
-                "₪1,500 בחודש מהמשכורת, מגיל 30 ועד 60, לקרן מחקה על מדד S&P 500 בתל אביב, בציפייה ל-10% בשנה (הממוצע ארוך הטווח של המדד). לאורך 30 שנה, דמי המשמרת, שנגבים כל שנה מכל התיק, חשובים הרבה יותר מהעמלה על כל קנייה.",
+                "₪1,500 בחודש מהמשכורת, מגיל 30 ועד 60, לקרן מחקה על מדד S&P 500 בתל אביב, בציפייה ל\u{2011}10% בשנה (הממוצע ארוך הטווח של המדד). לאורך 30 שנה, דמי המשמרת, שנגבים כל שנה מכל התיק, חשובים הרבה יותר מהעמלה על כל קנייה.",
             ),
             Scenario {
                 security: Security::IndexFund,
@@ -88,7 +88,7 @@ pub fn all() -> Vec<Example> {
                  which the US taxes in an estate above $60,000. There's one purchase, so what's \
                  charged for holding matters most. A provident fund for investment can't take so \
                  much in one year.",
-                "₪500,000 בבת אחת, מירושה או ממכירת דירה, לקרן סל על מדד S&P 500 בתל אביב, ל-15 שנה: שם היא לא נכס אמריקאי, שארה״ב גובה עליו מס עיזבון מעל $60,000. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק. לקופת גמל להשקעה אי אפשר להפקיד סכום כזה בשנה אחת.",
+                "₪500,000 בבת אחת, מירושה או ממכירת דירה, לקרן סל על מדד S&P 500 בתל אביב, ל\u{2011}15 שנה. קרן כזו לא נחשבת נכס אמריקאי, ולכן ארה״ב לא גובה עליה מס עיזבון. יש רק קנייה אחת, ולכן מה שחשוב הוא כמה גובים על החזקת התיק. לקופת גמל להשקעה אי אפשר להפקיד סכום כזה בשנה אחת.",
             ),
             Scenario {
                 exchange: Exchange::Tlv,
@@ -121,7 +121,7 @@ pub fn all() -> Vec<Example> {
                 "₪400,000 in bonds on Tel Aviv, from 67, for 10 years at 4% a year: money kept \
                  with little risk after retiring. With a return this low, even custody of a \
                  fraction of a percent a year takes a large share of the interest.",
-                "₪400,000 באג״ח בתל אביב, מגיל 67 ול-10 שנים, ב-4% בשנה: כסף שרוצים לשמור בלי סיכון גדול אחרי הפרישה. כשהתשואה נמוכה כל כך, גם דמי משמרת של חלקי אחוז בשנה לוקחים חלק גדול מהריבית.",
+                "₪400,000 באג״ח בתל אביב, מגיל 67 ול\u{2011}10 שנים, ב\u{2011}4% בשנה: כסף שרוצים לשמור בלי סיכון גדול אחרי הפרישה. כשהתשואה נמוכה כל כך, גם דמי משמרת של חלקי אחוז בשנה לוקחים חלק גדול מהריבית.",
             ),
             Scenario {
                 security: Security::Bond,
@@ -180,7 +180,7 @@ pub fn short_term() -> Vec<ShortTermExample> {
             explanation: Text::new(
                 "₪5,000 a month for three years, towards a flat's first payment. A deposit \
                  takes one sum, so only the funds take money every month.",
-                "₪5,000 בחודש במשך שלוש שנים, לקראת התשלום הראשון על דירה. פיקדון מקבל סכום אחד, ולכן רק הקרנות מקבלות הפקדה חודשית.",
+                "₪5,000 בחודש במשך 3 שנים, לקראת התשלום הראשון על דירה. פיקדון מקבל סכום אחד, ולכן רק הקרנות מקבלות הפקדה חודשית.",
             ),
             first_deposit: dec!(0),
             monthly_deposit: dec!(5000),

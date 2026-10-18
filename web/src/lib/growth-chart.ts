@@ -20,8 +20,7 @@ export interface Line {
   id: string
   label: string
   color: string
-  /** Its row's number in the table. */
-  rank: number
+  rank: number | undefined
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean
   values: number[]
@@ -39,7 +38,6 @@ export interface GrowthView {
   touch: boolean
   /** Time in months rather than years: the short term's. */
   months?: boolean
-  /** The no-fee line's name, if not "No fees". */
   noFeesName?: string
 }
 

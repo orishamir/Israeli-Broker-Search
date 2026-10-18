@@ -1,5 +1,3 @@
-// Amounts in shekels, formatted by the browser's Intl.
-
 import { t } from './text'
 
 const whole = new Intl.NumberFormat('en-IL', {
@@ -30,8 +28,13 @@ const dayMonthYear = new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: '
 /** "28/09/2026", as Israelis write dates, from an ISO date ("2026-09-28"). */
 export const dateText = (iso: string): string => dayMonthYear.format(new Date(`${iso}T00:00:00`))
 
-/** "₪1.42M", "₪889K", "₪42K": short enough for chart labels. */
-export const compactShekels = (amount: number): string => compact[0].format(amount)
+/** The browser's "K" and "M" in Hebrew words: "₪242 אלף", "₪1.42 מיליון". */
+const inWords: Record<string, string> = { K: '\u00a0אלף', M: '\u00a0מיליון', B: '\u00a0מיליארד' }
+const compactIn = (format: Intl.NumberFormat) => (amount: number) =>
+  format.format(amount).replace(/[KMB]$/, (unit) => inWords[unit])
+
+/** "₪1.42 מיליון", "₪889 אלף", "₪42 אלף": short enough for chart labels. */
+export const compactShekels = (amount: number): string => compactIn(compact[0])(amount)
 
 /** Of `formats`, from the shortest, the first that prints `values` that
  * differ differently: lines ending at ₪103,196 and ₪102,930 both read
@@ -39,15 +42,16 @@ export const compactShekels = (amount: number): string => compact[0].format(amou
 function fewestApart(values: number[], formats: Intl.NumberFormat[]): (value: number) => string {
   const kinds = (format: Intl.NumberFormat) => new Set(values.map((value) => format.format(value))).size
   const most = kinds(formats.at(-1)!)
-  const format = formats.find((format) => kinds(format) === most)!
-  return (value) => format.format(value)
+  return formats.find((format) => kinds(format) === most)!.format
 }
 
 /** Compact amounts, with a digit more (up to five) wherever two of `amounts`
  * would otherwise read the same: "₪103.20K", "₪102.93K". For labels that
  * stand side by side, such as where lines end. */
-export const compactShekelsApart = (amounts: number[]): ((amount: number) => string) =>
-  fewestApart(amounts, compact)
+export const compactShekelsApart = (amounts: number[]): ((amount: number) => string) => {
+  const format = fewestApart(amounts, compact)
+  return (amount) => format(amount).replace(/[KMB]$/, (unit) => inWords[unit])
+}
 
 /** Black or white, whichever reads better on `color` (a "#rrggbb"). */
 export function readableOn(color: string): string {
@@ -75,6 +79,20 @@ const roundPercent = new Intl.NumberFormat('en-IL', {
 /** "0.42%", "12.50%": a yearly cost, from a number of percent (0.42). */
 export const percent = (value: number): string => twoDecimals.format(value / 100)
 
+/** Whether a place's yearly cost, a share of the Bank of Israel's rate it
+ * keeps, is below zero once rounded: a bank paying more than the rate. */
+export const paysAboveTheRate = (costPercent: number): boolean => costPercent <= -0.005
+
+/** A place's yearly cost, "0.17%", or for a bank paying more than the rate
+ * "0.50% מעל הריבית": a negative cost read twice. */
+export const placeCost = (costPercent: number): string =>
+  paysAboveTheRate(costPercent) ? t.aboveTheRate(percent(-costPercent)) : percent(costPercent)
+
+/** A plan's yearly cost as `percent` writes it, but "less than 0.01%" for a
+ * cost that rounds to nothing: "0.00%" read as no fees at all. */
+export const yearlyCost = (value: number): string =>
+  value > 0 && value < 0.005 ? t.underAHundredth : percent(value)
+
 const percentTo = [2, 3, 4].map(
   (decimals) =>
     new Intl.NumberFormat('en-IL', {
@@ -97,3 +115,9 @@ export function percentApart(values: number[]): (value: number) => string {
 /** "0.1%", "1%", "10%", "0.42%": short enough for an axis, from a number of
  * percent. */
 export const compactPercent = (value: number): string => roundPercent.format(value / 100)
+
+const asTyped = new Intl.NumberFormat('en-IL', { style: 'percent', maximumFractionDigits: 4 })
+
+/** "3.25%", "12.5%", "2%": a percentage the user typed, as typed, from a
+ * number of percent. Rounded to two digits, 3.25% read 3.3%. */
+export const typedPercent = (value: number): string => asTyped.format(value / 100)

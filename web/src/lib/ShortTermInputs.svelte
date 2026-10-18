@@ -71,7 +71,7 @@
   {/if}
   <div class="choose">
     <button onclick={() => (choosing = true)}>{t.addOrRemove}</button>
-    <span class="count">{t.countOf(short.compared.length, short.places.length)}</span>
+    <span class="count">{t.placesOf(short.compared.length, short.places.length)}</span>
   </div>
 </section>
 <PlaceSheet {app} bind:open={choosing} />
