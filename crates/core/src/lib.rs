@@ -44,6 +44,7 @@
 pub mod describe;
 pub mod examples;
 pub mod funds;
+pub mod guide;
 pub mod history;
 pub mod money;
 mod percent;
