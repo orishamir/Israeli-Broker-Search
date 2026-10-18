@@ -10,7 +10,6 @@ import { t } from './text'
 
 export type FeeType = Exclude<keyof FeeAmounts, 'total'>
 
-/** A fee to compare the plans by, or all of them. */
 export type Focus = 'all' | FeeType
 
 /** The kinds of fee, in the order they're stacked. The colors are checked
@@ -31,7 +30,6 @@ const GRID = 'rgba(255, 255, 255, 0.07)'
 const SURFACE = '#151820'
 export const FADED = 'rgba(142, 149, 165, 0.3)'
 
-/** One plan's bar. */
 export interface Bar {
   id: string
   label: string
@@ -206,7 +204,6 @@ export function barsOption({ bars, focus, pinned, width, measure }: BarsView): C
         emphasis: { disabled: true },
         label: {
           show: true,
-          // From where the bar starts.
           position: 'right',
           distance: 0,
           color: TEXT,
@@ -255,7 +252,6 @@ export function barsOption({ bars, focus, pinned, width, measure }: BarsView): C
           itemStyle: { opacity: pinned.size === 0 || pinned.has(id) ? 1 : 0.6 },
         })),
         color: colorOf(type, focus),
-        // A thin gap between the parts of a bar.
         itemStyle: { borderColor: SURFACE, borderWidth: 1 },
         // Amounts only where they fit.
         label: {

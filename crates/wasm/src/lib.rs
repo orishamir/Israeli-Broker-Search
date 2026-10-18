@@ -490,7 +490,7 @@ pub fn short_term_data_dates() -> String {
     describe::short_term_data_dates(lang())
 }
 
-/// "an ETF bought in the USA"
+/// "an ETF in the USA"
 #[wasm_bindgen(js_name = purchasePhrase)]
 pub fn purchase_phrase(security: Ts<Security>, exchange: Ts<Exchange>) -> Result<String, JsError> {
     Ok(describe::purchase(
@@ -546,7 +546,6 @@ pub struct Inputs {
     pub ils_per_usd: Option<f64>,
     #[tsify(type = "number | null")]
     pub ils_per_eur: Option<f64>,
-    /// The plans to compare.
     pub plans: Vec<PlanKey>,
     /// The user's own plans that `plans` refers to.
     #[serde(default)]
@@ -655,7 +654,6 @@ pub enum InvalidInputs {
 }
 
 impl InvalidInputs {
-    /// What's wrong, in `lang`.
     fn text(&self, lang: Lang) -> String {
         match self {
             InvalidInputs::Missing(field) => {
@@ -843,11 +841,10 @@ pub struct PlanOutcomeData {
     /// share, the cheapest for you", "A standing order buys every month, so
     /// it isn't used here".
     pub note: Option<String>,
-    /// Who can open it, if not anyone, under its name: "Through an employer,
-    /// or if self-employed".
+    /// Who can open it, if not anyone, under its name: "Self-employed".
     pub who_can_join: Option<String>,
     /// As a pension, the monthly amount the balance would buy, under its
-    /// name: "A balance for a pension: about ₪10,000 a month for life, at a
+    /// name: "Expected pension: about ₪10,000 a month for life, at a
     /// conversion factor of about 200".
     pub pension_note: Option<String>,
     /// For a kind of fund's average, what's left beside it at its cheapest
@@ -1762,7 +1759,7 @@ pub struct KindInfo {
     pub name: String,
     pub english_name: String,
     pub description: String,
-    /// "Rates given, by the data of 09/2026"
+    /// "Rates given, by the data of September 2026"
     pub data_of: String,
     /// "Checked 01/10/2026"
     pub checked: String,

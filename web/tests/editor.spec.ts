@@ -103,7 +103,6 @@ test(
     await copy(page, label)
     const dialog = page.getByRole('dialog', { name: yours })
     await expect(dialog).toContainText(t.copyOf(plan.name, broker.name))
-    // No price list to open, and no trades or conversions to price.
     await expect(dialog.getByRole('radiogroup', { name: t.view })).toBeHidden()
     await expect(dialog.getByLabel(t.fieldOf(TRADE, t.price))).toBeHidden()
     const balance = dialog.getByLabel(fee('Management'), { exact: true })
@@ -116,7 +115,6 @@ test(
     await expect(dialog).toContainText(`${plan.name}: ${simple(changed).management!.was!.price.text}`)
     await balance.fill('-1')
     await expect(dialog).toContainText(NEGATIVE)
-    // Not added while a field says what's wrong with it.
     await expect(dialog.getByRole('button', { name: t.saveTheCopy })).toBeDisabled()
     await balance.fill('0.4')
     await expect(dialog).not.toContainText(NEGATIVE)
@@ -189,7 +187,6 @@ test('your plans and the editor view stay after a reload', async ({ page }) => {
   await expect(rows(page).filter({ hasText: name })).toContainText(t.yourDeal(broker.name))
   await (await yourPlans(page)).getByRole('button', { name: t.change(name) }).click()
   await expect(editor(page).getByRole('radio', { name: t.fullPriceList })).toBeChecked()
-  // Still $2, not the original's price.
   const trade = simple().trade!
   const changed = setTrade(data, inputs.security, inputs.exchange, { ...trade.fields, amount: 2 })
   await expect(editor(page)).toContainText(`${plan.name}: ${simple(changed).trade!.was!.price.text}`)
@@ -244,7 +241,6 @@ test('the full price list: rows, what they cover, and overlaps', async ({ page }
     .first()
     .click()
   await expect(dialog).not.toContainText(t.neverUsed)
-  // Esc closes an open checklist, not the whole editor.
   await dialog.getByRole('button', { name: `${anythingAbroad} ▾` }).click()
   await page.keyboard.press('Escape')
   await expect(checklist).toBeHidden()

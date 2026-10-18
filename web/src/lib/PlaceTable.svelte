@@ -136,7 +136,6 @@
     text-align: start;
     white-space: nowrap;
   }
-  /* Its share of the table (see `width`). */
   th.place,
   th.amount,
   th.when {

@@ -1220,7 +1220,7 @@ impl Plan {
     }
 
     /// The monthly pension `left` would buy, when `scenario` takes the money
-    /// as one: "A balance for a pension: about ₪10,000 a month for life, at
+    /// as one: "Expected pension: about ₪10,000 a month for life, at
     /// a conversion factor of about 200". Then the
     /// amount the table ranks by is a balance, not cash to take out, and the
     /// pension is what the saver would get. Divided by
@@ -2019,7 +2019,7 @@ pub struct Section {
 }
 
 /// The pages behind one broker's numbers, or one kind of source: "Bank
-/// Leumi · Tariff of 01/10/2026".
+/// Leumi · Tariff in force from 01/10/2026".
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
@@ -3365,7 +3365,7 @@ mod tests {
 // ─────────────────────────── The short term ───────────────────────────
 
 impl short_term::Kind {
-    /// "Rates given, by the data of 08/2026", "Fees, by the data of
+    /// "Rates given, by the data of September 2026", "Fees, by the data of
     /// 30/09/2026".
     #[must_use]
     pub fn data_of_text(&self, lang: Lang) -> String {

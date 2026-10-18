@@ -445,7 +445,6 @@ pub struct PercentFee {
 }
 
 impl PercentFee {
-    /// Never charges anything.
     pub const FREE: PercentFee = PercentFee {
         percent: Percent(Decimal::ZERO),
         min: None,
@@ -459,7 +458,6 @@ impl PercentFee {
         clamp(fee, self.min, self.max, rates)
     }
 
-    /// True if it never charges anything.
     #[must_use]
     pub fn is_free(&self) -> bool {
         self.percent.is_zero() && self.min.is_none_or(|min| min.is_zero())

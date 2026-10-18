@@ -123,7 +123,6 @@ test(
     await expect(growth).toBeHidden()
     await expect(page.getByLabel(t.buyEvery, { exact: true })).toBeHidden()
     await page.getByLabel(t.moreOptions, { exact: true }).check()
-    // In the switch's own card, the last, where they open.
     const card = page.locator('aside section.card').last()
     await expect(card.getByLabel(t.moreOptions, { exact: true })).toBeChecked()
     await expect(card.getByLabel(t.growingBy, { exact: true })).toBeVisible()
@@ -133,7 +132,6 @@ test(
     const grown = await inputsOnPage(page)
     expect(grown.depositGrowthPercent).toBe(3)
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(grown))
-    // Switched off, the fields go, and so does their effect.
     await page.getByLabel(t.moreOptions, { exact: true }).uncheck()
     await expect(growth).toBeHidden()
     await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(await inputsOnPage(page)))
@@ -149,7 +147,6 @@ test(
     const [online, pepper] = [listed('Leumi · Online'), listed('Leumi · Pepper')]
     const leumi = online.broker
     await openPlans(page)
-    // Every broker is one folded line, saying which of its plans are ticked.
     for (const { name } of brokers()) {
       const folded = plansList(page).getByRole('button', { name, exact: true })
       await expect(folded).toHaveAttribute('aria-expanded', 'false')
@@ -162,7 +159,6 @@ test(
     await expect(line).toHaveAccessibleDescription(
       `${online.plan.name}, ${pepper.plan.name} ${t.countOf(2, leumi.plans.length)}`,
     )
-    // The table changes while the list is open.
     await expect(rows(page)).toHaveCount(usualPlans.length + 1)
     await plansList(page)
       .getByRole('button', { name: t.doneComparing(usualPlans.length + 1) })
@@ -170,14 +166,12 @@ test(
     await expect(plansList(page)).toBeHidden()
     await expect(page.getByRole('button', { name: t.addOrRemove })).toBeFocused()
 
-    // Two of Leumi's plans: the card names each by its label.
     const card = page.getByRole('list', { name: t.whatsCompared }).getByRole('listitem')
     await expect(card).toHaveCount(usualPlans.length + 1)
     await expect(card.filter({ hasText: online.label })).toHaveCount(1)
     await expect(card.filter({ hasText: pepper.label })).toHaveCount(1)
     await expect(card.getByText(leumi.shortName, { exact: true })).toHaveCount(0)
     await expect(page.getByText(t.comparedOf(usualPlans.length + 1, listedPlans.length))).toBeVisible()
-    // ✕ closes it too.
     await openPlans(page)
     await plansList(page).getByRole('button', { name: t.close }).click()
     await expect(plansList(page)).toBeHidden()

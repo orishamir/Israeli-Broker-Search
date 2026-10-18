@@ -28,7 +28,6 @@
   let focus = $state<Focus>('all')
   /** Picks a fee to compare by, or all of them again if it's picked. */
   const toggle = (key: FeeType) => (focus = focus === key ? 'all' : key)
-  /** Each fee button's explanation, shown on hover. */
   const popovers = $state<HTMLElement[]>([])
 
   /** The plans without numbers, grouped by why, in the table's order. */

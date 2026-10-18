@@ -451,7 +451,6 @@ pub struct Outcome {
     pub value_by_month: Vec<Decimal>,
     /// What it earned before tax.
     pub earned: Decimal,
-    /// The tax on that.
     pub tax: Decimal,
     /// What's left at the end, once taxed.
     pub after_tax: Decimal,

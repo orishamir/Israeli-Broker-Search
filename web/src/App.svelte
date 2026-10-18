@@ -57,7 +57,6 @@
     },
   ]
 
-  /** The short-term calculator's views: where the interest goes, and the value over the months. */
   const shortViews: Choice<ShortTermView>[] = [
     {
       value: 'split',
@@ -80,9 +79,7 @@
   const short = app.short
   /** The chart by deposit is for experts: offered with More options only. */
   const views = $derived(allViews.filter((view) => view.value !== 'crossover' || app.moreOptions))
-  /** The growth chart's views: over the years, with a zoom. */
   const overYears = $derived(app.chartView === 'value' || app.chartView === 'lost')
-  /** The line charts, rather than the fee breakdown. */
   const lines = $derived(app.chartView !== 'breakdown')
   const best = $derived(app.best)
   /** How old the numbers are, under each table: the core's line, and
@@ -170,7 +167,6 @@
   const bestTax = rolling(() => best?.outcome?.tax)
   const bestLost = rolling(() => best?.outcome?.lostToFees)
 
-  // The same for the short term's summary.
   const shortComparison = () => ('results' in short.comparison ? short.comparison : undefined)
   const shortBest = $derived(short.best)
   const shortDeposited = rolling(() => shortComparison()?.deposited)
@@ -184,7 +180,6 @@
         kind.mayCostMore && results.some(({ place, outcome }) => outcome && place.kindName === kind.name),
     )
 
-  /** The best plan or place, for the bar along a phone's screen. */
   const bar = $derived.by(() => {
     if (app.family === 'short') {
       if (!shortBest?.outcome) return undefined
@@ -457,7 +452,6 @@
   </div>
 {/if}
 
-<!-- What the page is and isn't, and how to reach whoever made it. -->
 <footer class="page-footer">
   <span>{t.notAdvice}</span>
   <span>{t.notAffiliated}</span>
@@ -762,14 +756,12 @@
     margin: 0;
     text-align: end;
   }
-  /* Share, at the end of the title's row. */
   .actions {
     display: flex;
     align-items: center;
     gap: 8px;
     margin-inline-start: auto;
   }
-  /* Mouse or finger, whichever this screen mostly uses. */
   @media (pointer: coarse) {
     .mouse {
       display: none;

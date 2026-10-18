@@ -1,5 +1,3 @@
-// Amounts in shekels, formatted by the browser's Intl.
-
 import { t } from './text'
 
 const whole = new Intl.NumberFormat('en-IL', {

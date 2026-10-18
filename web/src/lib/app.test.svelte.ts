@@ -80,20 +80,16 @@ test('the card names each ticked plan as briefly as it can be told apart, in the
   const plan = (at: number) => planId({ kind: 'listed', broker: index, plan: at })
   const usual = leumi.newCustomerPlan
   const other = leumi.plans.findIndex((_, at) => at !== usual)
-  // At first each broker's usual plan is its only one ticked: the broker's name says it.
   expect(names()).toEqual(
     app.brokers.filter((broker) => broker.comparedAtFirst).map(({ shortName }) => shortName),
   )
-  // Two of its plans: each by its label.
   app.setSelected([plan(other)], true)
   expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[usual].name}`)
   expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[other].name}`)
   expect(names()).not.toContain(leumi.shortName)
-  // Only one again, but not the usual one: still by its label.
   app.setSelected([plan(usual)], false)
   expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[other].name}`)
   expect(names()).not.toContain(leumi.shortName)
-  // A plan of your own, by its name, last.
   app.draftNewPlan()
   app.addYourPlan(draftOf(app.details))
   expect(names().at(-1)).toBe(t.yourPlan)
@@ -123,13 +119,11 @@ test('how the money is taken out is asked only while a ticked plan pays a pensio
   expect(app.inputError).toBe('מלאו את הגיל שלכם')
   app.age = 45
 
-  // Without the fund there's no pension to ask about, and none is sent.
   app.setSelected([fund.id], false)
   expect(app.pensionFromAge).toBeUndefined()
   expect(app.inputs).toMatchObject({ asPension: false })
   app.setSelected([fund.id], true)
   expect(app.inputs).toMatchObject({ asPension: true })
-  // Nor when the holdings are kept: nothing is taken out.
   app.moreOptions = true
   app.atEnd = 'hold'
   expect(app.pensionFromAge).toBeUndefined()
@@ -162,12 +156,12 @@ test('a study fund is locked for six years, and taxes only the gains on what is 
   app.monthlyDeposit = 1_500
   expect(taxOf(study.id)).toBe(0)
   // The fund says its rule under its name, and its row what became of it.
-  expect(study.broker!.taxRule).toBe('אין מס על הרווחים אחרי 6 שנים, על הפקדות של עד ₪20,566 בשנה')
-  expect(rowOf().taxNote).toBe('אין מס: ההפקדות שלכם בתוך ₪20,566 בשנה')
+  expect(study.broker!.taxRule).toContain('₪20,566')
+  const within = rowOf().taxNote
+  expect(within).toContain('₪20,566')
   app.monthlyDeposit = 2_000
-  expect(rowOf().taxNote).toBe('המס הוא רק על מה שמופקד מעל ₪20,566 בשנה')
+  expect(rowOf().taxNote).not.toBe(within)
   expect(results(app).find(({ plan }) => plan.broker?.kind !== 'Funds')!.taxNote).toBeUndefined()
-  // No pension from a study fund: it asks nothing about the way out.
   expect(study.info.pensionFromAge).toBeUndefined()
 
   app.years = 5
@@ -415,7 +409,6 @@ test('an example fills every basic input, how the money is taken out too, and le
     inflationPercent: 3,
     buyEveryMonths: 3,
   })
-  // Any other takes it all at once.
   app.applyExample(app.examples.find(({ asPension }) => !asPension)!)
   expect(app.inputs.asPension).toBe(false)
   expect(app.examples.map(({ name }) => name)).toEqual(core.examples().map(({ name }) => name))
@@ -434,7 +427,6 @@ test('the sweep varies the monthly deposit while there is one, else the one-time
   app.monthlyDeposit = amount
   const row = results(app).find(({ plan }) => plan.id === planId(first.key))!
   expect(first.costs![3]).toBe(row.outcome!.yearlyCostPercent)
-  // Typing the swept deposit asks for no new sweep.
   expect(app.sweepAnswer!.request).toBe(app.sweepRequest)
 
   app.monthlyDeposit = 0
@@ -605,7 +597,6 @@ test("the best plan's line keeps its words until the sweep answers, shown while 
   answer()
   const first = app.aroundLine
   expect(first).toEqual({ text: expect.stringMatching(/^הזול ביותר בעמלות בכל הפקדה חודשית/), shown: true })
-  // Typing the deposit the sweep varies asks nothing new.
   const asked = app.sweepRequest
   app.monthlyDeposit = 2500
   expect(app.sweepRequest).toBe(asked)

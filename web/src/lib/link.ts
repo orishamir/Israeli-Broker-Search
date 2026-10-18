@@ -155,7 +155,6 @@ function listIn<T extends { id: string }>(
   }
 }
 
-/** Only what was there. */
 const defined = <T extends object>(shared: T): T =>
   Object.fromEntries(Object.entries(shared).filter(([, value]) => value !== undefined)) as T
 

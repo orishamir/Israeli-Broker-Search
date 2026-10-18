@@ -166,7 +166,6 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
 test('the chart by deposit draws the plans, follows the pins, and its marker follows the deposit', async ({
   page,
 }) => {
-  // An expert's chart: offered with More options only.
   await expect(choice(page, t.chart, t.byDepositView)).toHaveCount(0)
   await page.getByLabel(t.moreOptions, { exact: true }).check()
   await choice(page, t.chart, t.byDepositView).click()

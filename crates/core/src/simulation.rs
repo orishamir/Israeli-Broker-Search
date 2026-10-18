@@ -110,7 +110,6 @@ pub const USUAL_INFLATION: Percent = Percent(rust_decimal_macros::dec!(2));
 /// that fees and conversions on it can't overflow.
 const LARGEST_VALUE: f64 = 1e15;
 
-/// Why a scenario can't be simulated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum InvalidScenario {
     #[error("the yearly return can't be below −100%")]

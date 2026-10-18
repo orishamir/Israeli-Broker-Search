@@ -110,8 +110,8 @@ export async function copyPlan(page: Page, englishLabel: string) {
   await expect(details(page)).toBeVisible()
 }
 
-/** Moves the mouse to the corner, so no hover tip is open: before a
- * screenshot, and before Esc in a dialog, or Esc closes the tip instead. */
+/** Moves the mouse to the corner, so no hover tip is open: before Esc in a
+ * dialog, or Esc closes the tip instead. */
 export const away = (page: Page) => page.mouse.move(0, 0)
 
 /** Closes the open dialog (not the list of plans under it) with Esc, and

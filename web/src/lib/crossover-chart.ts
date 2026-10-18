@@ -27,7 +27,6 @@ export interface CostLine {
   id: string
   label: string
   color: string
-  /** Its row's number in the table. */
   rank: number | undefined
   /** Your own plans are dotted, in their original's color. */
   dotted: boolean

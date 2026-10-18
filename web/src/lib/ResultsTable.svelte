@@ -15,7 +15,6 @@
     key: 'left' | 'lost' | 'tax' | 'yearly' | 'fees' | 'held'
     title: string
     explanation: string
-    /** The cell's text for an outcome. */
     text: (outcome: OutcomeData) => string
   }
 
@@ -197,7 +196,6 @@
     text-align: start;
     white-space: nowrap;
   }
-  /* Its share of the table (see `width`). */
   th.plan,
   th.amount {
     width: var(--share);
