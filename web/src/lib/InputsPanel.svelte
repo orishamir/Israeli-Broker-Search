@@ -38,7 +38,7 @@
       name: t.asAPension,
       englishName: en.asAPension,
       explanation: t.asAPensionTip(pensionFromAge),
-      hebrewNames: ['קצבה'],
+      hebrewNames: [],
     },
   ]
 

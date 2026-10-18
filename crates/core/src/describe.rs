@@ -166,10 +166,10 @@ impl Explained for Exchange {
     fn explanation(self, lang: Lang) -> &'static str {
         match self {
             Exchange::Tlv => lang.pick(
-                "The Tel Aviv Stock Exchange. Prices are in shekels, so nothing is converted. \
+                "Prices are in shekels, so nothing is converted. \
                  An S&P 500 ETF is sold here too, as a קרן\u{a0}סל: an Israeli one, or a \
                  foreign one listed here (קרן\u{a0}זרה).",
-                "הבורסה לניירות ערך בתל אביב. המחירים בשקלים, ולכן אין צורך בהמרה. גם קרנות סל על S&P 500 נסחרות כאן: ישראליות, וגם זרות שרשומות כאן למסחר.",
+                "המחירים בשקלים, ולכן אין צורך בהמרה. גם קרנות סל על S&P 500 נסחרות כאן: ישראליות, וגם זרות שרשומות כאן למסחר.",
             ),
             Exchange::Usa => lang.pick(
                 "NYSE or Nasdaq. Prices are in dollars, so your shekels are converted, which \
@@ -380,7 +380,7 @@ impl Explained for FeeKind {
                  are priced: per share, per order or as a share of the trade. Altshuler, for \
                  example: 1¢ a share, $11 an order, or 0.15% of the trade. The app picks the \
                  cheapest for your inputs; ask for it when you open the account.",
-                "יש בנקים ובתי השקעות שנותנים לבחור, בפתיחת החשבון, איך לחייב עסקאות בחו״ל: לפי מספר המניות, סכום קבוע לכל פקודה, או אחוז מהעסקה. באלטשולר, למשל: 1¢ למניה, $11 לפקודה, או 0.15% מהעסקה. המחשבון בוחר את השיטה הזולה ביותר עבורכם; בקשו אותה כשאתם פותחים את החשבון.",
+                "יש בנקים ובתי השקעות שנותנים לבחור, בפתיחת החשבון, איך לחייב עסקאות בחו״ל: לפי מספר המניות, סכום קבוע לכל פקודה, או אחוז מהעסקה. באלטשולר, למשל: $0.01 למניה, $11 לפקודה, או 0.15% מהעסקה. המחשבון בוחר את השיטה הזולה ביותר עבורכם; בקשו אותה כשאתם פותחים את החשבון.",
             ),
             FeeKind::StandingOrder => lang.pick(
                 "An instruction to buy the same amount every month, automatically. Some \
@@ -867,18 +867,19 @@ impl Plan {
         match (year, lang) {
             (0, Lang::En) => format!(
                 "No more than {ceiling} can be deposited in a year, and your first year's \
-                 deposits come to {deposits}"
+                 deposits come to {deposits}. To compare, deposit at most {ceiling} each year."
             ),
             (0, Lang::He) => format!(
-                "אי אפשר להפקיד יותר מ\u{2011}{ceiling} בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}{deposits}"
+                "אי אפשר להפקיד יותר מ\u{2011}{ceiling} בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}{deposits}. כדי להשוות, הקטינו את ההפקדות כך שבכל שנה יופקדו עד {ceiling}."
             ),
             (_, Lang::En) => format!(
                 "No more than {ceiling} can be deposited in year {} (the ceiling, raised with \
-                 prices), and your deposits come to {deposits}",
+                 prices), and your deposits come to {deposits}. To compare, deposit less that \
+                 year.",
                 year + 1
             ),
             (_, Lang::He) => format!(
-                "אי אפשר להפקיד יותר מ\u{2011}{ceiling} בשנה ה\u{2011}{} (התקרה, מעודכנת לפי האינפלציה), וההפקדות שלכם מגיעות ל\u{2011}{deposits}",
+                "אי אפשר להפקיד יותר מ\u{2011}{ceiling} בשנה ה\u{2011}{} (התקרה, מעודכנת לפי האינפלציה), וההפקדות שלכם מגיעות ל\u{2011}{deposits}. כדי להשוות, הקטינו את ההפקדות בשנה הזו.",
                 year + 1
             ),
         }
@@ -1179,9 +1180,9 @@ impl Vehicle {
                 let age = rules.pension?.from_age;
                 match lang {
                     Lang::En => {
-                        format!("No tax as a pension from {age}; otherwise taxed like a broker")
+                        format!("Taxed like a broker; no tax as a pension from {age}")
                     }
-                    Lang::He => format!("אין מס בקצבה מגיל {age}; אחרת ממוסה כמו חשבון מסחר"),
+                    Lang::He => format!("ממוסה כמו חשבון מסחר; אין מס בקצבה מגיל {age}"),
                 }
             }
             Vehicle::StudyFund => {
@@ -1734,7 +1735,7 @@ impl Priced for CustodyFee {
             write!(
                 text,
                 ", {} {}",
-                lang.pick("charged", "נגבה"),
+                lang.pick("charged", "נגבים"),
                 self.billed.adverb(lang)
             )
             .expect("a String");
@@ -2137,8 +2138,8 @@ pub fn about(lang: Lang) -> About {
                     "Tax is a quarter of the real gain: what selling brings, less what the \
                      holdings cost, the cost raised by how much prices rose since each \
                      purchase ({USUAL_INFLATION} a year, unless you set another inflation \
-                     under \u{201c}More options\u{201d}). What was paid to buy counts as cost, \
-                     fees included; of what was paid to keep the account, only the last \
+                     under \u{201c}More options\u{201d}). What was paid to buy and sell counts as \
+                     cost, fees included; of what was paid to keep the account, only the last \
                      year's comes off, the law allowing it only in the year of a sale. A provident \
                      fund for investment taken as a monthly pension from the age of 60 pays \
                      no tax on the gain, and a study fund pays none on the gains of what was \
@@ -2146,7 +2147,7 @@ pub fn about(lang: Lang) -> About {
                      measured before tax, and the tax is each plan's own."
                 ),
                 Lang::He => format!(
-                    "המס הוא מס רווחי הון: 25% מהרווח. את מה ששילמתם בכל קנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז אותה קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה. עמלות הקנייה נחשבות חלק ממחיר הקנייה. מדמי המשמרת והטיפול מוכר רק מה ששולם בשנה האחרונה, כי החוק מתיר לקזז אותם רק בשנה שבה מוכרים. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 פטורה ממס על הרווח, ובקרן השתלמות פטורים הרווחים על מה שהופקד עד התקרה השנתית. מה שאבד לעמלות נמדד לפני מס; המס מחושב לכל מסלול בנפרד."
+                    "המס הוא מס רווחי הון: 25% מהרווח. את מה ששילמתם בכל קנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז אותה קנייה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה. עמלות הקנייה והמכירה נחשבות חלק מהעלות. מדמי המשמרת והטיפול אפשר לקזז רק את מה ששולם בשנת המכירה, כי החוק מתיר לקזז אותם רק בשנה שבה מוכרים. קופת גמל להשקעה שנמשכת כקצבה חודשית מגיל 60 פטורה ממס על הרווח, ובקרן השתלמות פטורים הרווחים על מה שהופקד עד התקרה השנתית. מה שאבד לעמלות נמדד לפני מס; המס מחושב לכל מסלול בנפרד."
                 ),
             },
             paragraph(
@@ -2173,17 +2174,19 @@ pub fn about(lang: Lang) -> About {
                  does and be bought every few months rather than monthly, the inflation can be \
                  changed, and every amount can be shown in today's shekels: each is divided by how much prices will have risen by then. Showing \
                  them so changes no ranking, only how the numbers read.",
-                "ב״אפשרויות נוספות״ אפשר לתת להפקדות לגדול כל שנה, כמו משכורת, לקנות פעם בכמה חודשים במקום כל חודש, לשנות את האינפלציה, ולהציג כל סכום בשקלים של היום, כלומר מתורגם לערך הכסף היום לפי האינפלציה. הצגה כזאת לא משנה אף דירוג, רק את אופן ההצגה של הסכומים.",
+                "ב״אפשרויות נוספות״ אפשר לתת להפקדות לגדול כל שנה, כמו משכורת, לקנות פעם בכמה חודשים במקום כל חודש, לשנות את האינפלציה, ולהציג כל סכום בכסף של היום, כלומר מתורגם לערך הכסף היום לפי האינפלציה. הצגה כזאת לא משנה אף דירוג, רק את אופן ההצגה של הסכומים.",
             ),
             paragraph(
                 "Banks publish what they charge. Investment houses publish only a full tariff, \
                  the most they may charge, and offer new customers far less by phone. Their \
                  \u{201c}Typical offer\u{201d} plan is what comparison sites list for joining, \
-                 and wherever the offer is silent the full tariff's price is used: a plan is \
-                 never shown cheaper than its documents allow. A fund's fee is agreed person \
+                 and wherever the offer is silent the full tariff's price is used, so an offer \
+                 is never shown cheaper than the documents allow. An unpublished price taken \
+                 on the cheap side is marked \u{201c}may cost more\u{201d}. A fund's fee is \
+                 agreed person \
                  by person, so the app shows what savers pay on average, from the funds' \
                  reports to the Capital Market Authority.",
-                "בנקים מפרסמים כמה הם גובים. בתי השקעות מפרסמים רק תעריפון מלא, כלומר המקסימום שמותר להם לגבות, ובפועל מציעים ללקוחות חדשים בטלפון הרבה פחות. המסלול ״מבצע הצטרפות״ שלהם הוא מה שאתרי ההשוואה מציגים למצטרפים, ובכל מה שהמבצע לא מזכיר נלקח מחיר התעריפון המלא: מסלול אף פעם לא מוצג זול יותר ממה שהמסמכים שלו מראים. דמי הניהול של קופה נקבעים לכל חוסך בנפרד, ולכן המחשבון מציג מה שחוסכים משלמים בממוצע, לפי מה שהקופות מדווחות לרשות שוק ההון.",
+                "בנקים מפרסמים כמה הם גובים. בתי השקעות מפרסמים רק תעריפון מלא, כלומר המקסימום שמותר להם לגבות, ובפועל מציעים ללקוחות חדשים בטלפון הרבה פחות. המסלול ״מבצע הצטרפות״ שלהם הוא מה שאתרי ההשוואה מציגים למצטרפים, ובכל מה שהמבצע לא מזכיר נלקח מחיר התעריפון המלא, כך שמבצע הצטרפות אף פעם לא מוצג זול יותר ממה שהמסמכים מראים. מחיר שלא פורסם ונלקחה בו הערכה זולה מסומן ״עשוי לעלות יותר״. דמי הניהול של קופה נקבעים לכל חוסך בנפרד, ולכן המחשבון מציג מה שחוסכים משלמים בממוצע, לפי מה שהקופות מדווחות לרשות שוק ההון.",
             ),
             paragraph(
                 "Every plan's details say how sure each number is. As published: the tariff or \
@@ -2962,11 +2965,11 @@ mod tests {
         assert_eq!(
             fund.why_not_offered(over(0), &at_once, None, Lang::En),
             "No more than ₪83,641 can be deposited in a year, and your first year's deposits \
-             come to ₪100,000"
+             come to ₪100,000. To compare, deposit at most ₪83,641 each year."
         );
         assert_eq!(
             fund.why_not_offered(over(0), &at_once, None, Lang::He),
-            "אי אפשר להפקיד יותר מ\u{2011}₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}₪100,000"
+            "אי אפשר להפקיד יותר מ\u{2011}₪83,641 בשנה, וההפקדות שלכם בשנה הראשונה מגיעות ל\u{2011}₪100,000. כדי להשוות, הקטינו את ההפקדות כך שבכל שנה יופקדו עד ₪83,641."
         );
         // ₪6,900 a month is ₪82,800 a year; 3% more the next year is ₪85,284,
         // and at 2% inflation the ceiling is 83,641 × 1.02 = ₪85,313.82 by
@@ -2981,7 +2984,7 @@ mod tests {
         assert_eq!(
             fund.why_not_offered(over(1), &growing, None, Lang::En),
             "No more than ₪85,314 can be deposited in year 2 (the ceiling, raised with prices), \
-             and your deposits come to ₪85,284"
+             and your deposits come to ₪85,284. To compare, deposit less that year."
         );
         assert!(
             fund.why_not_offered(over(1), &growing, None, Lang::He)
@@ -3024,11 +3027,11 @@ mod tests {
         );
         assert_eq!(
             rule(Vehicle::InvestmentGemel, Lang::En).as_deref(),
-            Some("No tax as a pension from 60; otherwise taxed like a broker")
+            Some("Taxed like a broker; no tax as a pension from 60")
         );
         assert_eq!(
             rule(Vehicle::InvestmentGemel, Lang::He).as_deref(),
-            Some("אין מס בקצבה מגיל 60; אחרת ממוסה כמו חשבון מסחר")
+            Some("ממוסה כמו חשבון מסחר; אין מס בקצבה מגיל 60")
         );
         assert_eq!(
             rule(Vehicle::SavingsPolicy, Lang::En).as_deref(),

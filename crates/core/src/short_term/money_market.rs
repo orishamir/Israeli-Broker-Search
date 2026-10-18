@@ -235,7 +235,7 @@ pub fn kind() -> Kind {
                 "At an investment house, a fund can cost a trade fee: Excellence charges ₪16 a \
                  trade on managed funds, while IBI trades some managers' funds free. None is \
                  counted: it depends on where the fund is bought, not on the fund.",
-                "בבית השקעות, קרן יכולה לעלות עמלת קנייה ומכירה: אקסלנס גובה ₪16 לפעולה בקרנות מנוהלות, ו-IBI סוחר בקרנות של חלק מהמנהלים בחינם. העמלה לא נספרת כאן: היא תלויה במקום שבו קונים את הקרן, ולא בקרן.",
+                "בבית השקעות, קרן יכולה לעלות עמלת קנייה ומכירה: אקסלנס גובה ₪16 לפעולה בקרנות מנוהלות, ו\u{2011}IBI סוחרת בקרנות של חלק מהמנהלים בחינם. העמלה לא נספרת כאן: היא תלויה במקום שבו קונים את הקרן, ולא בקרן.",
             ))
             .sources(&[&excellence_tariff(), &ibi_funds()]),
             Caveat::published(t(

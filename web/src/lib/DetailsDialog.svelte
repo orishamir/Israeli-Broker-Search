@@ -142,7 +142,8 @@
         </p>
         <p>{place.info.description}</p>
         <section class="fees">
-          <h4>{t.whatItPays}</h4>
+          <!-- A fund (קרן) charges a fee, a bank pays interest. -->
+          <h4>{place.info.feePercent == null ? t.whatItPays : t.whatItCharges}</h4>
           {#if place.yours}
             <p>{t.yourRateIs(place.yours.ratePercent === null ? '?' : percent(place.yours.ratePercent))}</p>
           {:else if place.info.pays}

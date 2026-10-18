@@ -66,7 +66,7 @@ pub fn us_estate_tax() -> Caveat {
          registered in the US, the US taxes your estate on them, at up to 40%, and Israel has \
          no estate-tax treaty with the US. ETFs registered in Ireland, traded in Tel Aviv or in \
          Europe, aren't US assets. It isn't counted: the estate pays it, not a sale.",
-        "מי שנפטר כשיש לו יותר מ\u{2011}$60,000 בניירות ערך אמריקאיים, כמו קרן סל או מניה שרשומות בארה״ב, ארה״ב גובה מס עיזבון עליהם, עד 40%, ולישראל אין עם ארה״ב אמנה למס עיזבון. קרנות סל שרשומות באירלנד, שנסחרות בתל אביב או באירופה, אינן נכס אמריקאי. המחשבון לא סופר אותו: הוא משולם מהעיזבון, ולא במכירה.",
+        "על ניירות ערך אמריקאיים (כמו קרן סל או מניה שרשומות בארה״ב) של מי שנפטר והחזיק בהם יותר מ\u{2011}$60,000, ארה״ב גובה מס עיזבון של עד 40%; לישראל אין איתה אמנה למס עיזבון. קרנות סל שרשומות באירלנד, גם כשהן נסחרות בתל אביב או באירופה, לא חייבות במס הזה. המחשבון לא כולל אותו, כי הוא משולם מהעיזבון ולא במכירה.",
     ))
     .about(&[Etf, IndexFund, Stock])
     .on(&[Usa])
@@ -276,12 +276,13 @@ fn typical_offer_caveat(broker: &Text, sites: &str, offer_pages: &[&Page]) -> Ca
     Caveat::reading(
         Text::owned(
             format!(
-                "Not published by {}: the terms comparison sites list for joining \
-                 ({sites}, September 2026). Ask for them when you open the account.",
+                "Mostly not published by {}: the terms comparison sites list for joining \
+                 ({sites}, September 2026); what it does publish is marked \u{201c}as \
+                 published\u{201d}. Ask for them when you open the account.",
                 broker.en
             ),
             format!(
-                "לא פורסם על ידי {}: התנאים שאתרי ההשוואה מציגים למצטרפים ({sites}, ספטמבר 2026). בקשו אותם בפתיחת החשבון.",
+                "רוב התנאים לא פורסמו על ידי {}: אלה התנאים שאתרי ההשוואה מציגים למצטרפים ({sites}, ספטמבר 2026), ומה שהיא כן מפרסמת מסומן ״כפי שפורסם״. בקשו אותם בפתיחת החשבון.",
                 broker.he
             ),
         ),
@@ -379,7 +380,7 @@ pub fn altshuler() -> Broker {
         // Tariff 4(a)(7)(a): US stocks and ETFs on one of three tracks.
         tracks: vec![
             Track {
-                name: t("1¢ a share", "1¢ למניה"),
+                name: t("1¢ a share", "$0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
@@ -522,7 +523,7 @@ pub fn altshuler() -> Broker {
         compared_at_first: true,
         description: t("An investment house's trading platform, not a bank. Its full tariff \
                       has three tracks for US stocks and ETFs; new customers get a cheaper \
-                      offer instead.", "פלטפורמת המסחר של בית השקעות, לא בנק. בתעריפון המלא שלו שלוש שיטות חיוב למניות וקרנות סל בארה״ב; לקוחות חדשים מקבלים במקום זאת מבצע זול יותר."),
+                      offer instead.", "פלטפורמת המסחר של בית השקעות, לא בנק. בתעריפון המלא שלה שלוש שיטות חיוב למניות וקרנות סל בארה״ב; לקוחות חדשים מקבלים במקום זאת מבצע זול יותר."),
         tariff_date: None, // not stated in the PDF
         latest_appendix: None,
         source_url: Some(
@@ -586,7 +587,7 @@ pub fn leumi() -> Broker {
              little better.", "לאומי ממיר לפי שער ההעברות והשקים שהוא מפרסם, כ\u{2011}0.9% מהשער היציג לכל כיוון: מרווח המרה של עד 0.9%, בנוסף לעמלה. שער שנסגר באפליקציה בזמן אמת בשעות המסחר עשוי להיות מעט טוב יותר."),
             t("Leumi's exchange rates for 28 September 2026: it bought dollars at ₪3.0395 \
              and sold them at ₪3.0960 against a representative ₪3.0660 (0.86% under and \
-             0.98% over), and euros at ₪3.4575 and ₪3.5218 against ₪3.4877", "שערי לאומי ל\u{2011}28 בספטמבר 2026: קנה דולרים ב\u{2011}₪3.0395 ומכר ב\u{2011}₪3.0960 לעומת שער יציג של ₪3.0660 (0.86% מתחת ו\u{2011}0.98% מעל), ואירו ב\u{2011}₪3.4575 ו\u{2011}₪3.5218 לעומת ₪3.4877"),
+             0.98% over), and euros at ₪3.4575 and ₪3.5218 against ₪3.4877", "שערי לאומי ל\u{2011}28 בספטמבר 2026: מי שקנה דולרים שילם ₪3.0960, ומי שמכר קיבל ₪3.0395, לעומת שער יציג של ₪3.0660 (0.98% מעל ו\u{2011}0.86% מתחת); באירו, ₪3.5218 בקנייה ו\u{2011}₪3.4575 במכירה, לעומת ₪3.4877"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])
@@ -710,7 +711,7 @@ pub fn leumi() -> Broker {
                 t("the group's price is 0.35% with the branch's bounds (at least ₪27, at most \
                  ₪7,000), and the tariff's first page gives each fee the better of the \
                  group's and the online price; the better of those two is within ₪1 of \
-                 this on any order", "מחיר הקבוצה הוא 0.35% עם גבולות הסניף (מינימום ₪27, מקסימום ₪7,000), והעמוד הראשון בתעריפון נותן לכל עמלה את הטוב מבין מחיר הקבוצה ומחיר אונליין; הטוב מבין השניים נמצא בטווח של ₪1 מזה בכל פקודה"),
+                 this on any order", "מחיר הקבוצה הוא 0.35% עם גבולות הסניף (מינימום ₪27, מקסימום ₪7,000), והעמוד הראשון בתעריפון נותן לכל עמלה את הזול מבין מחיר הקבוצה ומחיר אונליין. המחיר במחשבון רחוק מהזול מבין השניים ב\u{2011}₪1 לכל היותר בכל פקודה"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Bond])
@@ -915,7 +916,7 @@ pub fn excellence() -> Broker {
     let us_tracks = |securities: &[Security]| {
         vec![
             Track {
-                name: t("3¢ a share", "3¢ למניה"),
+                name: t("3¢ a share", "$0.03 למניה"),
                 trading: vec![trade(
                     securities,
                     &[Usa],
@@ -993,7 +994,7 @@ pub fn excellence() -> Broker {
             Caveat::published(
                 t("The tariff leaves the conversion markup to each customer's agreement; \
                  Excellence's site puts it at 2 agorot a dollar, at most ₪200 on $10,000, \
-                 which is used.", "התעריפון משאיר את מרווח ההמרה להסכם עם כל לקוח; אתר אקסלנס מציין 2 אגורות לדולר, לכל היותר ₪200 על $10,000, וזה המחיר שבמחשבון."),
+                 which is used.", "התעריפון משאיר את מרווח ההמרה להסכם עם כל לקוח; אתר אקסלנס מציין ₪0.02 לדולר, לכל היותר ₪200 על $10,000, וזה המחיר שבמחשבון."),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -1001,7 +1002,7 @@ pub fn excellence() -> Broker {
             Caveat::at_most(
                 t("The tariff's 0.1% conversion fee is charged on top of the 2 agorot; \
                  Excellence's site describes the 2 agorot as the whole cost, so the fee \
-                 may not apply.", "עמלת ההמרה 0.1% שבתעריפון נגבית בנוסף ל\u{2011}2 האגורות; אתר אקסלנס מתאר את 2 האגורות כעלות כולה, כך שייתכן שהעמלה לא חלה."),
+                 may not apply.", "עמלת ההמרה 0.1% שבתעריפון נגבית בנוסף ל\u{2011}₪0.02 לדולר; אתר אקסלנס מתאר את ה\u{2011}₪0.02 לדולר כעלות כולה, כך שייתכן שהעמלה לא חלה."),
             )
             .about_fee(FeeKind::Conversion)
             .on(&[Usa, Europe])
@@ -1061,7 +1062,7 @@ pub fn excellence() -> Broker {
             Caveat::published(
                 t("Converting costs 2 agorot a dollar and nothing else: Excellence's article \
                  puts it at most ₪200 on $10,000, and its joining package says there's no \
-                 currency fee.", "המרה עולה 2 אגורות לדולר ולא יותר: המאמר של אקסלנס מציין לכל היותר ₪200 על $10,000, וחבילת ההצטרפות שלה מציינת שאין עמלת מט״ח."),
+                 currency fee.", "המרה עולה ₪0.02 לדולר ולא יותר: המאמר של אקסלנס מציין לכל היותר ₪200 על $10,000, וחבילת ההצטרפות שלה מציינת שאין עמלת מט״ח."),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -1196,7 +1197,7 @@ pub fn ibi() -> Broker {
         // US stocks and ETFs, on one of four tracks.
         tracks: vec![
             Track {
-                name: t("1¢ a share", "1¢ למניה"),
+                name: t("1¢ a share", "$0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
@@ -1219,7 +1220,7 @@ pub fn ibi() -> Broker {
                 leaves_out_a_fee: false,
             },
             Track {
-                name: t("0.15% + 1¢ a share", "0.15% + 1¢ למניה"),
+                name: t("0.15% + 1¢ a share", "0.15% + $0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
@@ -1321,10 +1322,10 @@ pub fn ibi() -> Broker {
             .on(&[Tlv])
             .source(&on_tradingil),
             Caveat::reading(
-                t("1¢ a share, at least $7.50: gemeltop.co.il states only the minimum.", "1¢ למניה, מינימום $7.50: gemeltop.co.il מציין רק את המינימום."),
+                t("1¢ a share, at least $7.50: gemeltop.co.il states only the minimum.", "$0.01 למניה, מינימום $7.50: gemeltop.co.il מציין רק את המינימום."),
                 t("the tariff's first US track is 1¢ a share with a minimum, and \
                  tradingil.co.il spells out 1¢ a share with a $7.50 minimum for its joining \
-                 offer (September 2026)", "שיטת החיוב הראשונה לארה״ב בתעריפון היא 1¢ למניה עם מינימום, ו-tradingil.co.il מפרט 1¢ למניה עם מינימום $7.50 במבצע ההצטרפות שלו (ספטמבר 2026)"),
+                 offer (September 2026)", "שיטת החיוב הראשונה לארה״ב בתעריפון היא $0.01 למניה עם מינימום, ו-tradingil.co.il מפרט $0.01 למניה עם מינימום $7.50 במבצע ההצטרפות שלו (ספטמבר 2026)"),
             )
             .about_fee(FeeKind::Trade)
             .about(&[Stock, Etf])
@@ -1543,7 +1544,7 @@ pub fn interactive() -> Broker {
         compared_at_first: true,
         description: t("The Israeli introducing broker for Interactive Brokers, run by MEXEM \
                       (regulated in Cyprus, not by the Israel Securities Authority). US and \
-                      European exchanges; Tel Aviv only for institutional clients.", "הנציג הישראלי (״ברוקר מציג״) של אינטראקטיב ברוקרס, שמופעל על ידי MEXEM (בפיקוח הרגולטור בקפריסין, לא של רשות ניירות ערך). מסחר בבורסות ארה״ב ואירופה; בתל אביב רק ללקוחות מוסדיים."),
+                      European exchanges; Tel Aviv only for institutional clients.", "הנציג הישראלי (״ברוקר מציג״) של אינטראקטיב ברוקרס, שמופעל על ידי MEXEM (בפיקוח הרגולטור בקפריסין, ולא בפיקוח רשות ניירות ערך). מסחר בבורסות ארה״ב ואירופה; בתל אביב רק ללקוחות מוסדיים."),
         tariff_date: Some(TariffDate::Day(date!(2026 - 09 - 23))),
         latest_appendix: None,
         source_url: Some(tariff_url.into()),
@@ -1625,7 +1626,7 @@ pub fn meitav() -> Broker {
         trading: [vec![tel_aviv(&[])], abroad.clone()].concat(),
         tracks: vec![
             Track {
-                name: t("1¢ a share", "1¢ למניה"),
+                name: t("1¢ a share", "$0.01 למניה"),
                 trading: vec![trade(
                     &[Stock, Etf],
                     &[Usa],
@@ -1782,14 +1783,14 @@ pub fn meitav() -> Broker {
         compared_at_first: true,
         description: t("The largest exchange member that isn't a bank, part of the Meitav \
                       investment house. It publishes only a full tariff of maximum prices; \
-                      new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. היא מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
+                      new customers are usually offered far less.", "חבר הבורסה הגדול ביותר שאינו בנק, חלק מבית ההשקעות מיטב. מיטב טרייד מפרסמת רק תעריפון מלא של מחירי מקסימום; ללקוחות חדשים מוצע בדרך כלל הרבה פחות."),
         tariff_date: Some(TariffDate::Month(date!(2025 - 01 - 01))),
         latest_appendix: None,
         source_url: Some("https://www.meitav.co.il/media/z2hkkhku/taarifon.pdf".into()),
         caveats: vec![
             Caveat::reading(
                 t("The tariff says the conversion markup is up to 0.7%; 2.1 agorot a dollar \
-                 is charged, about 0.7% at ₪3 a dollar, so the full 0.7% is used.", "התעריפון אומר שמרווח ההמרה הוא עד 0.7%; בפועל נגבות 2.1 אגורות לדולר, כ\u{2011}0.7% בשער של ₪3 לדולר, ולכן המחשבון לוקח את מלוא ה\u{2011}0.7%."),
+                 is charged, about 0.7% at ₪3 a dollar, so the full 0.7% is used.", "התעריפון אומר שמרווח ההמרה הוא עד 0.7%; בפועל נגבות ₪0.021 לדולר, כ\u{2011}0.7% בשער של ₪3 לדולר, ולכן המחשבון לוקח את מלוא ה\u{2011}0.7%."),
                 t("tradingil.co.il's comparison of conversion costs, September 2026", "השוואת עלויות ההמרה באתר tradingil.co.il, ספטמבר 2026"),
             )
             .about_fee(FeeKind::Markup)
@@ -1839,7 +1840,7 @@ pub fn mizrahi() -> Broker {
             t("Mizrahi-Tefahot's exchange rates for 29 September 2026: it bought dollars \
              at ₪3.0462 and sold them at ₪3.0953 against a representative ₪3.0720 (0.84% \
              under and 0.76% over), and euros at ₪3.4539 and ₪3.5098 against ₪3.4857 \
-             (0.91% under and 0.69% over)", "שערי מזרחי\u{2011}טפחות ל\u{2011}29 בספטמבר 2026: קנה דולרים ב\u{2011}₪3.0462 ומכר ב\u{2011}₪3.0953 לעומת שער יציג של ₪3.0720 (0.84% מתחת ו\u{2011}0.76% מעל), ואירו ב\u{2011}₪3.4539 ו\u{2011}₪3.5098 לעומת ₪3.4857 (0.91% מתחת ו\u{2011}0.69% מעל)"),
+             (0.91% under and 0.69% over)", "שערי מזרחי\u{2011}טפחות ל\u{2011}29 בספטמבר 2026: מי שקנה דולרים שילם ₪3.0953, ומי שמכר קיבל ₪3.0462, לעומת שער יציג של ₪3.0720 (0.76% מעל ו\u{2011}0.84% מתחת); באירו, ₪3.5098 בקנייה ו\u{2011}₪3.4539 במכירה, לעומת ₪3.4857 (0.69% מעל ו\u{2011}0.91% מתחת)"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])
@@ -1993,10 +1994,10 @@ pub fn mizrahi() -> Broker {
             .source(&groups),
             Caveat::reading(
                 t("The groups' exchange-rate benefit of 3 pro mille takes the markup down \
-                 from 0.8% to 0.5%.", "הטבת השער של הקבוצות, 3 פרומיל, מורידה את מרווח ההמרה מ\u{2011}0.8% ל\u{2011}0.5%."),
+                 from 0.8% to 0.5%.", "הטבת השער של הקבוצות, 0.3%, מורידה את מרווח ההמרה מ\u{2011}0.8% ל\u{2011}0.5%."),
                 t("appendix A gives these groups \u{201c}a rate benefit of 3 pro mille on \
                  buying and converting foreign currency\u{201d}, and the markup measured \
-                 from the bank's published rates is 0.8%", "נספח א׳ נותן לקבוצות האלה ״הטבת שער ברכישה ובהמרת מט״ח״ של 3 פרומיל, והמרווח שנמדד משערי הבנק שפורסמו הוא 0.8%"),
+                 from the bank's published rates is 0.8%", "נספח א׳ נותן לקבוצות האלה ״הטבת שער ברכישה ובהמרת מט״ח״ של 0.3%, והמרווח שנמדד משערי הבנק שפורסמו הוא 0.8%"),
             )
             .about_fee(FeeKind::Markup)
             .on(&[Usa, Europe])
@@ -2077,7 +2078,7 @@ pub fn otsar_hahayal() -> Broker {
             t("the First International's exchange rates for 29 September 2026: it bought \
              dollars at ₪3.0493 and sold them at ₪3.1047 around a mid-rate of ₪3.0770 \
              (0.9% each way; the representative rate was ₪3.0720), and euros at ₪3.4636 \
-             and ₪3.5266 around ₪3.4951", "שערי הבינלאומי ל\u{2011}29 בספטמבר 2026: קנה דולרים ב\u{2011}₪3.0493 ומכר ב\u{2011}₪3.1047 סביב שער אמצע של ₪3.0770 (0.9% לכל כיוון; השער היציג היה ₪3.0720), ואירו ב\u{2011}₪3.4636 ו\u{2011}₪3.5266 סביב ₪3.4951"),
+             and ₪3.5266 around ₪3.4951", "שערי הבינלאומי ל\u{2011}29 בספטמבר 2026: מי שקנה דולרים שילם ₪3.1047, ומי שמכר קיבל ₪3.0493, סביב שער אמצע של ₪3.0770 (0.9% לכל כיוון; השער היציג היה ₪3.0720); באירו, ₪3.5266 בקנייה ו\u{2011}₪3.4636 במכירה, סביב ₪3.4951"),
         )
         .about_fee(FeeKind::Markup)
         .on(&[Usa, Europe])

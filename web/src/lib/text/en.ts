@@ -105,7 +105,7 @@ export const en = {
 
   // The charts
   chart: 'Chart',
-  valueView: 'Value',
+  valueView: 'Portfolio value',
   valueViewTip: 'What each plan is worth, year by year, before selling.',
   lostView: 'Lost to fees',
   lostViewTip:
@@ -127,6 +127,7 @@ export const en = {
   you: (deposit: string) => `You: ${deposit}`,
   depositAMonth: 'Deposit a month',
   oneTimeDeposit: 'One-time deposit',
+  perMonth: 'a month',
   aMonth: 'a month',
   aYear: 'a year',
   atOnce: 'at once',
@@ -153,7 +154,7 @@ export const en = {
   compareBy: 'Compare the plans by',
   barsAria: 'Fees paid by each plan over the whole period, by kind',
   yearByYear: 'Year by year:',
-  hoverOrPin: '· hover or pin another plan to see it',
+  hoverOrPin: '. To see another plan, hover over it or pin it.',
   tapAnotherBar: "· tap another plan's bar to see it",
   overTimeAria: (label: string) => `${label}'s fees piling up year by year, by kind`,
 
@@ -228,6 +229,7 @@ export const en = {
   addOrRemove: 'Add or remove',
   comparedOf: (count: number, total: number) => `${count} of ${total} plans`,
   doneComparing: (count: number) => `Done · ${count} compared`,
+  placesOf: (count: number, total: number) => `${count} of ${total} places`,
   countOf: (count: number, total: number) => `${count} of ${total}`,
   banksAndHouses: 'Banks and investment houses',
   banksAndHousesTip:
@@ -240,7 +242,7 @@ export const en = {
     `A provident fund for investment can be taken all at once, like selling at a broker, or from the age of ${age} as a monthly pension, which isn't taxed. A broker, a study fund and a savings policy pay no pension: for them nothing changes.`,
   allAtOnce: 'All at once',
   allAtOnceTip: 'Everything is taken out when the years are up, and the gain is taxed.',
-  asAPension: 'As a pension',
+  asAPension: 'As an annuity',
   asAPensionTip: (age: number) =>
     `From ${age}, the money in a provident fund for investment can move to a fund that pays a monthly pension: the gain isn't taxed, and neither is the pension. The table counts what is moved.`,
   yourAge: 'Your age today',
@@ -273,7 +275,7 @@ export const en = {
 
   // Names in the other language
   inEnglish: 'In English',
-  alsoCalled: 'Also called',
+  alsoCalled: (count: number): string => (count === 1 ? 'Also called' : 'Other names'),
   whatMeans: (about: string) => `What “${about}” means`,
   why: 'Why:',
   sources: 'Sources',
@@ -415,6 +417,7 @@ export const en = {
   noRate: 'no rate for these months',
   monthlyNotForDeposits: "A fixed-rate deposit takes one sum: with money every month, it isn't compared.",
   mayLeaveLess: (name: string) => `${name}: may leave you less. Why?`,
+  whatItCharges: 'What it charges',
   whatItPays: 'What it pays',
   ratesByTerm: 'Its rates, by how long the deposit is',
   yourRateIs: (rate: string) => `The rate you typed: ${rate} a year, for any term.`,
