@@ -1,12 +1,12 @@
 //! The outcome chart's words (REDESIGN.md §2.6): each row's name, its short
 //! tags, its note, why the rules leave an option out, and the losses note
-//! under the index's bar. First drafts.
+//! under the index's bar, and the chart's own fixed words (`words`).
 //!
 //! A product is named by what it is before any trade name (§2.8): "אג״ח
 //! צמודה של מדינת ישראל", and the index is named: "מדד S&P 500".
 
-use super::card::{both, losses_sentence};
-use super::reasons::span;
+use super::card::both;
+use super::reasons::{grouped, span};
 use crate::guide::{Arena, Kind, SafeBecause};
 use crate::history::DepositsBand;
 use crate::{Lang, Percent, Product, Text, Vehicle};
@@ -21,7 +21,7 @@ pub fn name(kind: Kind) -> Text {
     match kind {
         Kind::MoneyMarketFund => fixed("Money market fund", "קרן כספית"),
         Kind::FixedDeposit => fixed("Fixed-rate deposit", "פיקדון בריבית קבועה"),
-        Kind::LinkedDeposit => fixed("CPI-linked deposit", "פיקדון צמוד מדד המחירים לצרכן"),
+        Kind::LinkedDeposit => fixed("CPI-linked deposit", "פיקדון צמוד למדד המחירים לצרכן"),
         Kind::GovernmentBond { linked: true } => fixed(
             "Israeli government bond, linked to the CPI",
             "אג״ח צמודה של מדינת ישראל",
@@ -108,18 +108,26 @@ pub fn tags(kind: Kind, arena: Option<Arena>) -> Vec<Text> {
     }
 }
 
-/// Under the fund while its months fill the cushion.
+/// Under the fund while its months fill the cushion, and what its bar spans
+/// if it has one (`rate`). Said without "the first N", whose Hebrew gender
+/// follows the unit.
 #[must_use]
-pub fn cushion_note(months: u32) -> Text {
-    both(|lang| match lang {
-        Lang::En => format!(
-            "In your plan: the first {}, for the cushion.",
-            span(months, lang)
-        ),
-        Lang::He => format!(
-            "בתוכנית שלכם: ה\u{2011}{} הראשונים, לכרית.",
-            span(months, lang)
-        ),
+pub fn cushion_note(months: u32, rate: Option<Percent>) -> Text {
+    let bar = rate.map(rate_note);
+    both(|lang| {
+        let bar = bar
+            .as_ref()
+            .map_or_else(String::new, |bar| format!(" {}", &bar[lang]));
+        match lang {
+            Lang::En => format!(
+                "In your plan, the cushion builds up here for {}.{bar}",
+                span(months, lang)
+            ),
+            Lang::He => format!(
+                "בתוכנית שלכם, כאן נבנית הכרית, במשך {}.{bar}",
+                span(months, lang)
+            ),
+        }
     })
 }
 
@@ -158,8 +166,95 @@ pub fn excluded(because: SafeBecause, months: u32) -> Text {
     })
 }
 
-/// The losses note under the index's bar: the past, said as the past.
+/// The losses note under the index's bar: the past, said as the past, and
+/// never rounded to "never". With deposits every month, a loss is ending
+/// with less than was put in.
 #[must_use]
 pub fn losses(history: &DepositsBand, monthly: bool) -> Text {
-    both(|lang| losses_sentence(history, monthly, lang))
+    let windows = grouped(history.windows);
+    let lower = grouped(history.lower);
+    let since = history.from.year();
+    both(|lang| {
+        let years = span(history.months, lang);
+        match (history.lower, monthly, lang) {
+            (0, true, Lang::En) => format!(
+                "In none of {windows} stretches of {years} since {since} was less left at the end than was put in (in dollars, before fees and tax)."
+            ),
+            (0, true, Lang::He) => format!(
+                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} לא נשאר בסוף פחות ממה שהופקד (בדולרים, לפני עמלות ומס)."
+            ),
+            (0, false, Lang::En) => format!(
+                "In none of {windows} stretches of {years} since {since} did the index end at a loss (in dollars, before fees and tax)."
+            ),
+            (0, false, Lang::He) => format!(
+                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} המדד לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            ),
+            (_, true, Lang::En) => format!(
+                "In {lower} of {windows} stretches of {years} since {since}, less was left at the end than was put in (in dollars, before fees and tax)."
+            ),
+            (_, true, Lang::He) => format!(
+                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} נשאר בסוף פחות ממה שהופקד (בדולרים, לפני עמלות ומס)."
+            ),
+            (_, false, Lang::En) => format!(
+                "In {lower} of {windows} stretches of {years} since {since}, the index ended at a loss (in dollars, before fees and tax)."
+            ),
+            (_, false, Lang::He) => format!(
+                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} המדד נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            ),
+        }
+    })
+}
+
+/// The chart's fixed words: its subtitle, the legend, and the labels on the
+/// index's bar.
+#[derive(Debug, Clone)]
+pub struct Words {
+    /// Under the title: what the amounts are, and that a row can be tapped.
+    pub subtitle: Text,
+    /// The reference lines, each followed by its amount in the legend.
+    pub deposited: Text,
+    pub current_account: Text,
+    /// The keys of the marks, each shown only when a row draws one.
+    pub known: Text,
+    pub market: Text,
+    /// The labels on the index's bar, each followed by its amount.
+    pub worst: Text,
+    pub median: Text,
+    pub best: Text,
+    /// After the yearly return the index's figure assumes: "10% בשנה".
+    pub per_year: Text,
+    /// For a screen reader, after the index's figure: this, the yearly
+    /// return, "%" and `per_year`.
+    pub if_it_rises: Text,
+}
+
+#[must_use]
+pub fn words() -> Words {
+    Words {
+        subtitle: fixed(
+            "In today's money, after fees and tax. Tap a row to see how it's done.",
+            "בכסף של היום, אחרי עמלות ומס. הקישו על שורה כדי לראות איך עושים את זה.",
+        ),
+        deposited: fixed("What you put in", "מה שהפקדתם"),
+        current_account: fixed(
+            "If the money stays in the current account",
+            "אם הכסף יישאר בעו״ש",
+        ),
+        known: fixed(
+            "A sum known more or less in advance",
+            "סכום שידוע פחות או יותר מראש",
+        ),
+        market: fixed(
+            "The S&P 500 index: from the worst to the best stretch so far",
+            "מדד S&P\u{a0}500: מהתקופה הגרועה לטובה שהיו עד היום",
+        ),
+        worst: fixed("Worst so far", "הגרוע שהיה"),
+        median: fixed("Middle", "באמצע"),
+        best: fixed("Best so far", "הטוב שהיה"),
+        per_year: fixed("a year", "בשנה"),
+        if_it_rises: fixed(
+            "if the S&P 500 index rises by ",
+            "אם מדד S&P\u{a0}500 יעלה ב\u{2011}",
+        ),
+    }
 }

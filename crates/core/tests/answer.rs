@@ -477,6 +477,43 @@ fn the_chart_draws_the_markets_range_in_order() {
     }
 }
 
+/// Every bar the chart draws says what it spans (principle 10): the fund's
+/// rate bar has its note, in every situation and with the cushion asked
+/// either way, and the index's bar has its losses note.
+#[test]
+fn every_bar_says_what_it_spans() {
+    let mut starts: Vec<Answers> = situations().into_iter().map(|s| s.answers).collect();
+    starts.extend([apartment(), bonus(), salary()]);
+    for start in starts {
+        for cushion in [
+            None,
+            Some(Cushion::Has),
+            Some(Cushion::HasNot {
+                monthly_expenses: dec!(8000),
+            }),
+        ] {
+            let answers = Answers {
+                cushion,
+                ..start.clone()
+            };
+            let Ok(answer) = answer_with(&answers, &Choices::default(), &settings(), &DATA, false)
+            else {
+                continue;
+            };
+            for row in &answer.outcome.rows {
+                match &row.mark {
+                    Mark::RateRange { .. } => {
+                        let note = row.note.as_ref().expect("a rate bar's note");
+                        assert!(note[Lang::He].contains("ריבית בנק ישראל"), "{}", note.he);
+                    }
+                    Mark::Market { losses, .. } => assert!(!losses.he.is_empty()),
+                    Mark::Known | Mark::Expected => {}
+                }
+            }
+        }
+    }
+}
+
 /// Without a bank, nothing is assumed: the reference is the banks' range,
 /// and where naming the bank would change what's shown, it is asked.
 #[test]
