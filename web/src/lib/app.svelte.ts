@@ -849,7 +849,17 @@ export class AppState {
     if (!this.selected.has(yours.id)) this.selected.add(yours.id)
   }
 
+  /** The years field. For a retirement the ages stay and the years are the
+   * gap between them, so typing years moves the age of retiring; an empty
+   * field changes nothing. */
   setHorizonMonths(months: number | null) {
+    const { horizon } = this.answers
+    if (typeof horizon === 'object' && 'Retirement' in horizon) {
+      if (months === null) return
+      const { age } = horizon.Retirement
+      this.answers.horizon = { Retirement: { age, retire_at: age + Math.round(months / 12) } }
+      return
+    }
     this.answers.horizon = { Months: months ?? 0 }
   }
   setHorizonUnknown() {

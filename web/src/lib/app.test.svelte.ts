@@ -228,6 +228,19 @@ test('learn cards stack, go back, and close', () => {
   expect(app.glossary.length).toBeGreaterThan(0)
 })
 
+test('typing years for a retirement keeps the ages: the years are the gap between them', async () => {
+  const app = start()
+  app.setSituation('retirement')
+  await vi.waitFor(() => expect(app.followUps).toContain('AgeAndRetirement'))
+  app.setHorizonMonths(18 * 12)
+  flushSync()
+  await vi.waitFor(() => expect(app.recommendationFresh).toBe(true))
+  expect(app.answers.horizon).toEqual({ Retirement: { age: 45, retire_at: 63 } })
+  expect(app.horizonMonths).toBe(18 * 12)
+  expect(app.followUps).toContain('AgeAndRetirement')
+  expect(JSON.stringify(app.recommendation?.kind)).toContain('InvestmentGemel')
+})
+
 test('a pick is dropped when the goal changes, and the ladder shows what fits each horizon', async () => {
   const app = start()
   app.setSituation('bonus')
