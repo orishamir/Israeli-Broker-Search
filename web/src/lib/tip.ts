@@ -19,6 +19,9 @@ const warm = () => performance.now() - lastClosed < 300
  * `below` places it under the element rather than above, as menus are.
  * `closeOnClick` closes a hover tip when its button is pressed: a preset's
  * description would otherwise cover the results the press just changed.
+ * `keepClear` is the group the trigger belongs to, which the tip must not
+ * cover: it is placed against the group's top or bottom edge, at the
+ * trigger's own place along it.
  * `onClose` is called when the user closes it (not when it's removed). */
 export const tip =
   (
@@ -28,6 +31,7 @@ export const tip =
       hover = true,
       below = false,
       closeOnClick = false,
+      keepClear,
       onClose,
     }: {
       onClick?: boolean
@@ -35,6 +39,9 @@ export const tip =
       below?: boolean
       closeOnClick?: boolean
       onClose?: () => void
+      /** The trigger's neighbours (the group of buttons it is one of): the
+       * tip stands above or below the whole group, never over a sibling. */
+      keepClear?: HTMLElement
     } = {},
   ): Attachment<HTMLElement> =>
   (trigger) => {
@@ -43,8 +50,20 @@ export const tip =
     let clicked = false
     let hoverTimer: ReturnType<typeof setTimeout> | undefined
 
+    // The trigger's width, but the group's height: placing the tip "above"
+    // this stands it above every button of the group, not just this one.
+    const reference = {
+      getBoundingClientRect: () => {
+        const own = trigger.getBoundingClientRect()
+        if (!keepClear) return own
+        const group = keepClear.getBoundingClientRect()
+        return new DOMRect(own.x, group.y, own.width, group.height)
+      },
+      contextElement: trigger,
+    }
+
     const place = () =>
-      computePosition(trigger, popover, {
+      computePosition(reference, popover, {
         strategy: 'fixed',
         placement: below ? 'bottom-start' : 'top',
         middleware: [
@@ -96,7 +115,7 @@ export const tip =
       popover.showPopover()
       popover.classList.add('open')
       if (onClick) trigger.setAttribute('aria-expanded', 'true')
-      stopPositioning = autoUpdate(trigger, popover, place)
+      stopPositioning = autoUpdate(reference, popover, place)
       document.addEventListener('pointerdown', onPointerDownElsewhere, true)
       document.addEventListener('keydown', onKeyDown)
       popover.addEventListener('pointerenter', onPopoverEnter)

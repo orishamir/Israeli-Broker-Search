@@ -65,3 +65,28 @@ test("a fee's ? opens on tap in a plan's details", { tag: '@touch' }, async ({ p
   await button.tap()
   await expect(tip).toBeVisible()
 })
+
+// A goal button's description stood over the buttons beside it, so the one
+// to press next was hidden behind the one just touched.
+test('a goal button’s tip covers none of the other goal buttons', { tag: '@phone' }, async ({ page }) => {
+  const buttons = page.getByRole('group', { name: t.whatForTitle }).getByRole('button')
+  const count = await buttons.count()
+  expect(count).toBeGreaterThan(3)
+  for (let index = 0; index < count; index++) {
+    await away(page)
+    await buttons.nth(index).hover()
+    const tip = page.locator('.questions .popover.open')
+    await expect(tip).toBeVisible()
+    const shown = (await tip.boundingBox())!
+    for (let other = 0; other < count; other++) {
+      if (other === index) continue
+      const box = (await buttons.nth(other).boundingBox())!
+      const overlaps =
+        shown.x < box.x + box.width &&
+        box.x < shown.x + shown.width &&
+        shown.y < box.y + box.height &&
+        box.y < shown.y + shown.height
+      expect(overlaps, `the tip of button ${index} covers button ${other}`).toBe(false)
+    }
+  }
+})

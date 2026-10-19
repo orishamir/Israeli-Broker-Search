@@ -30,6 +30,7 @@
   )
 
   const popovers = $state<HTMLElement[]>([])
+  let chipsBox = $state<HTMLElement>()
   /** The cards to show: the guide's follow-ups, the expenses field with the
    * cushion's (or on its own, if the cushion's question isn't asked). */
   const cards = $derived(app.followCards.filter((each) => each.followUp !== 'MonthlyExpenses'))
@@ -39,7 +40,9 @@
   )
 
   /** The tip's placement is for hovering; a tap picks the chip. */
-  const hoverOnly = (popover: HTMLElement): Attachment<HTMLElement> => tip(popover, { onClick: false })
+  const hoverOnly = (popover: HTMLElement): Attachment<HTMLElement> =>
+    // Over or under the whole row of chips, so it covers none of them.
+    tip(popover, { onClick: false, keepClear: chipsBox })
 
   function setCushion(has: boolean) {
     app.answers.cushion = has ? { kind: 'has' } : { kind: 'hasNot', monthlyExpenses: null }
@@ -59,7 +62,7 @@
       <Tip about={t.whatForTitle}>{t.whatForTip}</Tip>
     </div>
     <p class="hint">{t.whatForHint}</p>
-    <div class="chips" role="group" aria-label={t.whatForTitle}>
+    <div class="chips" role="group" aria-label={t.whatForTitle} bind:this={chipsBox}>
       {#each chips as situation, index (situation.id)}
         {@const popover = popovers[index]}
         <button
