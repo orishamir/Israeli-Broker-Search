@@ -88,8 +88,7 @@ pub fn columns_for(arena: Arena) -> Vec<Column> {
 }
 
 /// The deposits put end to end, left as they are: today's shekels at the
-/// start and after each month. The first and the first month's deposit go in
-/// at the start.
+/// start (the first sum alone) and after each month's deposit.
 pub(super) fn deposits_by_month(
     first: Decimal,
     monthly: Decimal,
@@ -128,21 +127,28 @@ fn grown(
 ) -> Vec<Decimal> {
     let per_month = price_level(inflation, 1);
     let mut prices = Decimal::ONE;
-    let mut value = first + monthly;
+    let mut value = first;
     let mut series = vec![value];
-    for month in 1..=months {
+    for _ in 1..=months {
         prices *= per_month;
-        value *= factor;
-        if month < months {
-            value += monthly;
-        }
+        value = (value + monthly) * factor;
         series.push(value / prices);
     }
     series
 }
 
 /// A nominal line as today's shekels, month by month, ending at `left`.
-pub(super) fn deflated(nominal: &[Decimal], inflation: Percent, left: Decimal) -> Vec<Decimal> {
+/// `waiting` is a deposit the engine already counts in the month before it
+/// is made (the short term's, which starts at the first sum plus the first
+/// month's deposit): it is taken off, so month 0 is the first sum alone in
+/// every line, as the brokers' engine has it.
+pub(super) fn deflated(
+    nominal: &[Decimal],
+    inflation: Percent,
+    left: Decimal,
+    waiting: Decimal,
+) -> Vec<Decimal> {
+    let last = nominal.len().saturating_sub(1);
     let per_month = price_level(inflation, 1);
     let mut prices = Decimal::ONE;
     let mut series: Vec<Decimal> = nominal
@@ -152,6 +158,11 @@ pub(super) fn deflated(nominal: &[Decimal], inflation: Percent, left: Decimal) -
             if month > 0 {
                 prices *= per_month;
             }
+            let value = if month < last {
+                value - waiting
+            } else {
+                *value
+            };
             value / prices
         })
         .collect();

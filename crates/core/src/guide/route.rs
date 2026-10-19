@@ -1004,10 +1004,18 @@ pub fn alternatives(
                 Kind::Way(way) => way_line(way, answers, settings, data, years)?,
                 _ => {
                     let priced = safe::price(kind, data, &scenario, level)?;
+                    // Only the money market fund's engine counts the next
+                    // deposit a month early.
+                    let waiting = if kind == Kind::MoneyMarketFund {
+                        answers.monthly
+                    } else {
+                        Decimal::ZERO
+                    };
                     let line = series::deflated(
                         &priced.outcome.value_by_month,
                         settings.inflation,
                         priced.left.today,
+                        waiting,
                     );
                     (line, priced.left)
                 }
@@ -1064,7 +1072,12 @@ fn way_line(
         price_level(settings.inflation, years * 12),
     );
     Some((
-        series::deflated(&outcome.value_by_month, settings.inflation, left.today),
+        series::deflated(
+            &outcome.value_by_month,
+            settings.inflation,
+            left.today,
+            Decimal::ZERO,
+        ),
         left,
     ))
 }

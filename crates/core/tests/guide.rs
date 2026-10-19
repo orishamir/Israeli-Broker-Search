@@ -1642,6 +1642,16 @@ fn the_alternatives_lines_end_at_the_figures_of_the_answer() {
                 line.kind
             );
             assert!(line.value_by_month.len() > 1);
+            // Month 0 means the same for every line: the first sum alone.
+            assert_eq!(
+                line.value_by_month[0], preset.answers.now,
+                "{} {:?} starts at the first sum",
+                preset.id, line.kind
+            );
+        }
+        if let Some(band) = &lines.band {
+            assert_eq!(band.worst[0], preset.answers.now, "{}", preset.id);
+            assert_eq!(band.best[0], preset.answers.now, "{}", preset.id);
         }
         // The current account is always drawn: the yardstick.
         assert!(
@@ -1664,8 +1674,8 @@ fn the_bands_lines_bracket_the_deposits() {
     let lines = alternatives(&can_wait(ten_years), &settings(), &DATA).unwrap();
     let band = lines.band.expect("ten years are inside the history");
     assert_eq!(band.worst.len(), 121);
-    assert_eq!(band.worst[0], dec!(11_000));
-    assert_eq!(band.best[0], dec!(11_000));
+    assert_eq!(band.worst[0], dec!(10_000));
+    assert_eq!(band.best[0], dec!(10_000));
     assert!(
         band.worst
             .iter()
