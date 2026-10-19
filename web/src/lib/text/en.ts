@@ -115,6 +115,7 @@ export const en = {
   after: (years: number, months: number) => {
     const plural = (count: number, unit: string) => `${count} ${unit}${count === 1 ? '' : 's'}`
     const whole = plural(years, 'year')
+    if (years === 0 && months > 0) return `After ${plural(months, 'month')}`
     return months === 0 ? `After ${whole}` : `After ${whole}, ${plural(months, 'month')}`
   },
 
@@ -421,6 +422,8 @@ export const en = {
   continueHint: 'To go on with one of the others anyway, tap its row.',
   continueWith: (name: string) => `Go on with ${name}`,
   chartYears: 'years',
+  chartMonths: 'months',
+  lastPointAfterTax: 'The last point is after selling and tax, so it is below the one before it',
   rangeInTooltip: 'S&P 500 history',
   donutDeposit: 'Deposits',
   donutGain: 'Gain',

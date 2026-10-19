@@ -114,6 +114,8 @@ export const he: Text = {
   after: (years, months) => {
     // A hyphen joins ו to a number only: ו-5 חודשים, but וחודש.
     const and = months > 2 ? 'ו\u2011' : 'ו'
+    // Under a year it is months alone: "אחרי 4 חודשים", not "0 שנים ו‑4 חודשים".
+    if (years === 0 && months > 0) return `אחרי ${monthsText(months)}`
     return months === 0 ? `אחרי ${yearsText(years)}` : `אחרי ${yearsText(years)} ${and}${monthsText(months)}`
   },
 
@@ -417,6 +419,8 @@ export const he: Text = {
   continueHint: 'כדי להמשיך בכל זאת עם אחת האחרות, הקישו על השורה שלה.',
   continueWith: (name: string) => `להמשיך עם ${name}`,
   chartYears: 'שנים',
+  chartMonths: 'חודשים',
+  lastPointAfterTax: 'הנקודה האחרונה: אחרי מכירה ומס, לכן נמוכה מזו שלפניה',
   rangeInTooltip: 'היסטוריית ה־S&P\u00a0500',
   donutDeposit: 'הפקדה',
   donutGain: 'רווח',

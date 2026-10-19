@@ -30,6 +30,10 @@ test("a chart's time is in years and months", () => {
   expect(elapsed(15 + 5 / 12)).toBe('אחרי 15 שנה ו\u20115 חודשים')
   expect(elapsed(2 + 1 / 12)).toBe('אחרי שנתיים וחודש')
   expect(elapsed(3 + 2 / 12)).toBe('אחרי 3 שנים וחודשיים')
+  // Under a year, months alone: never "0 שנים ו‑4 חודשים".
+  expect(elapsed(4 / 12)).toBe('אחרי 4 חודשים')
+  expect(elapsed(1 / 12)).toBe('אחרי חודש')
+  expect(elapsed(2 / 12)).toBe('אחרי חודשיים')
 })
 
 test('a date reads day first, as Israelis write it', () => {
