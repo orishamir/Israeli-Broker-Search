@@ -665,7 +665,7 @@ fn alternative(
         name: kind.text(),
         arena: kind.arena(),
         left,
-        safety: kind.safety(),
+        safety: kind.safety_over(band),
         why_not: why_not(kind, circumstance, left, ctx),
         band,
         breakdown,
@@ -1115,7 +1115,7 @@ fn rung(answers: &Answers, settings: &Settings, data: &Data, any_day: bool) -> R
         kind: decision.kind,
         choice: decision.choice,
         left: decision.left,
-        safety: decision.kind.safety(),
+        safety: decision.kind.safety_over(band_for(decision.months)),
     }
 }
 
@@ -1180,7 +1180,7 @@ pub fn alternatives(
             Some(KindSeries {
                 kind,
                 name: kind.text(),
-                safety: kind.safety(),
+                safety: kind.safety_over(ctx.band),
                 recommended,
                 value_by_month,
                 left,

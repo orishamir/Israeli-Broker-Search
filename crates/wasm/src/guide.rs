@@ -365,15 +365,20 @@ pub struct KindData {
 
 impl From<Kind> for KindData {
     fn from(kind: Kind) -> Self {
+        KindData::tagged(kind, kind.safety())
+    }
+}
+
+impl KindData {
+    /// A kind with the safety the core worked out for its stretch of time.
+    fn tagged(kind: Kind, safety: Safety) -> Self {
         KindData {
             kind,
             name: kind.name(lang()).to_owned(),
             card: card_of(kind),
-            safety: kind.safety(),
-            safety_tag: broker_fees::describe::reasons::safety_tag(kind.safety(), lang())
-                .to_owned(),
-            safety_note: broker_fees::describe::reasons::safety_note(kind.safety(), lang())
-                .to_owned(),
+            safety,
+            safety_tag: broker_fees::describe::reasons::safety_tag(safety, lang()).to_owned(),
+            safety_note: broker_fees::describe::reasons::safety_note(safety, lang()).to_owned(),
             arena: kind.arena(),
         }
     }
@@ -495,7 +500,7 @@ pub struct AlternativeData {
 impl From<&Alternative> for AlternativeData {
     fn from(alternative: &Alternative) -> Self {
         AlternativeData {
-            kind: alternative.kind.into(),
+            kind: KindData::tagged(alternative.kind, alternative.safety),
             left: alternative.left.map(AmountData::from),
             why_not: (&alternative.why_not).into(),
             band: alternative.band.as_ref().map(BandData::from),
@@ -646,7 +651,7 @@ pub fn recommend_for(
     let note = describe::answer::left_note(r.left, r.months, settings.this_year, lang());
     Ok(RecommendationData {
         arena: r.arena,
-        kind: r.kind.into(),
+        kind: KindData::tagged(r.kind, r.kind.safety_over(r.band)),
         choice: (&r.choice).into(),
         ranked: ranked_data(&r.ranked),
         plans: ranked_data(&r.plans),
@@ -741,7 +746,7 @@ pub fn ladder_for(
             months: rung.months,
             any_day: rung.any_day,
             arena: rung.arena,
-            kind: rung.kind.into(),
+            kind: KindData::tagged(rung.kind, rung.safety),
             choice: (&rung.choice).into(),
             left: rung.left.into(),
         })
@@ -824,7 +829,7 @@ pub fn alternatives_for(
             .series
             .iter()
             .map(|line| KindSeriesData {
-                kind: line.kind.into(),
+                kind: KindData::tagged(line.kind, line.safety),
                 recommended: line.recommended,
                 value_by_month: numbers(&line.value_by_month),
                 left: line.left.into(),

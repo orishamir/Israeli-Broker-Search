@@ -1876,3 +1876,41 @@ fn the_unlock_line_says_its_figures_include_the_extra_first_deposit() {
     let en = broker_fees::describe::reasons::unlock_text(unlock, Lang::En);
     assert!(en.contains("higher than the amount above"), "{en}");
 }
+
+/// An index kind is tagged as able to fall only where the history's band
+/// says some stretch of that length ended lower: at 20 years none did, and
+/// the tag must not contradict the sentence "in none of N periods".
+#[test]
+fn the_risk_tag_follows_the_history_bands_count() {
+    use broker_fees::history::band;
+    for (horizon, expect_lower) in [(1_u32, true), (5, true), (20, false)] {
+        let stretch = band(Decimal::from(horizon)).unwrap();
+        assert_eq!(stretch.lower > 0, expect_lower, "{horizon} years");
+        let asked = answers(dec!(10_000), dec!(1000), years(horizon));
+        let rec = recommended(&asked);
+        let expected = if expect_lower {
+            Safety::CanFall
+        } else {
+            Safety::NotLowerBefore
+        };
+        let ways: Vec<Safety> = rec
+            .alternatives
+            .iter()
+            .filter(|a| matches!(a.kind, Kind::Way(_)))
+            .map(|a| a.safety)
+            .collect();
+        assert!(
+            ways.iter().all(|&s| s == expected),
+            "{horizon} years: {ways:?}"
+        );
+        if rec.arena == Arena::Index {
+            assert_eq!(rec.kind.safety_over(rec.band), expected, "{horizon} years");
+        }
+        for rung in ladder(&asked, &settings(), &DATA).unwrap() {
+            if matches!(rung.kind, Kind::Way(_)) {
+                let of_rung = band(Decimal::from(rung.months) / Decimal::from(12));
+                assert_eq!(rung.safety, rung.kind.safety_over(of_rung));
+            }
+        }
+    }
+}

@@ -351,6 +351,17 @@ impl Kind {
             Kind::Way(_) => Safety::CanFall,
         }
     }
+
+    /// [`Kind::safety`] for a stretch of time the history covers (`band`):
+    /// an index kind is tagged as able to fall only if some stretch of that
+    /// length did end lower, so the tag agrees with the band's own count.
+    #[must_use]
+    pub fn safety_over(self, band: Option<Band>) -> Safety {
+        match (self.safety(), band) {
+            (Safety::CanFall, Some(band)) if band.lower == 0 => Safety::NotLowerBefore,
+            (safety, _) => safety,
+        }
+    }
 }
 
 impl Named for Kind {
@@ -398,6 +409,10 @@ pub enum Safety {
     RealValueKnown,
     /// The market decides, and can be down on the day.
     CanFall,
+    /// The market decides, but no stretch of this length that the history
+    /// covers ended lower than it began (`Band::lower` is 0). Said as the
+    /// past, not as a promise.
+    NotLowerBefore,
 }
 
 /// An amount in ₪: in today's money, which is the one shown, and the

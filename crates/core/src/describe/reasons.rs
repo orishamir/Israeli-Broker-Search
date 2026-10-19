@@ -190,6 +190,7 @@ pub fn safety_tag(safety: Safety, lang: Lang) -> &'static str {
             lang.pick("Buying power known in advance", "כוח הקנייה ידוע מראש")
         }
         Safety::CanFall => lang.pick("Can fall on the day", "יכול לרדת בדיוק אז"),
+        Safety::NotLowerBefore => lang.pick("Never ended lower before", "בעבר לא נגמר בהפסד"),
     }
 }
 
@@ -214,6 +215,11 @@ pub fn safety_note(safety: Safety, lang: Lang) -> &'static str {
         Safety::CanFall => lang.pick(
             "The market decides, and it can be down on the day you need the money.",
             "הבורסה מחליטה, והיא יכולה להיות בירידה בדיוק ביום שתצטרכו את הכסף.",
+        ),
+        Safety::NotLowerBefore => lang.pick(
+            "The market decides. No stretch of this length in the history ended lower, but that \
+             is the past, not a promise: it can still be down on the day you need the money.",
+            "הבורסה מחליטה. אף תקופה באורך כזה בהיסטוריה לא נגמרה בהפסד, אבל זה העבר ולא הבטחה: היא עדיין יכולה להיות בירידה בדיוק ביום שתצטרכו את הכסף.",
         ),
     }
 }
