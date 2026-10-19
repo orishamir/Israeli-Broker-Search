@@ -37,6 +37,7 @@ export const he: Text = {
       ? `בהפקדה חודשית של פחות מ\u2011${below}, זול יותר: ${belowPlan}; ביותר מ\u2011${above}: ${abovePlan}`
       : `בהפקדה חד\u2011פעמית של פחות מ\u2011${below}, זול יותר: ${belowPlan}; ביותר מ\u2011${above}: ${abovePlan}`,
   checkInputs: (error) => `בדקו את הנתונים: ${error}.`,
+  notANumber: 'באחד השדות יש טקסט שאינו מספר',
 
   // The table
   rank: 'דירוג',

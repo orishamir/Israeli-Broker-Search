@@ -136,3 +136,21 @@ test('for retirement the card asks the age and when to retire', async ({ page })
   const answers = { ...retirement.answers, horizon: { Retirement: { age: 40, retire_at: 60 } } }
   await expectAnswerFor(page, answers)
 })
+
+test('typing years for a retirement keeps the ages and the retirement', async ({ page }) => {
+  const retirement = situations().find(({ id }) => id === 'retirement')!
+  await chip(page, retirement.name).click()
+  await fillField(page, 'horizon', '18')
+  await expect(page.locator('#age')).toHaveValue('45')
+  await expect(page.locator('#retire-at')).toHaveValue('63')
+  const answers = { ...retirement.answers, horizon: { Retirement: { age: 45, retire_at: 63 } } }
+  await expectFollowUps(page, answers)
+  await expectAnswerFor(page, answers)
+})
+
+test('text that is not a number is said to be, not silently ignored', async ({ page }) => {
+  await fillField(page, 'now', '-5000abc')
+  await expect(page.locator('.card.error')).toContainText(t.notANumber)
+  await fillField(page, 'now', '5000')
+  await expect(page.locator('.card.error')).toBeHidden()
+})

@@ -118,6 +118,7 @@ import { firstOfEachId, load, save } from './saved'
 import { ask, askSweep, type GuideRequest, type SweepRequest } from './sweeper'
 import { run, type Worked } from './work'
 import { t } from './text'
+import { unreadable } from './unreadable.svelte'
 
 /** The calendar year, for the core's "in 2041's shekels" note. */
 const THIS_YEAR = new Date().getFullYear()
@@ -1128,6 +1129,7 @@ export class AppState {
   /** Why the answers or the inputs can't be compared, in the core's words;
    * the last results stay, faded, under it. */
   inputError: string | undefined = $derived.by(() => {
+    if (unreadable.size > 0) return t.notANumber
     if (this.recommended?.error) return this.recommended.error
     if (this.latest && 'error' in this.latest) return this.latest.error
     if (this.latestWays && 'error' in this.latestWays) return this.latestWays.error

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatNumber, parseNumber, stepped } from './numbers'
+  import { unreadable } from './unreadable.svelte'
 
   /** A number with its unit inside the box: "₪ 10,000", "10 %". A text
    * field rather than a number one, to show thousands separators. Commas
@@ -33,6 +34,13 @@
   // what isn't a number yet.
   $effect(() => {
     if (!focused && parseNumber(text) !== value) text = formatNumber(value)
+  })
+
+  // Text that isn't a number is reported, or it would read as an empty field.
+  $effect(() => {
+    if (text.trim() !== '' && parseNumber(text) === null) unreadable.add(id)
+    else unreadable.delete(id)
+    return () => unreadable.delete(id)
   })
 
   function onKeyDown(event: KeyboardEvent) {

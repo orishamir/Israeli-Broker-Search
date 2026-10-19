@@ -36,6 +36,7 @@ export const en = {
       ? `Below ${below} a month, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`
       : `For a one-time deposit below ${below}, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`,
   checkInputs: (error: string) => `Check your inputs: ${error}.`,
+  notANumber: 'a field holds text that is not a number',
 
   // The table
   rank: 'Rank',
