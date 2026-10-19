@@ -53,9 +53,10 @@ export function withColor<T extends object>(item: T, color: () => string): T & {
 
 // ── Package K: the workbench's ways and the fund's own cost ──
 /** "הקרן עצמה" in the fee breakdown: a part of a bar like the others, so one
- * color in every bar. A teal, apart from the fees' blue, orange, violet and
- * amber. */
-export const PRODUCT_COLOR = '#1f9e8f'
+ * color in every bar. A yellow-green, apart from the gain's green (teal was too near it) and the
+ * fees' blue, orange, violet and amber: every pair against them passes the
+ * dataviz validator (normal vision ΔE ≥ 16.7, color-blind ≥ 10.9). */
+export const PRODUCT_COLOR = '#bcc83c'
 
 /** A way's own color, beside its name only: by its place in the core's list
  * of ways, so it doesn't change as other ways are ticked. */
