@@ -41,6 +41,7 @@
 //! options and futures. None of them changes a comparison much for a
 //! long-term ETF investor.
 
+pub mod annuity;
 pub mod describe;
 pub mod examples;
 pub mod funds;
