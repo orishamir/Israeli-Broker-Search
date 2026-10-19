@@ -94,6 +94,9 @@
       ? `${app.dataDates}\u00a0· ${t.ratesOf(dateText(app.ratesStatus.date))}`
       : app.dataDates,
   )
+  const showsFeesAndTax = $derived(
+    columns.some(({ id }) => id === 'Fees') && columns.some(({ id }) => id === 'Tax'),
+  )
   const title = $derived(ways ? t.waysTable : t.withinTitle)
 </script>
 
@@ -157,6 +160,15 @@
                             class:pension-note={note.kind === 'pension'}>{note.text}</span
                           >
                         {/each}
+                        <!-- Where the fees and tax columns are a swipe away (phones),
+                             said under the name; every row with numbers has it, so
+                             no row grows when another has a note. -->
+                        {#if showsFeesAndTax && row.cells}
+                          <span class="fees-line"
+                            >{t.feesShort}&nbsp;<bdi dir="ltr">{row.cells.Fees ?? '–'}</bdi>&nbsp;·
+                            {t.tax}&nbsp;<bdi dir="ltr">{row.cells.Tax ?? '–'}</bdi></span
+                          >
+                        {/if}
                         {#if row.more && app.expert}
                           <button
                             class="link more"
@@ -253,7 +265,10 @@
     color: var(--weak);
     font-size: 0.75rem;
   }
+  /* A name and its amounts stop growing apart on a wide screen: the table
+     stops at one and a half rows' width, with its columns' shares intact. */
   .scrolls {
+    max-width: calc(var(--rows-max) * 1.5);
     overflow-x: auto;
     /* Not auto too: rows sliding to their new places reach past the table's
        new bottom for a moment, which showed a vertical scroll bar. */
@@ -360,8 +375,15 @@
     font-size: 0.75rem;
   }
   .broker,
-  .note {
+  .note,
+  .fees-line {
     color: var(--weak);
+  }
+  /* Only where the columns are a swipe away; see the container queries. */
+  .fees-line {
+    display: none;
+    font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
   .warning {
     color: var(--warning);
@@ -457,6 +479,11 @@
     }
     th:nth-child(n + 3):nth-child(-n + 6) {
       min-width: 6rem;
+    }
+  }
+  @container (width < 540px) {
+    .fees-line {
+      display: block;
     }
   }
   tbody tr.not-offered {

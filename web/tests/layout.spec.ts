@@ -537,6 +537,30 @@ test('on a very wide screen the page and its rows stop growing', async ({ page }
   expect((await page.locator('.layout').boundingBox())!.width).toBeLessThanOrEqual(1600)
 })
 
+// The amounts in the answer's list of kinds and in the table of plans sat
+// hundreds of pixels from their names on a wide screen.
+for (const width of [2560, 1440]) {
+  test(`at ${width} px the answer's kinds and the table keep their amounts near their names`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 1300 })
+    const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
+    await page.getByRole('button', { name: t.changeKind }).click()
+    const kinds = page.locator('.picker ul')
+    await expect(kinds).toBeVisible()
+    expect((await kinds.boundingBox())!.width).toBeLessThanOrEqual(40 * rem + 1)
+    await workbench(page)
+    const scrolls = page.locator('section.within .scrolls')
+    await expect(scrolls).toBeVisible()
+    expect((await scrolls.boundingBox())!.width).toBeLessThanOrEqual(60 * rem + 1)
+    // The rows stay aligned: every row's amounts start at the same place.
+    const lefts = await page
+      .locator('section.within tbody tr:not(.not-offered) td.amount:nth-child(3)')
+      .evaluateAll((cells) => cells.map((cell) => Math.round(cell.getBoundingClientRect().left)))
+    expect(new Set(lefts).size).toBe(1)
+  })
+}
+
 test('with the about page open', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: t.aboutLink }).click()
   await expect(dialog(page)).toBeVisible()

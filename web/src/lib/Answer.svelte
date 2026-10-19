@@ -171,6 +171,7 @@
   }
   .picker ul {
     display: grid;
+    max-width: var(--rows-max);
     gap: 4px;
     margin: 0;
     padding: 0;
