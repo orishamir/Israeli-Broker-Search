@@ -111,15 +111,14 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
     curve, through the brokers' fees).
   - `guide.rs` and `guide/`: the recommendation. `guide.rs` has the answers
     (`Answers`, `Horizon`, `Flexibility`, `Cushion`, `Situation`), the fixed
-    numbers (the 12/36/60/84-month lines, the 3-month cushion, the ladder's
-    years), `follow_ups` and `check`; `guide/route.rs` is the rules table
-    (`REDESIGN.md`, Appendix A), a `Route` per row, and builds `recommend` (what, why, steps, the
-    alternatives, the unlock line, the cushion's two parts), `ladder` (the
-    same money at 1, 3, 5, 10, 20 years) and `alternatives` (each kind's line
-    month by month plus the history band); `guide/index.rs` prices the index
+    numbers (the 12/36/60/84-month lines, the 3-month cushion, the horizon
+    section's years, `HORIZON_YEARS`) and `check`; `guide/route.rs` is the
+    rules table (`REDESIGN.md`, Appendix A), a `Route` per row, and builds
+    `recommend` (what, why, steps, the unlock line, the cushion's two parts:
+    what the workbench ranks from); `guide/index.rs` prices the index
     kinds through `ways`, `guide/safe.rs` the safe kinds through
-    `short_term`, `guide/series.rs` draws the lines and names the columns of
-    the table (`columns_for`). The guide invents no figure: it asks the
+    `short_term`, `guide/columns.rs` names the columns of the table
+    (`columns_for`). The guide invents no figure: it asks the
     engines.
   - `situations.rs`: the chips the guide opens with (a reason Israelis save,
     each with the answers it sets and a different lesson); it replaced
@@ -127,16 +126,16 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
   - `describe.rs` holds all text shown to users, in Hebrew and English (see
     "Hebrew only"), and its modules `describe/learn.rs` (the learn cards and
     the glossary, each claim sourced and linked), `reasons.rs` (the reasons
-    with their numbers, why-not lines, the history sentence, safety tags,
-    the unlock line), `steps.rs` (how to do it, step by step, per kind) and
-    `answer.rs` (the what-sentence, the amount's notes, follow-up cards, the
-    bank stand-in note). `yours.rs` holds the user's own plans and the
+    with their numbers, the history sentence, safety tags, the unlock
+    line), `steps.rs` (how to do it, step by step, per kind) and
+    `answer.rs` (the what-sentence, the amount's notes, the arenas'
+    names). `yours.rs` holds the user's own plans and the
     editor's fields.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`; `lib.rs` the plans and comparison,
-  `guide.rs` the guide's (`recommend`, `ladder`, `alternatives`,
-  `compare_ways`, `ways`, `situations`, `follow_ups`, `banks`, `columns_for`,
-  `history_band`, `learn_card`, `glossary`, `about_all`, `footer`). A struct
+  `guide.rs` the guide's (`answer`, `outcome_words`, `recommend`,
+  `compare_ways`, `ways`, `situations`, `banks`, `columns_for`,
+  `learn_card`, `glossary`, `about_all`, `footer`). A struct
   with `#[serde(flatten)]` is written as an object, not a `Map`.
 - `web`: the app. One `AppState` (`src/lib/app.svelte.ts`) holds the guide's
   `answers`, the `expert` switch (persisted as `expert-v2`, in links as
@@ -387,10 +386,11 @@ the unit tests in Node, then the browser.
   no-fee value over 20 years (`usual_plans_lose_a_plausible_share`): look
   at a change outside that band before widening it.
 - `crates/core/tests/guide.rs` has a test for each row of the guide's table
-  (`REDESIGN.md`, Appendix A; `situation` and horizon by horizon), the follow-ups, the
-  cushion's arithmetic, that the ladder's rungs are monotone within an
-  arena, that the alternatives always hold the current account and the other
-  arena, and the acceptance questions as the core answers them.
+  (`REDESIGN.md`, Appendix A; `situation` and horizon by horizon), the
+  cushion's arithmetic, and the acceptance questions as the core answers
+  them; `answer.rs` the redesigned answer's rules, among them that the
+  outcome always holds the current account and both arenas, and that the
+  horizons grow within an arena and change arena once.
   `guide_words.rs` checks the texts exist in both languages and name their
   circumstance (never what they say). `ways.rs` checks the ways and the
   products' costs, `history.rs` the band's arithmetic and ordering. A new
@@ -401,7 +401,7 @@ the unit tests in Node, then the browser.
   disagreed; a winner fixed in a test breaks with every monthly data
   update. Let the figure come from the core.
 - `cargo bench -p broker-fees` times the calls the page makes on every
-  keystroke and the guide's (`recommend`, `ladder`, `compare_ways`, divan,
+  keystroke and the guide's (`recommend`, `answer`, `compare_ways`, divan,
   `benches/hot_paths.rs`); the numbers to expect are below.
 - `cargo mutants -p broker-fees -j 8` asks whether the tests would notice a
   change to each line of the core; run it after adding a rule, and turn
@@ -419,19 +419,15 @@ by more than a half deserves a look.
 | Call                                                         |       Median |
 | ------------------------------------------------------------ | -----------: |
 | `guide_data` (the tariffs and rates the page builds once)    |        24 µs |
-| `recommend`, safe (a date in 5 years: deposit, fund, bond)   |       2.5 ms |
+| `recommend`, safe (a date in 5 years: deposit, fund, bond)   |       1.1 ms |
 | `recommend`, a cushion first, then an index kind             |       5.7 ms |
-| `recommend`, index, 20 years (every way, the safe kinds)     |        19 ms |
+| `recommend`, index, 20 years (every way)                     |        19 ms |
 | `recommend`, index, no first deposit (tries the unlock line) |        42 ms |
-| `ladder` (five rungs, none / ₪3,000 a month)                 |   12 / 19 ms |
 | `compare_ways` (seven ways, each on the plans that hold it)  |        30 ms |
 | `compare` every plan, Tel Aviv / USA                         | 5.8 / 9.6 ms |
 | `answer`, 3 years safe, without / with horizons (2026-10-20) |  9 / 100 ms |
 | `answer`, index, 20 years, without / with horizons           | 31 / 125 ms |
 | `answer`, ₪500 a month for 30 years, without / with horizons | 64 / 154 ms |
-
-`alternatives` is `recommend` plus the lines month by month: count it as the
-dearest `recommend` plus a few ms.
 
 ## Conventions
 

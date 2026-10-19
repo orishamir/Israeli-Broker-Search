@@ -30,8 +30,8 @@ use super::robust::{
 use super::route::{self, Route};
 use super::safe::Priced;
 use super::{
-    Amount, Answers, Arena, Bank, CUSHION_MONTHS, Cushion, Data, Flexibility, Horizon,
-    InvalidAnswers, Kind, LADDER_YEARS, NO_DATE_SUM_YEARS, Overrides, STAND_IN_MONTHLY_EXPENSES,
+    Amount, Answers, Arena, Bank, CUSHION_MONTHS, Cushion, Data, Flexibility, HORIZON_YEARS,
+    Horizon, InvalidAnswers, Kind, NO_DATE_SUM_YEARS, Overrides, STAND_IN_MONTHLY_EXPENSES,
     Settings, Situation, check,
 };
 
@@ -2241,7 +2241,7 @@ fn part(split: &Split) -> gain_words::Part {
 /// decides the place there, a row for each answer.
 fn horizons(f: &Facts<'_>) -> Vec<HorizonRow> {
     let mut rows = Vec::new();
-    for years in LADDER_YEARS {
+    for years in HORIZON_YEARS {
         let horizon = moved_horizon(f.answers.horizon, years);
         let at = Answers {
             horizon,

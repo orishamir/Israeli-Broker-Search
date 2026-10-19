@@ -578,7 +578,7 @@ fn the_horizons_follow_the_date_answer() {
         flexibility: Some(Flexibility::Fixed),
         ..bonus()
     });
-    assert_eq!(fixed.horizons.len(), LADDER_YEARS.len());
+    assert_eq!(fixed.horizons.len(), HORIZON_YEARS.len());
     assert!(
         fixed
             .horizons
@@ -765,7 +765,7 @@ fn a_date_where_flexibility_decides_has_both_rows_until_answered() {
     let full =
         |answers: &Answers| answer(answers, &Choices::default(), &settings(), &DATA).unwrap();
     let open = full(&bonus());
-    for years in LADDER_YEARS {
+    for years in HORIZON_YEARS {
         let rows = open
             .horizons
             .iter()
@@ -785,7 +785,7 @@ fn a_date_where_flexibility_decides_has_both_rows_until_answered() {
         flexibility: Some(Flexibility::CanWait),
         ..bonus()
     });
-    assert_eq!(can_wait.horizons.len(), LADDER_YEARS.len());
+    assert_eq!(can_wait.horizons.len(), HORIZON_YEARS.len());
     assert!(
         can_wait
             .horizons
@@ -1182,6 +1182,72 @@ fn the_gain_keeps_the_option_not_chosen() {
         for choices in every_choice() {
             if let Some(gain) = answered(&start, choices).gain {
                 assert!((2..=3).contains(&gain.rows.len()));
+            }
+        }
+    }
+}
+
+/// What every option would leave is drawn beside what the visitor
+/// deposited and what the current account would leave (principle 12), and
+/// the other arena is drawn beside the one the rules chose: a safe answer
+/// shows what the index might do, an index answer what safety leaves.
+#[test]
+fn the_outcome_holds_the_current_account_and_both_arenas() {
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            let outcome = &answer.outcome;
+            assert!(
+                outcome.current_account.today > Decimal::ZERO,
+                "{start:?}: the current account is the yardstick"
+            );
+            assert_eq!(
+                outcome.current_account.nominal, outcome.deposited.nominal,
+                "{start:?}: a current account leaves the deposits as they are"
+            );
+            for arena in [Arena::Safe, Arena::Index] {
+                assert!(
+                    outcome
+                        .rows
+                        .iter()
+                        .any(|row| row.kind.arena() == Some(arena)),
+                    "{start:?} {choices:?}: {arena:?} is drawn"
+                );
+            }
+        }
+    }
+}
+
+/// The horizons, with the date that can wait: short money is safe, long
+/// money is the index's, the place type changes once, and within one arena
+/// more years never leave less.
+#[test]
+fn the_horizons_grow_with_the_years_and_change_arena_once() {
+    for start in [
+        answers(dec!(0), dec!(3000), 60),
+        answers(dec!(15_000), dec!(0), 60),
+    ] {
+        let start = Answers {
+            flexibility: Some(Flexibility::CanWait),
+            ..start
+        };
+        let horizons = answer(&start, &Choices::default(), &settings(), &DATA)
+            .unwrap()
+            .horizons;
+        assert_eq!(horizons.len(), HORIZON_YEARS.len(), "{start:?}");
+        let arenas: Vec<Option<Arena>> = horizons.iter().map(|row| row.kind.arena()).collect();
+        assert_eq!(arenas.first(), Some(&Some(Arena::Safe)), "{start:?}");
+        assert_eq!(arenas.last(), Some(&Some(Arena::Index)), "{start:?}");
+        assert!(arenas.windows(2).filter(|pair| pair[0] != pair[1]).count() <= 1);
+        for pair in horizons.windows(2) {
+            if pair[0].kind.arena() == pair[1].kind.arena() {
+                assert!(
+                    pair[1].low.today >= pair[0].low.today
+                        && pair[1].high.today >= pair[0].high.today,
+                    "{} years leaves less than {}",
+                    pair[1].years,
+                    pair[0].years
+                );
             }
         }
     }

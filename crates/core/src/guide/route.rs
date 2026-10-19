@@ -1,11 +1,10 @@
 //! The rules of REDESIGN.md §3, one [`Route`] for each row of its table, and
 //! the answer built from the route's ranking: the reasons (each naming the
-//! circumstance it comes from), the alternatives drawn beside it, the
-//! unlock line, the steps.
+//! circumstance it comes from), the unlock line, the steps.
 //!
 //! A route first becomes a [`Decision`] (the kind chosen, the arena ranked,
-//! the figures), which is all the ladder needs; `recommend` goes on to the
-//! parts that cost more: the alternatives, the unlock line and the words.
+//! the figures), which is all the redesigned answer borrows; `recommend`
+//! goes on to the parts that cost more: the unlock line and the words.
 
 use std::cmp::Reverse;
 
@@ -17,18 +16,17 @@ use crate::describe::reasons;
 use crate::history;
 use crate::short_term;
 use crate::simulation;
-use crate::ways::{Way, WayOutcome};
+use crate::ways::Way;
 use crate::{Lang, Percent, Text, Vehicle};
 
 use super::index::{self, Run};
 use super::safe::{self, Priced, amount, price_level};
-use super::series::{self, Alternatives, BandSeries, KindSeries};
 use super::{
-    Alternative, Amount, Answers, Arena, AssumedBecause, Breakdown, CUSHION_MONTHS, Choice,
-    Circumstance, Context, Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility,
-    Horizon, INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, MovePortfolio,
-    Overrides, REFERENCE_YEARS, Ranked, Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS,
-    SHORT_GOAL_UP_TO_MONTHS, Settings, Situation, StepText, check, follow_ups,
+    Amount, Answers, Arena, AssumedBecause, Breakdown, CUSHION_MONTHS, Choice, Circumstance,
+    Context, Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility, Horizon,
+    INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, MovePortfolio, Overrides, REFERENCE_YEARS,
+    Ranked, Reason, Recommendation, SAFE_ONLY_UP_TO_MONTHS, SHORT_GOAL_UP_TO_MONTHS, Settings,
+    Situation, StepText, check,
 };
 
 /// Which row of the table the answers fall in.
@@ -338,29 +336,6 @@ fn index_breakdown(today: &simulation::Outcome, put_in: Decimal) -> Breakdown {
     }
 }
 
-/// The same for a safe kind, from what the short term's engine says.
-fn safe_breakdown(priced: &Priced, put_in: Decimal, level: Decimal) -> Breakdown {
-    Breakdown {
-        put_in,
-        fees: Decimal::ZERO,
-        product: Decimal::ZERO,
-        kept_by_the_place: priced.outcome.kept / level,
-        tax: priced.outcome.tax / level,
-        left: priced.left.today,
-    }
-}
-
-/// An index way's breakdown in today's shekels, when it has a plan.
-fn way_breakdown(outcome: &WayOutcome, inflation: Percent, put_in: Decimal) -> Option<Breakdown> {
-    let today = outcome
-        .best()?
-        .outcome
-        .as_ref()
-        .ok()?
-        .in_todays_money(inflation);
-    Some(index_breakdown(&today, put_in))
-}
-
 fn kind_line(priced: &Priced) -> Ranked {
     Ranked {
         kind: priced.kind,
@@ -501,16 +476,6 @@ fn reason(circumstance: Circumstance, kind: Kind, ctx: &Context) -> Reason {
         text: Text::owned(
             reasons::reason(&circumstance, kind, ctx, Lang::En),
             reasons::reason(&circumstance, kind, ctx, Lang::He),
-        ),
-        from: circumstance,
-    }
-}
-
-fn why_not(kind: Kind, circumstance: Circumstance, left: Option<Amount>, ctx: &Context) -> Reason {
-    Reason {
-        text: Text::owned(
-            reasons::why_not(kind, &circumstance, left, ctx, Lang::En),
-            reasons::why_not(kind, &circumstance, left, ctx, Lang::He),
         ),
         from: circumstance,
     }
@@ -683,331 +648,12 @@ fn reasons_for(
         .collect()
 }
 
-// ─────────────────────────── The alternatives ───────────────────────────
-
-fn alternative(
-    kind: Kind,
-    circumstance: Circumstance,
-    left: Option<Amount>,
-    band: Option<history::Band>,
-    breakdown: Option<Breakdown>,
-    ctx: &Context,
-) -> Alternative {
-    Alternative {
-        kind,
-        name: kind.text(),
-        arena: kind.arena(),
-        left,
-        safety: kind.safety_over(band),
-        why_not: why_not(kind, circumstance, left, ctx),
-        band,
-        breakdown,
-    }
-}
-
-// One match over the two arenas, each drawing its own kinds: splitting it
-// would only scatter the shared bookkeeping.
-#[allow(clippy::too_many_lines)]
-fn alternatives_for(
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-    d: &Decision<'_>,
-    ctx: &Context,
-) -> Vec<Alternative> {
-    let mut alternatives = Vec::new();
-    let level = d.level;
-    let months = d.months;
-    match d.arena {
-        Arena::Safe => {
-            let scenario = safe_scenario(answers, settings, months);
-            let main = horizon_circumstance(d.route, answers, d);
-            let kinds = [
-                Kind::MoneyMarketFund,
-                Kind::FixedDeposit,
-                Kind::GovernmentBond { linked: false },
-                Kind::GovernmentBond { linked: true },
-            ];
-            for kind in kinds.into_iter().filter(|&kind| kind != d.kind) {
-                let because = match kind {
-                    Kind::MoneyMarketFund => Circumstance::RateNotPromised {
-                        rate: settings.rate,
-                    },
-                    Kind::FixedDeposit if answers.monthly > Decimal::ZERO => {
-                        Circumstance::MonthlyDeposits
-                    }
-                    Kind::FixedDeposit if answers.needs_any_day => {
-                        Circumstance::DepositLocked { months }
-                    }
-                    _ => main.clone(),
-                };
-                match safe::price(kind, data, &scenario, level) {
-                    Some(priced) => {
-                        let breakdown =
-                            safe_breakdown(&priced, d.put_in.nominal / d.level, d.level);
-                        alternatives.push(alternative(
-                            kind,
-                            because,
-                            Some(priced.left),
-                            None,
-                            Some(breakdown),
-                            ctx,
-                        ));
-                    }
-                    // A deposit that money coming every month can't use is
-                    // still worth saying why not.
-                    None if kind == Kind::FixedDeposit
-                        && answers.monthly > Decimal::ZERO
-                        && months <= short_term::DEPOSITS_LONGEST =>
-                    {
-                        alternatives.push(alternative(kind, because, None, None, None, ctx));
-                    }
-                    None => {}
-                }
-            }
-            if let Some(stock) = stock_fund(answers, settings, data, months) {
-                alternatives.push(alternative(
-                    Kind::Way(stock.0),
-                    main,
-                    Some(stock.1),
-                    ctx.band,
-                    stock.2,
-                    ctx,
-                ));
-            }
-        }
-        Arena::Index => {
-            let band = ctx.band;
-            let scenario = safe_scenario(answers, settings, months);
-            let kinds = [
-                Kind::MoneyMarketFund,
-                Kind::FixedDeposit,
-                Kind::GovernmentBond { linked: false },
-                Kind::GovernmentBond { linked: true },
-            ];
-            for kind in kinds {
-                if let Some(priced) = safe::price(kind, data, &scenario, level) {
-                    let breakdown = safe_breakdown(&priced, d.put_in.nominal / level, level);
-                    alternatives.push(alternative(
-                        kind,
-                        Circumstance::WhatSafetyCosts,
-                        Some(priced.left),
-                        band,
-                        Some(breakdown),
-                        ctx,
-                    ));
-                }
-            }
-            alternatives.extend(other_ways(d, answers, settings.inflation, band, ctx));
-        }
-    }
-    alternatives.push(alternative(
-        Kind::CurrentAccount,
-        Circumstance::PricesRise {
-            inflation: settings.inflation,
-        },
-        Some(d.current_account),
-        None,
-        None,
-        ctx,
-    ));
-    alternatives
-}
-
-/// The index fund in Tel Aviv, the stock fund the safe arena's answer is
-/// drawn against, over the same months.
-fn stock_fund(
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-    months: u32,
-) -> Option<(Way, Amount, Option<Breakdown>)> {
-    let way = Way::for_index()[0];
-    let held = way_held(way, answers, settings, data, months)?;
-    Some((way, held.left, held.breakdown))
-}
-
-/// An index way's best plan over some months: what it leaves, where the
-/// money went, and its line.
-struct Held {
-    left: Amount,
-    breakdown: Option<Breakdown>,
-    /// Month by month in today's shekels, `months + 1` long.
-    line: Vec<Decimal>,
-}
-
-/// One engine run of a way, over whole years.
-struct YearsRun {
-    after_tax: Decimal,
-    today: Decimal,
-    breakdown: Option<Breakdown>,
-    value_by_month: Vec<Decimal>,
-}
-
-fn way_years(
-    way: Way,
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-    years: u32,
-) -> Option<YearsRun> {
-    let base = index::base_scenario(answers, settings, years);
-    let cands = index::candidates(answers, settings, data, &base);
-    let run = index::run(&[way], base, cands, &settings.rates);
-    let level = price_level(settings.inflation, years * 12);
-    let outcome = run.ways.first()?.best()?.outcome.as_ref().ok()?;
-    Some(YearsRun {
-        after_tax: outcome.after_tax,
-        today: outcome.after_tax / level,
-        breakdown: way_breakdown(
-            &run.ways[0],
-            settings.inflation,
-            run.base.deposited() / level,
-        ),
-        value_by_month: outcome.value_by_month.clone(),
-    })
-}
-
-/// The share of the way from `from` to `to`.
-fn lerp(from: Decimal, to: Decimal, share: Decimal) -> Decimal {
-    from + (to - from) * share
-}
-
-fn lerp_breakdown(from: &Breakdown, to: &Breakdown, share: Decimal) -> Breakdown {
-    Breakdown {
-        put_in: lerp(from.put_in, to.put_in, share),
-        fees: lerp(from.fees, to.fees, share),
-        product: lerp(from.product, to.product, share),
-        kept_by_the_place: lerp(from.kept_by_the_place, to.kept_by_the_place, share),
-        tax: lerp(from.tax, to.tax, share),
-        left: lerp(from.left, to.left, share),
-    }
-}
-
-/// The way over exactly `months`. The simulation counts whole years, so a
-/// stretch in between is worked out from the two whole years around it, the
-/// share of the way between them (and, under a year, from the sum before
-/// anything is invested): the deposits are then exactly the saver's, where
-/// rounding to the nearest year counted 12 months of deposits for 17.
-fn way_held(
-    way: Way,
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-    months: u32,
-) -> Option<Held> {
-    let whole = months / 12;
-    let to = way_years(
-        way,
-        answers,
-        settings,
-        data,
-        whole + u32::from(!months.is_multiple_of(12)),
-    )?;
-    let (nominal, today, breakdown) = if months.is_multiple_of(12) {
-        (to.after_tax, to.today, to.breakdown.clone())
-    } else {
-        let share = Decimal::from(months % 12) / Decimal::from(12);
-        let from = if whole == 0 {
-            YearsRun {
-                after_tax: answers.now,
-                today: answers.now,
-                breakdown: Some(Breakdown {
-                    put_in: answers.now,
-                    fees: Decimal::ZERO,
-                    product: Decimal::ZERO,
-                    kept_by_the_place: Decimal::ZERO,
-                    tax: Decimal::ZERO,
-                    left: answers.now,
-                }),
-                value_by_month: Vec::new(),
-            }
-        } else {
-            way_years(way, answers, settings, data, whole)?
-        };
-        (
-            lerp(from.after_tax, to.after_tax, share),
-            lerp(from.today, to.today, share),
-            from.breakdown
-                .as_ref()
-                .zip(to.breakdown.as_ref())
-                .map(|(from, to)| lerp_breakdown(from, to, share)),
-        )
-    };
-    let left = Amount { today, nominal };
-    let kept = to.value_by_month.len().min(months as usize + 1);
-    let line = series::deflated(
-        &to.value_by_month[..kept],
-        settings.inflation,
-        left.today,
-        Decimal::ZERO,
-    );
-    Some(Held {
-        left,
-        breakdown,
-        line,
-    })
-}
-
-/// What is shown beside the fund of an index answer: the study fund, with
-/// who can open one, and, for a retirement saver (`all`), the brokerage
-/// account after tax and the policy too.
-fn other_ways(
-    d: &Decision<'_>,
-    answers: &Answers,
-    inflation: Percent,
-    band: Option<history::Band>,
-    ctx: &Context,
-) -> Vec<Alternative> {
-    let Some((run, chosen)) = &d.run else {
-        return Vec::new();
-    };
-    let (chosen, level) = (*chosen, d.level);
-    let all = d.route == Route::Retirement;
-    let age_at_the_end = match answers.horizon {
-        Horizon::Retirement { retire_at, .. } => retire_at,
-        Horizon::Months(_) | Horizon::Unknown => 0,
-    };
-    let mut shown: Vec<Alternative> = Vec::new();
-    let mut brokerage_seen = false;
-    for (at, outcome) in run.ways.iter().enumerate() {
-        if at == chosen || (!all && outcome.way.vehicle != Vehicle::StudyFund) {
-            continue;
-        }
-        let Some(left) = outcome.after_tax().map(|nominal| amount(nominal, level)) else {
-            continue;
-        };
-        let because = match outcome.way.vehicle {
-            Vehicle::Brokerage if brokerage_seen => continue,
-            Vehicle::Brokerage => {
-                brokerage_seen = true;
-                Circumstance::TaxFreePension { age_at_the_end }
-            }
-            Vehicle::StudyFund => Circumstance::StudyFundNeedsEligibility,
-            Vehicle::InvestmentGemel | Vehicle::SavingsPolicy => {
-                Circumstance::TaxFreePension { age_at_the_end }
-            }
-        };
-        shown.push(alternative(
-            Kind::Way(outcome.way),
-            because,
-            Some(left),
-            band,
-            way_breakdown(outcome, inflation, run.base.deposited() / level),
-            ctx,
-        ));
-    }
-    shown
-}
-
 // ─────────────────────────── The public calls ───────────────────────────
 
 /// What fits money like this, and why.
 ///
 /// Runs the engines for the arena the rules choose (one `compare_ways` for
-/// an index answer) and, for the alternatives, the safe kinds and one more
-/// way: far less than the ladder's several rungs, and what it costs is in
-/// `benches/hot_paths.rs`.
+/// an index answer); what it costs is in `benches/hot_paths.rs`.
 ///
 /// # Errors
 ///
@@ -1021,7 +667,6 @@ pub fn recommend(
     let decision = decide(answers, settings, data);
     let ctx = context(answers, settings, &decision);
     let reasons = reasons_for(answers, settings, &decision, &ctx);
-    let alternatives = alternatives_for(answers, settings, data, &decision, &ctx);
     let unlock = decision
         .run
         .as_ref()
@@ -1045,13 +690,11 @@ pub fn recommend(
         breakdown: decision.breakdown,
         months: decision.months,
         reasons,
-        alternatives,
         band: ctx.band,
         unlock,
         also_possible,
         move_portfolio,
         steps: Vec::new(),
-        follow_ups: follow_ups(answers),
         two_parts,
     };
     recommendation.steps = {
@@ -1136,175 +779,4 @@ fn cushion_plan(
         then_ranked,
         then_years: years,
     })
-}
-
-/// The same money at the ladder's horizons: 1, 3, 5, 10 and 20 years (each
-/// worked out as money without a date, whose date can move), and, for a sum
-/// with nothing coming in every month, the sum kept for any day.
-///
-/// Each rung is a [`Decision`] without the alternatives, the unlock line and
-/// the words: three of the five need `compare_ways`, so the page asks for the
-/// ladder from its Web Worker.
-///
-/// # Errors
-///
-/// When the answers can't be worked on.
-pub fn ladder(
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-) -> Result<Vec<Rung>, InvalidAnswers> {
-    check(answers)?;
-    let rung_answers = |months: u32, any_day: bool| Answers {
-        situation: None,
-        horizon: Horizon::Months(months),
-        flexibility: Some(Flexibility::CanWait),
-        needs_any_day: any_day,
-        ..answers.clone()
-    };
-    let mut rungs = Vec::new();
-    if answers.monthly <= Decimal::ZERO {
-        rungs.push(rung(
-            &rung_answers(SAFE_ONLY_UP_TO_MONTHS, true),
-            settings,
-            data,
-            true,
-        ));
-    }
-    for years in LADDER_YEARS {
-        rungs.push(rung(
-            &rung_answers(years * 12, false),
-            settings,
-            data,
-            false,
-        ));
-    }
-    Ok(rungs)
-}
-
-fn rung(answers: &Answers, settings: &Settings, data: &Data, any_day: bool) -> Rung {
-    // What the saver chose is about one arena: at a horizon where the rules
-    // put the money in the other, the rung says what fits that horizon.
-    let chosen = if forced_arena(answers, settings.overrides)
-        .is_some_and(|arena| arena != natural_route(answers).arena())
-    {
-        Overrides::default()
-    } else {
-        settings.overrides
-    };
-    let decision = decide_choosing(answers, settings, chosen, data);
-    Rung {
-        months: decision.months,
-        any_day,
-        arena: decision.arena,
-        kind: decision.kind,
-        choice: decision.choice,
-        left: decision.left,
-        safety: decision.kind.safety_over(band_for(decision.months)),
-    }
-}
-
-/// The lines of the alternatives chart: the answer's kind and each
-/// alternative's, month by month in today's shekels, and the band of what the
-/// index did over the horizon. It runs the kinds again for their whole
-/// lines, which `recommend` keeps only the end of, so the page asks for it
-/// from its Web Worker.
-///
-/// # Errors
-///
-/// When the answers can't be worked on.
-pub fn alternatives(
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-) -> Result<Alternatives, InvalidAnswers> {
-    check(answers)?;
-    let decision = decide(answers, settings, data);
-    let ctx = context(answers, settings, &decision);
-    let months = decision.months;
-    let mut kinds = vec![(decision.kind, true)];
-    kinds.extend(
-        alternatives_for(answers, settings, data, &decision, &ctx)
-            .into_iter()
-            .map(|alternative| (alternative.kind, false)),
-    );
-    let scenario = safe_scenario(answers, settings, months);
-    let level = decision.level;
-    let series = kinds
-        .into_iter()
-        .filter_map(|(kind, recommended)| {
-            let (value_by_month, left) = match kind {
-                Kind::CurrentAccount => (
-                    series::deposits_by_month(
-                        answers.now,
-                        answers.monthly,
-                        months,
-                        settings.inflation,
-                    ),
-                    decision.current_account,
-                ),
-                Kind::Way(way) => way_line(way, answers, settings, data, months)?,
-                _ => {
-                    let priced = safe::price(kind, data, &scenario, level)?;
-                    // Only the money market fund's engine counts the next
-                    // deposit a month early.
-                    let waiting = if kind == Kind::MoneyMarketFund {
-                        answers.monthly
-                    } else {
-                        Decimal::ZERO
-                    };
-                    let line = series::deflated(
-                        &priced.outcome.value_by_month,
-                        settings.inflation,
-                        priced.left.today,
-                        waiting,
-                    );
-                    (line, priced.left)
-                }
-            };
-            Some(KindSeries {
-                kind,
-                name: kind.text(),
-                safety: kind.safety_over(ctx.band),
-                recommended,
-                value_by_month,
-                left,
-            })
-        })
-        .collect();
-    let band = ctx.band.map(|band| BandSeries {
-        band,
-        worst: series::grown_at(
-            answers.now,
-            answers.monthly,
-            months,
-            settings.inflation,
-            band.worst,
-        ),
-        best: series::grown_at(
-            answers.now,
-            answers.monthly,
-            months,
-            settings.inflation,
-            band.best,
-        ),
-    });
-    Ok(Alternatives {
-        months,
-        series,
-        band,
-    })
-}
-
-/// A way's best plan's money month by month in today's shekels, and what it
-/// leaves.
-fn way_line(
-    way: Way,
-    answers: &Answers,
-    settings: &Settings,
-    data: &Data,
-    months: u32,
-) -> Option<(Vec<Decimal>, Amount)> {
-    let held = way_held(way, answers, settings, data, months)?;
-    Some((held.line, held.left))
 }

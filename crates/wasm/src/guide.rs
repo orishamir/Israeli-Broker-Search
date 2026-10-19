@@ -1,5 +1,5 @@
-//! The guide's bindings: the recommendation, the ladder, the alternatives'
-//! lines, the ways compared side by side, the situations, and the learn
+//! The guide's bindings: the answer, the recommendation the workbench
+//! ranks from, the ways compared side by side, the situations, and the learn
 //! layer's cards. They are thin: every figure and every sentence is the
 //! core's, in the language `setLang` chose. This side turns the page's
 //! fields (numbers that are `null` while a field is empty) into the core's
@@ -8,9 +8,9 @@
 use broker_fees::describe::reasons::Span;
 use broker_fees::describe::{self, About, LearnCard, Term};
 use broker_fees::guide::{
-    self, Alternative, Amount, Answers, Arena, Bank, Breakdown, Choice as GuideChoice,
-    Circumstance, ColumnId, Cushion, Data, FollowUp, Horizon, InvalidAnswers, Kind, Overrides,
-    Ranked, Reason, Safety, Settings, Situation,
+    self, Amount, Answers, Arena, Bank, Breakdown, Choice as GuideChoice, Circumstance, ColumnId,
+    Cushion, Data, Horizon, InvalidAnswers, Kind, Overrides, Ranked, Reason, Safety, Settings,
+    Situation,
 };
 use broker_fees::history;
 use broker_fees::simulation::{self, Outcome};
@@ -306,19 +306,6 @@ pub struct ArenaChoice {
     pub name: String,
 }
 
-/// A follow-up question as a card.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-pub struct FollowCardData {
-    pub follow_up: FollowUp,
-    pub title: String,
-    pub text: String,
-    /// The buttons, in the order of the answers they stand for.
-    pub answers: Vec<String>,
-    /// The label of the number field the card holds.
-    pub field: Option<String>,
-}
-
 /// The place or plan chosen, by name.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
@@ -510,35 +497,6 @@ impl From<&history::Band> for BandData {
     }
 }
 
-/// A kind the saver could have chosen and wasn't offered.
-// `hashmap_as_object`: a flattened struct is a map to serde, and without this
-// the page would get a JavaScript `Map`, whose fields `.kind` and `.name` read
-// as nothing.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-#[tsify(hashmap_as_object)]
-pub struct AlternativeData {
-    #[serde(flatten)]
-    pub kind: KindData,
-    pub left: Option<AmountData>,
-    pub why_not: ReasonData,
-    pub band: Option<BandData>,
-    /// Where its money would go, for the donut's other tab.
-    pub breakdown: Option<BreakdownData>,
-}
-
-impl From<&Alternative> for AlternativeData {
-    fn from(alternative: &Alternative) -> Self {
-        AlternativeData {
-            kind: KindData::tagged(alternative.kind, alternative.safety),
-            left: alternative.left.map(AmountData::from),
-            why_not: (&alternative.why_not).into(),
-            band: alternative.band.as_ref().map(BandData::from),
-            breakdown: alternative.breakdown.as_ref().map(BreakdownData::from),
-        }
-    }
-}
-
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct UnlockData {
@@ -595,10 +553,8 @@ impl From<&Breakdown> for BreakdownData {
 }
 
 /// The answer, every text in the app's language.
-// The outermost type decides how maps are written: see `AlternativeData`.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
-#[tsify(hashmap_as_object)]
 pub struct RecommendationData {
     pub arena: Arena,
     pub kind: KindData,
@@ -614,11 +570,9 @@ pub struct RecommendationData {
     pub breakdown: BreakdownData,
     pub months: u32,
     pub reasons: Vec<ReasonData>,
-    pub alternatives: Vec<AlternativeData>,
     pub band: Option<BandData>,
     pub unlock: Option<UnlockData>,
     pub steps: Vec<StepData>,
-    pub follow_ups: Vec<FollowUp>,
     pub two_parts: Option<CushionPlanData>,
     /// What was chosen, in the terms of the bank's app (or, for money with no
     /// cushion, the plan in two parts), with the thing named in bold.
@@ -696,7 +650,6 @@ pub fn recommend_for(
         breakdown: (&r.breakdown).into(),
         months: r.months,
         reasons: r.reasons.iter().map(ReasonData::from).collect(),
-        alternatives: r.alternatives.iter().map(AlternativeData::from).collect(),
         band: r.band.as_ref().map(BandData::from),
         unlock: r.unlock.as_ref().map(|unlock| UnlockData {
             first_deposit: number(unlock.first_deposit),
@@ -713,7 +666,6 @@ pub fn recommend_for(
                 text: step.text[lang()].to_owned(),
             })
             .collect(),
-        follow_ups: r.follow_ups.clone(),
         two_parts: r.two_parts.as_ref().map(|plan| CushionPlanData {
             target: number(plan.target),
             months_to_fill: plan.months_to_fill,
@@ -766,144 +718,6 @@ pub fn recommend(
     settings: Ts<GuideSettings>,
 ) -> Result<Ts<RecommendationData>, JsError> {
     Ok(recommend_for(&answers.to_rust()?, &settings.to_rust()?)
-        .map_err(|problem| shown(&problem.text()))?
-        .into_ts()?)
-}
-
-// ─────────────────────────── The ladder ───────────────────────────
-
-/// What the same money does if it's needed after this long.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-pub struct RungData {
-    pub months: u32,
-    /// The rung for money that can be needed on any day.
-    pub any_day: bool,
-    pub arena: Arena,
-    pub kind: KindData,
-    pub choice: ChoiceData,
-    pub left: AmountData,
-}
-
-pub fn ladder_for(
-    answers: &AnswersInput,
-    settings: &GuideSettings,
-) -> Result<Vec<RungData>, Problem> {
-    let data = data_for(settings);
-    let core = settings_for(settings, &data)?;
-    Ok(guide::ladder(&answers.to_core(), &core, &data)?
-        .into_iter()
-        .map(|rung| RungData {
-            months: rung.months,
-            any_day: rung.any_day,
-            arena: rung.arena,
-            kind: KindData::tagged(rung.kind, rung.safety),
-            choice: (&rung.choice).into(),
-            left: rung.left.into(),
-        })
-        .collect())
-}
-
-/// The same money at 1, 3, 5, 10 and 20 years (and "any day" for a sum with
-/// nothing coming in every month). Several comparisons' work: ask from the
-/// worker.
-#[wasm_bindgen]
-pub fn ladder(
-    answers: Ts<AnswersInput>,
-    settings: Ts<GuideSettings>,
-) -> Result<Vec<Ts<RungData>>, JsError> {
-    ladder_for(&answers.to_rust()?, &settings.to_rust()?)
-        .map_err(|problem| shown(&problem.text()))?
-        .into_iter()
-        .map(|rung| Ok(rung.into_ts()?))
-        .collect()
-}
-
-// ─────────────────────────── The alternatives' lines ───────────────────────────
-
-/// One line of the alternatives chart.
-// Flattened too: see `AlternativeData`.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-#[tsify(hashmap_as_object)]
-pub struct KindSeriesData {
-    #[serde(flatten)]
-    pub kind: KindData,
-    /// The kind the answer recommends.
-    pub recommended: bool,
-    /// Today's shekels at the start (index 0) and after each month; the last
-    /// point is what is left after tax.
-    pub value_by_month: Vec<f64>,
-    pub left: AmountData,
-}
-
-/// What the stretches of the history did to the same deposits, in today's
-/// shekels, before fees and tax.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-pub struct BandSeriesData {
-    pub band: BandData,
-    pub worst: Vec<f64>,
-    pub best: Vec<f64>,
-    /// "In 52 of 1,086 stretches of 5 years since 1926 it ended lower", in
-    /// dollars: the band's caption's first half.
-    pub sentence: String,
-    /// What the sentence leaves out (the stretches overlap, the data's end,
-    /// a shekel fund also follows the exchange rate): its second half.
-    pub caveat: String,
-}
-
-// The outermost type decides how maps are written: see `AlternativeData`.
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-#[tsify(hashmap_as_object)]
-pub struct AlternativesData {
-    pub months: u32,
-    pub series: Vec<KindSeriesData>,
-    pub band: Option<BandSeriesData>,
-}
-
-fn numbers(values: &[Decimal]) -> Vec<f64> {
-    values.iter().copied().map(number).collect()
-}
-
-pub fn alternatives_for(
-    answers: &AnswersInput,
-    settings: &GuideSettings,
-) -> Result<AlternativesData, Problem> {
-    let data = data_for(settings);
-    let core = settings_for(settings, &data)?;
-    let found = guide::alternatives(&answers.to_core(), &core, &data)?;
-    Ok(AlternativesData {
-        months: found.months,
-        series: found
-            .series
-            .iter()
-            .map(|line| KindSeriesData {
-                kind: KindData::tagged(line.kind, line.safety),
-                recommended: line.recommended,
-                value_by_month: numbers(&line.value_by_month),
-                left: line.left.into(),
-            })
-            .collect(),
-        band: found.band.as_ref().map(|band| BandSeriesData {
-            band: (&band.band).into(),
-            worst: numbers(&band.worst),
-            best: numbers(&band.best),
-            sentence: broker_fees::describe::reasons::history_sentence(&band.band, lang()),
-            caveat: broker_fees::describe::reasons::history_caveat(&band.band, lang()),
-        }),
-    })
-}
-
-/// The chart beside the answer: each kind's money month by month. Several
-/// comparisons' work: ask from the worker.
-#[wasm_bindgen]
-pub fn alternatives(
-    answers: Ts<AnswersInput>,
-    settings: Ts<GuideSettings>,
-) -> Result<Ts<AlternativesData>, JsError> {
-    Ok(alternatives_for(&answers.to_rust()?, &settings.to_rust()?)
         .map_err(|problem| shown(&problem.text()))?
         .into_ts()?)
 }
@@ -1134,36 +948,6 @@ pub fn situations() -> Result<Vec<Ts<SituationData>>, JsError> {
         .collect()
 }
 
-/// The questions to show now, given what is answered so far.
-#[wasm_bindgen(js_name = followUps)]
-pub fn follow_ups(answers: Ts<AnswersInput>) -> Result<Vec<Ts<FollowUp>>, JsError> {
-    guide::follow_ups(&answers.to_rust()?.to_core())
-        .into_iter()
-        .map(|follow_up| Ok(follow_up.into_ts()?))
-        .collect()
-}
-
-/// One follow-up question, as a card in the app's language.
-#[wasm_bindgen(js_name = followCard)]
-pub fn follow_card(follow_up: Ts<FollowUp>) -> Result<Ts<FollowCardData>, JsError> {
-    let follow_up = follow_up.to_rust()?;
-    let card = describe::answer::follow_card(follow_up, lang());
-    Ok(FollowCardData {
-        follow_up,
-        title: card.title,
-        text: card.text,
-        answers: card.answers,
-        field: card.field,
-    }
-    .into_ts()?)
-}
-
-/// What "another bank" is priced as.
-#[wasm_bindgen(js_name = bankStandInNote)]
-pub fn bank_stand_in_note() -> String {
-    describe::answer::bank_stand_in_note(lang()).to_owned()
-}
-
 /// The banks whose branch price list is modelled, for the "I already have a
 /// portfolio at a bank" chip.
 #[derive(Debug, Serialize, Tsify)]
@@ -1195,36 +979,6 @@ pub fn columns_for(arena: Ts<Arena>) -> Result<Vec<Ts<ColumnData>>, JsError> {
         .into_iter()
         .map(|column| Ok(column.into_ts()?))
         .collect()
-}
-
-// ─────────────────────────── History ───────────────────────────
-
-#[derive(Debug, Serialize, Tsify)]
-#[serde(rename_all = "camelCase")]
-pub struct HistoryData {
-    pub band: BandData,
-    pub source_name: String,
-    pub source_url: String,
-}
-
-/// What the S&P 500 did over every stretch of `years` years, 1 to 30;
-/// missing outside them.
-#[wasm_bindgen(js_name = historyBand)]
-pub fn history_band(years: f64) -> Result<Option<Ts<HistoryData>>, JsError> {
-    let Some(years) = decimal(years) else {
-        return Ok(None);
-    };
-    let source = history::source();
-    history::band(years)
-        .map(|band| {
-            Ok(HistoryData {
-                band: (&band).into(),
-                source_name: source.name[lang()].to_owned(),
-                source_url: source.url.clone(),
-            }
-            .into_ts()?)
-        })
-        .transpose()
 }
 
 // ─────────────────────────── The learn layer ───────────────────────────
@@ -1784,32 +1538,6 @@ mod tests {
         assert_eq!(ticked, Some(vec![guide::PlanRef { broker: 0, plan: 0 }]));
     }
 
-    #[test]
-    fn the_alternatives_lines_end_where_the_answer_says() {
-        let answers = AnswersInput::from_core(&situations::situations()[0].answers);
-        let lines = alternatives_for(&answers, &settings()).unwrap();
-        let recommendation = recommend_for(&answers, &settings()).unwrap();
-        assert!(lines.series[0].recommended);
-        assert_eq!(lines.series[0].kind.kind, recommendation.kind.kind);
-        for line in &lines.series {
-            let last = *line.value_by_month.last().unwrap();
-            assert!(
-                (last - line.left.today).abs() < 0.01,
-                "{:?}",
-                line.kind.kind
-            );
-        }
-        assert!(lines.band.is_some());
-    }
-
-    #[test]
-    fn the_ladder_has_a_rung_for_each_horizon() {
-        let answers = AnswersInput::from_core(&situations::situations()[4].answers);
-        let rungs = ladder_for(&answers, &settings()).unwrap();
-        let core = guide::ladder(&answers.to_core(), &core_settings(), &Data::listed()).unwrap();
-        assert_eq!(rungs.len(), core.len());
-    }
-
     fn ways_inputs() -> Inputs {
         Inputs {
             security: broker_fees::Security::Etf,
@@ -1903,9 +1631,7 @@ mod tests {
             RecommendationData::DECL,
             AnswersInput::DECL,
             GuideSettings::DECL,
-            AlternativesData::DECL,
             WaysComparisonData::DECL,
-            RungData::DECL,
             SituationData::DECL,
             AnswerRequest::DECL,
             AnswerData::DECL,

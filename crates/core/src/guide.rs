@@ -26,21 +26,21 @@ use crate::ways::Way;
 use crate::{Broker, ExchangeRates, Lang, Named, Percent, Text};
 
 mod answer;
+mod columns;
 mod index;
 mod outcome;
 mod robust;
 mod route;
 mod safe;
-mod series;
 
 pub use answer::{
     Account, Answer, Choices, Confidence, ConfidenceState, CushionPick, Decision, DecisionId, Gain,
     GainRow, Holdings, HorizonRow, How, Line, LineKind, LineState, Mark, Opt, Outcome, Pick, Pill,
     Provider, Row, RowId, SafeBecause, SafeWay, Search, WhereToBuy, Wrapper, answer, answer_with,
 };
+pub use columns::{Column, ColumnId, columns_for};
 pub use robust::{RATE_STEP, kind_margin, provider_margin};
-pub use route::{alternatives, ladder, recommend};
-pub use series::{Alternatives, BandSeries, Column, ColumnId, KindSeries, columns_for};
+pub use route::recommend;
 
 // ─────────────────────────── The fixed numbers ───────────────────────────
 
@@ -49,9 +49,8 @@ pub const SAFE_ONLY_UP_TO_MONTHS: u32 = 12;
 /// Up to here a known date is a short goal: a deposit, a money market fund
 /// or a bond are compared.
 pub const SHORT_GOAL_UP_TO_MONTHS: u32 = 36;
-/// The question "can the date move?" is asked for goals more than this far...
-pub const FLEXIBILITY_ASKED_ABOVE_MONTHS: u32 = 36;
-/// ... up to and including this far (7 years).
+/// Whether the date can move decides the place for goals up to and
+/// including this far (7 years); further, the index kinds fit either way.
 pub const FLEXIBILITY_ASKED_UP_TO_MONTHS: u32 = 84;
 /// With a date that can move, from here (5 years) the index kinds fit.
 pub const INDEX_IF_FLEXIBLE_FROM_MONTHS: u32 = 60;
@@ -61,8 +60,8 @@ pub const SAFE_IF_FIXED_UP_TO_MONTHS: u32 = 84;
 /// How many months of expenses make a cushion. The words say "3–6"; the
 /// plan takes the low end.
 pub const CUSHION_MONTHS: u32 = 3;
-/// The horizons of the ladder, in years.
-pub const LADDER_YEARS: [u32; 5] = [1, 3, 5, 10, 20];
+/// The years of "what if the date moves?", the answer's horizon section.
+pub const HORIZON_YEARS: [u32; 5] = [1, 3, 5, 10, 20];
 /// The years the index kind that can be opened any time is worked out for
 /// when the saver has no date.
 pub const REFERENCE_YEARS: u32 = 10;
@@ -515,8 +514,6 @@ pub enum Circumstance {
     MonthlyDeposits,
     /// The kind earns about the Bank of Israel's rate, as it goes.
     EarnsBankRate { rate: Percent },
-    /// A fund's rate isn't promised for so long.
-    RateNotPromised { rate: Percent },
     /// A deposit is locked until its term ends.
     DepositLocked { months: u32 },
     /// The end sum is known when the kind is bought.
@@ -535,8 +532,6 @@ pub enum Circumstance {
     WhatSafetyCosts,
     /// The cheapest way after tax, and what its price is a year.
     CheapestAfterTax { cost_a_year: Option<Percent> },
-    /// Prices rise: a current account loses to them.
-    PricesRise { inflation: Percent },
     /// Retirement: the saver's age today, and the age they retire at.
     Retirement { age: u32, retire_at: u32 },
     /// A provident fund for investment's pension is tax-free from 60.
@@ -545,9 +540,6 @@ pub enum Circumstance {
     PensionNeedsSixty { age_at_the_end: u32 },
     /// A provident fund for investment takes up to a ceiling each year.
     DepositCeiling { ceiling: Decimal },
-    /// A study fund opens only for some savers (the self-employed, or
-    /// through an employer).
-    StudyFundNeedsEligibility,
     /// No cushion yet: the cushion comes first.
     NoCushion {
         monthly_expenses: Decimal,
@@ -577,7 +569,7 @@ pub struct Reason {
 pub struct Context {
     pub answers: Answers,
     /// The months the money is kept, as the guide worked them out (a
-    /// retirement's years, a ladder rung's).
+    /// retirement's years).
     pub months: u32,
     pub arena: Arena,
     /// What is recommended.
@@ -697,24 +689,6 @@ pub struct MovePortfolio {
     pub sale_tax_at_most: Decimal,
 }
 
-/// A kind the saver could have chosen and wasn't offered, drawn beside the
-/// answer.
-#[derive(Debug, Clone, PartialEq)]
-pub struct Alternative {
-    pub kind: Kind,
-    pub name: Text,
-    pub arena: Option<Arena>,
-    /// What it comes to by its own assumptions, when it can be worked out.
-    pub left: Option<Amount>,
-    pub safety: Safety,
-    /// Why it isn't what fits, naming the circumstance.
-    pub why_not: Reason,
-    /// What the index did over the horizon: carried by index kinds.
-    pub band: Option<Band>,
-    /// Where its money would go, when it can be worked out.
-    pub breakdown: Option<Breakdown>,
-}
-
 /// The first part of a two-part answer: the cushion first.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct CushionPlan {
@@ -729,20 +703,6 @@ pub struct CushionPlan {
     pub then_ranked: Vec<Ranked>,
     /// The years `then_ranked` is worked out for.
     pub then_years: u32,
-}
-
-/// A question to ask now.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
-pub enum FollowUp {
-    /// Can the date move?
-    Flexibility,
-    /// The saver's age and the age they retire at.
-    AgeAndRetirement,
-    /// Is there a cushion?
-    Cushion,
-    /// What are the monthly expenses?
-    MonthlyExpenses,
 }
 
 /// How a step is done, in one language.
@@ -795,7 +755,6 @@ pub struct Recommendation {
     /// The months the money is kept.
     pub months: u32,
     pub reasons: Vec<Reason>,
-    pub alternatives: Vec<Alternative>,
     /// What the index did over stretches as long as the horizon.
     pub band: Option<Band>,
     pub unlock: Option<UnlockLine>,
@@ -804,36 +763,7 @@ pub struct Recommendation {
     /// For a saver with a portfolio at a bank: what moving it saves.
     pub move_portfolio: Option<MovePortfolio>,
     pub steps: Vec<StepText>,
-    pub follow_ups: Vec<FollowUp>,
     pub two_parts: Option<CushionPlan>,
-}
-
-// ─────────────────────────── The questions ───────────────────────────
-
-/// The questions to show now, given what is answered so far. Nothing else is
-/// ever asked: the date's flexibility for goals 3 to 7 years away, the ages
-/// for retirement, the cushion and the month's expenses when there is no
-/// date and money comes in every month.
-#[must_use]
-pub fn follow_ups(answers: &Answers) -> Vec<FollowUp> {
-    let mut asked = Vec::new();
-    match answers.horizon {
-        Horizon::Months(months)
-            if months > FLEXIBILITY_ASKED_ABOVE_MONTHS
-                && months <= FLEXIBILITY_ASKED_UP_TO_MONTHS =>
-        {
-            asked.push(FollowUp::Flexibility);
-        }
-        Horizon::Retirement { .. } => asked.push(FollowUp::AgeAndRetirement),
-        Horizon::Unknown if answers.monthly > Decimal::ZERO => {
-            asked.push(FollowUp::Cushion);
-            if matches!(answers.cushion, Some(Cushion::HasNot { .. })) {
-                asked.push(FollowUp::MonthlyExpenses);
-            }
-        }
-        Horizon::Months(_) | Horizon::Unknown => {}
-    }
-    asked
 }
 
 /// Whether `answers` can be worked on.
@@ -878,21 +808,4 @@ pub fn check(answers: &Answers) -> Result<(), InvalidAnswers> {
         return Err(InvalidAnswers::NoExpenses);
     }
     Ok(())
-}
-
-/// One rung of the ladder: what the same money does if it's needed after
-/// this long.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct Rung {
-    /// The horizon. For the rung "any day" it is the first year, which is
-    /// how long the money market fund's figure is worked out for.
-    pub months: u32,
-    /// The money can be needed on any day (set for a sum and no monthly
-    /// amount).
-    pub any_day: bool,
-    pub arena: Arena,
-    pub kind: Kind,
-    pub choice: Choice,
-    pub left: Amount,
-    pub safety: Safety,
 }

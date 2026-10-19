@@ -1,7 +1,7 @@
 //! The words of the guide's answer: why this (the reasons, each from one of
-//! the saver's circumstances, with its numbers filled in), why not the
-//! others, the history sentence, the safety tags, the unlock line and the
-//! cushion's two parts. How to do it step by step is in `steps.rs`.
+//! the saver's circumstances, with its numbers filled in), the history
+//! sentence, the safety tags, the unlock line and the cushion's two parts.
+//! How to do it step by step is in `steps.rs`.
 //!
 //! Register: "what fits money like this", never "our recommendation". A
 //! reason says only what the guide really computed: where a rule decides
@@ -17,7 +17,7 @@ use crate::guide::{
     INDEX_IF_FLEXIBLE_FROM_MONTHS, Kind, SAFE_ONLY_UP_TO_MONTHS, Safety, Situation, UnlockLine,
 };
 use crate::history::Band;
-use crate::{Lang, Named, Vehicle, ils};
+use crate::{Lang, Named, ils};
 
 pub use super::answer::Span;
 pub use super::steps::steps_for;
@@ -178,25 +178,6 @@ pub fn basis_sentence(lang: Lang) -> &'static str {
     lang.pick(
         "The history and the costs are the S&P 500 index's.",
         "ההיסטוריה והעלויות הן של מדד S&P\u{a0}500.",
-    )
-}
-
-/// What the history sentence doesn't say by itself: the stretches overlap,
-/// and the data ends on a date. It ends with [`basis_sentence`].
-#[must_use]
-pub fn history_caveat(band: &Band, lang: Lang) -> String {
-    let until = month_year(band.to, lang);
-    let basis = basis_sentence(lang);
-    say(
-        lang,
-        format!(
-            "The stretches overlap (each starts a month after the last), so they are far fewer \
-             separate experiences than their number. The data runs to {until}, and the past is \
-             not a promise. A fund in shekels also moves with the dollar's exchange rate, which the band leaves out. {basis}"
-        ),
-        format!(
-            "התקופות חופפות (כל אחת מתחילה חודש אחרי קודמתה), ולכן הן הרבה פחות ניסיונות נפרדים ממספרן. הנתונים מגיעים עד {until}, והעבר הוא לא הבטחה. קרן בשקלים זזה גם עם שער הדולר, שהטווח לא כולל. {basis}"
-        ),
     )
 }
 
@@ -460,16 +441,6 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                 format!("היא משלמת בערך את ריבית בנק ישראל, {rate}."),
             ),
         },
-        Circumstance::RateNotPromised { rate } => say(
-            lang,
-            format!(
-                "A money market fund's rate follows the Bank of Israel's ({rate} now) and \
-                 nobody promises it for so long."
-            ),
-            format!(
-                "הריבית בקרן כספית עוקבת אחרי ריבית בנק ישראל ({rate} עכשיו), ואף אחד לא מבטיח אותה לזמן כזה."
-            ),
-        ),
         Circumstance::DepositLocked { months } => say(
             lang,
             format!(
@@ -566,14 +537,6 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                 ),
             }
         }
-        Circumstance::PricesRise { inflation } => say(
-            lang,
-            format!(
-                "Prices rise about {inflation} a year, so money left in a current account buys \
-                 less every year."
-            ),
-            format!("המחירים עולים בערך {inflation} בשנה, ולכן כסף בעו״ש קונה פחות משנה לשנה."),
-        ),
         Circumstance::Retirement { age, retire_at } => say(
             lang,
             format!(
@@ -621,10 +584,6 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                 shekels(*ceiling)
             ),
         ),
-        Circumstance::StudyFundNeedsEligibility => both(
-            "A study fund opens for the self-employed, or through an employer.",
-            "קרן השתלמות נפתחת לעצמאים, או דרך מעסיק.",
-        ),
         Circumstance::NoCushion {
             monthly_expenses,
             target,
@@ -670,304 +629,6 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
              otherwise.",
             "בחרתם בזה בעצמכם, ולכן זה מוצג גם במקום שבו הכללים היו בוחרים אחרת.",
         ),
-    }
-}
-
-// ─────────────────────────── Why not ───────────────────────────
-
-/// "₪a, against ₪b" when `left` is less than what was chosen leaves.
-fn less_than_chosen(left: Option<Amount>, ctx: &Context, lang: Lang) -> Option<String> {
-    let left = left?;
-    (left.today < ctx.left.today).then(|| {
-        say(
-            lang,
-            format!(
-                "After tax it leaves {}, against {}.",
-                shekels(left.today),
-                shekels(ctx.left.today)
-            ),
-            format!(
-                "אחרי מס נשאר בה {}, לעומת {}.",
-                shekels(left.today),
-                shekels(ctx.left.today)
-            ),
-        )
-    })
-}
-
-/// Words joined by a space, skipping the missing.
-fn join(parts: impl IntoIterator<Item = Option<String>>) -> String {
-    parts.into_iter().flatten().collect::<Vec<_>>().join(" ")
-}
-
-/// Why `kind`, which was not chosen, is not what fits: `circumstance` is the
-/// one of the saver's that decided it, `left` what it would have come to (in
-/// its own terms, when it can be worked out), `ctx` the answer beside it.
-#[must_use]
-#[allow(
-    clippy::too_many_lines,
-    reason = "one arm for each kind and circumstance"
-)]
-pub fn why_not(
-    kind: Kind,
-    circumstance: &Circumstance,
-    left: Option<Amount>,
-    ctx: &Context,
-    lang: Lang,
-) -> String {
-    let some = |text: String| Some(text);
-    let both = |en: &str, he: &str| Some(pick(lang, en, he));
-    let worse = less_than_chosen(left, ctx, lang);
-    match (kind, circumstance) {
-        (Kind::CurrentAccount, _) => {
-            let inflation = ctx.inflation;
-            let today = left.map_or(ctx.current_account.today, |amount| amount.today);
-            say(
-                lang,
-                format!(
-                    "Left in a current account it earns nothing and prices rise about \
-                     {inflation} a year: what you put in is worth {} in today's money.",
-                    shekels(today)
-                ),
-                format!(
-                    "כשהכסף נשאר בעו״ש הוא לא מרוויח כלום והמחירים עולים בערך {inflation} בשנה: מה שהפקדתם שווה {} בכסף של היום.",
-                    shekels(today)
-                ),
-            )
-        }
-        // The stock fund beside a safe answer.
-        (Kind::Way(_), circumstance) if ctx.arena == Arena::Safe => {
-            let rule = match circumstance {
-                Circumstance::NeedsAnyDay => both(
-                    "You may need the money on any day, and the market can be down on that day.",
-                    "ייתכן שתצטרכו את הכסף בכל יום, והבורסה יכולה להיות בירידה באותו יום.",
-                ),
-                Circumstance::FixedDate { months } | Circumstance::KnownDate { months } => {
-                    some(say(
-                        lang,
-                        format!(
-                            "The date is fixed, {} away, and the market can be down exactly \
-                             then.",
-                            span(*months, lang)
-                        ),
-                        format!(
-                            "התאריך קבוע, בעוד {}, והבורסה יכולה להיות בירידה בדיוק אז.",
-                            span(*months, lang)
-                        ),
-                    ))
-                }
-                Circumstance::FlexibleDate { months } => some(say(
-                    lang,
-                    format!(
-                        "Even with a date that can move, {} is under the 5 years from which \
-                         stocks become reasonable.",
-                        span(*months, lang)
-                    ),
-                    format!(
-                        "גם עם תאריך שאפשר להזיז, {} זה פחות מחמש השנים שמהן המניות סבירות.",
-                        span(*months, lang)
-                    ),
-                )),
-                Circumstance::ShortHorizon { months } => some(say(
-                    lang,
-                    format!(
-                        "{} is too short: a fall can last longer than that.",
-                        span(*months, lang)
-                    ),
-                    format!(
-                        "{} זה קצר מדי: ירידה יכולה להימשך יותר מזה.",
-                        span(*months, lang)
-                    ),
-                )),
-                Circumstance::NoDate => both(
-                    "You don't know when you will need the money, and the market can be down \
-                     on that day.",
-                    "אתם לא יודעים מתי תצטרכו את הכסף, והבורסה יכולה להיות בירידה באותו יום.",
-                ),
-                _ => both(
-                    "Its value can be down on the day you need it.",
-                    "הערך שלה יכול להיות נמוך ביום שתצטרכו אותה.",
-                ),
-            };
-            let history = match circumstance {
-                Circumstance::FixedDate { .. }
-                | Circumstance::KnownDate { .. }
-                | Circumstance::FlexibleDate { .. } => {
-                    ctx.band.as_ref().map(|band| history_sentence(band, lang))
-                }
-                _ => None,
-            };
-            let assumption = left.map(|_| {
-                say(
-                    lang,
-                    format!(
-                        "The figure drawn assumes {} a year, which nobody promises.",
-                        ctx.index_return
-                    ),
-                    format!(
-                        "הסכום שמצויר מניח {} בשנה, ואף אחד לא מבטיח אותו.",
-                        ctx.index_return
-                    ),
-                )
-            });
-            join([rule, history, assumption])
-        }
-        // What the index kinds beside an index answer say.
-        (Kind::Way(_), Circumstance::StudyFundNeedsEligibility) => {
-            join([
-                both(
-                    "A study fund opens only for the self-employed, or through an employer, \
-                     and its tax-free gain needs 6 years.",
-                    "קרן השתלמות נפתחת רק לעצמאים, או דרך מעסיק, והרווח בה פטור ממס רק אחרי 6 שנים.",
-                ),
-                left.map(|_| {
-                    pick(lang,
-                        "The figure counts a self-employed saver's fund.",
-                        "הסכום מחשב קרן של עצמאי.",
-                    )
-                }),
-            ])
-        }
-        (Kind::Way(way), Circumstance::TaxFreePension { age_at_the_end }) => match way.vehicle {
-            Vehicle::Brokerage => join([
-                both(
-                    "In a brokerage account the real gain pays 25% when you sell, and there is \
-                     no pension to avoid it.",
-                    "בחשבון מסחר הרווח הריאלי משלם 25% במכירה, ואין קצבה שפוטרת ממנו.",
-                ),
-                worse,
-            ]),
-            Vehicle::SavingsPolicy => join([
-                both(
-                    "A savings policy has no tax-free pension: its gain pays 25% when you take \
-                     it out.",
-                    "בפוליסת חיסכון אין קצבה פטורה ממס: הרווח בה משלם 25% במשיכה.",
-                ),
-                worse,
-            ]),
-            Vehicle::InvestmentGemel if *age_at_the_end < 60 => join([
-                some(say(
-                    lang,
-                    format!(
-                        "The fund's pension is tax-free only from 60, and you will be \
-                         {age_at_the_end}: a withdrawal before then pays 25% of the real gain."
-                    ),
-                    format!(
-                        "הקצבה מהקופה פטורה ממס רק מגיל 60, ואתם תהיו בני {age_at_the_end}: משיכה לפני כן משלמת 25% מהרווח הריאלי."
-                    ),
-                )),
-                worse,
-            ]),
-            Vehicle::InvestmentGemel | Vehicle::StudyFund => join([
-                both(
-                    "Its pension is tax-free, but the fund's fees and the ceiling on deposits \
-                     leave it behind what was chosen.",
-                    "הקצבה בה פטורה ממס, אבל דמי הניהול של הקופה והתקרה להפקדות משאירים אותה מאחורי מה שנבחר.",
-                ),
-                worse,
-            ]),
-        },
-        // The safe kinds beside an index answer.
-        (kind, Circumstance::WhatSafetyCosts) => {
-            let cost = left.map(|safe| what_safety_costs(safe, ctx.left, ctx.months, lang));
-            let promise = match kind {
-                Kind::MoneyMarketFund => both(
-                    "Its rate follows the Bank of Israel's, so even its sum isn't promised.",
-                    "הריבית בה עוקבת אחרי ריבית בנק ישראל, ולכן גם הסכום שלה לא מובטח.",
-                ),
-                Kind::FixedDeposit => both(
-                    "The deposit locks the money and takes one sum.",
-                    "הפיקדון נועל את הכסף ומקבל סכום אחד.",
-                ),
-                Kind::GovernmentBond { linked: true } => both(
-                    "Its sum in shekels follows the index.",
-                    "הסכום שלה בשקלים עוקב אחרי מדד המחירים לצרכן.",
-                ),
-                _ => both(
-                    "Its sum is known in advance.",
-                    "הסכום שלה ידוע מראש.",
-                ),
-            };
-            join([cost, promise])
-        }
-        (Kind::MoneyMarketFund, Circumstance::RateNotPromised { rate }) => join([
-            some(say(
-                lang,
-                format!(
-                    "Its rate follows the Bank of Israel's ({rate} now) and nobody promises it \
-                     for so long."
-                ),
-                format!("הריבית בה עוקבת אחרי ריבית בנק ישראל ({rate} עכשיו), ואף אחד לא מבטיח אותה לזמן כזה."),
-            )),
-            left.map(|amount| {
-                say(
-                    lang,
-                    format!(
-                        "At today's rate it would leave {}, but it can come to less.",
-                        shekels(amount.today)
-                    ),
-                    format!(
-                        "בריבית של היום נשאר בה {}, אבל זה יכול לצאת פחות.",
-                        shekels(amount.today)
-                    ),
-                )
-            }),
-        ]),
-        (Kind::FixedDeposit, Circumstance::MonthlyDeposits) => both(
-            "A deposit takes one sum, and money comes in every month.",
-            "פיקדון מקבל סכום אחד, והכסף נכנס כל חודש.",
-        )
-        .unwrap_or_default(),
-        (Kind::FixedDeposit, Circumstance::NeedsAnyDay | Circumstance::DepositLocked { .. }) => {
-            both(
-                "A deposit is locked until its term ends, and you may need the money before.",
-                "פיקדון נעול עד סוף התקופה שלו, ואולי תצטרכו את הכסף לפני כן.",
-            )
-            .unwrap_or_default()
-        }
-        (Kind::FixedDeposit, _) => join([
-            worse,
-            both(
-                "The money is locked until the term ends.",
-                "הכסף נעול עד סוף התקופה.",
-            ),
-        ]),
-        (Kind::GovernmentBond { .. }, Circumstance::NoDate) => both(
-            "A bond has a repayment date and you don't know when you will need the money; it \
-             can be sold before, at the day's price.",
-            "לאג״ח יש תאריך פדיון ואתם לא יודעים מתי תצטרכו את הכסף; אפשר למכור לפני, במחיר של אותו יום.",
-        )
-        .unwrap_or_default(),
-        (Kind::GovernmentBond { linked: true }, _) => join([
-            both(
-                "A linked bond keeps its buying power, but its sum in shekels follows the \
-                 index, so it isn't known in advance.",
-                "אג״ח צמודה שומרת על כוח הקנייה, אבל הסכום שלה בשקלים עוקב אחרי מדד המחירים לצרכן ולכן לא ידוע מראש.",
-            ),
-            worse,
-        ]),
-        (Kind::GovernmentBond { linked: false }, _) => join([
-            worse,
-            both(
-                "It needs a trading account, whose fees come off the yield.",
-                "היא דורשת חשבון מסחר, ועמלותיו יורדות מהתשואה.",
-            ),
-        ]),
-        (Kind::MoneyMarketFund, _) => join([
-            both(
-                "Its rate follows the Bank of Israel's, so what it comes to isn't known in \
-                 advance.",
-                "הריבית בה עוקבת אחרי ריבית בנק ישראל, ולכן לא ידוע מראש כמה יהיה בסוף.",
-            ),
-            worse,
-        ]),
-        (Kind::Way(_) | Kind::LinkedDeposit, _) => join([
-            worse,
-            both(
-                "Another way of holding the money, which leaves less here.",
-                "דרך אחרת להחזיק את הכסף, שמשאירה כאן פחות.",
-            ),
-        ]),
     }
 }
 

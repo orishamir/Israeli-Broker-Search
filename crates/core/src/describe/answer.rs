@@ -1,6 +1,6 @@
 //! The page's sentences about money in the answer and the questions: what
-//! was chosen (in the terms of the bank's app), the amount's notes, the
-//! follow-up cards, the bank stand-in note and the arenas' names. They live
+//! was chosen (in the terms of the bank's app), the amount's notes and the
+//! arenas' names. They live
 //! here, not in the page's texts, because each says something the guide
 //! computed (CLAUDE.md: keep the logic in Rust).
 //!
@@ -8,7 +8,7 @@
 //! never has to parse markup out of a string.
 
 use super::reasons::{shekels, span};
-use crate::guide::{AlsoPossible, Amount, Arena, Choice, FollowUp, Horizon, Kind, MovePortfolio};
+use crate::guide::{AlsoPossible, Amount, Arena, Choice, Horizon, Kind, MovePortfolio};
 use crate::ways::Way;
 use crate::{Lang, Named, Product, Vehicle};
 
@@ -327,15 +327,6 @@ pub fn other_bank() -> crate::Text {
     crate::Text::new("Another bank", "בנק אחר")
 }
 
-/// What "another bank" is priced as.
-#[must_use]
-pub fn bank_stand_in_note(lang: Lang) -> &'static str {
-    lang.pick(
-        "For another bank, the dearest branch price list we found is shown, so as not to show less than you would pay.",
-        "לבנק אחר מוצג מחירון הסניף היקר שמצאנו, כדי לא להציג פחות ממה שתשלמו.",
-    )
-}
-
 /// The two arenas, as the saver chooses between them.
 #[must_use]
 pub fn arena_name(arena: Arena, lang: Lang) -> &'static str {
@@ -344,75 +335,6 @@ pub fn arena_name(arena: Arena, lang: Lang) -> &'static str {
         Arena::Index => lang.pick(
             "The S&P 500 index, for the long run",
             "מדד S&P\u{a0}500, לטווח ארוך",
-        ),
-    }
-}
-
-/// A follow-up question as a card: its title, why it is asked, the answers
-/// offered and the number it takes, if any.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct FollowCard {
-    pub title: String,
-    pub text: String,
-    /// The buttons, in the order of the answers they stand for.
-    pub answers: Vec<String>,
-    /// The label of the number field the card holds.
-    pub field: Option<String>,
-}
-
-#[must_use]
-pub fn follow_card(follow_up: FollowUp, lang: Lang) -> FollowCard {
-    let card = |title: &str, text: &str, answers: &[&str], field: Option<&str>| FollowCard {
-        title: title.to_owned(),
-        text: text.to_owned(),
-        answers: answers.iter().map(|&each| each.to_owned()).collect(),
-        field: field.map(str::to_owned),
-    };
-    match follow_up {
-        FollowUp::Flexibility => card(
-            lang.pick(
-                "If the market is down right then, could you wait another year or two?",
-                "אם הבורסה תהיה בירידה בדיוק אז, תוכלו לחכות עוד שנה-שנתיים?",
-            ),
-            lang.pick(
-                "When you need the money on a fixed date, like a payment on an apartment, a 20% fall in the market that year is a problem. When you can wait, it usually passes.",
-                "כשצריך את הכסף בתאריך קבוע, כמו תשלום על דירה, ירידה של 20% בבורסה באותה שנה היא בעיה. כשאפשר לחכות, היא בדרך כלל חולפת.",
-            ),
-            &[
-                lang.pick("No, exactly then", "לא, צריך בדיוק אז"),
-                lang.pick("Yes, I can wait", "כן, אפשר לחכות"),
-            ],
-            None,
-        ),
-        FollowUp::AgeAndRetirement => card(
-            lang.pick("For retirement: how old are you?", "לפרישה: בני כמה אתם?"),
-            lang.pick(
-                "Your age sets when the money can be taken as a monthly pension, and so how many years it can grow.",
-                "הגיל קובע מתי אפשר למשוך את הכסף כקצבה חודשית, ולכן כמה שנים הוא יכול לצמוח.",
-            ),
-            &[],
-            None,
-        ),
-        FollowUp::Cushion => card(
-            lang.pick(
-                "Do you already have money set aside for 3 to 6 months of expenses?",
-                "יש לכם כבר כסף בצד ל־3–6 חודשי הוצאות?",
-            ),
-            lang.pick(
-                "A cushion comes first: money within reach for a layoff or a sudden expense, so you never have to sell an investment while the market is down.",
-                "כרית ביטחון היא הדבר הראשון: כסף זמין למקרה של פיטורים או הוצאה פתאומית, כדי שלא תצטרכו למכור השקעה בזמן ירידות.",
-            ),
-            &[
-                lang.pick("Yes", "כן"),
-                lang.pick("Not yet", "עוד לא"),
-            ],
-            None,
-        ),
-        FollowUp::MonthlyExpenses => card(
-            "",
-            "",
-            &[],
-            Some(lang.pick("My expenses in a month, about", "ההוצאות שלי בחודש, בערך")),
         ),
     }
 }

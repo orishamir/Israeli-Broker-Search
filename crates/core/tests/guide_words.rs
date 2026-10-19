@@ -4,10 +4,10 @@
 
 use std::sync::LazyLock;
 
-use broker_fees::describe::answer::{current_account_line, follow_card, left_note, what};
+use broker_fees::describe::answer::{current_account_line, left_note, what};
 use broker_fees::describe::reasons::{
-    basis_sentence, cushion_text, history_caveat, history_sentence, safety_note, safety_tag,
-    steps_for, unlock_text, what_safety_costs,
+    basis_sentence, cushion_text, history_sentence, safety_note, safety_tag, steps_for,
+    unlock_text, what_safety_costs,
 };
 use broker_fees::guide::*;
 use broker_fees::ways::Way;
@@ -85,20 +85,12 @@ fn clean(text: &str, what: &str) {
 }
 
 #[test]
-fn every_reason_why_not_and_step_has_text_in_both_languages() {
+fn every_reason_and_step_has_text_in_both_languages() {
     for answers in many_answers() {
         let rec = recommend(&answers, &settings(), &DATA).unwrap();
         for reason in &rec.reasons {
             for lang in [Lang::En, Lang::He] {
                 clean(&reason.text[lang], &format!("{:?}", reason.from));
-            }
-        }
-        for alternative in &rec.alternatives {
-            for lang in [Lang::En, Lang::He] {
-                clean(
-                    &alternative.why_not.text[lang],
-                    &format!("{:?} / {:?}", alternative.kind, alternative.why_not.from),
-                );
             }
         }
         assert!(!rec.steps.is_empty(), "{answers:?}");
@@ -120,17 +112,6 @@ fn every_reason_why_not_and_step_has_text_in_both_languages() {
                 &current_account_line(rec.current_account, lang),
                 "the base line",
             );
-            for follow_up in &rec.follow_ups {
-                let card = follow_card(*follow_up, lang);
-                if *follow_up != FollowUp::MonthlyExpenses {
-                    clean(&card.title, "a follow-up's title");
-                    clean(&card.text, "a follow-up's text");
-                }
-                assert_eq!(
-                    card.field.is_some(),
-                    *follow_up == FollowUp::MonthlyExpenses
-                );
-            }
         }
         if let Some(unlock) = &rec.unlock {
             for lang in [Lang::En, Lang::He] {
@@ -148,7 +129,6 @@ fn every_reason_why_not_and_step_has_text_in_both_languages() {
         if let Some(band) = &rec.band {
             for lang in [Lang::En, Lang::He] {
                 clean(&history_sentence(band, lang), "the history");
-                clean(&history_caveat(band, lang), "the history's caveat");
             }
         }
     }
@@ -455,10 +435,8 @@ fn the_guide_names_the_index_it_means() {
                 &reason.text[lang]
             );
         }
-        for alternative in &rec.alternatives {
-            let why_not = &alternative.why_not.text[lang];
-            assert!(bare_index(why_not).is_none(), "a why-not: {why_not}");
-            let name = &alternative.kind.text()[lang];
+        for line in &rec.ranked {
+            let name = &line.kind.text()[lang];
             assert!(bare_index(name).is_none(), "a kind: {name}");
         }
         for step in steps_for(&rec, lang) {
@@ -474,7 +452,6 @@ fn the_guide_names_the_index_it_means() {
         }
         if let Some(band) = &rec.band {
             assert!(bare_index(&history_sentence(band, lang)).is_none());
-            assert!(bare_index(&history_caveat(band, lang)).is_none());
             assert!(bare_index(basis_sentence(lang)).is_none());
         }
     }

@@ -139,8 +139,7 @@ fn guide_data(bencher: divan::Bencher) {
     bencher.bench_local(guide::Data::listed);
 }
 
-/// A fixed date in five years: the safe kinds, a bond among them, and one
-/// stock fund for the alternatives.
+/// A fixed date in five years: the safe kinds, a bond among them.
 #[divan::bench]
 fn recommend_safe(bencher: divan::Bencher) {
     guide_bench(
@@ -176,20 +175,6 @@ fn recommend_cushion(bencher: divan::Bencher) {
         bencher,
         &guide_answers(dec!(0), dec!(3000), guide::Horizon::Unknown),
     );
-}
-
-/// The ladder's five rungs (six for a sum alone), three of them with
-/// every way: the Web Worker's work.
-#[divan::bench(args = [0, 3000])]
-fn ladder_rungs(bencher: divan::Bencher, monthly: u32) {
-    let data = guide::Data::listed();
-    let settings = guide::Settings::new(rates());
-    let answers = guide_answers(
-        dec!(15000),
-        rust_decimal::Decimal::from(monthly),
-        guide::Horizon::Unknown,
-    );
-    bencher.bench_local(|| guide::ladder(&answers, &settings, &data).unwrap());
 }
 
 // ─────────────────────────── The redesigned answer ───────────────────────────

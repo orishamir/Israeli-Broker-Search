@@ -1,6 +1,5 @@
 //! The guide (`guide.rs`): one test for each row of REDESIGN.md §3's table,
-//! the follow-up questions, the cushion's arithmetic, the ladder, the
-//! situations, and the questions of §8 as the core answers them. The numbers
+//! the cushion's arithmetic, the situations, and the questions of §8 as the core answers them. The numbers
 //! come from the core; the tests state the rule.
 
 use std::sync::LazyLock;
@@ -77,29 +76,6 @@ fn is_study_fund(kind: Kind) -> bool {
     matches!(kind, Kind::Way(way) if way.vehicle == Vehicle::StudyFund)
 }
 
-/// A kind of the other arena is drawn beside every answer, and so is the
-/// current account.
-fn assert_draws_the_other_arena(rec: &Recommendation) {
-    assert!(
-        rec.alternatives
-            .iter()
-            .any(|alternative| alternative.kind == Kind::CurrentAccount),
-        "the current account is the yardstick"
-    );
-    let other = match rec.arena {
-        Arena::Safe => Arena::Index,
-        Arena::Index => Arena::Safe,
-    };
-    assert!(
-        rec.alternatives
-            .iter()
-            .any(|alternative| alternative.kind.arena() == Some(other)),
-        "{:?} should be drawn beside {:?}",
-        other,
-        rec.arena
-    );
-}
-
 // ─────────────────────────── The rows of §3 ───────────────────────────
 
 /// Row 1: money that may be needed any day goes where it is paid out the
@@ -116,17 +92,6 @@ fn row_1_money_needed_any_day_is_in_a_money_market_fund() {
         c,
         Circumstance::EarnsBankRate { .. }
     )));
-    // The deposit is drawn, and it is locked.
-    let deposit = rec
-        .alternatives
-        .iter()
-        .find(|alternative| alternative.kind == Kind::FixedDeposit)
-        .expect("the deposit is drawn");
-    assert!(matches!(
-        deposit.why_not.from,
-        Circumstance::DepositLocked { .. }
-    ));
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 1: a year or less, with no need to reach it any day: whichever of
@@ -182,18 +147,11 @@ fn row_2_a_known_date_within_three_years_is_safe() {
     assert!(kinds.contains(&Kind::FixedDeposit));
     assert!(kinds.contains(&Kind::MoneyMarketFund));
     assert!(kinds.contains(&Kind::GovernmentBond { linked: false }));
-    let stock = rec
-        .alternatives
-        .iter()
-        .find(|alternative| matches!(alternative.kind, Kind::Way(_)))
-        .expect("a stock index fund is drawn");
-    assert!(stock.band.is_some());
-    assert_draws_the_other_arena(&rec);
+    assert!(rec.band.is_some(), "the history beside a safe answer");
 }
 
 /// Row 3: 37 to 84 months with the date fixed: only the kinds whose sum is
-/// known in advance are ranked; the fund is an alternative whose rate isn't
-/// promised.
+/// known in advance are ranked.
 #[test]
 fn row_3_a_fixed_date_beyond_three_years_takes_a_sum_known_in_advance() {
     let rec = recommended(&fixed(answers(dec!(50_000), dec!(0), years(5))));
@@ -215,27 +173,12 @@ fn row_3_a_fixed_date_beyond_three_years_takes_a_sum_known_in_advance() {
         Circumstance::FixedDate { months: 60 }
     )));
     assert!(names(&rec, |c| matches!(c, Circumstance::OneSum)));
-    let fund = rec
-        .alternatives
-        .iter()
-        .find(|alternative| alternative.kind == Kind::MoneyMarketFund)
-        .expect("the fund is an alternative");
-    assert!(matches!(
-        fund.why_not.from,
-        Circumstance::RateNotPromised { .. }
-    ));
-    let stock = rec
-        .alternatives
-        .iter()
-        .find(|alternative| matches!(alternative.kind, Kind::Way(_)))
-        .expect("a stock index fund is drawn");
-    let band = stock.band.expect("with the band of five years");
+    let band = rec.band.expect("with the band of five years");
     assert_eq!(band.years, dec!(5));
     assert!(
         band.lower > 0 && band.lower < band.windows,
         "N of M periods"
     );
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 3 at its edge: seven years fixed is still safe, and a month more is
@@ -259,11 +202,10 @@ fn row_4_a_date_that_can_move_below_five_years_is_still_safe() {
         c,
         Circumstance::FlexibleDate { months: 48 }
     )));
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 5: 60 to 84 months with a date that can move: the index kinds,
-/// "if it's down then, you wait", the history, and the safe kinds drawn.
+/// "if it's down then, you wait", the history, and what safety costs.
 #[test]
 fn row_5_five_years_that_can_move_is_the_index_arena() {
     let rec = recommended(&can_wait(answers(dec!(50_000), dec!(0), years(5))));
@@ -278,14 +220,6 @@ fn row_5_five_years_that_can_move_is_the_index_arena() {
         Circumstance::HistoryOfTheHorizon { .. }
     )));
     assert!(names(&rec, |c| matches!(c, Circumstance::WhatSafetyCosts)));
-    let safe: Vec<&Alternative> = rec
-        .alternatives
-        .iter()
-        .filter(|alternative| is_safe_kind(alternative.kind))
-        .collect();
-    assert!(safe.iter().any(|a| a.kind == Kind::MoneyMarketFund));
-    assert!(safe.iter().all(|a| a.band.is_some()));
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 6: seven years and more: the index kinds, ranked by what is left
@@ -305,12 +239,11 @@ fn row_6_long_horizons_rank_the_ways_after_tax() {
     let lefts: Vec<Decimal> = rec.ranked.iter().map(|line| line.left.nominal).collect();
     assert!(lefts.windows(2).all(|pair| pair[0] >= pair[1]));
     assert!(rec.ranked.len() >= 5, "every way that can be opened");
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 7: retirement: the provident fund for investment as a pension when
 /// the saver is 60 at the end, the tax-free pension against 25%, the
-/// ceiling; the study fund drawn with who can open one.
+/// ceiling.
 #[test]
 fn row_7_retirement_takes_the_provident_fund_as_a_pension() {
     let retire = answers(
@@ -339,28 +272,6 @@ fn row_7_retirement_takes_the_provident_fund_as_a_pension() {
             retire_at: 60
         }
     )));
-    let vehicles: Vec<Vehicle> = rec
-        .alternatives
-        .iter()
-        .filter_map(|alternative| match alternative.kind {
-            Kind::Way(way) => Some(way.vehicle),
-            _ => None,
-        })
-        .collect();
-    for wanted in [
-        Vehicle::Brokerage,
-        Vehicle::StudyFund,
-        Vehicle::SavingsPolicy,
-    ] {
-        assert!(vehicles.contains(&wanted), "{wanted:?} is drawn");
-    }
-    let study = rec
-        .alternatives
-        .iter()
-        .find(|alternative| is_study_fund(alternative.kind))
-        .unwrap();
-    assert_eq!(study.why_not.from, Circumstance::StudyFundNeedsEligibility);
-    assert_draws_the_other_arena(&rec);
 
     // Who retires before 60 can't take the tax-free pension yet, and the
     // answer says so instead.
@@ -395,11 +306,6 @@ fn the_study_fund_is_never_the_answer_unless_chosen() {
         .find(|line| is_study_fund(line.kind))
         .expect("it is ranked");
     assert!(study.left.nominal >= rec.left.nominal, "and leaves more");
-    assert!(
-        rec.alternatives
-            .iter()
-            .any(|a| a.why_not.from == Circumstance::StudyFundNeedsEligibility)
-    );
     // The expert can choose it.
     let mut chosen = settings();
     chosen.overrides.kind = Some(study.kind);
@@ -427,7 +333,6 @@ fn row_8_no_date_and_no_cushion_is_a_two_part_answer() {
         matches!(then.vehicle, Vehicle::Brokerage | Vehicle::InvestmentGemel),
         "a place that can be opened any time"
     );
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 8: with a cushion, the same money goes to an index kind that can be
@@ -445,23 +350,17 @@ fn row_8_with_a_cushion_the_money_can_grow() {
     assert!(rec.two_parts.is_none());
     assert!(names(&rec, |c| matches!(c, Circumstance::HasCushion)));
     assert!(names(&rec, |c| matches!(c, Circumstance::NoDate)));
-    assert_draws_the_other_arena(&rec);
 }
 
 /// Row 9: no date, one sum: the sum waits where it can be reached any day,
-/// and the ladder says what the date would change.
 #[test]
-fn row_9_no_date_and_one_sum_waits_in_the_fund_and_has_a_ladder() {
+fn row_9_no_date_and_one_sum_waits_in_the_fund() {
     let bonus = answers(dec!(15_000), dec!(0), Horizon::Unknown);
     let rec = recommended(&bonus);
     assert_eq!(rec.arena, Arena::Safe);
     assert_eq!(rec.kind, Kind::MoneyMarketFund);
     assert!(names(&rec, |c| matches!(c, Circumstance::NoDate)));
     assert!(names(&rec, |c| matches!(c, Circumstance::OneSum)));
-    assert_draws_the_other_arena(&rec);
-    let rungs = ladder(&bonus, &settings(), &DATA).unwrap();
-    assert_eq!(rungs.len(), 6, "any day, then 1, 3, 5, 10 and 20 years");
-    assert!(rungs[0].any_day);
 }
 
 /// Row 10: a portfolio the saver already has: the bank's branch plan is
@@ -545,61 +444,6 @@ fn the_expert_can_choose_the_arena_and_the_kind() {
     };
     let rec = recommend(&sum, &settings, &DATA).unwrap();
     assert_eq!(rec.kind, Kind::MoneyMarketFund);
-}
-
-// ─────────────────────────── The questions ───────────────────────────
-
-#[test]
-fn follow_ups_are_asked_only_when_the_answer_needs_them() {
-    let nothing: [FollowUp; 0] = [];
-    // Flexibility: more than 3 years, up to 7.
-    for months in [12, 36] {
-        assert_eq!(
-            follow_ups(&answers(dec!(1), dec!(0), Horizon::Months(months))),
-            nothing
-        );
-    }
-    for months in [37, 60, 84] {
-        assert_eq!(
-            follow_ups(&answers(dec!(1), dec!(0), Horizon::Months(months))),
-            [FollowUp::Flexibility]
-        );
-    }
-    assert_eq!(
-        follow_ups(&answers(dec!(1), dec!(0), Horizon::Months(85))),
-        nothing
-    );
-    // Ages: for retirement.
-    assert_eq!(
-        follow_ups(&answers(
-            dec!(1),
-            dec!(0),
-            Horizon::Retirement {
-                age: 40,
-                retire_at: 65
-            }
-        )),
-        [FollowUp::AgeAndRetirement]
-    );
-    // The cushion: no date and money every month; its expenses once there is none.
-    assert_eq!(
-        follow_ups(&answers(dec!(1), dec!(0), Horizon::Unknown)),
-        nothing
-    );
-    let mut unknown = answers(dec!(0), dec!(3000), Horizon::Unknown);
-    assert_eq!(follow_ups(&unknown), [FollowUp::Cushion]);
-    unknown.cushion = Some(Cushion::HasNot {
-        monthly_expenses: Some(dec!(17_000)),
-    });
-    assert_eq!(
-        follow_ups(&unknown),
-        [FollowUp::Cushion, FollowUp::MonthlyExpenses]
-    );
-    unknown.cushion = Some(Cushion::Has);
-    assert_eq!(follow_ups(&unknown), [FollowUp::Cushion]);
-    // They come with the answer too.
-    let rec = recommended(&answers(dec!(1000), dec!(0), Horizon::Months(60)));
-    assert_eq!(rec.follow_ups, [FollowUp::Flexibility]);
 }
 
 /// Three months of expenses is the target, and the months to fill it are
@@ -688,47 +532,6 @@ fn impossible_answers_say_why() {
     }
 }
 
-// ─────────────────────────── The ladder ───────────────────────────
-
-/// The rungs go 1, 3, 5, 10 and 20 years; with a sum and nothing monthly
-/// "any day" comes first. Within an arena, more years leave more.
-#[test]
-fn the_ladder_has_five_rungs_and_grows_with_the_horizon() {
-    let monthly = answers(dec!(0), dec!(3000), Horizon::Unknown);
-    let sum = answers(dec!(15_000), dec!(0), Horizon::Unknown);
-
-    let rungs = ladder(&monthly, &settings(), &DATA).unwrap();
-    let months: Vec<u32> = rungs.iter().map(|rung| rung.months).collect();
-    assert_eq!(months, [12, 36, 60, 120, 240]);
-    assert!(rungs.iter().all(|rung| !rung.any_day));
-
-    let with_a_sum = ladder(&sum, &settings(), &DATA).unwrap();
-    assert_eq!(with_a_sum.len(), 6);
-    assert!(with_a_sum[0].any_day);
-    assert_eq!(with_a_sum[0].kind, Kind::MoneyMarketFund);
-
-    for rungs in [rungs, with_a_sum] {
-        // Not the "any day" rung, which shares its year with the next.
-        let by_horizon: Vec<&Rung> = rungs.iter().filter(|rung| !rung.any_day).collect();
-        for pair in by_horizon.windows(2) {
-            if pair[0].arena == pair[1].arena {
-                assert!(
-                    pair[1].left.today >= pair[0].left.today,
-                    "{} months leaves less than {}",
-                    pair[1].months,
-                    pair[0].months
-                );
-            }
-        }
-        // Short money is safe, long money is the index's, and it only
-        // changes once.
-        let arenas: Vec<Arena> = by_horizon.iter().map(|rung| rung.arena).collect();
-        assert_eq!(arenas.first(), Some(&Arena::Safe));
-        assert_eq!(arenas.last(), Some(&Arena::Index));
-        assert!(arenas.windows(2).filter(|pair| pair[0] != pair[1]).count() <= 1);
-    }
-}
-
 /// "Leaves the most after fees and tax" is said of the answer only when it
 /// does: a kind the saver chose from lower in the ranking doesn't claim it.
 #[test]
@@ -756,43 +559,13 @@ fn a_chosen_kind_below_the_top_does_not_claim_to_leave_the_most() {
     )));
 }
 
-/// A kind the expert chose is a choice about one arena: the ladder draws it
-/// at the rungs of that arena, and at the others what fits that horizon.
-#[test]
-fn the_ladder_keeps_a_chosen_kind_only_where_its_arena_applies() {
-    let monthly = answers(dec!(0), dec!(3000), Horizon::Unknown);
-    let plain = ladder(&monthly, &settings(), &DATA).unwrap();
-    let long = recommended(&answers(dec!(0), dec!(3000), years(20)));
-    let pick = long
-        .ranked
-        .iter()
-        .map(|line| line.kind)
-        .find(|kind| matches!(kind, Kind::Way(_)) && !is_study_fund(*kind) && *kind != long.kind)
-        .expect("another way is ranked");
-    let mut chosen = settings();
-    chosen.overrides.kind = Some(pick);
-    let rungs = ladder(&monthly, &chosen, &DATA).unwrap();
-    for (rung, usual) in rungs.iter().zip(&plain) {
-        if usual.arena == Arena::Safe {
-            assert_eq!(rung.kind, usual.kind, "{} months", rung.months);
-        } else {
-            assert_eq!(rung.kind, pick, "{} months", rung.months);
-        }
-    }
-    // The same for the arena alone.
-    let mut chosen = settings();
-    chosen.overrides.arena = Some(Arena::Safe);
-    let rungs = ladder(&monthly, &chosen, &DATA).unwrap();
-    assert_eq!(rungs.last().map(|rung| rung.arena), Some(Arena::Index));
-}
-
 // ─────────────────────────── The answer's figures ───────────────────────────
 
-/// Every answer, over a grid of horizons: the other arena and the current
-/// account are drawn, the answer leads its arena's ranking, the reasons
-/// have words in both languages, and the figures are in today's money.
+/// Every answer, over a grid of horizons: the answer leads its arena's
+/// ranking, the reasons have words in both languages, and the figures are
+/// in today's money.
 #[test]
-fn every_answer_is_drawn_beside_the_other_arena_with_reasons() {
+fn every_answer_leads_its_ranking_with_reasons() {
     let mut grid: Vec<Answers> = Vec::new();
     for months in [
         1, 6, 12, 13, 24, 36, 37, 48, 59, 60, 72, 84, 85, 120, 240, 360,
@@ -809,15 +582,9 @@ fn every_answer_is_drawn_beside_the_other_arena_with_reasons() {
     grid.push(answers(dec!(15_000), dec!(0), Horizon::Unknown));
     for answers in &grid {
         let rec = recommended(answers);
-        assert_draws_the_other_arena(&rec);
         assert!(!rec.reasons.is_empty(), "{answers:?}");
         for reason in &rec.reasons {
             assert!(!reason.text.en.is_empty() && !reason.text.he.is_empty());
-        }
-        for alternative in &rec.alternatives {
-            let why = &alternative.why_not.text;
-            assert!(!why.en.is_empty() && !why.he.is_empty());
-            assert_eq!(alternative.arena, alternative.kind.arena());
         }
         assert_ne!(rec.steps.len(), 0);
         // The answer leads its ranking, but for the study fund, which is
@@ -886,29 +653,11 @@ fn the_breakdown_names_where_the_money_went() {
     assert!(split.left + split.fees + split.tax > split.put_in);
 }
 
-/// The product's own cost is a slice of its own, and every alternative
-/// that has a figure carries the breakdown that ends at it (the current
-/// account's is only a line).
+/// The product's own cost is a slice of its own.
 #[test]
-fn the_products_cost_is_apart_and_alternatives_carry_breakdowns() {
+fn the_products_cost_is_apart() {
     let rec = recommended(&answers(dec!(10_000), dec!(2000), years(20)));
     assert!(rec.breakdown.product > Decimal::ZERO, "an index fund costs");
-    let mut with_breakdown = 0;
-    for alternative in &rec.alternatives {
-        match (&alternative.breakdown, alternative.left) {
-            (Some(split), Some(left)) => {
-                assert!(near(split.left, left.today), "{:?}", alternative.kind);
-                with_breakdown += 1;
-            }
-            (None, _) => assert!(
-                alternative.kind == Kind::CurrentAccount || alternative.left.is_none(),
-                "{:?}",
-                alternative.kind
-            ),
-            (Some(_), None) => panic!("a breakdown without a figure"),
-        }
-    }
-    assert!(with_breakdown > 0);
 }
 
 // ─────────────────────────── §8: the user's questions ───────────────────────────
@@ -941,7 +690,7 @@ fn a1_fixed_five_years_is_a_bond_or_a_deposit() {
 }
 
 /// a2: the same with a date that can move: the index arena, an index fund
-/// in Tel Aviv, the five-year history, the safe kinds drawn.
+/// in Tel Aviv, the five-year history.
 #[test]
 fn a2_five_years_that_can_move_is_an_index_fund_in_tel_aviv() {
     let rec = recommended(&can_wait(answers(dec!(50_000), dec!(0), years(5))));
@@ -950,17 +699,12 @@ fn a2_five_years_that_can_move_is_an_index_fund_in_tel_aviv() {
     assert_eq!(way(rec.kind).vehicle, Vehicle::Brokerage);
     let band = rec.band.expect("five years of history");
     assert_eq!(band.years, dec!(5));
-    assert!(
-        rec.alternatives
-            .iter()
-            .any(|a| is_safe_kind(a.kind) && a.band.is_some())
-    );
 }
 
 /// c: ₪3,000 a month, no date, no cushion, ₪17,000 expenses: ₪51,000 in a
-/// money market fund over 17 months, then an index kind; five rungs.
+/// money market fund over 17 months, then an index kind.
 #[test]
-fn c_the_cushion_comes_first_and_the_ladder_has_five_rungs() {
+fn c_the_cushion_comes_first() {
     let mut unknown = answers(dec!(0), dec!(3000), Horizon::Unknown);
     unknown.cushion = Some(Cushion::HasNot {
         monthly_expenses: Some(dec!(17_000)),
@@ -971,7 +715,6 @@ fn c_the_cushion_comes_first_and_the_ladder_has_five_rungs() {
     assert_eq!(rec.kind, Kind::MoneyMarketFund);
     assert_eq!(rec.months, 17);
     assert!(matches!(plan.then, Kind::Way(_)));
-    assert_eq!(ladder(&unknown, &settings(), &DATA).unwrap().len(), 5);
 }
 
 /// d: ₪1,500 a month, age 40, retire at 60: the provident fund for
@@ -994,7 +737,7 @@ fn d_retirement_is_the_provident_fund_for_investment() {
 }
 
 /// e: ₪10,000 + ₪2,000 a month, 17 years: the index arena, the history
-/// sentence for 17 years, and what safety costs.
+/// sentence for 17 years.
 #[test]
 fn e_seventeen_years_is_the_index_with_its_history() {
     let rec = recommended(&answers(dec!(10_000), dec!(2000), years(17)));
@@ -1004,25 +747,13 @@ fn e_seventeen_years_is_the_index_with_its_history() {
         c,
         Circumstance::HistoryOfTheHorizon { years } if *years == dec!(17)
     )));
-    let money_fund = rec
-        .alternatives
-        .iter()
-        .find(|a| a.kind == Kind::MoneyMarketFund)
-        .unwrap();
-    assert!(money_fund.left.unwrap().today < rec.left.today);
 }
 
-/// T1: ₪15,000 once, no date: the ladder; tapping 20 years gives the index
-/// arena, where a tie in the shekel goes to the plan without a "may cost
+/// T1: ₪15,000 once, in 20 years: the index arena, where a tie in the shekel goes to the plan without a "may cost
 /// more" caveat (Excellence before Altshuler), or the ⚠ shows on the card
 /// when Altshuler is strictly ahead.
 #[test]
-fn t1_the_bonus_ladder_ends_in_the_index_with_the_tie_rule() {
-    let bonus = answers(dec!(15_000), dec!(0), Horizon::Unknown);
-    let rungs = ladder(&bonus, &settings(), &DATA).unwrap();
-    let twenty = rungs.iter().find(|rung| rung.months == 240).unwrap();
-    assert_eq!(twenty.arena, Arena::Index);
-
+fn t1_the_bonus_in_twenty_years_is_the_index_with_the_tie_rule() {
     let rec = recommended(&answers(dec!(15_000), dec!(0), years(20)));
     assert_eq!(rec.arena, Arena::Index);
     let (first, second) = (&rec.plans[0], &rec.plans[1]);
@@ -1082,28 +813,19 @@ fn t2_taken_as_a_pension_at_sixty_the_fund_is_ahead_of_the_brokerage() {
     assert_eq!(way(rec.kind).vehicle, Vehicle::InvestmentGemel);
 }
 
-/// T3: ₪100,000 + ₪2,000 a month, 3 years, fixed: safe; the deposit can't
-/// take monthly deposits, and says why; the stock fund is drawn with its
-/// band. (The plan expected the money market fund to lead; with today's
-/// yield curve a CPI-linked bond leaves more, and the test states only the
-/// rule.)
+/// T3: ₪100,000 + ₪2,000 a month, 3 years, fixed: safe, and the deposit,
+/// which can't take monthly deposits, isn't ranked. (The plan expected the
+/// money market fund to lead; with today's yield curve a CPI-linked bond
+/// leaves more, and the test states only the rule.)
 #[test]
-fn t3_a_flat_in_three_years_is_safe_and_the_deposit_says_why_not() {
+fn t3_a_flat_in_three_years_is_safe_without_the_deposit() {
     let rec = recommended(&fixed(answers(dec!(100_000), dec!(2000), years(3))));
     assert_eq!(rec.arena, Arena::Safe);
-    let deposit = rec
-        .alternatives
-        .iter()
-        .find(|a| a.kind == Kind::FixedDeposit)
-        .expect("the deposit is drawn, with why not");
-    assert!(deposit.left.is_none());
-    assert_eq!(deposit.why_not.from, Circumstance::MonthlyDeposits);
-    let stock = rec
-        .alternatives
-        .iter()
-        .find(|a| matches!(a.kind, Kind::Way(_)))
-        .unwrap();
-    assert!(stock.band.is_some());
+    assert!(
+        rec.ranked
+            .iter()
+            .all(|line| line.kind != Kind::FixedDeposit)
+    );
     assert_eq!(rec.ranked[0].kind, rec.kind);
 }
 
@@ -1155,7 +877,6 @@ fn every_situation_can_be_run_and_teaches_something_of_its_own() {
     for preset in &all {
         let rec = recommended(&preset.answers);
         assert!(!rec.reasons.is_empty(), "{}", preset.id);
-        ladder(&preset.answers, &settings(), &DATA).unwrap();
         for text in [&preset.name, &preset.explanation, &preset.lesson] {
             assert!(!text.en.is_empty() && !text.he.is_empty());
         }
@@ -1484,105 +1205,6 @@ fn a_places_price_mark_is_its_own() {
     }
 }
 
-/// The stock fund drawn beside a safe answer is worked over the same years,
-/// so its today's money divides by the same prices.
-#[test]
-fn the_stock_fund_beside_a_safe_answer_is_in_the_same_todays_money() {
-    let rec = recommended(&fixed(answers(dec!(50_000), dec!(0), years(5))));
-    let stock = rec
-        .alternatives
-        .iter()
-        .find(|a| matches!(a.kind, Kind::Way(_)))
-        .unwrap();
-    let left = stock.left.unwrap();
-    assert!((level_of(left) - level_of(rec.left)).abs() < dec!(0.0001));
-}
-
-/// The other ways are drawn beside an index answer only for a retirement
-/// saver, once each: the study fund (with who can open one) is always
-/// there.
-#[test]
-fn only_a_retirement_saver_sees_the_other_ways_drawn() {
-    let ways = |rec: &Recommendation| -> Vec<Vehicle> {
-        rec.alternatives
-            .iter()
-            .filter_map(|a| match a.kind {
-                Kind::Way(way) => Some(way.vehicle),
-                _ => None,
-            })
-            .collect()
-    };
-    let long = recommended(&answers(dec!(10_000), dec!(2000), years(17)));
-    assert_eq!(ways(&long), [Vehicle::StudyFund]);
-    let retire = recommended(&answers(
-        dec!(0),
-        dec!(1500),
-        Horizon::Retirement {
-            age: 40,
-            retire_at: 60,
-        },
-    ));
-    let drawn = ways(&retire);
-    for vehicle in [
-        Vehicle::Brokerage,
-        Vehicle::StudyFund,
-        Vehicle::SavingsPolicy,
-    ] {
-        assert_eq!(
-            drawn.iter().filter(|&&v| v == vehicle).count(),
-            1,
-            "{vehicle:?}"
-        );
-    }
-}
-
-/// A deposit is drawn with "why not" when money comes every month, but only
-/// where a deposit could have been (up to five years).
-#[test]
-fn the_deposit_is_drawn_only_where_it_could_exist() {
-    let deposit_of = |rec: &Recommendation| {
-        rec.alternatives
-            .iter()
-            .find(|a| a.kind == Kind::FixedDeposit)
-            .cloned()
-    };
-    let five = deposit_of(&recommended(&fixed(answers(
-        dec!(1000),
-        dec!(500),
-        years(5),
-    ))))
-    .unwrap();
-    assert!(five.left.is_none());
-    assert!(
-        deposit_of(&recommended(&fixed(answers(
-            dec!(1000),
-            dec!(500),
-            years(6)
-        ))))
-        .is_none()
-    );
-    assert!(deposit_of(&recommended(&fixed(answers(dec!(1000), dec!(0), years(6))))).is_none());
-    // And why not is the locked term when the money is needed any day.
-    let mut any_day = answers(dec!(1000), dec!(0), Horizon::Months(12));
-    any_day.needs_any_day = true;
-    let locked = deposit_of(&recommended(&any_day)).unwrap();
-    assert!(matches!(
-        locked.why_not.from,
-        Circumstance::DepositLocked { .. }
-    ));
-    let year = deposit_of(&recommended(&answers(
-        dec!(1000),
-        dec!(0),
-        Horizon::Months(24),
-    )));
-    if let Some(deposit) = year {
-        assert!(!matches!(
-            deposit.why_not.from,
-            Circumstance::DepositLocked { .. }
-        ));
-    }
-}
-
 /// The reasons of a chosen safe kind are about that kind.
 #[test]
 fn a_safe_answer_gives_the_reasons_of_its_own_kind() {
@@ -1624,28 +1246,6 @@ fn a_safe_answer_gives_the_reasons_of_its_own_kind() {
     assert!(seen.contains(&Kind::FixedDeposit), "{seen:?}");
 }
 
-/// The ladder asks the same money without the date, the situation or the
-/// flexibility of the answers that opened it.
-#[test]
-fn the_ladder_ignores_what_only_the_answer_had() {
-    let mut sum = answers(dec!(15_000), dec!(0), Horizon::Unknown);
-    sum.situation = Some(Situation::KnowsWhatToBuy);
-    sum.flexibility = Some(Flexibility::Fixed);
-    let rungs = ladder(&sum, &settings(), &DATA).unwrap();
-    let by_months = |months| {
-        rungs
-            .iter()
-            .find(|r| r.months == months && !r.any_day)
-            .unwrap()
-    };
-    assert_eq!(
-        by_months(12).arena,
-        Arena::Safe,
-        "not every way, as the situation said"
-    );
-    assert_eq!(by_months(60).arena, Arena::Index, "its date can move");
-}
-
 /// What a bigger first deposit opens is a plan of the same kind of account
 /// as its way, held against the answer at that same deposit.
 #[test]
@@ -1675,33 +1275,9 @@ fn the_unlock_line_is_held_against_the_answer_at_the_same_deposit() {
     );
 }
 
-/// A deposit that was not chosen, with the money not needed any day, is not
-/// said to be locked: it is the date that decides.
-#[test]
-fn a_deposit_beside_a_fixed_date_is_not_blamed_for_being_locked() {
-    let mut other = settings();
-    other.overrides.kind = Some(Kind::GovernmentBond { linked: false });
-    let rec = recommend(
-        &fixed(answers(dec!(50_000), dec!(0), years(5))),
-        &other,
-        &DATA,
-    )
-    .unwrap();
-    let deposit = rec
-        .alternatives
-        .iter()
-        .find(|a| a.kind == Kind::FixedDeposit)
-        .unwrap();
-    assert!(deposit.left.is_some());
-    assert!(matches!(
-        deposit.why_not.from,
-        Circumstance::FixedDate { months: 60 }
-    ));
-}
-
 /// A CPI-linked bond tells the truth about its safety: its real value is
-/// known, its sum in shekels is not. It is ranked where a known sum is not
-/// required, and drawn beside the answer where it is.
+/// known, its sum in shekels is not. It is ranked only where a known sum is
+/// not required.
 #[test]
 fn a_linked_bond_is_not_a_sum_known_in_advance() {
     assert_eq!(
@@ -1716,10 +1292,9 @@ fn a_linked_bond_is_not_a_sum_known_in_advance() {
     assert_ne!(fixed_date.kind, Kind::GovernmentBond { linked: true });
     assert!(
         fixed_date
-            .alternatives
+            .ranked
             .iter()
-            .any(|a| a.kind == Kind::GovernmentBond { linked: true }
-                && a.safety == Safety::RealValueKnown)
+            .all(|l| l.kind != Kind::GovernmentBond { linked: true })
     );
     let known_date = recommended(&answers(dec!(50_000), dec!(0), Horizon::Months(24)));
     assert!(
@@ -1727,69 +1302,6 @@ fn a_linked_bond_is_not_a_sum_known_in_advance() {
             .ranked
             .iter()
             .any(|l| l.kind == Kind::GovernmentBond { linked: true })
-    );
-}
-
-// ─────────────────────────── The alternatives' lines ───────────────────────────
-
-/// The chart's lines are the alternatives' figures drawn whole: each ends at
-/// the amount `recommend` states for the kind, and the first is the answer.
-#[test]
-fn the_alternatives_lines_end_at_the_figures_of_the_answer() {
-    for preset in situations() {
-        let rec = recommended(&preset.answers);
-        let lines = alternatives(&preset.answers, &settings(), &DATA).unwrap();
-        assert_eq!(lines.series[0].kind, rec.kind, "{}", preset.id);
-        assert!(lines.series[0].recommended);
-        assert_eq!(lines.series[0].left, rec.left, "{}", preset.id);
-        for line in &lines.series {
-            assert_eq!(
-                line.value_by_month.last().copied(),
-                Some(line.left.today),
-                "{} {:?}",
-                preset.id,
-                line.kind
-            );
-            assert!(line.value_by_month.len() > 1);
-            // Month 0 means the same for every line: the first sum alone.
-            assert_eq!(
-                line.value_by_month[0], preset.answers.now,
-                "{} {:?} starts at the first sum",
-                preset.id, line.kind
-            );
-        }
-        if let Some(band) = &lines.band {
-            assert_eq!(band.worst[0], preset.answers.now, "{}", preset.id);
-            assert_eq!(band.best[0], preset.answers.now, "{}", preset.id);
-        }
-        // The current account is always drawn: the yardstick.
-        assert!(
-            lines
-                .series
-                .iter()
-                .any(|line| line.kind == Kind::CurrentAccount),
-            "{}",
-            preset.id
-        );
-    }
-}
-
-/// The band's lines are the deposits grown at the history's worst and best
-/// yearly rates: worst never above best, both starting at the first deposit
-/// and the first month's.
-#[test]
-fn the_bands_lines_bracket_the_deposits() {
-    let ten_years = answers(dec!(10_000), dec!(1_000), years(10));
-    let lines = alternatives(&can_wait(ten_years), &settings(), &DATA).unwrap();
-    let band = lines.band.expect("ten years are inside the history");
-    assert_eq!(band.worst.len(), 121);
-    assert_eq!(band.worst[0], dec!(10_000));
-    assert_eq!(band.best[0], dec!(10_000));
-    assert!(
-        band.worst
-            .iter()
-            .zip(&band.best)
-            .all(|(worst, best)| worst <= best)
     );
 }
 
@@ -1830,10 +1342,9 @@ fn the_columns_follow_the_arena() {
 }
 
 /// Row d: the workbench's ticks drive its own comparison only. With a single
-/// broker ticked the guide still draws the brokerage account, the study fund
-/// (with who can open one) and the savings policy, and answers the same.
+/// broker ticked the guide answers the same.
 #[test]
-fn the_alternatives_do_not_depend_on_the_ticked_plans() {
+fn the_answer_does_not_depend_on_the_ticked_plans() {
     let sum = answers(
         dec!(0),
         dec!(1500),
@@ -1856,23 +1367,6 @@ fn the_alternatives_do_not_depend_on_the_ticked_plans() {
     let rec = recommend(&sum, &one, &DATA).unwrap();
     assert_eq!(rec.kind, usual.kind);
     assert_eq!(rec.choice, usual.choice);
-    for wanted in [
-        Vehicle::Brokerage,
-        Vehicle::StudyFund,
-        Vehicle::SavingsPolicy,
-    ] {
-        assert!(
-            rec.alternatives
-                .iter()
-                .any(|a| matches!(a.kind, Kind::Way(w) if w.vehicle == wanted)),
-            "{wanted:?} is drawn"
-        );
-    }
-    assert!(
-        rec.alternatives
-            .iter()
-            .any(|a| a.why_not.from == Circumstance::StudyFundNeedsEligibility)
-    );
 }
 
 /// The ticked brokers are the ones compared: a broker that is not ticked is
@@ -1892,55 +1386,6 @@ fn only_the_ticked_brokers_are_compared() {
     }]);
     let rec = recommend(&sum, &one, &DATA).unwrap();
     assert_eq!(rec.plans.len(), 1, "{:?}", rec.plans);
-}
-
-// ───────────────────── Review of 2026-10-19: the numbers ─────────────────────
-
-/// The stock fund drawn beside a safe answer is worked out for the months
-/// asked about, not for the whole years nearest to them: 17 months of ₪3,000
-/// is ₪51,000, and the fund drawn beside it comes to about that, not to the
-/// 12 months' ₪36,000.
-#[test]
-fn the_stock_fund_beside_a_safe_answer_counts_every_month() {
-    for months in [4_u32, 17, 30] {
-        let mut unknown = answers(dec!(0), dec!(3000), Horizon::Months(months));
-        unknown.situation = None;
-        let rec = recommended(&unknown);
-        assert_eq!(rec.arena, Arena::Safe, "{months} months");
-        let deposited = dec!(3000) * Decimal::from(months);
-        let stock = rec
-            .alternatives
-            .iter()
-            .find(|a| matches!(a.kind, Kind::Way(_)))
-            .and_then(|a| a.left)
-            .expect("the stock fund is drawn");
-        assert!(
-            stock.nominal > deposited * dec!(0.9) && stock.nominal < deposited * dec!(1.2),
-            "{months} months: {} of {deposited}",
-            stock.nominal
-        );
-        let lines = alternatives(&unknown, &settings(), &DATA).unwrap();
-        for series in &lines.series {
-            assert_eq!(
-                series.value_by_month.len(),
-                months as usize + 1,
-                "{:?}",
-                series.kind
-            );
-        }
-    }
-    let mut cushion = answers(dec!(0), dec!(3000), Horizon::Unknown);
-    cushion.cushion = Some(Cushion::HasNot {
-        monthly_expenses: Some(dec!(17_000)),
-    });
-    let rec = recommended(&cushion);
-    let stock = rec
-        .alternatives
-        .iter()
-        .find(|a| matches!(a.kind, Kind::Way(_)))
-        .and_then(|a| a.left)
-        .unwrap();
-    assert!(stock.nominal > dec!(46_000), "{}", stock.nominal);
 }
 
 /// The unlock line's figures are for the bigger first deposit, so the line
@@ -1977,24 +1422,14 @@ fn the_risk_tag_follows_the_history_bands_count() {
         } else {
             Safety::NotLowerBefore
         };
-        let ways: Vec<Safety> = rec
-            .alternatives
-            .iter()
-            .filter(|a| matches!(a.kind, Kind::Way(_)))
-            .map(|a| a.safety)
-            .collect();
-        assert!(
-            ways.iter().all(|&s| s == expected),
-            "{horizon} years: {ways:?}"
+        let index = Kind::Way(broker_fees::ways::Way::for_index()[0]);
+        assert_eq!(
+            index.safety_over(Some(stretch)),
+            expected,
+            "{horizon} years"
         );
         if rec.arena == Arena::Index {
             assert_eq!(rec.kind.safety_over(rec.band), expected, "{horizon} years");
-        }
-        for rung in ladder(&asked, &settings(), &DATA).unwrap() {
-            if matches!(rung.kind, Kind::Way(_)) {
-                let of_rung = band(Decimal::from(rung.months) / Decimal::from(12));
-                assert_eq!(rung.safety, rung.kind.safety_over(of_rung));
-            }
         }
     }
 }
@@ -2034,37 +1469,6 @@ fn a_period_the_saver_did_not_give_is_said() {
         assumed(&recommended(&answers(dec!(15_000), dec!(0), years(5)))),
         None
     );
-}
-
-/// The money market fund's line is drawn from the same deposits as the
-/// current account's, a little above it while the rate beats prices: it must
-/// not sit a whole deposit below it until the last month, as it did when the
-/// engine's early first deposit was taken off every month, not only the
-/// first.
-#[test]
-fn the_money_market_line_starts_from_the_same_deposits_as_the_current_account() {
-    for (now, monthly, months) in [(dec!(0), dec!(3000), 12), (dec!(10_000), dec!(1000), 24)] {
-        let asked = answers(now, monthly, Horizon::Months(months));
-        let lines = alternatives(&asked, &settings(), &DATA).unwrap();
-        let line = |kind| {
-            &lines
-                .series
-                .iter()
-                .find(|l| l.kind == kind)
-                .unwrap()
-                .value_by_month
-        };
-        let (account, fund) = (line(Kind::CurrentAccount), line(Kind::MoneyMarketFund));
-        assert_eq!(account[0], fund[0], "month 0 is the first sum alone");
-        for month in 1..=months as usize {
-            assert!(
-                fund[month] > account[month] - dec!(1),
-                "month {month}: fund {} below the account {}",
-                fund[month],
-                account[month]
-            );
-        }
-    }
 }
 
 /// A figure the app worked out is no more exact than its inputs: no reason
