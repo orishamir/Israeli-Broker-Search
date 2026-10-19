@@ -201,6 +201,41 @@ time. Left out (October 2026); the rules it does follow are in `sources.md`,
   Israeli stocks and bonds, custody 0.25%–0.43% a year, against the
   tariff's 0.78%.
 
+## Bank Hapoalim
+
+- Its clubs (appendix A and the tariff's population groups: the young
+  "Poalim Tzair", soldiers, students, seniors and others) take a set
+  percentage off the tariff's rows, in the tariff's pages, some off the
+  securities custody and conversion, some off the trades. None is a plan.
+- Orders by phone or other "other channels" (appendix E has columns for the
+  clerk and for direct channels only): the two are modelled.
+- Treasury bills (מק"מ): 0.11% at a branch (min ₪19), 0.10% direct (min ₪15).
+- The conversion of up to $99 is a flat $5.50 at a branch and $3.30 direct
+  (a caveat says the minimum used is higher).
+- Third-party costs (the exchange's payments in Tel Aviv; abroad the broker's
+  and the custodian's, ADR fees) as actually charged, in a caveat.
+- Mutual funds' distribution fee, options and futures, short-selling lending.
+
+## Bank Discount
+
+- The bank's benefits for seniors (0.20% on Tel Aviv shares and bonds and
+  0.04% custody a quarter, its page says) and for hi-tech employees apply "to
+  the tariff on the customer" and may be withdrawn: left out, as the clubs of
+  the other banks.
+- Treasury bills (מק"מ): 0.1%, min ₪25, and 0.09%, min ₪22.50 direct;
+  government bonds issued at a discount of up to a year, 0.12%.
+- Conversions up to $10 are free and up to $100 half price (a caveat).
+- Abroad: the agent's fee, the SEC fee, the broker's, the custodian's and the
+  SWIFT costs, as actually charged (a caveat). Custody abroad 0.25% a quarter
+  plus the custodian's costs abroad.
+- Mutual funds' distribution fee (0.1% to 0.35% a year), options and futures.
+- Mercantile Discount, the bank's subsidiary, has its own tariff.
+
+## Beinleumi
+
+- Everything that is said about Otsar Hahayal above, except the club and
+  Top Trade, which are Otsar's own: one tariff, one file.
+
 ## Altshuler Shaham Trade
 
 - T-bills (מק"מ): 0.1%, min ₪3.5. Options, futures, hedge funds (0.3%,
@@ -300,10 +335,15 @@ time. Left out (October 2026); the rules it does follow are in `sources.md`,
 
 ## Branch plans
 
-- **Banks that aren't in the app** (Hapoalim, Discount, the First
-  International for its own customers, and the rest): there is no tariff PDF
-  for them in `policies`, so no branch plan. REDESIGN.md §6.8 stands in the dearest branch
-  plan of the three that are.
+- **Banks that aren't in the app** (One Zero, Mercantile Discount, Massad,
+  Jerusalem, Union, Yahav, Pagi and the rest): there is no tariff in
+  `policies`, so no branch plan. REDESIGN.md §6.8 stands in the dearest
+  branch plan of the six that are; the guide calls it "another bank", not
+  the bank it was taken from. One Zero publishes its tariff
+  (`onezerobank.com/company/information/2250`) but its files sit behind a
+  Cloudflare check that a script can't pass, so it wasn't read; it takes
+  a person to download the "full tariff" PDF and the "securities fees:
+  comparative information" PDF into `policies`.
 - **Otsar Hahayal's "other channels" column** (trading systems and the
   telephone dealing room, cheaper than the clerk's): left out; the clerk's
   column is the branch plan and the website's is Online.

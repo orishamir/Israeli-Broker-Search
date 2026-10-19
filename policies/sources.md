@@ -201,6 +201,60 @@ Meitav's 0.15% is a quarter (0.6% a year).
   shows actual averages of 0.02%–0.19% on Israeli stocks and bonds,
   0.08%–0.23% on foreign securities and custody of 0.25%–0.43% (Israeli)
   and 0.28%–0.37% (foreign) a year.
+- **Bank Hapoalim** (added 19 October 2026):
+  `תעריפון הפועלים ליחיד ועסק קטן 05.10.2026.pdf` (the bank's tariff for
+  individuals and small businesses, `single_small_51026.pdf`, linked from
+  [its tariff page](https://www.bankhapoalim.co.il/he/fee-list)) and
+  `תעריפון הפועלים נספח ה ערוצים ישירים 02.08.2026.pdf` (appendix E,
+  `145.pdf`). The tariff PDF's text is unreadable (an old font: copied
+  text comes out as Windows-1255 gibberish), so its numbers were read from
+  the same document as a spreadsheet, `...05.10.2026.xls`
+  (`single_small_51026.xls`, the same page, same date 05/10/2026), and
+  appendix E's from the picture of its page. Securities part: Tel Aviv
+  "stocks and bonds" 0.60%, ₪26 to ₪7,500, with note 5 counting index funds
+  and listed funds in; abroad "stocks, bonds, mutual funds" 0.90%, $25 to
+  $7,500; custody 0.15% a quarter in Tel Aviv and 0.20% abroad, at most
+  ₪10,600 a security. Appendix E, the direct channels: Tel Aviv 0.40%,
+  ₪20 to ₪7,000; the US 0.30% and "except the US" 0.50%, $20 to $7,000;
+  conversion 0.17%, $5.70 to $2,300 (flat $3.30 up to $99), against the
+  clerk's 0.19%, $6.70 to $2,700 (flat $5.50). Custody has no direct-channel
+  price, so it is one price. The bank's clubs (the young, soldiers,
+  and so on) take percentages off the tariff and aren't plans (see
+  `not-modeled.md`). The appendix is headed "direct channels"; the app is
+  taken to be one (a reading, with the bank's
+  [page on converting in the app and website](https://www.bankhapoalim.co.il/he/foreign-currency/foreign-currency-exchange),
+  which sends to the same prices). Its
+  [disclosure](https://www.bankhapoalim.co.il/sites/default/files/media/PDFS/hitpalgut-amalot.pdf)
+  of what securities fees were actually charged is a one-page picture that
+  isn't used.
+- **Bank Discount** (added 19 October 2026):
+  `תעריפון דיסקונט ליחיד ועסק קטן 01.10.2026.pdf`, the bank's tariff for
+  individuals and small businesses as one document (`tarifon_single-united_11026.pdf`,
+  52 pages, linked from [its tariff page](https://www.discountbank.co.il/private/general-information/charges-tariff/));
+  part 4 (securities) inside it is dated 07/02/2025 and part 5 (foreign
+  currency) 25/05/2026. Its table of prices by channel (page 47) gives the
+  "by a clerk" and "by type of channel" columns together: Tel Aviv 0.54%,
+  ₪35 to ₪7,300 against 0.40%, ₪25 to ₪7,150; abroad 0.79%, $25 to $10,900
+  against 0.59%, $23.50 to $10,680; conversion 0.19%, $6.80 to $1,075
+  against 0.17%, $6 to $1,055. "Channels" are the website, the app and the
+  trading systems (Discount Trade, Sheldag, Manta). Custody (§4.5): 0.2% a
+  quarter in Tel Aviv and 0.25% abroad, at most ₪7,500 a security a quarter,
+  one price for every channel. §4.1.1's note 1 counts index funds and listed
+  funds in. Conversions up to $10 are free and up to $100 half price,
+  minimum included (a caveat). Its own site also lists a
+  [disclosure of actual fees](https://www.discountbank.co.il/media/fsqnorrh/fees_collection_first_half_2026.pdf)
+  (first half of 2026), a one-page picture that isn't used. Mercantile
+  Discount, the bank's subsidiary, has its own tariff and isn't added.
+- **The First International Bank (Beinleumi, הבינלאומי)** (added 19 October
+  2026): the same file as Otsar Hahayal's, `תעריפון הבינלאומי ליחידים (אוצר
+  החייל) 16.09.2026.pdf`; the bank's own
+  [tariff page](https://www.fibi.co.il/private/general/commissionsrate/individuals/)
+  links `/media/dhneratu/…-16092026.pdf`, which downloads to a file with the
+  same SHA-256 (b66c47dc…aa11) as the copy kept here. So Beinleumi's Online,
+  Online standing-order and branch plans are Otsar's, built by one function
+  (`fibi_tariff`); Otsar's club and Top Trade are Otsar's own. The bank's
+  own clubs and groups (appendix A: students, hi-tech employees, the young)
+  aren't plans, as for Otsar.
 
 ## Conversion markups
 
@@ -243,12 +297,29 @@ and the banks' unpublished markups, come from these:
   and sell ₪3.1047 around a mid-rate of ₪3.0770 for the dollar (0.9% each
   way; 0.74% under and 1.06% over the representative ₪3.0720), and
   ₪3.4636, ₪3.5266 and ₪3.4951 for the euro. Read as a markup of 0.9% each
-  way. The page is served in Windows-1255.
+  way. The page is served in Windows-1255. Beinleumi uses the same reading.
+- **Hapoalim's published exchange rates**
+  ([page](https://www.bankhapoalim.co.il/he/foreign-currency/exchange-rates),
+  19 October 2026, "end of the last trading day"): transfers-and-checks buy
+  ₪3.0561 and sell ₪3.1185 against a representative ₪3.1100 for the dollar
+  (1.73% under, 0.27% over), and ₪3.4402, ₪3.5105 and ₪3.4919 for the euro
+  (1.48% under, 0.53% over). Read as a markup of 1.0% each way (the average
+  of the two sides: 1.00% and 1.005%). The bank's account conversions use
+  these rates, those "published on the business day before" the deal.
+- **Discount's published exchange rates**
+  ([page](https://www.discountbank.co.il/private/general-information/foreign-currency-transfers/exchange-rates/),
+  19 October 2026, true as of 13:00): transfers-and-checks buy ₪3.0749 and
+  sell ₪3.1434 against a representative ₪3.1100 for the dollar (1.13%
+  under, 1.07% over), and ₪3.4458, ₪3.5225 and ₪3.4919 for the euro (1.32%
+  under, 0.88% over). Read as a markup of 1.1% each way (1.10% for both
+  currencies). The page says its rates are for information; the rate for a
+  deal is asked at a branch or on Telebank.
 
 ## Branch tariffs
 
 The plan "Branch or through a banker" (בסניף או דרך בנקאי) of Leumi,
-Mizrahi-Tefahot and Otsar Hahayal is the bank's own main price list, what a
+Mizrahi-Tefahot, Otsar Hahayal, and (from 19 October 2026) Hapoalim, Discount
+and the First International (Beinleumi) is the bank's own main price list, what a
 clerk charges for an order given at a branch or by phone, from the same PDF
 the bank's Online plan comes from (REDESIGN.md §4.10). It is never ticked at
 first (only the bank's `new_customer_plan` is); it is what the situation
@@ -263,6 +334,9 @@ clerk's price and that trading yourself is priced by Online.
 | Leumi, part 4(a)(1) and (4), appendix 5a | 0.65%, ₪27 to ₪7,000 | 0.9%, $25 to $7,500 | 0.2%, $7.20 to $3,000 |
 | Mizrahi-Tefahot, part 4 §4.1.1 and §4.4.1, part 5 §5.1.1 | 0.64%, ₪50 to ₪10,750 | 0.89%, $75 to $7,500 | 0.19%, $6 to $2,500 |
 | Otsar Hahayal (First International), part 4 §4.1.1 and §4.4.1, part 5 §5.1.1: the "clerk" (פקיד) column | 0.64%, ₪40 to ₪7,000 | 0.85%, $40 to $7,000 | 0.175%, $6.25 to $2,750 |
+| Beinleumi (the same tariff as Otsar Hahayal) | 0.64%, ₪40 to ₪7,000 | 0.85%, $40 to $7,000 | 0.175%, $6.25 to $2,750 |
+| Hapoalim, the securities part and the foreign-currency part: the clerk's column (appendix E repeats it beside the direct channels') | 0.60%, ₪26 to ₪7,500 | 0.90%, $25 to $7,500 | 0.19%, $6.70 to $2,700 |
+| Discount, part 4 §4.1.1 and §4.4.1, part 5 §5.1.1; "by a clerk" in the table of prices by channel | 0.54%, ₪35 to ₪7,300 | 0.79%, $25 to $10,900 | 0.19%, $6.80 to $1,075 |
 
 - These agree with what earlier comments already said about the branch
   (Leumi: 18+ halves a 0.2% branch conversion fee at a $7.20 minimum;

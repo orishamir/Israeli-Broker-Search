@@ -41,6 +41,9 @@ pub fn all() -> Vec<Broker> {
         meitav(),
         mizrahi(),
         otsar_hahayal(),
+        hapoalim(),
+        discount(),
+        beinleumi(),
     ];
     for broker in &mut brokers {
         broker.caveats.push(us_estate_tax());
@@ -2312,13 +2315,23 @@ pub fn mizrahi() -> Broker {
 
 // ─────────────────────────── Bank Otsar Hahayal ───────────────────────────
 
-#[must_use]
+/// What Otsar Hahayal and Beinleumi share: both are the First International Bank (הבינלאומי),
+/// and the one tariff for individuals is on both their sites, so the plans that come from it
+/// are made once.
+struct FibiTariff {
+    tariff: Page,
+    broker_caveats: Vec<Caveat>,
+    online: Plan,
+    branch: Plan,
+    standing_order: Plan,
+}
+
 #[allow(clippy::too_many_lines, reason = "a tariff's data")]
-pub fn otsar_hahayal() -> Broker {
+fn fibi_tariff(tariff_url: &str) -> FibiTariff {
     // Otsar Hahayal is a brand of the First International Bank, which merged
     // it in; the tariff on its site is the First International's for
-    // individuals and small businesses, and the rates page is the parent's.
-    let tariff_url = "https://www.bankotsar.co.il/media/dhneratu/%D7%AA%D7%A2%D7%A8%D7%99%D7%A4%D7%95%D7%9F-%D7%91%D7%99%D7%A0%D7%9C%D7%90%D7%95%D7%9E%D7%99-%D7%99%D7%97%D7%99%D7%93%D7%99%D7%9D-16092026.pdf";
+    // individuals and small businesses (the same file as on fibi.co.il), and
+    // the rates page is the parent's.
     let tariff = source(t("Tariff (PDF)", "תעריפון (PDF)"), tariff_url);
     let rates_page = source(
         t(
@@ -2326,21 +2339,6 @@ pub fn otsar_hahayal() -> Broker {
             "שערי החליפין של הבנק הבינלאומי",
         ),
         "https://apps.fibi.co.il/Matach/matach.aspx",
-    );
-    let club_page = source(
-        t(
-            "The Otzar Habitachon club's securities benefits",
-            "הטבות מועדון ״אוצר הביטחון״ בניירות ערך",
-        ),
-        "https://www.bankotsar.co.il/private/account/armedforces/defense/securitiesbenefits/",
-    );
-    let top_trade_page = source(
-        t("Top Trade's page", "עמוד טופ טרייד"),
-        "https://www.bankotsar.co.il/private/capitalmarket/toptrade/",
-    );
-    let conscripts_page = source(
-        t("Top Trade for conscripts", "טופ טרייד חיילים"),
-        "https://www.bankotsar.co.il/private/account/types/soldiers/",
     );
     let broker_caveats = vec![
         Caveat::reading(
@@ -2554,6 +2552,41 @@ pub fn otsar_hahayal() -> Broker {
         ..online.clone()
     };
 
+    FibiTariff {
+        tariff,
+        broker_caveats,
+        online,
+        branch,
+        standing_order,
+    }
+}
+
+#[must_use]
+#[allow(clippy::too_many_lines, reason = "a tariff's data")]
+pub fn otsar_hahayal() -> Broker {
+    let tariff_url = "https://www.bankotsar.co.il/media/dhneratu/%D7%AA%D7%A2%D7%A8%D7%99%D7%A4%D7%95%D7%9F-%D7%91%D7%99%D7%A0%D7%9C%D7%90%D7%95%D7%9E%D7%99-%D7%99%D7%97%D7%99%D7%93%D7%99%D7%9D-16092026.pdf";
+    let FibiTariff {
+        tariff,
+        broker_caveats,
+        online,
+        branch,
+        standing_order,
+    } = fibi_tariff(tariff_url);
+    let club_page = source(
+        t(
+            "The Otzar Habitachon club's securities benefits",
+            "הטבות מועדון ״אוצר הביטחון״ בניירות ערך",
+        ),
+        "https://www.bankotsar.co.il/private/account/armedforces/defense/securitiesbenefits/",
+    );
+    let top_trade_page = source(
+        t("Top Trade's page", "עמוד טופ טרייד"),
+        "https://www.bankotsar.co.il/private/capitalmarket/toptrade/",
+    );
+    let conscripts_page = source(
+        t("Top Trade for conscripts", "טופ טרייד חיילים"),
+        "https://www.bankotsar.co.il/private/account/types/soldiers/",
+    );
     // The bank's club for the security forces' family (its site). Its
     // abroad rate is above Online's, and its terms allow no double benefits.
     let club = Plan {
@@ -2702,6 +2735,541 @@ pub fn otsar_hahayal() -> Broker {
         source_url: Some(tariff_url.into()),
         caveats: broker_caveats,
         plans: vec![online, standing_order, club, top_trade, branch],
+        spread: None,
+        exchange_notes: vec![],
+    }
+}
+
+// ─────────────────────────── The First International Bank ───────────────────────────
+
+#[must_use]
+pub fn beinleumi() -> Broker {
+    // The same file as Otsar Hahayal's (identical bytes, see policies/sources.md),
+    // from the bank's own tariff page.
+    let tariff_url = "https://www.fibi.co.il/media/dhneratu/%D7%AA%D7%A2%D7%A8%D7%99%D7%A4%D7%95%D7%9F-%D7%91%D7%99%D7%A0%D7%9C%D7%90%D7%95%D7%9E%D7%99-%D7%99%D7%97%D7%99%D7%93%D7%99%D7%9D-16092026.pdf";
+    let FibiTariff {
+        broker_caveats,
+        online,
+        branch,
+        standing_order,
+        ..
+    } = fibi_tariff(tariff_url);
+    Broker {
+        name: t("First International Bank (Beinleumi)", "הבנק הבינלאומי"),
+        short_name: t("Beinleumi", "הבינלאומי"),
+        kind: BrokerKind::Bank,
+        new_customer_plan: 0, // Online
+        compared_at_first: true,
+        description: t(
+            "One of Israel's banks, which also runs Otsar Hahayal as a brand: they share \
+             this tariff. Its securities prices depend on how you trade (on the website \
+             and app, or through a banker), so it has a few plans here. Its clubs and customer \
+             groups aren't plans of their own.",
+            "אחד הבנקים בישראל, שמפעיל גם את אוצר החייל כמותג: התעריפון משותף להם. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי), ולכן יש לו כאן כמה מסלולים. המועדונים וקבוצות הלקוחות שלו אינם מסלולים נפרדים.",
+        ),
+        // "September 2026" on its cover; the 16th only in the file's name.
+        tariff_date: Some(TariffDate::Month(date!(2026 - 09 - 01))),
+        latest_appendix: None,
+        source_url: Some(tariff_url.into()),
+        caveats: broker_caveats,
+        plans: vec![online, standing_order, branch],
+        spread: None,
+        exchange_notes: vec![],
+    }
+}
+
+// ─────────────────────────── Bank Hapoalim ───────────────────────────
+
+#[must_use]
+#[allow(clippy::too_many_lines, reason = "a tariff's data")]
+pub fn hapoalim() -> Broker {
+    // The tariff for individuals is a PDF whose text can't be read (an old
+    // font), and the same document as a spreadsheet; the numbers here are the
+    // spreadsheet's, checked against the appendix's pictures of the pages.
+    let tariff_url = "https://www.bankhapoalim.co.il/sites/default/files/media/PDFS/Taarifon/single_small_51026.pdf";
+    let tariff = source(
+        t(
+            "Tariff for individuals and small businesses (PDF)",
+            "תעריפון ליחיד ולעסק קטן (PDF)",
+        ),
+        tariff_url,
+    );
+    let direct_channels = source(
+        t(
+            "Tariff, appendix E: direct channels (PDF)",
+            "תעריפון, נספח ה׳: ערוצים ישירים (PDF)",
+        ),
+        "https://www.bankhapoalim.co.il/sites/default/files/media/PDFS/Taarifon/145.pdf",
+    );
+    let rates_page = source(
+        t("Hapoalim's exchange rates", "שערי החליפין של בנק הפועלים"),
+        "https://www.bankhapoalim.co.il/he/foreign-currency/exchange-rates",
+    );
+    let conversion_page = source(
+        t(
+            "Hapoalim's page on converting currency in the app and website",
+            "עמוד המרת מט״ח בדיגיטל של בנק הפועלים",
+        ),
+        "https://www.bankhapoalim.co.il/he/foreign-currency/foreign-currency-exchange",
+    );
+    let broker_caveats = vec![
+        Caveat::reading(
+            t("Hapoalim converts at its published transfers-and-checks rate, about 1% from the \
+             representative rate each way on average: a conversion markup of up to 1%, on top \
+             of the fee.", "בנק הפועלים ממיר לפי שער ההעברות וההמחאות שהוא מפרסם, כ\u{2011}1% מהשער היציג לכל כיוון בממוצע: מרווח המרה של עד 1%, בנוסף לעמלה."),
+            t("Hapoalim's exchange rates for 19 October 2026: it bought dollars at ₪3.0561 \
+             and sold them at ₪3.1185 against a representative ₪3.1100 (1.73% under and \
+             0.27% over), and euros at ₪3.4402 and ₪3.5105 against ₪3.4919 (1.48% under \
+             and 0.53% over)", "שערי הפועלים ל\u{2011}19 באוקטובר 2026: מי שקנה דולרים שילם ₪3.1185, ומי שמכר קיבל ₪3.0561, לעומת שער יציג של ₪3.1100 (0.27% מעל ו\u{2011}1.73% מתחת); באירו, ₪3.5105 בקנייה ו\u{2011}₪3.4402 במכירה, לעומת ₪3.4919 (0.53% מעל ו\u{2011}1.48% מתחת)"),
+        )
+        .about_fee(FeeKind::Markup)
+        .on(&[Usa, Europe])
+        .source(&rates_page),
+        Caveat::published(t(
+            "ETFs and index funds on Tel Aviv are priced as stocks and bonds: the row leaves \
+             mutual funds out but counts index funds and listed funds back in (note 5 of the \
+             securities part).",
+            "קרנות סל וקרנות מחקות בתל אביב מתומחרות כמו מניות ואג״ח: השורה מוציאה קרנות נאמנות, אבל מחזירה פנימה קרנות מחקות וקרנות שיחידותיהן רשומות בבורסה (הערה 5 בפרק ניירות הערך).",
+        ))
+        .about_fee(FeeKind::Trade)
+        .about(&[Etf, IndexFund])
+        .on(&[Tlv])
+        .source(&tariff),
+        Caveat::reading(
+            t("Hapoalim's rows for foreign securities name stocks, bonds and mutual funds \
+             (online: stocks traded in the US or elsewhere); ETFs abroad are taken to be \
+             priced as those.", "השורות של הפועלים לניירות ערך בחו״ל מונות מניות, אג״ח וקרנות נאמנות (באונליין: מניות הנסחרות בארה״ב או במקום אחר); הבנו שקרנות סל בחו״ל מתומחרות כמוהן."),
+            t("an ETF is a fund traded on an exchange like a stock, and no row of the \
+             tariff prices it apart", "קרן סל היא קרן שנסחרת בבורסה כמו מניה, ואף שורה בתעריפון לא מתמחרת אותה בנפרד"),
+        )
+        .about_fee(FeeKind::Trade)
+        .about(&[Etf])
+        .on(&[Usa, Europe])
+        .source(&tariff)
+        .source(&direct_channels),
+        Caveat::not_counted(t(
+            "Third-party costs are passed on on top of the fee, as actually charged: the \
+             exchange's payments in Tel Aviv, and abroad the broker's, the custodian's and \
+             ADR fees (note 4 of the foreign-securities rows, and the tariff's chapter on \
+             third-party costs).",
+            "הוצאות צד שלישי נגבות בנוסף לעמלה, לפי החיוב בפועל: תשלומים לבורסה בתל אביב, ובחו״ל הוצאות ברוקר, קסטודיאן ועמלות ADR (הערה 4 בשורות ניירות הערך בחו״ל, והפרק על הוצאות צד שלישי בתעריפון).",
+        ))
+        .about_fee(FeeKind::Trade)
+        .source(&tariff),
+    ];
+    let quarterly = |exchanges: &[Exchange], rate: Decimal| CustodyFee {
+        exchanges: exchanges.to_vec(),
+        ..custody(
+            rate,
+            Period::Quarter,
+            Period::Quarter,
+            None,
+            Some(ils(dec!(10600))),
+        )
+    };
+
+    // Measured from the bank's published rates (the caveat above).
+    let markup = Markup::UpTo(Percent(dec!(1.0)));
+    // Appendix E, the direct-channels column of each row: what the bank
+    // charges for trading on its website or app. The tariff's own rows are
+    // the clerk's.
+    let online = Plan {
+        name: t("Online", "אונליין"),
+        description: t(
+            "Hapoalim's prices for trading yourself on its website or in its app (the \
+             tariff's appendix on direct channels). Trading through a banker costs more.",
+            "המחירים של בנק הפועלים למסחר עצמאי באתר או באפליקציה (נספח הערוצים הישירים בתעריפון). מסחר דרך בנקאי עולה יותר.",
+        ),
+        vehicle: Vehicle::Brokerage,
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.4)),
+                    min: Some(ils(dec!(20))),
+                    max: Some(ils(dec!(7000))),
+                },
+            ),
+            // Stocks traded in the US, then "except the US".
+            trade(
+                &[],
+                &[Usa],
+                Price::Percent {
+                    percent: Percent(dec!(0.3)),
+                    min: Some(usd(dec!(20))),
+                    max: Some(usd(dec!(7000))),
+                },
+            ),
+            trade(
+                &[],
+                &[Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.5)),
+                    min: Some(usd(dec!(20))),
+                    max: Some(usd(dec!(7000))),
+                },
+            ),
+        ],
+        tracks: vec![],
+        standing_orders: vec![],
+        standing_order_conversion: None,
+        // The securities part's custody rows: one price for every channel.
+        custody: vec![
+            quarterly(&[Tlv], dec!(0.15)),
+            quarterly(&[Usa, Europe], dec!(0.20)),
+        ],
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.17)),
+                min: Some(usd(dec!(5.7))),
+                max: Some(usd(dec!(2300))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        handling: None,
+        management: None,
+        fractions_on: vec![],
+        min_first_deposit: None,
+        offer_ends: None,
+        caveats: vec![
+            Caveat::reading(
+                t("The appendix is headed \u{201c}direct channels\u{201d}; its prices are used \
+                 for the website and the app alike.", "הנספח נקרא ״ערוצים ישירים״; המחשבון לוקח את המחירים שלו לאתר ולאפליקציה כאחד."),
+                t("the bank's page on converting currency in the app and website names the \
+                 same direct-channel prices for it, and the tariff's note names the internet", "עמוד המרת המט״ח של הבנק באפליקציה ובאתר מפנה לאותם מחירי ערוצים ישירים, והערה בתעריפון מזכירה את האינטרנט"),
+            )
+            .about_fee(FeeKind::Trade)
+            .source(&direct_channels)
+            .source(&conversion_page),
+            Caveat::published(t(
+                "Custody (דמי\u{a0}משמרת) is one price for every channel: a quarter's share \
+                 of the holding, for the days held, at most a set amount a security a \
+                 quarter, whether you trade online or at a branch.",
+                "דמי משמרת הם מחיר אחד לכל הערוצים: חלק רבעוני משווי ההחזקה, לפי ימי ההחזקה, עד סכום מרבי לנייר לרבעון, באונליין או בסניף.",
+            ))
+            .about_fee(FeeKind::Account)
+            .source(&tariff),
+            Caveat::at_most(t(
+                "Converting up to $99 costs a flat $3.30 online ($5.50 at a branch), less \
+                 than the minimum used here.",
+                "המרה של עד $99 עולה $3.30 קבוע באונליין ($5.50 בסניף), פחות מהמינימום שהמחשבון לוקח.",
+            ))
+            .about_fee(FeeKind::Conversion)
+            .on(&[Usa, Europe])
+            .source(&direct_channels),
+        ],
+    };
+
+    // The tariff's own rows (the securities part and the foreign-currency
+    // part): the clerk's prices. The same rows have a column for direct
+    // channels in appendix E, which is Online.
+    let branch = Plan {
+        name: t("Branch or through a banker", "בסניף או דרך בנקאי"),
+        description: t(
+            "Hapoalim's prices when a banker or a branch clerk takes your order, instead of \
+             you placing it on its website or in its app. The way for someone who already \
+             has an account at the bank and trades through it the old way.",
+            "המחירים של בנק הפועלים כשבנקאי או פקיד בסניף מבצע את הפקודה, ולא אתם באתר או באפליקציה. הדרך של מי שכבר יש לו חשבון בבנק וסוחר דרכו כמו פעם.",
+        ),
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.6)),
+                    min: Some(ils(dec!(26))),
+                    max: Some(ils(dec!(7500))),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.9)),
+                    min: Some(usd(dec!(25))),
+                    max: Some(usd(dec!(7500))),
+                },
+            ),
+        ],
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.19)),
+                min: Some(usd(dec!(6.7))),
+                max: Some(usd(dec!(2700))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        caveats: vec![
+            Caveat::published(t(
+                "These are the tariff's clerk prices, charged when a banker or a branch \
+                 clerk takes the order; trading yourself on the website or in the app is \
+                 priced by the Online plan.",
+                "אלה מחירי הפקיד שבתעריפון, כשבנקאי או פקיד בסניף מבצע את הפקודה; מסחר עצמאי באתר או באפליקציה מתומחר במסלול אונליין.",
+            ))
+            .source(&tariff),
+            online.caveats[1].clone(),
+            online.caveats[2].clone(),
+        ],
+        ..online.clone()
+    };
+
+    Broker {
+        name: t("Bank Hapoalim", "בנק הפועלים"),
+        short_name: t("Hapoalim", "הפועלים"),
+        kind: BrokerKind::Bank,
+        new_customer_plan: 0, // Online
+        compared_at_first: true,
+        description: t(
+            "The largest bank in Israel. Its securities prices depend on how you trade (on \
+             the website and app, or through a banker), so it has two plans here. Its \
+             customer clubs, such as the young people's, aren't plans of their own.",
+            "הבנק הגדול בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר ובאפליקציה, או דרך בנקאי), ולכן יש לו כאן שני מסלולים. מועדוני הלקוחות שלו, כמו של הצעירים, אינם מסלולים נפרדים.",
+        ),
+        tariff_date: Some(TariffDate::Day(date!(2026 - 10 - 05))),
+        // Appendix E.
+        latest_appendix: Some(TariffDate::Day(date!(2026 - 08 - 02))),
+        source_url: Some(tariff_url.into()),
+        caveats: broker_caveats,
+        plans: vec![online, branch],
+        spread: None,
+        exchange_notes: vec![],
+    }
+}
+
+// ─────────────────────────── Bank Discount ───────────────────────────
+
+#[must_use]
+#[allow(clippy::too_many_lines, reason = "a tariff's data")]
+pub fn discount() -> Broker {
+    // The tariff for individuals and small businesses as one document, from
+    // the bank's tariff page; its securities part is dated 7 February 2025
+    // and its foreign-currency part 25 May 2026.
+    let tariff_url =
+        "https://www.discountbank.co.il/media/fnibqzdx/tarifon_single-united_11026.pdf";
+    let tariff = source(
+        t(
+            "Tariff for individuals and small businesses (PDF)",
+            "תעריפון ליחיד ולעסק קטן (PDF)",
+        ),
+        tariff_url,
+    );
+    let rates_page = source(
+        t("Discount's exchange rates", "שערי החליפין של בנק דיסקונט"),
+        "https://www.discountbank.co.il/private/general-information/foreign-currency-transfers/exchange-rates/",
+    );
+    let broker_caveats = vec![
+        Caveat::reading(
+            t("Discount converts at its published transfers-and-checks rate, about 1.1% \
+             from the representative rate each way on average: a conversion markup of up to \
+             1.1%, on top of the fee.", "בנק דיסקונט ממיר לפי שער ההעברות וההמחאות שהוא מפרסם, כ\u{2011}1.1% מהשער היציג לכל כיוון בממוצע: מרווח המרה של עד 1.1%, בנוסף לעמלה."),
+            t("Discount's exchange rates for 19 October 2026: it bought dollars at ₪3.0749 \
+             and sold them at ₪3.1434 against a representative ₪3.1100 (1.13% under and \
+             1.07% over), and euros at ₪3.4458 and ₪3.5225 against ₪3.4919 (1.32% under \
+             and 0.88% over)", "שערי דיסקונט ל\u{2011}19 באוקטובר 2026: מי שקנה דולרים שילם ₪3.1434, ומי שמכר קיבל ₪3.0749, לעומת שער יציג של ₪3.1100 (1.07% מעל ו\u{2011}1.13% מתחת); באירו, ₪3.5225 בקנייה ו\u{2011}₪3.4458 במכירה, לעומת ₪3.4919 (0.88% מעל ו\u{2011}1.32% מתחת)"),
+        )
+        .about_fee(FeeKind::Markup)
+        .on(&[Usa, Europe])
+        .source(&rates_page),
+        Caveat::published(t(
+            "ETFs and index funds on Tel Aviv are priced as stocks and bonds: the row leaves \
+             mutual funds out but counts index funds and listed funds back in (part 4, \
+             note 1 to the row).",
+            "קרנות סל וקרנות מחקות בתל אביב מתומחרות כמו מניות ואג״ח: השורה מוציאה קרנות נאמנות, אבל מחזירה פנימה קרנות מחקות וקרנות שיחידותיהן רשומות בבורסה (חלק 4, הערה 1 לשורה).",
+        ))
+        .about_fee(FeeKind::Trade)
+        .about(&[Etf, IndexFund])
+        .on(&[Tlv])
+        .source(&tariff),
+        Caveat::reading(
+            t("Discount's row for foreign securities names stocks, bonds and mutual funds; \
+             ETFs abroad are taken to be priced as those.", "השורה של דיסקונט לניירות ערך בחו״ל מונה מניות, אג״ח וקרנות נאמנות; הבנו שקרנות סל בחו״ל מתומחרות כמוהן."),
+            t("an ETF is a fund traded on an exchange like a stock, and no row of the \
+             tariff prices it apart", "קרן סל היא קרן שנסחרת בבורסה כמו מניה, ואף שורה בתעריפון לא מתמחרת אותה בנפרד"),
+        )
+        .about_fee(FeeKind::Trade)
+        .about(&[Etf])
+        .on(&[Usa, Europe])
+        .source(&tariff),
+        Caveat::not_counted(t(
+            "Abroad, the agent's fee, the SEC fee, the broker's and the custodian's costs \
+             and the bank's SWIFT costs are passed on on top of the fee, as actually charged \
+             (part 4, the foreign-securities rows and custody).",
+            "בחו״ל נגבות בנוסף לעמלה עמלת סוכן, עמלת ה\u{2011}SEC, הוצאות ברוקר וקסטודיאן והוצאות סוויפט של הבנק, לפי החיוב בפועל (חלק 4, שורות ניירות הערך בחו״ל ודמי המשמרת).",
+        ))
+        .about_fee(FeeKind::Trade)
+        .on(&[Usa, Europe])
+        .source(&tariff),
+        Caveat::published(t(
+            "The bank may charge less than the tariff's amounts or rates, except for a \
+             fee the regulator supervises (the tariff's general note).",
+            "הבנק רשאי לגבות סכומים או שיעורים נמוכים יותר מהנקובים בתעריפון, למעט עמלה על שירות בפיקוח (ההערה הכללית בתעריפון).",
+        ))
+        .source(&tariff),
+    ];
+    let quarterly = |exchanges: &[Exchange], rate: Decimal| CustodyFee {
+        exchanges: exchanges.to_vec(),
+        ..custody(
+            rate,
+            Period::Quarter,
+            Period::Quarter,
+            None,
+            Some(ils(dec!(7500))),
+        )
+    };
+
+    // Measured from the bank's published rates (the caveat above).
+    let markup = Markup::UpTo(Percent(dec!(1.1)));
+    // The tariff's table of prices by channel: "by a clerk" and "by type of
+    // channel" (website, app and the trading systems Discount Trade, Sheldag
+    // and Manta), the same as the securities part's notes marked with a star.
+    let online = Plan {
+        name: t("Online", "אונליין"),
+        description: t(
+            "Discount's prices for trading yourself on its website, in its app or in its \
+             trading systems. Trading through a banker costs more.",
+            "המחירים של דיסקונט למסחר עצמאי באתר, באפליקציה או במערכות המסחר שלו. מסחר דרך בנקאי עולה יותר.",
+        ),
+        vehicle: Vehicle::Brokerage,
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.4)),
+                    min: Some(ils(dec!(25))),
+                    max: Some(ils(dec!(7150))),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.59)),
+                    min: Some(usd(dec!(23.5))),
+                    max: Some(usd(dec!(10680))),
+                },
+            ),
+        ],
+        tracks: vec![],
+        standing_orders: vec![],
+        standing_order_conversion: None,
+        // Part 4, rows 4.5.1 and 4.5.2: no channel has its own custody.
+        custody: vec![
+            quarterly(&[Tlv], dec!(0.2)),
+            quarterly(&[Usa, Europe], dec!(0.25)),
+        ],
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.17)),
+                min: Some(usd(dec!(6))),
+                max: Some(usd(dec!(1055))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        handling: None,
+        management: None,
+        fractions_on: vec![],
+        min_first_deposit: None,
+        offer_ends: None,
+        caveats: vec![
+            Caveat::published(t(
+                "Custody (דמי\u{a0}משמרת) is one price for every channel: a quarter's share \
+                 of the holding, charged at the quarter's end and when you sell, at most a \
+                 set amount a security a quarter, whether you trade online or at a branch.",
+                "דמי משמרת הם מחיר אחד לכל הערוצים: חלק רבעוני משווי ההחזקה, נגבה בסוף הרבעון וגם במכירה, עד סכום מרבי לנייר לרבעון, באונליין או בסניף.",
+            ))
+            .about_fee(FeeKind::Account)
+            .source(&tariff),
+            Caveat::at_most(t(
+                "Converting up to $10 is free, and up to $100 costs half, minimum included; \
+                 the full price is used for every conversion.",
+                "המרה של עד $10 פטורה, ושל עד $100 עולה חצי, כולל המינימום; המחשבון לוקח את המחיר המלא לכל המרה.",
+            ))
+            .about_fee(FeeKind::Conversion)
+            .on(&[Usa, Europe])
+            .source(&tariff),
+        ],
+    };
+
+    // Part 4 (4.1.1, 4.4.1) and part 5 (5.1.1): the clerk's column, what an
+    // order given at a branch costs.
+    let branch = Plan {
+        name: t("Branch or through a banker", "בסניף או דרך בנקאי"),
+        description: t(
+            "Discount's prices when a banker or a branch clerk takes your order, instead of \
+             you placing it on its website, in its app or in its trading systems. The way \
+             for someone who already has an account at the bank and trades through it the \
+             old way.",
+            "המחירים של דיסקונט כשבנקאי או פקיד בסניף מבצע את הפקודה, ולא אתם באתר, באפליקציה או במערכות המסחר. הדרך של מי שכבר יש לו חשבון בבנק וסוחר דרכו כמו פעם.",
+        ),
+        trading: vec![
+            trade(
+                &[],
+                &[Tlv],
+                Price::Percent {
+                    percent: Percent(dec!(0.54)),
+                    min: Some(ils(dec!(35))),
+                    max: Some(ils(dec!(7300))),
+                },
+            ),
+            trade(
+                &[],
+                &[Usa, Europe],
+                Price::Percent {
+                    percent: Percent(dec!(0.79)),
+                    min: Some(usd(dec!(25))),
+                    max: Some(usd(dec!(10900))),
+                },
+            ),
+        ],
+        conversion: ConversionFee {
+            fee: PercentFee {
+                percent: Percent(dec!(0.19)),
+                min: Some(usd(dec!(6.8))),
+                max: Some(usd(dec!(1075))),
+            },
+            or_if_less: None,
+            markup,
+        },
+        caveats: vec![
+            Caveat::published(t(
+                "These are the tariff's clerk prices, charged when a banker or a branch \
+                 clerk takes the order; trading yourself on the website, in the app or in \
+                 the trading systems is priced by the Online plan.",
+                "אלה מחירי הפקיד שבתעריפון, כשבנקאי או פקיד בסניף מבצע את הפקודה; מסחר עצמאי באתר, באפליקציה או במערכות המסחר מתומחר במסלול אונליין.",
+            ))
+            .source(&tariff),
+            online.caveats[0].clone(),
+            online.caveats[1].clone(),
+        ],
+        ..online.clone()
+    };
+
+    Broker {
+        name: t("Bank Discount", "בנק דיסקונט"),
+        short_name: t("Discount", "דיסקונט"),
+        kind: BrokerKind::Bank,
+        new_customer_plan: 0, // Online
+        compared_at_first: true,
+        description: t(
+            "One of Israel's big banks. Its securities prices depend on how you trade (on \
+             the website, in the app and in its trading systems, or through a banker), so \
+             it has two plans here. Its benefits for seniors and hi-tech employees aren't \
+             plans of their own.",
+            "אחד הבנקים הגדולים בישראל. מחירי ניירות הערך שלו תלויים באופן המסחר (באתר, באפליקציה ובמערכות המסחר שלו, או דרך בנקאי), ולכן יש לו כאן שני מסלולים. ההטבות שלו לבכירים ולעובדי הייטק אינן מסלולים נפרדים.",
+        ),
+        // The securities part's own date; the document as a whole is from
+        // 1 October 2026.
+        tariff_date: Some(TariffDate::Day(date!(2025 - 02 - 07))),
+        // The foreign-currency part.
+        latest_appendix: Some(TariffDate::Day(date!(2026 - 05 - 25))),
+        source_url: Some(tariff_url.into()),
+        caveats: broker_caveats,
+        plans: vec![online, branch],
         spread: None,
         exchange_notes: vec![],
     }

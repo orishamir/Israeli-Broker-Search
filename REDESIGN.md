@@ -443,7 +443,8 @@ CLAUDE.md "Hebrew" (add: אג״ח ממשלתית לפדיון, פיקדון צמ
 
 ### 4.10 Branch tariffs (data)
 
-For each bank in `tariffs.rs` (Leumi, Mizrahi-Tefahot, Otsar Hahayal): add
+For each bank in `tariffs.rs` (Leumi, Mizrahi-Tefahot, Otsar Hahayal; since
+19 October 2026 also Hapoalim, Discount and Beinleumi): add
 the plan "בסניף או דרך בנקאי" from the same PDF in `policies/` (the
 non-direct channel's rows: trading, custody, handling, conversion), unticked
 at first, with a hand-worked case per bank in `real_tariffs.rs` and the rows'
