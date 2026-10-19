@@ -5,7 +5,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { ChartOption } from './echarts.svelte'
 import { compactShekels, compactShekelsApart, elapsed, readableOn, shekels } from './format'
-import { endLabel, labelLayout } from './end-label'
+import { BLUR, endLabel, FADED_LINE, labelLayout } from './end-label'
 import { t } from './text'
 
 // The page's colors (see app.css).
@@ -87,8 +87,8 @@ function lineSeries(
         })
       : points(line.values),
     color: line.color,
-    lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1, type: line.dotted ? 'dotted' : 'solid' },
-    itemStyle: { opacity: faded ? 0.4 : 1 },
+    lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? FADED_LINE : 1, type: line.dotted ? 'dotted' : 'solid' },
+    itemStyle: { opacity: faded ? FADED_LINE : 1 },
     showSymbol: pinned,
     // Otherwise ECharts skips some of them on lines with many points.
     showAllSymbol: true,
@@ -106,6 +106,7 @@ function lineSeries(
     // would overlap are hidden, and more show as the years are zoomed into.
     labelLayout: labelLayout(!view.touch),
     emphasis: { focus: 'series' },
+    ...BLUR,
     // Hovering or clicking the line itself, not only its points.
     triggerEvent: 'line',
   }

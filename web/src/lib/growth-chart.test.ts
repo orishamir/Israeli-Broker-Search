@@ -1,6 +1,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
 import { growthOption, NO_FEES, type GrowthView, type Line } from './growth-chart'
+import { FADED_LABEL, FADED_LINE } from './end-label'
 import { t } from './text'
 
 const line = (id: string, dotted = false): Line => ({
@@ -49,8 +50,8 @@ test('the lost view has no no-fee line and ranks least first', () => {
 test('pinned lines are wider, labelled at whole years, and the rest fade', () => {
   const [, a, b] = series(growthOption(view({ pinned: new Set(['a']) })))
   expect(a.lineStyle).toMatchObject({ width: 3.5, opacity: 1 })
-  expect(b.lineStyle).toMatchObject({ width: 2, opacity: 0.4 })
-  expect(b.endLabel).toMatchObject({ opacity: 0.6 })
+  expect(b.lineStyle).toMatchObject({ width: 2, opacity: FADED_LINE })
+  expect(b.endLabel).toMatchObject({ opacity: FADED_LABEL })
   const points = a.data as { symbol: string; label: { show: boolean } }[]
   expect(points.map(({ symbol }) => symbol)).toEqual(['emptyCircle', 'none', 'none', 'none'])
   expect(points[0].label.show).toBe(true)
@@ -134,4 +135,19 @@ test('end labels of lines that end close together still read differently', () =>
 test("the value axis says it is in today's money only when it is", () => {
   expect(growthOption(view({ todaysMoney: true })).yAxis).toMatchObject({ name: t.inTodaysMoneyAxis })
   expect(growthOption(view()).yAxis).toMatchObject({ name: undefined })
+})
+
+// "The other lines fade only a little": 0.4 left a dark line all but gone, and
+// hovering one line blurred the rest to ECharts' 0.1.
+test('the lines that are not pinned or hovered stay easy to see, and their end labels apart', () => {
+  expect(FADED_LINE).toBeGreaterThanOrEqual(0.7)
+  const [, a, b] = series(growthOption(view({ pinned: new Set(['a']) })))
+  expect(b.lineStyle?.opacity).toBe(FADED_LINE)
+  for (const each of [a, b]) {
+    expect(each.blur?.lineStyle?.opacity).toBe(FADED_LINE)
+    expect(each.blur?.endLabel?.opacity).toBeGreaterThanOrEqual(FADED_LINE)
+    expect(each.endLabel).toMatchObject({ minMargin: 3 })
+    // Measured by us, never wrapped or cut by ECharts.
+    expect(each.endLabel).not.toHaveProperty('overflow')
+  }
 })

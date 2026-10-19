@@ -1,5 +1,6 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
+import { FADED_LABEL, FADED_LINE } from './end-label'
 import { crossoverOption, FLOOR, YOURS, type CostLine, type CrossoverView } from './crossover-chart'
 
 const line = (id: string, costs: (number | null)[], dotted = false): CostLine => ({
@@ -71,9 +72,9 @@ test('pinned lines are wider and dotted at each amount, and the rest fade', () =
   expect(a.lineStyle).toMatchObject({ width: 3.5, opacity: 1 })
   expect(a.showSymbol).toBe(true)
   expect(a.label).toMatchObject({ show: true })
-  expect(b.lineStyle).toMatchObject({ width: 2, opacity: 0.4 })
+  expect(b.lineStyle).toMatchObject({ width: 2, opacity: FADED_LINE })
   expect(b.showSymbol).toBe(false)
-  expect(b.endLabel).toMatchObject({ opacity: 0.6 })
+  expect(b.endLabel).toMatchObject({ opacity: FADED_LABEL })
 })
 
 test('the tooltip lists the cheapest first, in percent', () => {
@@ -81,4 +82,10 @@ test('the tooltip lists the cheapest first, in percent', () => {
   expect(option.tooltip).toMatchObject({ order: 'valueAsc' })
   const { valueFormatter } = option.tooltip as { valueFormatter: (value: number) => string }
   expect(valueFormatter(0.4213)).toBe('0.42%')
+})
+
+test('the other lines stay easy to see while one is hovered, and their end labels are kept apart', () => {
+  const [a] = (crossoverOption(view({ pinned: new Set(['a']) })).series as LineSeriesOption[]).slice(0)
+  expect(a.blur?.lineStyle?.opacity).toBe(FADED_LINE)
+  expect(a.endLabel).toMatchObject({ minMargin: 3 })
 })

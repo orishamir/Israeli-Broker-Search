@@ -142,7 +142,9 @@ test('pinned kinds are drawn thicker and the others fade only a little', () => {
   const other = series.find(({ id }) => id === kindKey(index))!
   expect(pinned.lineStyle?.width).toBeGreaterThan(other.lineStyle!.width as number)
   expect(pinned.lineStyle?.opacity).toBe(1)
-  expect(other.lineStyle?.opacity).toBeGreaterThanOrEqual(0.4)
+  expect(other.lineStyle?.opacity).toBeGreaterThanOrEqual(0.7)
+  // And while one is hovered: ECharts' own blur is 0.1.
+  expect(other.blur?.lineStyle?.opacity).toBeGreaterThanOrEqual(0.7)
   expect(other.lineStyle?.opacity).toBeLessThan(1)
   // Nothing pinned: nothing fades.
   const lines = seriesOf(data()).filter(({ id }) => !BAND_IDS.includes(id as string))

@@ -13,6 +13,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { AlternativesData, KindSeriesData } from './core/core'
 import type { ChartOption } from './echarts.svelte'
+import { BLUR, FADED_LABEL, FADED_LINE } from './end-label'
 import { fitName } from './fee-breakdown'
 import { compactShekels, elapsed, shekels } from './format'
 import { kindKey } from './kinds'
@@ -96,10 +97,10 @@ export function alternativesOption(view: AlternativesView): ChartOption {
       showSymbol: false,
       lineStyle: {
         width: pinned ? 3.5 : line.recommended ? 3 : 2,
-        opacity: faded ? 0.4 : 1,
+        opacity: faded ? FADED_LINE : 1,
         type: line.kind === 'CurrentAccount' ? 'dashed' : 'solid',
       },
-      itemStyle: { opacity: faded ? 0.4 : 1 },
+      itemStyle: { opacity: faded ? FADED_LINE : 1 },
       // The recommended line is drawn over the rest.
       z: line.recommended ? 5 : 3,
       endLabel: word
@@ -107,12 +108,14 @@ export function alternativesOption(view: AlternativesView): ChartOption {
             show: true,
             formatter: fitName(word, LABEL_ROOM - 8, measure),
             color,
-            opacity: faded ? 0.6 : 1,
+            opacity: faded ? FADED_LABEL : 1,
+            minMargin: 3,
           }
         : { show: false },
       // Only a few labels, but they are near each other: move them apart.
       labelLayout: { moveOverlap: 'shiftY' },
       emphasis: { focus: 'series' },
+      ...BLUR,
       triggerEvent: 'line',
     }
   })
