@@ -227,3 +227,21 @@ test('learn cards stack, go back, and close', () => {
   expect(app.cardTerm).toBeUndefined()
   expect(app.glossary.length).toBeGreaterThan(0)
 })
+
+test('a pick is dropped when the goal changes, and the ladder shows what fits each horizon', async () => {
+  const app = start()
+  app.setSituation('bonus')
+  flushSync()
+  const stock = app.recommendation!.alternatives.find(({ kind }) => typeof kind === 'object' && 'Way' in kind)
+  if (!stock) throw new Error('no way to pick')
+  app.chooseKind(stock.kind)
+  await vi.waitFor(() => expect(app.ladderFresh).toBe(true))
+  // The year's rung is a safe kind's, whatever was picked in the index.
+  expect(app.ladder![0].arena).toBe('Safe')
+  expect(app.ladder!.at(-1)!.kind.kind).toEqual(stock.kind)
+  app.setSituation('child')
+  flushSync()
+  expect(app.overridden).toBe(false)
+  await vi.waitFor(() => expect(app.recommendationFresh).toBe(true))
+  expect(app.recommendation).toEqual(coreSays(app))
+})
