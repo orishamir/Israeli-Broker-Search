@@ -109,3 +109,8 @@ test("a plan's id is kept once, and a list that isn't one is left out", () => {
   expect(decode(twice).yours).toEqual([yours])
   expect(decode('v=2&yours=!!!').yours).toBeUndefined()
 })
+
+test('the assumptions round-trip', () => {
+  const shared = { yearlyReturnPercent: 7.5, inflationPercent: 3, boiRatePercent: 2.25 }
+  expect(decode(encode(shared))).toEqual(shared)
+})

@@ -5,6 +5,7 @@
   // components in it are other packages' (each says which at its top).
   import { setContext } from 'svelte'
   import type { Term } from './lib/core/core'
+  import { keepAddress } from './lib/address.svelte'
   import { AppState } from './lib/app.svelte'
   import { OPEN_CARD } from './lib/cards'
   import Answer from './lib/Answer.svelte'
@@ -29,6 +30,7 @@
 
   // Opened from a link, perhaps: its state comes first.
   const app = new AppState(decodeLocation(location))
+  keepAddress(app)
   /** Where to report a mistake: the accessibility statement's last link. */
   // Every tip's "עוד על זה ›" opens a card.
   setContext(OPEN_CARD, (term: Term) => app.openCard(term))

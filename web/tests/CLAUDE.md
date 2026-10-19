@@ -40,6 +40,7 @@ catch the bug:
   | Tip, tip.ts, HebrewNames                                                        | `tips`         |
   | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved             | `editor`       |
   | app.css, anything about size or position (every screen has a `@phone` state)    | `layout`       |
+  | address.svelte.ts (refresh, Back), the example label, AssumptionsSheet          | `address`      |
   | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)    | `app`          |
   | text.ts, text/\*.ts, index.html's language, anything right-to-left              | `hebrew`       |
 

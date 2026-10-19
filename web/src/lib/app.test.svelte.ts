@@ -192,6 +192,50 @@ test('a link carries the answers, the switch and the overrides back into a new p
   expect([...again.selected].sort()).toEqual([...app.selected].sort())
 })
 
+test('the guide carries assumptions that are not the usual ones in its address, and only those', () => {
+  const app = start()
+  expect(decode(app.address())).not.toHaveProperty('yearlyReturnPercent')
+  app.yearlyReturnPercent = 7
+  app.boiRatePercent = 2.5
+  flushSync()
+  expect(app.expert).toBe(false)
+  expect(decode(app.address())).toMatchObject({ yearlyReturnPercent: 7, boiRatePercent: 2.5 })
+  expect(decode(app.address())).not.toHaveProperty('inflationPercent')
+  expect(start(decode(app.address())).yearlyReturnPercent).toBe(7)
+})
+
+test('the first visit is an example until anything changes; a link is not one', () => {
+  const app = start()
+  expect(app.exampleShown).toBe(true)
+  app.answers.now = 1234
+  flushSync()
+  expect(app.exampleShown).toBe(false)
+  expect(start(decode(app.address())).exampleShown).toBe(false)
+})
+
+test('restoring an address puts back the goal, the route and the assumptions, and an empty one the example', () => {
+  const app = start()
+  const first = $state.snapshot(app.answers)
+  app.setSituation('retirement')
+  app.expert = true
+  app.yearlyReturnPercent = 6
+  flushSync()
+  const there = decode(app.address())
+  app.restore({})
+  flushSync()
+  expect(app.situationId).toBe('goal')
+  expect(app.expert).toBe(false)
+  expect(app.yearlyReturnPercent).toBe(10)
+  expect(app.answers).toEqual(first)
+  expect(app.exampleShown).toBe(true)
+  app.restore(there)
+  flushSync()
+  expect(app.situationId).toBe('retirement')
+  expect(app.expert).toBe(true)
+  expect(app.yearlyReturnPercent).toBe(6)
+  expect(app.exampleShown).toBe(false)
+})
+
 test('a link without v=2 opens the page as usual', () => {
   const app = start(decode('s=Etf&d=99999&m=1&y=7'))
   expect(app.answers.now).not.toBe(99_999)
