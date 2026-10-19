@@ -414,8 +414,8 @@ export const en = {
   alternativesLead:
     "Each line is what the same money would come to in that kind of place, by its own assumption: in today's money, after tax.",
   alternativesTip:
-    "Every line starts from the same deposits and ends at what is left after fees and tax, in today's money. The shaded range behind the stock fund is what a broad stock index did over every stretch of this length since 1926, as if it had grown at a steady rate in each: the worst stretch at the bottom, the best at the top. Real paths wander more. Where the best case is far above the lines, the range is cut off at the top of the chart.",
-  bandName: 'What a broad stock index did before',
+    "Every line starts from the same deposits and ends at what is left after fees and tax, in today's money. The shaded range behind the stock fund is what the S&P 500 index did over every stretch of this length since 1926, as if it had grown at a steady rate in each: the worst stretch at the bottom, the best at the top. Real paths wander more. Where the best case is far above the lines, the range is cut off at the top of the chart.",
+  bandName: 'What the S&P 500 index did before',
   bandCaption: 'The shaded range',
   endRecommended: 'Recommended',
   endStock: 'Stocks',
@@ -428,7 +428,7 @@ export const en = {
   chartMonths: 'months',
   afterSaleAndTax: 'After selling and tax',
   lastPointAfterTax: 'The last point is after selling and tax, so it is below the one before it',
-  rangeInTooltip: 'Broad stock index history',
+  rangeInTooltip: 'S&P 500 index history',
   donutDeposit: 'Deposits',
   donutGain: 'Gain',
   whichFund: 'Which fund holds it?',
@@ -454,7 +454,7 @@ export const en = {
   back: 'Back',
   glossaryHint: "Every term the calculator uses, as it's called in your bank's app and in ads.",
   whatToBuy: 'What do you want to buy?',
-  thingSp500: 'A broad stock index, e.g. the S&P 500',
+  thingSp500: 'The S&P 500 index',
   thingOther: 'Another index or a stock',
   thingBonds: 'Bonds',
   thingShort: 'Short-term money',
@@ -552,6 +552,19 @@ export const en = {
   outcomeReturnLabel: 'The yearly return the figures assume for the S&P 500 index',
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label, the bank's question.
+  howHeading: 'How to do it',
+  howNothingYet: 'Nothing chosen yet',
+  howEmpty: 'Choose above, or tap a row in the chart, and see here what to buy, where and how.',
+  searchLabel: 'What to search for in the app:',
+  placeholderNote: "____ and [—] mark a name not checked yet: the site doesn't make one up.",
+  compareAnyway: 'Compare anyway ›',
+  referenceRow: 'Reference point',
+  sameAmount: 'The same',
+  tie: 'A tie',
+  yourBankRow: (name: string) => `Your bank: ${name}`,
+  throughABank: 'Through a bank',
+  askBank: 'Which is your bank? Then each place shows how much more or less it leaves than your bank.',
+  yourBankGroup: 'Your bank',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'How much of the gain stays with you',
   gainKept: 'Stays with you',

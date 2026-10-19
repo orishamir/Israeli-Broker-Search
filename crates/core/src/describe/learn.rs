@@ -220,7 +220,7 @@ fn bizportal_tax_on_interest() -> Page {
 fn leumi_linked_savings() -> Page {
     page(
         "Leumi's page of savings rates, with its CPI-linked savings",
-        "עמוד ריביות החיסכון של לאומי, כולל חיסכון צמוד מדד",
+        "עמוד ריביות החיסכון של לאומי, כולל ״חיסכון צמוד מדד״",
         "https://www.leumi.co.il/savings/Payments-saving-month",
     )
 }
@@ -458,7 +458,7 @@ fn etf() -> Card {
         ),
         what: t(
             "A fund that holds a basket of many securities, usually to follow an index such as the S&P 500, and trades on the stock exchange all day like a share, at the price of that moment.",
-            "קרן שמחזיקה סל של ניירות ערך רבים, בדרך כלל כדי לעקוב אחרי מדד כמו ה\u{2011}S&P\u{a0}500, ונסחרת בבורסה לאורך כל יום המסחר כמו מניה, במחיר של אותו רגע.",
+            "קרן שמחזיקה סל של ניירות ערך רבים, בדרך כלל כדי לעקוב אחרי מדד מניות, כמו מדד S&P\u{a0}500, ונסחרת בבורסה לאורך כל יום המסחר כמו מניה, במחיר של אותו רגע.",
         ),
         good_for: t(
             "Spreading the money over hundreds of companies in one purchase, and buying or selling at any moment of the trading day, in any amount.",
@@ -466,7 +466,7 @@ fn etf() -> Card {
         ),
         downside: t(
             "It follows the index, so it falls when the index falls. It also never matches the index exactly, and every purchase and sale pays the broker's commission, so buying a little every month adds up.",
-            "היא עוקבת אחרי המדד, ולכן יורדת כשהוא יורד. היא גם לא תואמת אותו בדיוק, וכל קנייה ומכירה עולה עמלה לבנק או לבית ההשקעות, ולכן קנייה קטנה בכל חודש מצטברת.",
+            "היא עוקבת אחרי מדד המניות שלה, ולכן יורדת כשהוא יורד. היא גם לא תואמת אותו בדיוק, וכל קנייה ומכירה עולה עמלה לבנק או לבית ההשקעות, ולכן קנייה קטנה בכל חודש מצטברת.",
         ),
         cost: t(
             "A yearly management fee, taken from the fund so you never see a bill, and the broker's commission on every purchase and sale. The fees are in the app's table, by fund.",
@@ -503,15 +503,15 @@ fn index_fund() -> Card {
         ),
         what: t(
             "A mutual fund that follows an index. Unlike an ETF it isn't traded on the exchange: you buy it from the fund's manager and sell it back to them, once a day, at the price set after the exchange closes.",
-            "קרן נאמנות שעוקבת אחרי מדד. בניגוד לקרן סל, היא לא נסחרת בבורסה: קונים אותה ממנהל הקרן ומוכרים לו בחזרה, פעם ביום, במחיר שנקבע אחרי סגירת המסחר.",
+            "קרן נאמנות שעוקבת אחרי מדד מניות, כמו מדד S&P\u{a0}500. בניגוד לקרן סל, היא לא נסחרת בבורסה: קונים אותה ממנהל הקרן ומוכרים לו בחזרה, פעם ביום, במחיר שנקבע אחרי סגירת המסחר.",
         ),
         good_for: t(
             "The same spread over an index as an ETF, with no need to watch the price during the day, which suits a monthly purchase.",
-            "אותו פיזור על מדד כמו בקרן סל, בלי צורך לעקוב אחרי המחיר במהלך היום, וזה מתאים לקנייה חודשית.",
+            "אותו פיזור על מאות חברות כמו בקרן סל, בלי צורך לעקוב אחרי המחיר במהלך היום, וזה מתאים לקנייה חודשית.",
         ),
         downside: t(
             "An order is priced once a day, so you don't know the price when you give it. And it never matches the index exactly.",
-            "פקודה מתומחרת פעם ביום, ולכן אתם לא יודעים את המחיר כשאתם נותנים אותה. וגם היא לא תואמת את המדד בדיוק.",
+            "פקודה מתומחרת פעם ביום, ולכן אתם לא יודעים את המחיר כשאתם נותנים אותה. וגם היא לא תואמת את מדד המניות שלה בדיוק.",
         ),
         cost: t(
             "A yearly management fee, taken from the fund, and the broker's commission, which many brokers price differently from an ETF's. Both are in the app's table.",
@@ -548,7 +548,7 @@ fn mutual_fund() -> Card {
         ),
         what: t(
             "The family: a fund that pools many savers' money, which a manager invests and a trustee oversees. Index funds, ETFs and money market funds are all mutual funds. Where the manager picks the investments instead of following an index it's a managed fund (קרן מנוהלת).",
-            "המשפחה: קרן שאוספת כסף מחוסכים רבים, שמנהל משקיע ונאמן מפקח עליו. קרנות מחקות, קרנות סל וקרנות כספיות הן כולן קרנות נאמנות. כשהמנהל בוחר את ההשקעות במקום לעקוב אחרי מדד, זו קרן מנוהלת.",
+            "המשפחה: קרן שאוספת כסף מחוסכים רבים, שמנהל משקיע ונאמן מפקח עליו. קרנות מחקות, קרנות סל וקרנות כספיות הן כולן קרנות נאמנות. כשהמנהל בוחר את ההשקעות במקום לעקוב אחרי מדד מניות, כמו מדד S&P\u{a0}500, זו קרן מנוהלת.",
         ),
         good_for: t(
             "Putting the money to work without choosing securities yourself.",
@@ -556,7 +556,7 @@ fn mutual_fund() -> Card {
         ),
         downside: t(
             "A managed fund can't promise to beat the index, and the app doesn't compare managed funds: it compares funds that follow an index.",
-            "קרן מנוהלת לא יכולה להבטיח לנצח את המדד, והמחשבון לא משווה קרנות מנוהלות: הוא משווה קרנות שעוקבות אחרי מדד.",
+            "קרן מנוהלת לא יכולה להבטיח לנצח את מדד המניות שמולו היא נמדדת, והמחשבון לא משווה קרנות מנוהלות: הוא משווה קרנות שעוקבות אחרי מדד S&P\u{a0}500.",
         ),
         cost: t(
             "A yearly management fee from the fund, which differs a lot between funds: see each fund's page in the table.",
@@ -660,7 +660,7 @@ fn fixed_deposit() -> Card {
         ),
         tax: t(
             "15% of all the interest, whether or not there was inflation, for a deposit not linked to the index.",
-            "15% מכל הריבית, בין אם הייתה אינפלציה ובין אם לא, על פיקדון שאינו צמוד למדד.",
+            "15% מכל הריבית, בין אם הייתה אינפלציה ובין אם לא, על פיקדון שאינו צמוד למדד המחירים לצרכן.",
         ),
         where_met: t(
             "On the bank's website and app under savings and deposits, and in the Bank of Israel's comparison of the banks' rates.",
@@ -681,7 +681,10 @@ fn fixed_deposit() -> Card {
 
 fn cpi_linked_deposit() -> Card {
     Card {
-        name: t("CPI-linked deposit", "פיקדון\u{a0}צמוד\u{a0}מדד"),
+        name: t(
+            "CPI-linked deposit",
+            "פיקדון\u{a0}צמוד למדד\u{a0}המחירים\u{a0}לצרכן",
+        ),
         english: "CPI-linked deposit",
         bank: t(
             "\u{201c}Deposit linked to the index\u{201d}, with a fixed rate on top of the linkage.",
@@ -701,7 +704,7 @@ fn cpi_linked_deposit() -> Card {
         ),
         downside: t(
             "Locked to its term. If prices fall the sum falls with them. And it isn't a kind the app compares, because the Bank of Israel doesn't publish its rates and only one bank's published rate, without a date, was found. A government bond linked to the index is what the app compares for the same need.",
-            "נעול עד סוף התקופה. אם המחירים יורדים, הסכום יורד איתם. והוא לא אחד מהסוגים שהמחשבון משווה, כי בנק ישראל לא מפרסם את הריביות שלו ורק בנק אחד פרסם ריבית, בלי תאריך. אג״ח ממשלתי צמוד מדד הוא מה שהמחשבון משווה לאותו צורך.",
+            "נעול עד סוף התקופה. אם המחירים יורדים, הסכום יורד איתם. והוא לא אחד מהסוגים שהמחשבון משווה, כי בנק ישראל לא מפרסם את הריביות שלו ורק בנק אחד פרסם ריבית, בלי תאריך. אג״ח צמודה של מדינת ישראל היא מה שהמחשבון משווה לאותו צורך.",
         ),
         cost: t(
             "No fee. The interest above the linkage differs between banks and offers, so ask the bank.",
@@ -717,7 +720,7 @@ fn cpi_linked_deposit() -> Card {
         ),
         example: t(
             "For illustration: at 1% above the index and inflation of 2% a year, the deposit grows about 3% a year, of which 2% only keeps its buying power.",
-            "להמחשה: בריבית של 1% מעל המדד ובאינפלציה של 2% בשנה, הפיקדון גדל בערך 3% בשנה, ו\u{2011}2% מהם רק שומרים על כוח הקנייה.",
+            "להמחשה: בריבית של 1% מעל מדד המחירים לצרכן ובאינפלציה של 2% בשנה, הפיקדון גדל בערך 3% בשנה, ו\u{2011}2% מהם רק שומרים על כוח הקנייה.",
         ),
         compare_with: &[Term::FixedDeposit, Term::GovernmentBond, Term::Inflation],
         sources: vec![
@@ -857,7 +860,7 @@ fn sp500_index() -> Card {
         ),
         cost: t(
             "The index costs nothing; what it costs is the fund that follows it: its management fee and what it fails to track. See the fees in the table.",
-            "המדד עצמו לא עולה כלום; מה שעולה הוא הקרן שעוקבת אחריו: דמי הניהול שלה וכמה שהיא לא עוקבת בדיוק. ראו בטבלה.",
+            "מדד S&P\u{a0}500 עצמו לא עולה כלום; מה שעולה הוא הקרן שעוקבת אחריו: דמי הניהול שלה וכמה שהיא לא עוקבת בדיוק. ראו בטבלה.",
         ),
         tax: t(
             "As the fund holding it: 25% of the real gain when you sell. In a fund registered in the United States there's also the American estate tax.",
@@ -1100,7 +1103,7 @@ fn management_fee() -> Card {
         ),
         cost: t(
             "It is itself the cost. Some funds also have a variable fee, which they take only above the index's return, and a fee from each deposit. All of them are in the table.",
-            "היא עצמה העלות. לקרנות מסוימות יש גם דמי ניהול משתנים, שהן לוקחות רק מעל תשואת המדד, ודמי ניהול מכל הפקדה. כולם מופיעים בטבלה.",
+            "היא עצמה העלות. לקרנות מסוימות יש גם דמי ניהול משתנים, שהן לוקחות רק מעל התשואה של מדד המניות שמולו הן נמדדות, ודמי ניהול מכל הפקדה. כולם מופיעים בטבלה.",
         ),
         tax: t(
             "It isn't taxed on its own; it lowers the gain, and so the tax on it.",
@@ -1729,7 +1732,7 @@ fn exchange() -> Card {
         ),
         good_for: t(
             "Choosing where to hold the same index: Tel Aviv has no conversion; abroad the funds are often cheaper, but the conversion and the estate tax come with them.",
-            "לבחור איפה להחזיק את אותו מדד: בתל אביב אין המרה; בחו״ל הקרנות לרוב זולות יותר, אבל המרה ומס עיזבון באים איתן.",
+            "לבחור איפה להחזיק את אותו מדד S&P\u{a0}500: בתל אביב אין המרה; בחו״ל הקרנות לרוב זולות יותר, אבל המרה ומס עיזבון באים איתן.",
         ),
         downside: t(
             "Abroad you pay a conversion markup twice and take the exchange rate's risk; and a fund registered in the US may expose the heirs to American estate tax, above $60,000. A fund registered in Ireland or Israel doesn't.",
@@ -1749,7 +1752,7 @@ fn exchange() -> Card {
         ),
         example: t(
             "For illustration: the same index in a Tel Aviv ETF is bought in shekels; in a US ETF it's bought in dollars after a conversion.",
-            "להמחשה: אותו מדד בקרן סל בתל אביב נקנה בשקלים; בקרן סל אמריקאית הוא נקנה בדולרים אחרי המרה.",
+            "להמחשה: אותו מדד S&P\u{a0}500 בקרן סל בתל אביב נקנה בשקלים; בקרן סל אמריקאית הוא נקנה בדולרים אחרי המרה.",
         ),
         compare_with: &[Term::ConversionMarkup, Term::Etf, Term::BrokerageAccount],
         sources: vec![

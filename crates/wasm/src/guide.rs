@@ -1386,6 +1386,8 @@ pub struct ProviderData {
     pub versus_yours: Option<AmountData>,
     pub yours: bool,
     pub tie: u8,
+    /// "May cost more: …", marked ⚠ on the row.
+    pub warning: Option<String>,
 }
 
 #[derive(Debug, Serialize, Tsify)]
@@ -1535,6 +1537,7 @@ fn where_data(where_to_buy: &guide::WhereToBuy) -> WhereToBuyData {
                 versus_yours: row.versus_yours.map(AmountData::from),
                 yours: row.yours,
                 tie: row.tie,
+                warning: row.warning.as_ref().map(said),
             })
             .collect(),
         bank_range: where_to_buy

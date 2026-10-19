@@ -123,8 +123,8 @@ fn way_sentence(way: Way, horizon: &Horizon, lang: Lang) -> (String, String) {
     match (way.product, way.vehicle) {
         (Product::IsraeliIndexFund, Vehicle::Brokerage) => (
             lang.pick(
-                "Index fund (קרן מחקה) on a broad stock index",
-                "קרן מחקה מדד מניות רחב",
+                "Index fund (קרן מחקה) on the S&P 500",
+                "קרן מחקה על מדד S&P\u{a0}500",
             )
             .to_owned(),
             lang.pick(
@@ -134,20 +134,14 @@ fn way_sentence(way: Way, horizon: &Horizon, lang: Lang) -> (String, String) {
             .to_owned(),
         ),
         (Product::IsraeliEtf, Vehicle::Brokerage) => (
-            lang.pick(
-                "ETF (קרן סל) on a broad stock index",
-                "קרן סל על מדד מניות רחב",
-            )
-            .to_owned(),
+            lang.pick("ETF (קרן סל) on the S&P 500", "קרן סל על מדד S&P\u{a0}500")
+                .to_owned(),
             lang.pick(", on the Tel Aviv exchange", ", בבורסה בתל אביב")
                 .to_owned(),
         ),
         (Product::ForeignEtfInTelAviv, Vehicle::Brokerage) => (
-            lang.pick(
-                "ETF (קרן סל) on a broad stock index",
-                "קרן סל על מדד מניות רחב",
-            )
-            .to_owned(),
+            lang.pick("ETF (קרן סל) on the S&P 500", "קרן סל על מדד S&P\u{a0}500")
+                .to_owned(),
             lang.pick(
                 ", registered in Ireland and traded in shekels in Tel Aviv",
                 ", רשומה באירלנד ונסחרת בשקלים בתל אביב",
@@ -156,8 +150,8 @@ fn way_sentence(way: Way, horizon: &Horizon, lang: Lang) -> (String, String) {
         ),
         (Product::UsFund, Vehicle::Brokerage) => (
             lang.pick(
-                "US ETF (קרן סל) on a broad stock index",
-                "קרן סל אמריקאית על מדד מניות רחב",
+                "US ETF (קרן סל) on the S&P 500",
+                "קרן סל אמריקאית על מדד S&P\u{a0}500",
             )
             .to_owned(),
             lang.pick(", on the US exchange", ", בבורסה בארה״ב")
@@ -165,8 +159,8 @@ fn way_sentence(way: Way, horizon: &Horizon, lang: Lang) -> (String, String) {
         ),
         (Product::IrishFund, Vehicle::Brokerage) => (
             lang.pick(
-                "Irish ETF (קרן סל) on a broad stock index",
-                "קרן סל אירית על מדד מניות רחב",
+                "Irish ETF (קרן סל) on the S&P 500",
+                "קרן סל אירית על מדד S&P\u{a0}500",
             )
             .to_owned(),
             lang.pick(", on a European exchange", ", בבורסה באירופה")
@@ -347,7 +341,10 @@ pub fn bank_stand_in_note(lang: Lang) -> &'static str {
 pub fn arena_name(arena: Arena, lang: Lang) -> &'static str {
     match arena {
         Arena::Safe => lang.pick("A safer sum", "סכום בטוח יותר"),
-        Arena::Index => lang.pick("An index, for the long run", "מדד, לטווח ארוך"),
+        Arena::Index => lang.pick(
+            "The S&P 500 index, for the long run",
+            "מדד S&P\u{a0}500, לטווח ארוך",
+        ),
     }
 }
 

@@ -332,6 +332,8 @@ pub struct Provider {
     pub yours: bool,
     /// Rows with the same number are a tie; 0 is the best's.
     pub tie: u8,
+    /// Its price may be too low ("May cost more: …"): marked ⚠ on the row.
+    pub warning: Option<Text>,
 }
 
 /// "כמה מהרווח נשאר אצלכם" (§2.7).
@@ -1872,6 +1874,8 @@ fn how_of(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> How {
         monthly: f.answers.monthly,
         months: f.months,
         today: f.settings.today,
+        dated: matches!(f.answers.horizon, Horizon::Months(_)),
+        flexibility: f.answers.flexibility,
         cushion: (f.arena == Some(Arena::Index))
             .then(|| route::cushion_to_fill(f.answers))
             .flatten(),
@@ -1933,6 +1937,15 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
         };
     };
     let yours = places.yours.map(|at| places.places[at].left);
+    let is_lead = f
+        .index
+        .as_ref()
+        .is_some_and(|index| row.kind == Kind::Way(index.way(index.lead).way));
+    let lead_index = f.index.as_ref().filter(|_| is_lead);
+    // The plan that leaves more but may cost more carries its warning on
+    // its own row; a line says it only when its row isn't shown.
+    let also = lead_index.and_then(|index| index.also.as_ref());
+    let also_name = also.map(|also| super::safe::joined(&also.choice.provider, &also.choice.plan));
     let mut shown: Vec<Provider> = Vec::new();
     for (place, tie) in places.places.iter().zip(&places.ties) {
         let keep = *tie <= 1 && shown.len() < 4 || place.yours;
@@ -1948,13 +1961,12 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
             }),
             yours: place.yours,
             tie: *tie,
+            warning: also
+                .filter(|_| also_name.as_ref() == Some(&place.name))
+                .map(how_words::row_warning),
         });
     }
-    let is_lead = f
-        .index
-        .as_ref()
-        .is_some_and(|index| row.kind == Kind::Way(index.way(index.lead).way));
-    let lead_index = f.index.as_ref().filter(|_| is_lead);
+    let warned = shown.iter().any(|row| row.warning.is_some());
     let asks_bank = f.bank.is_none()
         && row.kind != Kind::MoneyMarketFund
         && places
@@ -1976,20 +1988,8 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
         asks_bank,
         unlock: lead_index
             .and_then(|index| index.unlock.as_ref())
-            .map(|unlock| {
-                Text::owned(
-                    crate::describe::reasons::unlock_text(unlock, crate::Lang::En),
-                    crate::describe::reasons::unlock_text(unlock, crate::Lang::He),
-                )
-            }),
-        may_cost_more: lead_index
-            .and_then(|index| index.also.as_ref())
-            .map(|also| {
-                Text::owned(
-                    crate::describe::answer::also_possible_line(also, crate::Lang::En),
-                    crate::describe::answer::also_possible_line(also, crate::Lang::He),
-                )
-            }),
+            .map(how_words::unlock),
+        may_cost_more: also.filter(|_| !warned).map(how_words::may_cost_more),
     }
 }
 

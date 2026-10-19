@@ -189,12 +189,7 @@ impl Explained for Security {
 
     fn hebrew_names(self) -> &'static [&'static str] {
         match self {
-            Security::Etf => &[
-                "קרן סל",
-                "קרן סל מחקה מדד",
-                "קרן סל במסלול רציף",
-                "תעודת סל",
-            ],
+            Security::Etf => &["קרן סל", "קרן סל מחקה", "קרן סל במסלול רציף", "תעודת סל"],
             Security::IndexFund => &["קרן מחקה", "קרן נאמנות מחקה"],
             // Both spellings of the full name are common.
             Security::Bond => &["אג״ח", "איגרת חוב", "אגרת חוב"],
@@ -230,14 +225,14 @@ impl Explained for Product {
                  a day. Most charge no fixed fee, and take up to 0.1%–0.3% only when they beat \
                  the index after the US tax on its dividends. They follow it by futures and \
                  swaps rather than holding the shares, so no tax is taken from the dividends.",
-                "קרן על S&P\u{a0}500 שמנהלת חברה ישראלית, שקונים ממנה ומוכרים לה בחזרה פעם ביום. רובן לא גובות דמי ניהול קבועים, ולוקחות 0.1%–0.3% רק כשהן מכות את המדד אחרי המס האמריקאי על הדיבידנדים. הן עוקבות אחרי המדד בחוזים ולא מחזיקות את המניות, ולכן לא נלקח מס מהדיבידנדים.",
+                "קרן על S&P\u{a0}500 שמנהלת חברה ישראלית, שקונים ממנה ומוכרים לה בחזרה פעם ביום. רובן לא גובות דמי ניהול קבועים, ולוקחות 0.1%–0.3% רק כשהן מכות את מדד S&P\u{a0}500 אחרי המס האמריקאי על הדיבידנדים. הן עוקבות אחריו בחוזים ולא מחזיקות את המניות, ולכן לא נלקח מס מהדיבידנדים.",
             ),
             Product::IsraeliEtf => lang.pick(
                 "An S&P 500 fund that an Israeli company runs, traded on the Tel Aviv exchange \
                  like a share. The big ones charge 0.6%–0.8% a year, and up to 0.3% more when \
                  they beat the index after the US tax on its dividends: far more than an index \
                  fund on the same index, though trading it can cost less.",
-                "קרן על S&P\u{a0}500 שמנהלת חברה ישראלית, ונסחרת בבורסה בתל אביב כמו מניה. הגדולות גובות 0.6%–0.8% בשנה, ועוד עד 0.3% כשהן מכות את המדד אחרי המס האמריקאי על הדיבידנדים: הרבה יותר מקרן מחקה על אותו מדד, גם אם המסחר בה יכול לעלות פחות.",
+                "קרן על S&P\u{a0}500 שמנהלת חברה ישראלית, ונסחרת בבורסה בתל אביב כמו מניה. הגדולות גובות 0.6%–0.8% בשנה, ועוד עד 0.3% כשהן מכות את מדד S&P\u{a0}500 אחרי המס האמריקאי על הדיבידנדים: הרבה יותר מקרן מחקה על אותו מדד S&P\u{a0}500, גם אם המסחר בה יכול לעלות פחות.",
             ),
             Product::ForeignEtfInTelAviv => lang.pick(
                 "An Irish S&P 500 fund, iShares' or Invesco's, that's also listed in Tel Aviv and \
@@ -262,7 +257,7 @@ impl Explained for Product {
             Product::StudyFundTrack
             | Product::InvestmentGemelTrack
             | Product::SavingsPolicyTrack => lang.pick(
-                "The fund's investment track that follows the S&P 500 (מסלול\u{a0}עוקב\u{a0}מדד). \
+                "The fund's investment track that follows the S&P 500 (מסלול\u{a0}מדד\u{a0}S&P\u{a0}500). \
                  What it pays to trade, the tax it loses on dividends, and its direct expenses \
                  come out of its return, besides the management fee.",
                 "מסלול ההשקעה של הקופה שעוקב אחרי מדד S&P\u{a0}500. עמלות המסחר שלו, המס שהוא מפסיד על דיבידנדים וההוצאות הישירות שלו יורדים מהתשואה, בנוסף לדמי הניהול.",
@@ -707,7 +702,7 @@ impl Explained for FeeKind {
                  out of its price, so there's never a bill. The same fund costs the same at \
                  every bank and investment house, but the funds differ: an Israeli ETF on the \
                  S&P 500 has cost about 0.8% a year, an Israeli index fund about 0.25%.",
-                "מה שהקרן שמחזיקה את המדד משאירה לעצמה, עוד לפני שמשהו מגיע אליכם: דמי הניהול שלה, המס שנלקח מהדיבידנדים של המדד ולא מוחזר, וכל מה שגרם לה לפגר אחרי המדד. זה יורד מהמחיר שלה, כך שלא מקבלים על זה חשבון. אותה קרן עולה אותו דבר בכל בנק ובית השקעות, אבל הקרנות שונות זו מזו: קרן סל ישראלית על S&P\u{a0}500 עלתה כ-0.8% בשנה, וקרן מחקה ישראלית כ-0.25%.",
+                "מה שהקרן שמחזיקה את מדד S&P\u{a0}500 משאירה לעצמה, עוד לפני שמשהו מגיע אליכם: דמי הניהול שלה, המס שנלקח מהדיבידנדים ולא מוחזר, וכל מה שגרם לה לפגר אחרי מדד S&P\u{a0}500. זה יורד מהמחיר שלה, כך שלא מקבלים על זה חשבון. אותה קרן עולה אותו דבר בכל בנק ובית השקעות, אבל הקרנות שונות זו מזו: קרן סל ישראלית על S&P\u{a0}500 עלתה כ-0.8% בשנה, וקרן מחקה ישראלית כ-0.25%.",
             ),
         }
     }
@@ -1237,7 +1232,7 @@ impl Plan {
                          index, not {one}"
                     ),
                     Lang::He => format!(
-                        "קופה מושווית רק במסלול ה-S&P\u{a0}500 שלה, שמחזיק את כל המדד ולא {one}"
+                        "קופה מושווית רק במסלול ה-S&P\u{a0}500 שלה, שמחזיק את כל מדד S&P\u{a0}500 ולא {one}"
                     ),
                 };
             }
@@ -2574,7 +2569,7 @@ pub fn about(lang: Lang) -> About {
                  nothing is paid for trades or for converting. It's compared on its S&P 500 \
                  track, the one that holds the index a broker's plans buy; its other tracks \
                  hold other things, and earn something else.",
-                "קופת גמל להשקעה, קרן השתלמות ופוליסת חיסכון מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. הקופה מושווית במסלול ה-S&P\u{a0}500 שלה, שמחזיק את המדד שקונים בחשבון מסחר; במסלולים האחרים שלה יש דברים אחרים, והם מרוויחים משהו אחר.",
+                "קופת גמל להשקעה, קרן השתלמות ופוליסת חיסכון מחושבות באותה דרך, עם חברה מנהלת במקום הבנק או בית ההשקעות: כל הפקדה מושקעת מיד כשהיא מגיעה, דמי הניהול יורדים מההפקדות ומהצבירה בכל חודש, ואין עמלות על קנייה, מכירה או המרה. הקופה מושווית במסלול ה-S&P\u{a0}500 שלה, שמחזיק את מדד S&P\u{a0}500 שקונים בחשבון מסחר; במסלולים האחרים שלה יש דברים אחרים, והם מרוויחים משהו אחר.",
             ),
             match lang {
                 Lang::En => format!(
@@ -2608,7 +2603,7 @@ pub fn about(lang: Lang) -> About {
                  exchange rates stay as they are, and money waiting for a purchase earns \
                  nothing. A plan with several price tracks costs what its cheapest does for \
                  your inputs, and the track is named.",
-                "התשואה שאתם מצפים לה היא של המדד: מדד S&P\u{a0}500 כולל הדיבידנדים, במטבע שלו, לפני שמשהו יורד ממנו. מכל מסלול יורד אחר כך מה שהקרן שמחזיקה את המדד משאירה לעצמה, ואותה קרן עולה אותו דבר בכל בנק ובית השקעות: דמי הניהול שלה והמס שהיא מפסידה על הדיבידנדים של המדד, או כמה היא פיגרה אחרי המדד בחמש השנים האחרונות, הגבוה מבין השניים. מסלול ה-S&P\u{a0}500 של קופה נמדד באותה דרך. המחשבון מניח ששערי החליפין נשארים כמו היום, וכסף שמחכה לקנייה לא מרוויח דבר. במסלול עם כמה שיטות חיוב, המחשבון בוחר את הזולה ביותר עבורכם ומציין אותה בשם המסלול.",
+                "התשואה שאתם מצפים לה היא של מדד S&P\u{a0}500, כולל הדיבידנדים, במטבע שלו, לפני שמשהו יורד ממנו. מכל מסלול יורד אחר כך מה שהקרן שמחזיקה אותו משאירה לעצמה, ואותה קרן עולה אותו דבר בכל בנק ובית השקעות: דמי הניהול שלה והמס שהיא מפסידה על הדיבידנדים, או כמה היא פיגרה אחרי מדד S&P\u{a0}500 בחמש השנים האחרונות, הגבוה מבין השניים. מסלול ה-S&P\u{a0}500 של קופה נמדד באותה דרך. המחשבון מניח ששערי החליפין נשארים כמו היום, וכסף שמחכה לקנייה לא מרוויח דבר. במסלול עם כמה שיטות חיוב, המחשבון בוחר את הזולה ביותר עבורכם ומציין אותה בשם המסלול.",
             ),
             paragraph(
                 "What's lost to fees is measured against the same deposits in the index itself, \
@@ -2681,7 +2676,7 @@ pub fn about(lang: Lang) -> About {
                  500, the only index whose funds were measured. A fund on the TA-125 costs \
                  something else, and a fund that hedges the dollar (מנוטרלת\u{a0}מט״ח) \
                  earns something else, so neither is compared.",
-                "קרנות על מדדים אחרים: המחשבון מניח שכל קרן סל וקרן מחקה מחזיקות את מדד S&P\u{a0}500, המדד היחיד שהקרנות עליו נמדדו. קרן על ת״א 125 עולה משהו אחר, וקרן מנוטרלת מט״ח מרוויחה משהו אחר, ולכן אף אחת מהן לא מושווית.",
+                "קרנות על מדדים אחרים: המחשבון מניח שכל קרן סל וקרן מחקה מחזיקות את מדד S&P\u{a0}500, היחיד שהקרנות עליו נמדדו. קרן על ת״א 125 עולה משהו אחר, וקרן מנוטרלת מט״ח מרוויחה משהו אחר, ולכן אף אחת מהן לא מושווית.",
             ),
             item(
                 lang,
@@ -4103,7 +4098,7 @@ pub fn about_short_term(lang: Lang) -> About {
                      isn't taxed."
                 ),
                 Lang::He => format!(
-                    "על ריבית בפיקדון משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד. על קרן כספית משלמים מס כשמוכרים אותה: 25% מהרווח, כשאת מה שהפקדתם מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז כל הפקדה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה."
+                    "על ריבית בפיקדון משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד המחירים לצרכן. על קרן כספית משלמים מס כשמוכרים אותה: 25% מהרווח, כשאת מה שהפקדתם מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה מאז כל הפקדה ({USUAL_INFLATION} בשנה, אלא אם קבעתם אינפלציה אחרת ב״אפשרויות נוספות״), כך שרווח שרק שומר על ערך הכסף לא ממוסה."
                 ),
             },
             paragraph(
@@ -4149,7 +4144,7 @@ pub fn about_short_term(lang: Lang) -> About {
                 lang,
                 "Linked and foreign-currency deposits and funds; makam, and a fund's cash \
                  track (מסלול\u{a0}כספי).",
-                "פיקדונות וקרנות צמודים למדד או במטבע חוץ; מק״מ, ומסלול כספי בקופת גמל.",
+                "פיקדונות וקרנות צמודים למדד המחירים לצרכן או במטבע חוץ; מק״מ, ומסלול כספי בקופת גמל.",
             ),
             item(
                 lang,
@@ -4276,14 +4271,14 @@ pub fn about_all(lang: Lang) -> About {
                 "With no date at all, and a monthly amount, the guide asks first whether you \
                  have a cushion of about three months of expenses, which it fills first from a \
                  money market fund, and only then puts the monthly amount in the index.",
-                "כשאין תאריך בכלל, ויש סכום חודשי, המדריך שואל קודם אם יש לכם כרית של בערך שלושה חודשי הוצאות, ממלא אותה קודם בקרן כספית, ורק אחר כך מפנה את הסכום החודשי למדד.",
+                "כשאין תאריך בכלל, ויש סכום חודשי, המדריך שואל קודם אם יש לכם כרית של בערך שלושה חודשי הוצאות, ממלא אותה קודם בקרן כספית, ורק אחר כך מפנה את הסכום החודשי למדד S&P\u{a0}500.",
             ),
             paragraph(
                 "Places are ranked by what's left after tax, but only against places of the \
                  same kind of safety: safe places against safe places, and index places \
                  against index places. The other kind is drawn beside the answer, with its own \
                  assumptions and risks, and never ranked above or below it.",
-                "המקומות מדורגים לפי מה שנשאר אחרי מס, אבל רק מול מקומות באותה רמת ביטחון: מקומות בטוחים מול בטוחים, ומקומות על מדד מול מקומות על מדד. הסוג האחר מצויר לצד התשובה, עם ההנחות והסיכונים שלו, ולא מדורג מעליה או מתחתיה.",
+                "המקומות מדורגים לפי מה שנשאר אחרי מס, אבל רק מול מקומות באותה רמת ביטחון: מקומות בטוחים מול בטוחים, ומקומות על מדד S&P\u{a0}500 מול מקומות על מדד S&P\u{a0}500. הסוג האחר מצויר לצד התשובה, עם ההנחות והסיכונים שלו, ולא מדורג מעליה או מתחתיה.",
             ),
         ],
     );
@@ -4292,7 +4287,7 @@ pub fn about_all(lang: Lang) -> About {
         "history",
         paragraph(
             "How the index's history is read",
-            "איך קוראים את ההיסטוריה של המדד",
+            "איך קוראים את ההיסטוריה של מדד S&P\u{a0}500",
         ),
         vec![
             paragraph(
@@ -4315,7 +4310,7 @@ pub fn about_all(lang: Lang) -> About {
     );
     let mut history = history;
     history.sources = vec![SourceGroup {
-        title: paragraph("The index's history", "ההיסטוריה של המדד"),
+        title: paragraph("The S&P 500's history", "ההיסטוריה של מדד S&P\u{a0}500"),
         sources: links(&[crate::history::source()], lang),
     }];
 

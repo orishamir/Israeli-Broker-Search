@@ -212,59 +212,204 @@ fn every_safety_has_a_tag_and_a_note() {
     }
 }
 
-/// The site names no index, fund or ticker as a pick (CLAUDE.md, "What
-/// this site is for"): what the guide says about its choice, the kinds it
-/// didn't choose, the steps and the chips never mention one. The S&P 500
-/// appears once, as the basis of the history and the costs
-/// (`basis_sentence`, in the history's caveat).
-#[test]
-fn the_guide_names_no_index_fund_or_ticker() {
-    const NAMED: [&str; 7] = [
-        "S&P", "VOO", "CSPX", "VTI", "Vanguard", "iShares", "Invesco",
+/// The word מדד, wherever it stands alone: "המדד", "למדד", but not
+/// "מדד S&P 500", "מדד המחירים לצרכן", a stock index as a kind ("מדד
+/// מניות"), other indices as such ("מדדים", "מדד אחר"), a name quoted as
+/// the bank shows it (״צמוד מדד״), or "נמדד" (measured).
+fn bare_index(text: &str) -> Option<String> {
+    const WORDS: [&str; 10] = [
+        "מדד",
+        "המדד",
+        "למדד",
+        "במדד",
+        "ממדד",
+        "ומדד",
+        "והמדד",
+        "שהמדד",
+        "כשהמדד",
+        "שבמדד",
     ];
-    let named = |text: &str, what: &str| {
-        for word in NAMED {
-            assert!(!text.contains(word), "{what} names {word}: {text}");
+    const NAMED: [&str; 6] = ["S&P", "ה\u{2011}S&P", "המחירים", "מניות", "המניות", "אחר"];
+    let hebrew_letter = |c: char| ('\u{5d0}'..='\u{5ea}').contains(&c);
+    let mut quoted = false;
+    let mut word = String::new();
+    let mut chars = text.char_indices().peekable();
+    while let Some((at, c)) = chars.next() {
+        if c == '״' {
+            quoted = !quoted;
         }
-    };
+        if hebrew_letter(c) {
+            word.push(c);
+            let ends = chars.peek().is_none_or(|(_, next)| !hebrew_letter(*next));
+            if ends {
+                let after = text[at + c.len_utf8()..].trim_start_matches([' ', '\u{a0}']);
+                if !quoted
+                    && WORDS.contains(&word.as_str())
+                    && !NAMED.iter().any(|name| after.starts_with(name))
+                {
+                    return Some(word);
+                }
+                word.clear();
+            }
+        }
+    }
+    None
+}
+
+/// Every Hebrew string inside a serialized value: a `Text`'s `he`, or a
+/// string written in the page's language.
+fn hebrew_strings(value: &serde_json::Value, out: &mut Vec<String>) {
+    match value {
+        serde_json::Value::String(text)
+            if text.chars().any(|c| ('\u{5d0}'..='\u{5ea}').contains(&c)) =>
+        {
+            out.push(text.clone());
+        }
+        serde_json::Value::Array(items) => items.iter().for_each(|item| hebrew_strings(item, out)),
+        serde_json::Value::Object(fields) => {
+            for (key, field) in fields {
+                // A `Text`'s English may name the Hebrew term in brackets.
+                if key != "en" {
+                    hebrew_strings(field, out);
+                }
+            }
+        }
+        _ => {}
+    }
+}
+
+fn no_bare_index(value: &serde_json::Value, what: &str) {
+    let mut texts = Vec::new();
+    hebrew_strings(value, &mut texts);
+    for text in texts {
+        assert!(
+            bare_index(&text).is_none(),
+            "{what} says a bare מדד: {text}"
+        );
+    }
+}
+
+#[test]
+fn the_check_finds_a_bare_index() {
+    assert_eq!(
+        bare_index("לא נוגעים. אם המדד בירידה, מחכים.").as_deref(),
+        Some("המדד")
+    );
+    assert_eq!(bare_index("קרן מחקה מדד מניות רחב").as_deref(), None);
+    assert_eq!(
+        bare_index("קרן סל על מדד, בתל אביב").as_deref(),
+        Some("מדד")
+    );
+    assert_eq!(bare_index("צמודה למדד המחירים לצרכן"), None);
+    assert_eq!(bare_index("קרן על מדד S&P\u{a0}500"), None);
+    assert_eq!(bare_index("״פיקדון צמוד מדד״, 3 שנים"), None);
+    assert_eq!(bare_index("מה שאבד לעמלות נמדד לפני מס"), None);
+}
+
+/// The redesigned answers the checks below read: every row of the safe
+/// and the index tables, with and without the visitor's bank, and with
+/// choices that open every line.
+fn many_redesigned_answers() -> Vec<Answer> {
+    let mut dated = settings();
+    dated.today = Some(time::macros::date!(2026 - 10 - 01));
+    let picks = [
+        Choices::default(),
+        Choices {
+            safe_way: Some(SafeWay::Bond),
+            wrapper: Some(Wrapper::Anyone),
+            account: Some(Account::YourBank),
+            holdings: None,
+        },
+        Choices {
+            safe_way: Some(SafeWay::Deposit),
+            wrapper: Some(Wrapper::StudyFund),
+            account: Some(Account::NewAccount),
+            holdings: None,
+        },
+    ];
+    let mut all = Vec::new();
+    for mut answers in many_answers() {
+        for bank in [None, Some(Bank::Hapoalim)] {
+            answers.bank = bank;
+            for choices in picks {
+                all.push(answer_with(&answers, &choices, &dated, &DATA, true).unwrap());
+            }
+        }
+    }
+    all
+}
+
+/// "מדד" never stands alone (REDESIGN.md §2.8, principle 14): the guide
+/// says which, the S&P 500 or the consumer price index. Here: "how to do
+/// it" and where to buy for every row, the previous answer while it is
+/// still shown, the kinds' names and the learn cards.
+#[test]
+fn the_guide_names_the_index_it_means() {
     for answers in many_answers() {
         let rec = recommend(&answers, &settings(), &DATA).unwrap();
-        for lang in [Lang::En, Lang::He] {
-            for reason in &rec.reasons {
-                named(&reason.text[lang], "a reason");
-            }
-            for alternative in &rec.alternatives {
-                named(&alternative.why_not.text[lang], "a why-not");
-                named(&alternative.kind.text()[lang], "a kind's name");
-            }
-            for step in steps_for(&rec, lang) {
-                named(&step.title, "a step's title");
-                named(&step.text, "a step");
-            }
-            named(&rec.kind.text()[lang], "the chosen kind");
-            for part in what(rec.kind, &rec.choice, rec.months, &answers.horizon, lang) {
-                named(&part.text, "the what-sentence");
-            }
-            if let Some(band) = &rec.band {
-                named(&history_sentence(band, lang), "the history sentence");
-                // The basis is said here, and once.
-                let caveat = history_caveat(band, lang);
-                assert_eq!(caveat.matches("S&P").count(), 1, "{caveat}");
-                assert!(caveat.contains(basis_sentence(lang)));
-            }
+        let lang = Lang::He;
+        for reason in &rec.reasons {
+            assert!(
+                bare_index(&reason.text[lang]).is_none(),
+                "a reason: {}",
+                &reason.text[lang]
+            );
         }
+        for alternative in &rec.alternatives {
+            let why_not = &alternative.why_not.text[lang];
+            assert!(bare_index(why_not).is_none(), "a why-not: {why_not}");
+            let name = &alternative.kind.text()[lang];
+            assert!(bare_index(name).is_none(), "a kind: {name}");
+        }
+        for step in steps_for(&rec, lang) {
+            assert!(bare_index(&step.text).is_none(), "a step: {}", step.text);
+            assert!(bare_index(&step.title).is_none(), "a step: {}", step.title);
+        }
+        for part in what(rec.kind, &rec.choice, rec.months, &answers.horizon, lang) {
+            assert!(
+                bare_index(&part.text).is_none(),
+                "the what-sentence: {}",
+                part.text
+            );
+        }
+        if let Some(band) = &rec.band {
+            assert!(bare_index(&history_sentence(band, lang)).is_none());
+            assert!(bare_index(&history_caveat(band, lang)).is_none());
+            assert!(bare_index(basis_sentence(lang)).is_none());
+        }
+    }
+    for answer in many_redesigned_answers() {
+        no_bare_index(&serde_json::to_value(&answer.how).unwrap(), "how to do it");
     }
     for kind in Way::for_index().into_iter().map(Kind::Way) {
-        for lang in [Lang::En, Lang::He] {
-            named(&kind.text()[lang], "a way's guide name");
-        }
+        assert!(bare_index(&kind.text().he).is_none(), "{}", kind.text().he);
+    }
+    no_bare_index(
+        &serde_json::to_value(broker_fees::describe::glossary(Lang::He)).unwrap(),
+        "a learn card",
+    );
+}
+
+/// The same rule over the answer card's words (`describe/card.rs`,
+/// `describe/outcome.rs`) and the chips (`situations.rs`), which other
+/// workstreams of the redesign own: "אם המדד יעלה 10% בשנה", "המדד נגמר
+/// בהפסד", "עוברים למדד". Run it with `--ignored` until they name it.
+#[test]
+#[ignore = "the answer card's and the chips' words still say a bare המדד"]
+fn the_answer_card_names_the_index_it_means() {
+    for answer in many_redesigned_answers() {
+        no_bare_index(&serde_json::to_value(&answer).unwrap(), "the answer");
     }
     for preset in broker_fees::situations::situations() {
-        for lang in [Lang::En, Lang::He] {
-            named(&preset.name[lang], "a chip");
-            named(&preset.explanation[lang], "a chip's tip");
-            named(&preset.lesson[lang], "a chip's lesson");
-        }
+        no_bare_index(&serde_json::to_value(&preset.name).unwrap(), "a chip");
+        no_bare_index(
+            &serde_json::to_value(&preset.explanation).unwrap(),
+            "a chip's tip",
+        );
+        no_bare_index(
+            &serde_json::to_value(&preset.lesson).unwrap(),
+            "a chip's lesson",
+        );
     }
 }
 

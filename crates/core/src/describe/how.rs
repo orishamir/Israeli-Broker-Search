@@ -1,7 +1,14 @@
-//! "איך עושים את זה" (REDESIGN.md §2.8): the identity line of each product,
-//! what to type in the app, and the steps. First drafts: the bond series'
-//! names and the funds' numbers are research still to be done, so their
-//! search slots are marked placeholders, never invented.
+//! "איך עושים את זה" (REDESIGN.md §2.8, §2.9): the identity line of each
+//! product, what to type in the app, the steps, and the words of where to
+//! buy that the places themselves don't say.
+//!
+//! The identity line is always in one order: what it is (and who issues
+//! it) · where it trades · its currency · what it's linked to · when the
+//! money comes out. What to search for is its own slot, under the line.
+//! The bond series' names and the funds' numbers are research still to be
+//! done, so their search slots are marked placeholders, never invented; a
+//! fund's name, once there, is an example to search for and never a pick
+//! (principle 17).
 
 #![allow(
     clippy::too_many_lines,
@@ -12,10 +19,10 @@
 use rust_decimal::Decimal;
 use time::Date;
 
-use super::card::{both, end_date};
-use super::reasons::{shekels, span};
-use crate::guide::{Account, Kind};
-use crate::{Lang, Product, Text, Vehicle};
+use super::card::{about, both, end_date};
+use super::reasons::{month_year, shekels, span};
+use crate::guide::{Account, AlsoPossible, Flexibility, Kind, UnlockLine};
+use crate::{Exchange, Lang, Product, Text, Vehicle};
 
 /// What the words need.
 #[derive(Debug, Clone, Copy)]
@@ -25,6 +32,11 @@ pub struct Context {
     pub monthly: Decimal,
     pub months: u32,
     pub today: Option<Date>,
+    /// The visitor gave a date (not "I don't know", not retirement): "until
+    /// 2031" is theirs to read only then.
+    pub dated: bool,
+    /// Whether the date can move, if the visitor said.
+    pub flexibility: Option<Flexibility>,
     /// A cushion to fill first: its target and months.
     pub cushion: Option<(Decimal, u32)>,
     pub account: Option<Account>,
@@ -34,39 +46,78 @@ fn fixed(en: &'static str, he: &'static str) -> Text {
     Text::new(en, he)
 }
 
-/// "repaid in 2029", or "repaid in 3 years".
-fn repaid(ctx: &Context, lang: Lang) -> String {
-    match ctx.today.and_then(|today| end_date(today, ctx.months)) {
-        Some(end) => format!(
-            "{}{}",
-            lang.pick("repaid in ", "נפדית ב\u{2011}"),
-            end.year()
-        ),
-        None => format!(
-            "{} {}",
-            lang.pick("repaid in", "נפדית בעוד"),
-            span(ctx.months, lang)
-        ),
+/// The date the money is needed, when the visitor gave one.
+fn end(ctx: &Context) -> Option<Date> {
+    ctx.today
+        .filter(|_| ctx.dated)
+        .and_then(|today| end_date(today, ctx.months))
+}
+
+/// "2031", or "in 5 years".
+fn year(ctx: &Context, lang: Lang) -> String {
+    match end(ctx) {
+        Some(end) => end.year().to_string(),
+        None => format!("{} {}", lang.pick("in", "בעוד"), span(ctx.months, lang)),
     }
 }
 
-/// The identity line: who issues it, where it trades, its currency, what
-/// it's linked to, when the money comes out.
+/// "ב‑2031" / "in 2031", or "בעוד 5 שנים".
+fn in_year(ctx: &Context, lang: Lang) -> String {
+    match end(ctx) {
+        Some(end) => format!("{}{}", lang.pick("in ", "ב\u{2011}"), end.year()),
+        None => year(ctx, lang),
+    }
+}
+
+/// What an Israeli fund does with the S&P 500: it follows it, often through
+/// contracts rather than the shares themselves.
+fn follows(what: &'static str, he_what: &'static str) -> Text {
+    both(|lang| match lang {
+        Lang::En => format!("{what} that follows the S&P 500 index (the 500 largest US companies)"),
+        Lang::He => {
+            format!("{he_what} שעוקבת אחרי מדד S&P\u{a0}500 (500 החברות הגדולות בארה״ב)")
+        }
+    })
+}
+
+/// The S&P 500 as the identity line says what a fund holds.
+fn holds(what: &'static str, he_what: &'static str) -> Text {
+    both(|lang| match lang {
+        Lang::En => format!("{what} that holds the 500 largest US companies (the S&P 500 index)"),
+        Lang::He => {
+            format!("{he_what} שמחזיקה את 500 החברות הגדולות בארה״ב (מדד S&P\u{a0}500)")
+        }
+    })
+}
+
+fn any_trading_day() -> Text {
+    fixed("Sold any trading day", "נמכרת בכל יום מסחר")
+}
+
+/// A fund company's track: the wrapper, then what it holds.
+fn track(wrapper_en: &'static str, wrapper_he: &'static str) -> Text {
+    both(|lang| match lang {
+        Lang::En => format!("{wrapper_en}, on the track that follows the S&P 500 index"),
+        Lang::He => format!("{wrapper_he}, במסלול שעוקב אחרי מדד S&P\u{a0}500"),
+    })
+}
+
+/// The identity line (§2.8), its parts in order.
 #[must_use]
 pub fn identity(ctx: &Context) -> Vec<Text> {
     match ctx.kind {
         Kind::MoneyMarketFund => vec![
-            fixed("A mutual fund in shekels", "קרן נאמנות בשקלים"),
             fixed(
-                "Lends money short-term to the state and the banks",
-                "מלווה כסף לזמן קצר למדינה ולבנקים",
+                "A mutual fund that lends short-term to the state and the banks",
+                "קרן נאמנות שמלווה כסף לזמן קצר למדינה ולבנקים",
             ),
             fixed("Bought in the bank's app", "נקנית באפליקציה של הבנק"),
-            fixed("Sold any trading day", "נמכרת בכל יום מסחר"),
+            fixed("In shekels", "בשקלים"),
             fixed(
                 "Its rate moves with the Bank of Israel's",
-                "הריבית משתנה עם ריבית בנק ישראל",
+                "הריבית זזה עם ריבית בנק ישראל",
             ),
+            any_trading_day(),
         ],
         Kind::GovernmentBond { linked } => vec![
             fixed("A loan to the State of Israel", "הלוואה למדינת ישראל"),
@@ -80,112 +131,171 @@ pub fn identity(ctx: &Context) -> Vec<Text> {
                     "בשקלים, צמודה למדד המחירים לצרכן",
                 )
             } else {
-                fixed("In shekels, not linked", "בשקלים, לא צמודה")
+                fixed(
+                    "In shekels, not linked: the sum is known in advance",
+                    "בשקלים, לא צמודה: הסכום ידוע מראש",
+                )
             },
-            both(|lang| repaid(ctx, lang)),
+            both(|lang| match lang {
+                Lang::En => format!("Repaid {}: held until then", in_year(ctx, lang)),
+                Lang::He => format!("נפדית {}: מחזיקים עד אז", in_year(ctx, lang)),
+            }),
         ],
         Kind::FixedDeposit | Kind::LinkedDeposit => vec![
-            fixed("A deposit at a bank, in shekels", "פיקדון בבנק, בשקלים"),
+            fixed("A deposit at a bank", "פיקדון בבנק"),
             fixed(
-                "A fixed rate: the sum is known in advance",
-                "ריבית קבועה: הסכום ידוע מראש",
+                "Opened in the bank's app or at a branch",
+                "נפתח באפליקציה של הבנק או בסניף",
             ),
-            both(|lang| match lang {
-                Lang::En => format!("Locked for {}", span(ctx.months, lang)),
-                Lang::He => format!("הכסף נעול ל\u{2011}{}", span(ctx.months, lang)),
+            if ctx.kind == Kind::LinkedDeposit {
+                fixed(
+                    "In shekels, linked to the consumer price index, at a fixed rate above it",
+                    "בשקלים, צמוד למדד המחירים לצרכן, בריבית קבועה מעליו",
+                )
+            } else {
+                fixed(
+                    "In shekels, at a fixed rate: the sum is known in advance",
+                    "בשקלים, בריבית קבועה: הסכום ידוע מראש",
+                )
+            },
+            both(|lang| match (end(ctx), lang) {
+                (Some(end), Lang::En) => format!("Locked until {}", end.year()),
+                (Some(end), Lang::He) => format!("הכסף נעול עד {}", end.year()),
+                (None, Lang::En) => format!("Locked for {}", span(ctx.months, lang)),
+                (None, Lang::He) => format!("הכסף נעול ל\u{2011}{}", span(ctx.months, lang)),
             }),
         ],
         Kind::CurrentAccount => vec![],
-        Kind::Way(way) => {
-            let holds = fixed(
-                "A fund that holds the 500 largest US companies (the S&P 500)",
-                "קרן שמחזיקה את 500 החברות הגדולות בארה״ב (מדד S&P\u{a0}500)",
-            );
-            match (way.product, way.vehicle) {
-                (_, Vehicle::StudyFund) => vec![
-                    fixed("Savings through a fund company", "חיסכון דרך חברה מנהלת"),
-                    fixed(
-                        "Opens for the self-employed, or through an employer",
-                        "נפתחת לעצמאים, או דרך מעסיק",
-                    ),
-                    fixed(
-                        "The gain is tax-free after 6 years",
-                        "הרווח פטור ממס אחרי 6 שנים",
-                    ),
-                ],
-                (_, Vehicle::InvestmentGemel) => vec![
-                    fixed("Savings through a fund company", "חיסכון דרך חברה מנהלת"),
-                    fixed(
-                        "Anyone can open one, up to a yearly ceiling",
-                        "כל אחד יכול לפתוח, עד תקרה שנתית",
-                    ),
-                    fixed(
-                        "Can be taken out any time; as a pension from 60, the gain is tax-free",
-                        "אפשר למשוך בכל עת; כקצבה מגיל 60 הרווח פטור ממס",
-                    ),
-                ],
-                (_, Vehicle::SavingsPolicy) => vec![
-                    fixed(
-                        "Savings through an insurance company",
-                        "חיסכון דרך חברת ביטוח",
-                    ),
-                    fixed("Can be taken out any time", "אפשר למשוך בכל עת"),
-                ],
-                (
-                    Product::IsraeliIndexFund
-                    | Product::StudyFundTrack
-                    | Product::InvestmentGemelTrack
-                    | Product::SavingsPolicyTrack,
-                    _,
-                ) => vec![
-                    fixed(
-                        "A mutual fund that follows the S&P 500 index",
-                        "קרן נאמנות שעוקבת אחרי מדד S&P\u{a0}500",
-                    ),
-                    fixed(
-                        "Bought once a day, at the day's closing price",
-                        "נקנית פעם ביום, במחיר של סוף היום",
-                    ),
-                    fixed(
-                        "In shekels; moves with the shares and with the dollar",
-                        "בשקלים, עולה ויורדת עם המניות ועם הדולר",
-                    ),
-                ],
-                (Product::IsraeliEtf, _) => vec![
-                    holds,
-                    fixed(
-                        "Traded on the Tel Aviv Stock Exchange, in shekels",
-                        "נסחרת בבורסה בתל אביב, בשקלים",
-                    ),
-                    fixed("Sold any trading day", "נמכרת בכל יום מסחר"),
-                ],
-                (Product::UsFund, _) => vec![
-                    holds,
-                    fixed(
-                        "Traded on a US exchange, in dollars",
-                        "נסחרת בבורסה בארה״ב, בדולרים",
-                    ),
-                    fixed("Sold any trading day", "נמכרת בכל יום מסחר"),
-                ],
-                (Product::IrishFund | Product::ForeignEtfInTelAviv, _) => vec![
-                    holds,
-                    fixed(
-                        "Registered in Ireland, traded in Europe",
-                        "רשומה באירלנד, נסחרת באירופה",
-                    ),
-                    fixed("Sold any trading day", "נמכרת בכל יום מסחר"),
-                ],
-            }
-        }
+        Kind::Way(way) => match (way.vehicle, way.product) {
+            (Vehicle::StudyFund, _) => vec![
+                track("A study fund", "קרן השתלמות"),
+                fixed(
+                    "At a fund company: for the self-employed, or through an employer",
+                    "בחברה מנהלת: לעצמאים, או דרך מעסיק",
+                ),
+                fixed("In shekels", "בשקלים"),
+                fixed(
+                    "Can be taken out after 6 years, and the gain is then tax-free",
+                    "אפשר למשוך אחרי 6 שנים, והרווח אז פטור ממס",
+                ),
+            ],
+            (Vehicle::InvestmentGemel, _) => vec![
+                track("A provident fund for investment", "קופת גמל להשקעה"),
+                fixed(
+                    "At a fund company: anyone can open one, up to a yearly ceiling",
+                    "בחברה מנהלת: כל אחד יכול לפתוח, עד תקרה שנתית",
+                ),
+                fixed("In shekels", "בשקלים"),
+                fixed(
+                    "Can be taken out any time; as a pension from 60, the gain is tax-free",
+                    "אפשר למשוך בכל עת; כקצבה מגיל 60 הרווח פטור ממס",
+                ),
+            ],
+            (Vehicle::SavingsPolicy, _) => vec![
+                track("A savings policy", "פוליסת חיסכון"),
+                fixed(
+                    "At an insurance company: anyone can open one",
+                    "בחברת ביטוח: כל אחד יכול לפתוח",
+                ),
+                fixed("In shekels", "בשקלים"),
+                fixed("Can be taken out any time", "אפשר למשוך בכל עת"),
+            ],
+            (
+                Vehicle::Brokerage,
+                Product::IsraeliIndexFund
+                | Product::StudyFundTrack
+                | Product::InvestmentGemelTrack
+                | Product::SavingsPolicyTrack,
+            ) => vec![
+                follows(
+                    "An Israeli mutual fund (קרן מחקה)",
+                    "קרן נאמנות ישראלית (קרן מחקה)",
+                ),
+                fixed(
+                    "Bought and sold through a bank or an investment house once a day, at the day's closing price",
+                    "נקנית ונמכרת דרך בנק או בית השקעות פעם ביום, במחיר של סוף היום",
+                ),
+                fixed(
+                    "In shekels; moves with the shares and with the dollar",
+                    "בשקלים; עולה ויורדת עם המניות ועם הדולר",
+                ),
+                fixed("Sold any trading day", "אפשר למכור בכל יום מסחר"),
+            ],
+            (Vehicle::Brokerage, Product::IsraeliEtf) => vec![
+                follows("An Israeli ETF (קרן סל)", "קרן סל ישראלית"),
+                fixed(
+                    "Traded on the Tel Aviv Stock Exchange",
+                    "נסחרת בבורסה בתל אביב",
+                ),
+                fixed(
+                    "In shekels; moves with the shares and with the dollar",
+                    "בשקלים; עולה ויורדת עם המניות ועם הדולר",
+                ),
+                any_trading_day(),
+            ],
+            (Vehicle::Brokerage, Product::ForeignEtfInTelAviv) => vec![
+                holds("An Irish ETF", "קרן סל אירית"),
+                fixed(
+                    "Also traded on the Tel Aviv Stock Exchange",
+                    "נסחרת גם בבורסה בתל אביב",
+                ),
+                fixed(
+                    "Bought in shekels; moves with the shares and with the dollar",
+                    "נקנית בשקלים; עולה ויורדת עם המניות ועם הדולר",
+                ),
+                any_trading_day(),
+            ],
+            (Vehicle::Brokerage, Product::UsFund) => vec![
+                holds("A US ETF", "קרן סל אמריקאית"),
+                fixed("Traded on a US exchange", "נסחרת בבורסה בארה״ב"),
+                fixed(
+                    "In dollars: the shekels are converted",
+                    "בדולרים: השקלים מומרים",
+                ),
+                any_trading_day(),
+            ],
+            (Vehicle::Brokerage, Product::IrishFund) => vec![
+                holds("An Irish ETF", "קרן סל אירית"),
+                if way.exchange == Some(Exchange::Europe) {
+                    fixed("Traded on a European exchange", "נסחרת בבורסה באירופה")
+                } else {
+                    fixed("Traded abroad", "נסחרת בחו״ל")
+                },
+                fixed(
+                    "In a foreign currency: the shekels are converted",
+                    "במטבע חוץ: השקלים מומרים",
+                ),
+                any_trading_day(),
+            ],
+        },
     }
 }
+
+/// The marked placeholder of a slot the research hasn't filled (principle
+/// 16): the page shows it as such.
+const TO_COME: &str = "[—]";
 
 /// What to type in the app, and whether the slot is still a placeholder.
 #[must_use]
 pub fn search(ctx: &Context) -> Option<(Text, bool)> {
-    let at = |lang: Lang| match ctx.today.and_then(|today| end_date(today, ctx.months)) {
-        Some(end) => end.year().to_string(),
-        None => format!("{} {}", lang.pick("in", "בעוד"), span(ctx.months, lang)),
+    let nearest = |lang: Lang| match end(ctx) {
+        Some(end) => match lang {
+            Lang::En => format!("the series repaid nearest {}", month_year(end, lang)),
+            Lang::He => format!("הסדרה שנפדית הכי קרוב ל{}", month_year(end, lang)),
+        },
+        None => match lang {
+            Lang::En => format!("the series repaid nearest {}", year(ctx, lang)),
+            Lang::He => format!("הסדרה שנפדית הכי קרוב ל\u{2011}{}", year(ctx, lang)),
+        },
+    };
+    // A fund's name to come: an example to search for, never a pick.
+    let example = |en: &str, he: &str| {
+        both(|lang| match lang {
+            Lang::En => {
+                format!("{en} · for example {TO_COME} (an example, not a recommendation)")
+            }
+            Lang::He => format!("{he} · למשל {TO_COME} (דוגמה, לא המלצה)"),
+        })
     };
     match ctx.kind {
         Kind::MoneyMarketFund => Some((
@@ -193,71 +303,67 @@ pub fn search(ctx: &Context) -> Option<(Text, bool)> {
             false,
         )),
         Kind::GovernmentBond { linked } => Some((
-            both(|lang| match (lang, linked) {
-                (Lang::En, true) => {
-                    format!("ממשלתי צמוד ____ (the series repaid nearest {})", at(lang))
-                }
-                (Lang::He, true) => format!(
-                    "ממשלתי צמוד ____ (הסדרה שנפדית הכי קרוב ל\u{2011}{})",
-                    at(lang)
-                ),
-                (Lang::En, false) => {
-                    format!("ממשלתי שקלי ____ (the series repaid nearest {})", at(lang))
-                }
-                (Lang::He, false) => format!(
-                    "ממשלתי שקלי ____ (הסדרה שנפדית הכי קרוב ל\u{2011}{})",
-                    at(lang)
-                ),
+            both(|lang| {
+                let name = if linked {
+                    "ממשלתי צמוד ____"
+                } else {
+                    "ממשלתי שקלי ____"
+                };
+                format!("{name} ({})", nearest(lang))
             }),
             true,
         )),
-        Kind::FixedDeposit | Kind::LinkedDeposit => Some((
+        Kind::FixedDeposit => Some((
             both(|lang| match lang {
                 Lang::En => format!("fixed-rate deposit, {}", span(ctx.months, lang)),
                 Lang::He => format!("פיקדון בריבית קבועה, {}", span(ctx.months, lang)),
             }),
             false,
         )),
+        Kind::LinkedDeposit => Some((
+            both(|lang| match lang {
+                Lang::En => format!(
+                    "CPI-linked deposit (״צמוד מדד״), {}",
+                    span(ctx.months, lang)
+                ),
+                Lang::He => format!("״פיקדון צמוד מדד״, {}", span(ctx.months, lang)),
+            }),
+            false,
+        )),
         Kind::CurrentAccount => None,
-        Kind::Way(way) => match (way.product, way.vehicle) {
-            (_, Vehicle::StudyFund | Vehicle::InvestmentGemel | Vehicle::SavingsPolicy) => Some((
+        Kind::Way(way) => match (way.vehicle, way.product) {
+            (Vehicle::StudyFund, _) => Some((
                 fixed(
-                    "the track that follows the S&P 500 index",
-                    "מסלול שעוקב אחרי מדד S&P\u{a0}500",
+                    "the S&P 500 track, in your study fund",
+                    "מסלול מדד S&P\u{a0}500, בקרן ההשתלמות שלכם",
                 ),
                 false,
             )),
-            (Product::UsFund, _) => Some((
+            (Vehicle::InvestmentGemel | Vehicle::SavingsPolicy, _) => {
+                Some((fixed("the S&P 500 track", "מסלול מדד S&P\u{a0}500"), false))
+            }
+            (Vehicle::Brokerage, Product::UsFund) => Some((
                 fixed(
                     "for example VOO (an example, not a recommendation)",
                     "למשל VOO (דוגמה, לא המלצה)",
                 ),
                 false,
             )),
-            (Product::IrishFund | Product::ForeignEtfInTelAviv, _) => Some((
+            (Vehicle::Brokerage, Product::IrishFund | Product::ForeignEtfInTelAviv) => Some((
                 fixed(
                     "for example CSPX (an example, not a recommendation)",
                     "למשל CSPX (דוגמה, לא המלצה)",
                 ),
                 false,
             )),
-            (
-                Product::IsraeliIndexFund
-                | Product::StudyFundTrack
-                | Product::InvestmentGemelTrack
-                | Product::SavingsPolicyTrack,
-                _,
-            ) => Some((
-                fixed(
-                    "S&P 500 index fund · security number: [—]",
-                    "קרן מחקה S&P\u{a0}500 · מספר נייר: [—]",
-                ),
+            (Vehicle::Brokerage, Product::IsraeliEtf) => Some((
+                example("S&P 500, among ETFs (קרנות סל)", "S&P\u{a0}500, בקרנות הסל"),
                 true,
             )),
-            (Product::IsraeliEtf, _) => Some((
-                fixed(
-                    "S&P 500 ETF · security number: [—]",
-                    "קרן סל S&P\u{a0}500 · מספר נייר: [—]",
+            (Vehicle::Brokerage, _) => Some((
+                example(
+                    "S&P 500, among index funds (קרנות מחקות)",
+                    "S&P\u{a0}500, בקרנות המחקות",
                 ),
                 true,
             )),
@@ -265,117 +371,329 @@ pub fn search(ctx: &Context) -> Option<(Text, bool)> {
     }
 }
 
-fn money(ctx: &Context, lang: Lang) -> String {
-    match (ctx.now.is_zero(), ctx.monthly.is_zero(), lang) {
-        (false, false, Lang::En) => format!(
-            "{} now, and {} every month",
-            shekels(ctx.now),
-            shekels(ctx.monthly)
+/// "₪100,000 now, and ₪2,000 every month" as the buying steps say it: one
+/// step for the first sum, one for the months.
+fn buying(ctx: &Context, now: Text, every_month: Text) -> Vec<Text> {
+    let mut steps = Vec::new();
+    if !ctx.now.is_zero() {
+        steps.push(now);
+    }
+    if !ctx.monthly.is_zero() {
+        steps.push(every_month);
+    }
+    steps
+}
+
+/// "In your bank's securities account" or "open a trading account".
+fn account_step(ctx: &Context) -> Text {
+    if ctx.account == Some(Account::YourBank) {
+        fixed(
+            "In your bank's app, in its securities account (if you have none, it opens there).",
+            "באפליקציה של הבנק שלכם, בחשבון ניירות הערך (אם אין לכם, פותחים אותו שם).",
+        )
+    } else {
+        fixed(
+            "Open a trading account, if you don't have one. If you already have one, it's one more order.",
+            "פותחים חשבון מסחר, אם אין לכם. אם כבר יש לכם אחד, זו עוד פקודה.",
+        )
+    }
+}
+
+/// The tax when a fund bought on an exchange is sold: against inflation in
+/// shekels, against the exchange rate abroad (as the engine counts it).
+fn index_tax(product: Product) -> Text {
+    match product {
+        Product::UsFund | Product::IrishFund => fixed(
+            "Tax: 25% of the gain when you sell, measured against the exchange rate.",
+            "מס: 25% מהרווח כשמוכרים, נמדד מול שער המטבע.",
         ),
-        (false, false, Lang::He) => format!(
-            "{} עכשיו, ועוד {} בכל חודש",
-            shekels(ctx.now),
-            shekels(ctx.monthly)
+        _ => fixed(
+            "Tax: 25% of the gain above inflation, when you sell.",
+            "מס: 25% מהרווח שמעבר לאינפלציה, כשמוכרים.",
         ),
-        (true, _, Lang::En) => format!("{} every month", shekels(ctx.monthly)),
-        (true, _, Lang::He) => format!("{} בכל חודש", shekels(ctx.monthly)),
-        (false, true, _) => shekels(ctx.now),
     }
 }
 
 /// The steps, in order.
 #[must_use]
 pub fn steps(ctx: &Context) -> Vec<Text> {
+    let now = shekels(ctx.now);
+    let monthly = shekels(ctx.monthly);
     let mut steps = Vec::new();
     if let (Some((target, _)), Kind::Way(_)) = (ctx.cushion, ctx.kind) {
         steps.push(both(|lang| match lang {
             Lang::En => format!(
-                "First: {} a month to a money market fund in the bank's app, until {}.",
-                shekels(ctx.monthly),
+                "First: {monthly} a month to a money market fund in the bank's app, until {}.",
                 shekels(target)
             ),
             Lang::He => format!(
-                "קודם: {} בחודש לקרן כספית באפליקציה של הבנק, עד {}.",
-                shekels(ctx.monthly),
+                "קודם: {monthly} בחודש לקרן כספית באפליקציה של הבנק, עד {}.",
                 shekels(target)
             ),
         }));
     }
-    let buy = both(|lang| match lang {
-        Lang::En => format!("Buy: {}.", money(ctx, lang)),
-        Lang::He => format!("קונים: {}.", money(ctx, lang)),
-    });
-    let open_account = fixed(
-        "Open a trading account, if you don't have one.",
-        "פותחים חשבון מסחר, אם אין לכם.",
-    );
     match ctx.kind {
         Kind::MoneyMarketFund => {
             steps.push(fixed(
                 "In the bank's app, under mutual funds, search for ״כספית שקלית״.",
                 "באפליקציה של הבנק, תחת קרנות נאמנות, מחפשים ״כספית שקלית״.",
             ));
-            steps.push(buy);
+            steps.push(both(|lang| {
+                match (ctx.now.is_zero(), ctx.monthly.is_zero(), lang) {
+                    (false, false, Lang::En) => {
+                        format!("Buy {now} now, and {monthly} more every month.")
+                    }
+                    (false, false, Lang::He) => {
+                        format!("קונים ב\u{2011}{now} עכשיו, ועוד {monthly} בכל חודש.")
+                    }
+                    (true, _, Lang::En) => format!("Buy {monthly} every month."),
+                    (true, _, Lang::He) => format!("קונים ב\u{2011}{monthly} בכל חודש."),
+                    (false, true, Lang::En) => format!("Buy {now}."),
+                    (false, true, Lang::He) => format!("קונים ב\u{2011}{now}."),
+                }
+            }));
             steps.push(fixed(
                 "Sell when you need it, any trading day. Tax: 25% of the gain above inflation.",
                 "מוכרים כשצריך, בכל יום מסחר. מס: 25% מהרווח שמעבר לאינפלציה.",
             ));
         }
-        Kind::GovernmentBond { .. } => {
-            steps.push(open_account);
-            steps.push(fixed(
-                "Search for the series repaid nearest your date, and buy it.",
-                "מחפשים את הסדרה שנפדית הכי קרוב לתאריך שלכם, וקונים אותה.",
+        Kind::GovernmentBond { linked } => {
+            steps.push(account_step(ctx));
+            let repaid = |lang: Lang| in_year(ctx, lang);
+            steps.extend(buying(
+                ctx,
+                both(|lang| match lang {
+                    Lang::En => format!(
+                        "Search for the series repaid {}, and buy {now} of it.",
+                        repaid(lang)
+                    ),
+                    Lang::He => format!(
+                        "מחפשים את הסדרה שנפדית {}, וקונים ב\u{2011}{now}.",
+                        repaid(lang)
+                    ),
+                }),
+                both(|lang| match (ctx.now.is_zero(), lang) {
+                    (false, Lang::En) => {
+                        format!("Every month, buy {monthly} more of the same series.")
+                    }
+                    (false, Lang::He) => {
+                        format!("בכל חודש קונים את אותה סדרה ב\u{2011}{monthly}.")
+                    }
+                    (true, Lang::En) => format!(
+                        "Every month, buy {monthly} of the series repaid {}.",
+                        repaid(lang)
+                    ),
+                    (true, Lang::He) => format!(
+                        "בכל חודש קונים ב\u{2011}{monthly} את הסדרה שנפדית {}.",
+                        repaid(lang)
+                    ),
+                }),
             ));
-            steps.push(buy);
-            steps.push(fixed(
-                "Hold it until it's repaid. Tax: 25% of the gain above inflation.",
-                "מחזיקים עד הפדיון. מס: 25% מהרווח שמעבר לאינפלציה.",
-            ));
+            steps.push(if linked {
+                fixed(
+                    "Hold it until it's repaid. Tax: 25% of the gain above inflation.",
+                    "מחזיקים עד הפדיון. מס: 25% מהרווח שמעבר לאינפלציה.",
+                )
+            } else {
+                fixed(
+                    "Hold it until it's repaid. Tax: 15% of the whole gain.",
+                    "מחזיקים עד הפדיון. מס: 15% מכל הרווח.",
+                )
+            });
         }
         Kind::FixedDeposit | Kind::LinkedDeposit => {
-            steps.push(fixed(
-                "Open it in the app or at a branch. The rate in the figures is an average, not an offer: ask what you'll get.",
-                "פותחים באפליקציה או בסניף. הריבית בחישוב היא ממוצע, לא הצעה: שאלו מה תקבלו.",
-            ));
-            steps.push(buy);
-            steps.push(fixed(
-                "Don't touch it: breaking it early is by the deposit's terms. Tax: 15% of all the interest.",
-                "לא נוגעים: שבירה מוקדמת היא לפי תנאי הפיקדון. מס: 15% מכל הריבית.",
-            ));
+            let dated = deposits_month();
+            steps.push(both(|lang| match (ctx.kind, lang) {
+                (Kind::LinkedDeposit, Lang::En) => format!(
+                    "In the bank's app or at a branch, choose a deposit for {}, linked to the consumer price index, and deposit {now}.",
+                    span(ctx.months, lang)
+                ),
+                (Kind::LinkedDeposit, Lang::He) => format!(
+                    "באפליקציה של הבנק או בסניף, בוחרים פיקדון ל\u{2011}{} צמוד למדד המחירים לצרכן, ומפקידים {now}.",
+                    span(ctx.months, lang)
+                ),
+                (_, Lang::En) => format!(
+                    "In the bank's app or at a branch, choose a deposit for {} at a fixed rate, and deposit {now}.",
+                    span(ctx.months, lang)
+                ),
+                (_, Lang::He) => format!(
+                    "באפליקציה של הבנק או בסניף, בוחרים פיקדון ל\u{2011}{} בריבית קבועה, ומפקידים {now}.",
+                    span(ctx.months, lang)
+                ),
+            }));
+            steps.push(both(|lang| match lang {
+                Lang::En => format!(
+                    "The rate in the figures is the average the bank gave in {dated}, not an offer: ask what you'll get before you deposit."
+                ),
+                Lang::He => format!(
+                    "הריבית בחישוב היא הממוצע שהבנק נתן ב\u{2011}{dated}, לא הצעה: שאלו מה תקבלו לפני שמפקידים."
+                ),
+            }));
+            steps.push(both(|lang| match (end(ctx), lang) {
+                (Some(end), Lang::En) => format!(
+                    "Don't touch it until {}: breaking it early is by the deposit's terms.",
+                    end.year()
+                ),
+                (Some(end), Lang::He) => format!(
+                    "לא נוגעים עד {}: שבירה מוקדמת היא לפי תנאי הפיקדון.",
+                    end.year()
+                ),
+                (None, _) => lang
+                    .pick(
+                        "Don't touch it: breaking it early is by the deposit's terms.",
+                        "לא נוגעים: שבירה מוקדמת היא לפי תנאי הפיקדון.",
+                    )
+                    .to_owned(),
+            }));
+            steps.push(if ctx.kind == Kind::LinkedDeposit {
+                fixed(
+                    "Tax: 25% of the gain above inflation.",
+                    "מס: 25% מהרווח שמעבר לאינפלציה.",
+                )
+            } else {
+                fixed("Tax: 15% of all the interest.", "מס: 15% מכל הריבית.")
+            });
         }
         Kind::CurrentAccount => {}
         Kind::Way(way) => {
             if way.vehicle == Vehicle::Brokerage {
-                if ctx.account == Some(Account::YourBank) {
+                steps.push(account_step(ctx));
+                if matches!(way.product, Product::UsFund | Product::IrishFund) {
                     steps.push(fixed(
-                        "In your bank's securities account, buy the fund.",
-                        "בחשבון ניירות הערך בבנק שלכם, קונים את הקרן.",
+                        "Move shekels to the account and convert them; the figures count the conversion.",
+                        "מעבירים שקלים לחשבון וממירים אותם; החישוב כולל את ההמרה.",
                     ));
-                } else {
-                    steps.push(open_account);
                 }
-                steps.push(buy);
-                steps.push(fixed(
-                    "Don't touch it until you need the money. If the index is down then, wait.",
-                    "לא נוגעים עד שצריך את הכסף. אם המדד בירידה אז, מחכים.",
+                steps.extend(buying(
+                    ctx,
+                    both(|lang| match lang {
+                        Lang::En => format!("Buy the fund for {now}."),
+                        Lang::He => format!("קונים את הקרן ב\u{2011}{now}."),
+                    }),
+                    both(|lang| match lang {
+                        Lang::En => format!("Every month, buy {monthly} more of it."),
+                        Lang::He => format!("בכל חודש קונים ממנה עוד ב\u{2011}{monthly}."),
+                    }),
                 ));
-                steps.push(fixed(
-                    "Tax: 25% of the gain when you sell.",
-                    "מס: 25% מהרווח כשמוכרים.",
-                ));
+                steps.push(both(|lang| {
+                    match (end(ctx), ctx.flexibility, lang) {
+                        (Some(_), Some(Flexibility::CanWait), Lang::En) => format!(
+                            "Don't touch it until {}. If the S&P 500 is down then, wait a year or two.",
+                            year(ctx, lang)
+                        ),
+                        (Some(_), Some(Flexibility::CanWait), Lang::He) => format!(
+                            "לא נוגעים עד {}. אם מדד S&P\u{a0}500 יהיה אז בירידה, מחכים שנה\u{2011}שנתיים.",
+                            year(ctx, lang)
+                        ),
+                        (Some(_), _, Lang::En) => format!("Don't touch it until {}.", year(ctx, lang)),
+                        (Some(_), _, Lang::He) => format!("לא נוגעים עד {}.", year(ctx, lang)),
+                        (None, _, _) => lang
+                            .pick(
+                                "Don't touch it until you need the money.",
+                                "לא נוגעים עד שצריך את הכסף.",
+                            )
+                            .to_owned(),
+                    }
+                }));
+                steps.push(index_tax(way.product));
             } else {
-                steps.push(fixed(
-                    "Check with the fund (or your employer) that you can add this amount.",
-                    "בודקים מול הקרן, או מול המעסיק, שאפשר להוסיף את הסכום הזה.",
-                ));
+                steps.push(both(|lang| match lang {
+                    Lang::En => format!(
+                        "Check with the fund (or your employer) that you can add {}.",
+                        if ctx.monthly.is_zero() {
+                            now.clone()
+                        } else {
+                            format!("{monthly} a month")
+                        }
+                    ),
+                    Lang::He => format!(
+                        "בודקים מול הקרן, או מול המעסיק, שאפשר להוסיף {}.",
+                        if ctx.monthly.is_zero() {
+                            now.clone()
+                        } else {
+                            format!("{monthly} בחודש")
+                        }
+                    ),
+                }));
                 steps.push(fixed(
                     "Choose the track that follows the S&P 500 index.",
-                    "בוחרים מסלול שעוקב אחרי מדד S&P\u{a0}500.",
+                    "בוחרים את מסלול מדד S&P\u{a0}500.",
                 ));
-                steps.push(buy);
             }
         }
     }
     steps
+}
+
+/// The month of the deposits' rates, "09/2026".
+fn deposits_month() -> String {
+    let date = crate::short_term::deposits::checked();
+    format!("{:02}/{}", u8::from(date.month()), date.year())
+}
+
+// ─────────────────────────── Where to buy ───────────────────────────
+
+/// A bigger first deposit that would open another place, said as the
+/// difference it makes (principle 13), not as two sums to compare.
+#[must_use]
+pub fn unlock(unlock: &UnlockLine) -> Text {
+    let more = unlock.after_tax.today - unlock.instead_of.today;
+    both(|lang| {
+        let who = format!(
+            "{}{}{}",
+            &unlock.plan.provider[lang],
+            lang.pick(" · ", "\u{a0}· "),
+            &unlock.plan.plan[lang]
+        );
+        let now = if unlock.first_deposit_now.is_zero() {
+            lang.pick("you have none now", "עכשיו אין לכם").to_owned()
+        } else {
+            match lang {
+                Lang::En => format!("now {}", shekels(unlock.first_deposit_now)),
+                Lang::He => format!("עכשיו {}", shekels(unlock.first_deposit_now)),
+            }
+        };
+        match lang {
+            Lang::En => format!(
+                "A first deposit of {} ({now}) would also open {who}: with that deposit it would leave about {} more than the places above.",
+                shekels(unlock.first_deposit),
+                about(more)
+            ),
+            Lang::He => format!(
+                "הפקדה ראשונה של {} ({now}) הייתה פותחת גם את {who}: עם הפקדה כזאת שם היה נשאר בערך {} יותר מאשר במקומות שלמעלה.",
+                shekels(unlock.first_deposit),
+                about(more)
+            ),
+        }
+    })
+}
+
+/// The warning of a place that leaves more but may cost more, said under
+/// its row: "⚠ Altshuler · offer may cost more: …".
+#[must_use]
+pub fn may_cost_more(also: &AlsoPossible) -> Text {
+    both(|lang| {
+        let who = format!(
+            "{}{}{}",
+            &also.choice.provider[lang],
+            lang.pick(" · ", "\u{a0}· "),
+            &also.choice.plan[lang]
+        );
+        match lang {
+            Lang::En => format!(
+                "\u{26a0} {who}: {}",
+                also.warning
+                    .en
+                    .replacen("May cost more", "may cost more", 1)
+            ),
+            Lang::He => format!("\u{26a0} {who}: {}", &also.warning[lang]),
+        }
+    })
+}
+
+/// The warning on the row itself, where the row is that place: the
+/// warning's own words.
+#[must_use]
+pub fn row_warning(also: &AlsoPossible) -> Text {
+    also.warning.clone()
 }
