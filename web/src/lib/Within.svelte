@@ -61,7 +61,9 @@
   const shown = $derived(
     app.expert
       ? rows.flatMap((row) => [row, ...(opened.has(row.id) ? (row.more ?? []) : [])])
-      : rows.slice(0, 3),
+      : // The first three, and the saver's own (their bank's branch plan, a plan of
+        // their own) wherever it ranks: it is the one they came to compare.
+        rows.filter((row, index) => index < 3 || row.yours),
   )
   const child = (row: Row) => rows.every(({ key }) => key !== row.key)
 

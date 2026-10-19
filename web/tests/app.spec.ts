@@ -1,25 +1,31 @@
 import { test as baseTest } from '@playwright/test'
-import {
-  expectedRows,
-  inputsOnPage,
-  listed,
-  placeRowsOnPage,
-  RATES,
-  rowsOnPage,
-  securityName,
-  shortTermInputsOnPage,
-  usualPlans,
-} from './core'
+import { expectedRows, inputsOnPage, listed, RATES, rowsOnPage, securityName, usualPlans } from './core'
 import { dateText } from '../src/lib/format'
+import { arenaOf } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
-import { choice, expect, planInList, rows, test, tickBrokers } from './fixtures'
+import {
+  answerCard,
+  choice,
+  enter,
+  expect,
+  expectAnswerFor,
+  expertSwitch,
+  planInList,
+  rows,
+  setExpert,
+  test,
+  tickBrokers,
+  workbench,
+} from './fixtures'
 
-// Starting up: what the page shows once the core has loaded.
+// Starting up, and links: what the page shows once the core has loaded, and
+// that a link opens the page as it was.
 
 test(
   "starts with each broker's usual plan and the provident fund's average ticked and compared",
   { tag: '@phone' },
   async ({ page }) => {
+    await workbench(page)
     await expect(rows(page)).toHaveCount(usualPlans.length)
     await expect(page.getByText(t.tickedAtFirst)).toBeVisible()
     // Each is the only plan of its broker ticked, and the usual one: named by the broker alone.
@@ -43,6 +49,8 @@ test(
   "shows today's rates once downloaded, and the loading shape is gone",
   { tag: '@phone' },
   async ({ page }) => {
+    await workbench(page)
+    await page.locator('section.workbench').getByRole('button', { name: t.changeAssumptions }).click()
     await expect(
       page.getByText(`$1 = ₪${RATES.ilsPerUsd} · €1 = ₪${RATES.ilsPerEur} · ${dateText(RATES.date)}`),
     ).toBeVisible()
@@ -51,28 +59,38 @@ test(
   },
 )
 
-test('a link to the short-term calculator opens it as it was', async ({ page, context }) => {
+test("Share copies a link that opens the same answer, over the guide's own choice", async ({
+  page,
+  context,
+}) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-  await page.getByText(t.shortTerm, { exact: true }).click()
-  await page.getByLabel(t.oneTimeDeposit).fill('40000')
-  await page.locator('#months').fill('24')
-  const before = await placeRowsOnPage(page)
+  const answers = await enter(page, { now: 50_000, monthly: 0, horizon: 5, flexibility: 'CanWait' })
+  const guide = await expectAnswerFor(page, answers)
+  // Continuing with another kind is part of the link too.
+  const other = guide.ranked.find(({ kind }) => JSON.stringify(kind) !== JSON.stringify(guide.kind.kind))!
+  await answerCard(page).getByRole('button', { name: t.changeKind }).click()
+  await answerCard(page).locator('.picker li').nth(guide.ranked.indexOf(other)).getByRole('button').click()
 
   await page.getByRole('button', { name: t.share, exact: true }).click()
   await expect(page.getByText(t.linkCopied)).toBeVisible()
   const link = await page.evaluate(() => navigator.clipboard.readText())
-  expect(link).toContain('#c=s&d=40000&m=0&n=24')
+  expect(link).toContain('v=2')
 
   await page.goto(link)
-  await expect(page.getByRole('radio', { name: t.shortTerm })).toBeChecked()
-  expect(await shortTermInputsOnPage(page)).toMatchObject({ firstDeposit: 40_000, months: 24 })
-  await expect.poll(() => placeRowsOnPage(page)).toEqual(before)
+  await expect(page.locator('#now')).toHaveValue('50,000')
+  await expect(page.locator('#horizon')).toHaveValue('5')
+  await expect(page.getByRole('button', { name: t.backToRecommendation })).toBeVisible()
+  await expectAnswerFor(page, answers, { arena: arenaOf(other.kind), kind: other.kind })
+  // And a link edited into nonsense still opens the page.
+  await page.goto('/#v=2&n=abc&h=zz')
+  await expect(page.locator('#now')).toBeVisible()
 })
 
-test('Share copies a link that opens the same comparison', async ({ page, context }) => {
+test('Share copies a link that opens the same workbench', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
+  await workbench(page)
   await choice(page, t.security, securityName('Bond')).click()
-  await page.getByLabel(t.everyMonth).fill('3500')
+  await page.locator('#monthly').fill('3500')
   await tickBrokers(page, [listed('Leumi · Online').broker.name])
   const before = expectedRows(await inputsOnPage(page))
   await expect.poll(() => rowsOnPage(page)).toEqual(before)
@@ -80,12 +98,14 @@ test('Share copies a link that opens the same comparison', async ({ page, contex
   await page.getByRole('button', { name: t.share, exact: true }).click()
   await expect(page.getByText(t.linkCopied)).toBeVisible()
   const link = await page.evaluate(() => navigator.clipboard.readText())
-  expect(link).toContain('#s=Bond&x=Usa&d=10000&m=3500')
+  expect(link).toContain('v=2')
 
   await page.goto(link)
-  await expect(page.locator('.chart canvas')).toBeVisible()
+  await expect(expertSwitch(page)).toBeChecked()
+  await expect(page.locator('#monthly')).toHaveValue('3,500')
   expect(await inputsOnPage(page)).toMatchObject({ security: 'Bond', monthlyDeposit: 3500 })
   await expect.poll(() => rowsOnPage(page)).toEqual(before)
+  await setExpert(page, false)
 })
 
 // Without the fixture, which waits for the app.
@@ -93,5 +113,7 @@ baseTest("if the core can't load, the page says so instead of pulsing on", async
   await page.route(/\.wasm(\?|$)/, (route) => route.abort())
   await page.goto('/')
   await expect(page.getByRole('alert')).toHaveText(t.couldntLoad)
-  await expect(page.locator('#skeleton .block').first()).toHaveCSS('animation-name', 'none')
+  // The shape that pulsed is replaced by the message: nothing pulses on.
+  await expect(page.locator('#skeleton')).toHaveClass(/failed/)
+  await expect(page.locator('#skeleton .block')).toHaveCount(0)
 })

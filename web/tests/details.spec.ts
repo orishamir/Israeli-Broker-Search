@@ -32,7 +32,7 @@ test("the footer's accessibility statement opens at its heading", { tag: '@phone
 
 test('the numbers are explained, from the title and from a plan', { tag: '@phone' }, async ({ page }) => {
   const { sections } = about()
-  await page.getByRole('button', { name: sections[2].title }).click()
+  await page.getByRole('button', { name: t.aboutLink }).click()
   const dialog = page.getByRole('dialog', { name: t.aboutTheNumbers })
   await expect(dialog).toBeVisible()
   await closeDialog(page)

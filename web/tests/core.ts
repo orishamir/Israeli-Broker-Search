@@ -10,6 +10,7 @@ import { shekels, yearlyCost } from '../src/lib/format'
 import { parseNumber } from '../src/lib/numbers'
 import { t } from '../src/lib/text'
 import {
+  aboutAll,
   alternatives,
   brokers,
   columnsFor,
@@ -87,6 +88,9 @@ export const securityName = (value: Security) => securities().find((choice) => c
 export const exchangeName = (value: Exchange) => exchanges().find((choice) => choice.value === value)!.name
 
 // ─────────────────────────── The guide ───────────────────────────
+
+/** The page about the numbers. */
+export const about = () => aboutAll()
 
 /** The guide's own choice: nothing chosen over it. */
 export const NO_OVERRIDES: Overrides = { arena: undefined, kind: undefined }

@@ -8,6 +8,7 @@ import {
   recordDrawnText,
   test,
   tickBrokers,
+  workbench,
   type Page,
 } from './fixtures'
 import { t } from '../src/lib/text'
@@ -16,6 +17,7 @@ import { t } from '../src/lib/text'
 // year. The bars' options are checked in src/lib/fee-breakdown.test.ts.
 
 test.beforeEach(async ({ page }) => {
+  await workbench(page)
   await choice(page, t.chart, t.breakdownView).click()
   await away(page)
 })

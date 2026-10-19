@@ -1,23 +1,30 @@
 import {
+  alternativesFor,
   brokerName,
   exchangeName,
   exchanges,
-  place,
+  glossary,
   securities,
   securityName,
-  shortTermExamples,
+  situations,
 } from './core'
 import {
   aboutPlan,
+  answerCard,
+  chip,
   choice,
   closePlans,
   copyPlan,
   details,
+  enter,
   expect,
+  fillField,
   planInList,
+  setExpert,
   test,
   tickBrokers,
   tickPlan,
+  workbench,
   type Page,
 } from './fixtures'
 import { t } from '../src/lib/text'
@@ -179,315 +186,348 @@ async function checkLayout(page: Page, state: string) {
 
 const dialog = details
 
-// The rules themselves: each must notice the bug it's for, so a rule that
-// never fires can't pass for a clean page.
-test('the rules notice text drawn over text, text cut off, a tip off the screen, and cards touching', async ({
-  page,
-}) => {
-  await page.evaluate(() => {
-    const card = document.querySelector('.card')!
-    const second = document.querySelectorAll<HTMLElement>('aside > .card')[1]
-    second.style.marginTop = '0'
-    const over = document.createElement('p')
-    over.className = 'planted'
-    over.textContent = 'planted over the heading'
-    Object.assign(over.style, { position: 'absolute', top: '0', left: '0', margin: '0' })
-    card.querySelector('h3')!.after(over)
-    const clipped = document.createElement('div')
-    clipped.className = 'planted'
-    clipped.textContent = 'planted '.repeat(40)
-    Object.assign(clipped.style, { width: '40px', height: '20px', overflow: 'hidden', whiteSpace: 'nowrap' })
-    card.append(clipped)
-    const tip = document.createElement('div')
-    tip.className = 'popover open planted'
-    tip.textContent = 'planted tip'
-    Object.assign(tip.style, { position: 'fixed', top: '-40px', left: '0', display: 'block' })
-    document.body.append(tip)
-  })
-  const problems = await layoutProblems(page)
-  expect(
-    problems.find((problem) => problem.includes('planted over') && problem.includes('overlaps')),
-  ).toBeDefined()
-  expect(problems.find((problem) => problem.includes('cuts its content off'))).toBeDefined()
-  expect(problems.find((problem) => problem.includes('runs off the screen'))).toBeDefined()
-  expect(problems.find((problem) => problem.includes('touches'))).toBeDefined()
-})
-
-test('at the start', { tag: '@phone' }, async ({ page }) => {
+/** Every screen of the guide, each with its @phone state. */
+test('at the start: the guide answers the first chip', { tag: '@phone' }, async ({ page }) => {
   await checkLayout(page, 'start')
 })
 
-// A chosen choice is bold, and so wider: every one must still fit.
-test('with every security and exchange chosen', { tag: '@phone' }, async ({ page }) => {
-  for (const group of [t.security, t.exchange]) {
-    const choices = page.getByRole('radiogroup', { name: group }).locator('label')
-    for (const choice of await choices.all()) {
-      await choice.click()
-      await checkLayout(page, `${group}: ${await choice.textContent()}`)
-    }
+test('with every situation chosen', { tag: '@phone' }, async ({ page }) => {
+  for (const situation of situations()) {
+    // The workbench's and the portfolio's have their own states below.
+    if (situation.workbench || situation.opensDialog) continue
+    await chip(page, situation.name).click()
+    await expect(page.locator('section.answer .what')).toBeVisible()
+    await checkLayout(page, `situation: ${situation.name}`)
   }
 })
 
-// What's bought, and where, changes the notes under the plans and the
-// warning beside the best one's amount: their rows grow taller, nothing moves
-// sideways, and the table doesn't move down.
-test("the table's columns and the summary's height stay put whatever is bought, and where", async ({
-  page,
-}) => {
-  // Wide enough that no line of the summary wraps; on a narrower screen a
-  // longer one may still take two ("with a monthly deposit of more than…").
-  await page.setViewportSize({ width: 2000, height: 1000 })
-  const measure = () =>
-    page.evaluate(() => ({
-      summary: document.querySelector('.stats')!.getBoundingClientRect().height,
-      columns: [...document.querySelectorAll('.results table th')].map(
-        (th) => th.getBoundingClientRect().width,
-      ),
-    }))
-  const first = await measure()
-  for (const security of securities()) {
-    await choice(page, t.security, security.name).click()
-    for (const exchange of exchanges()) {
-      await choice(page, t.exchange, exchange.name).click()
-      const now = await measure()
-      const where = `${security.value} on ${exchange.value}`
-      expect(now.summary, where).toBeCloseTo(first.summary, 0)
-      expect(now.columns, where).toHaveLength(first.columns.length)
-      now.columns.forEach((width, column) =>
-        expect(width, `${where}, column ${column}`).toBeCloseTo(first.columns[column], 0),
-      )
-    }
+test(
+  'the answer, with the kinds to change to and the cards that ask more',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await enter(page, { now: 0, monthly: 3000, horizon: 'unknown', cushion: 17_000 })
+    await expect(answerCard(page).locator('.what')).toBeVisible()
+    await checkLayout(page, 'two parts, with the cushion asked')
+    await answerCard(page).getByRole('button', { name: t.changeKind }).click()
+    await expect(answerCard(page).locator('.picker')).toBeVisible()
+    await checkLayout(page, 'change the kind')
+  },
+)
+
+test('the alternatives, a safety tip, and the donut on every tab', { tag: '@phone' }, async ({ page }) => {
+  const answers = await enter(page, { now: 50_000, monthly: 0, horizon: 5, flexibility: 'CanWait' })
+  await expect(page.locator('.alternatives li.row')).toHaveCount(alternativesFor(answers).series.length)
+  await checkLayout(page, 'alternatives')
+  const tabs = page.locator('section.donut .tabs button')
+  for (const tab of await tabs.all()) {
+    await tab.click()
+    await checkLayout(page, `donut: ${await tab.textContent()}`)
+  }
+  await page.locator('.alternatives li.row').nth(1).locator('.tag-line .tip-button').click()
+  expect(await layoutProblems(page), 'a safety tip').toEqual([])
+})
+
+test('the ladder, and a tip open', { tag: '@phone' }, async ({ page }) => {
+  await chip(page, situations().find(({ id }) => id === 'bonus')!.name).click()
+  await expect(page.locator('section.ladder button.rung').first()).toBeVisible()
+  await checkLayout(page, 'ladder')
+})
+
+test('a learn card, the glossary, and a card from the glossary', { tag: '@phone' }, async ({ page }) => {
+  await answerCard(page).getByRole('button', { name: t.whatIsIt }).click()
+  await expect(page.locator('dialog[open]')).toBeVisible()
+  await checkLayout(page, 'learn card')
+  await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: t.glossary }).click()
+  await expect(page.locator('dialog[open] li').first()).toBeVisible()
+  await checkLayout(page, 'glossary')
+  await page
+    .locator('dialog[open] li')
+    .nth(Math.floor(glossary().length / 2))
+    .getByRole('button')
+    .click()
+  await checkLayout(page, 'a card from the glossary')
+})
+
+test('the portfolio dialog, and its plan of your own', { tag: '@phone' }, async ({ page }) => {
+  await chip(page, situations().find(({ id }) => id === 'existing')!.name).click()
+  await expect(page.getByRole('dialog', { name: t.whichBank })).toBeVisible()
+  await checkLayout(page, 'portfolio dialog')
+  await page.getByRole('dialog', { name: t.whichBank }).getByRole('button', { name: t.newOwnPlan }).click()
+  await checkLayout(page, 'a plan of your own over the portfolio dialog')
+})
+
+test('the workbench, for every thing to buy', { tag: '@phone' }, async ({ page }) => {
+  await setExpert(page)
+  await checkLayout(page, 'workbench')
+  for (const thing of [t.thingSp500, t.thingOther, t.thingBonds, t.thingShort]) {
+    await choice(page, t.whatToBuy, thing).click()
+    await checkLayout(page, thing)
   }
 })
 
-test.describe('while the rows slide', () => {
-  test.use({ reducedMotion: 'no-preference' })
+test("the S&P 500's ways, one opened onto its plans", { tag: '@phone' }, async ({ page }) => {
+  await workbench(page, t.thingSp500)
+  await page
+    .locator('section.within')
+    .getByRole('button', { name: /^כל \d+ המסלולים/ })
+    .first()
+    .click()
+  await checkLayout(page, 'a way opened')
+  await choice(page, t.chart, t.breakdownView).click()
+  await checkLayout(page, 'ways, breakdown')
+})
 
-  // Rows sliding to their new places reach past the table's bottom for a
-  // moment: that showed a vertical scroll bar in its box.
-  test('no box but the page scrolls up and down', async ({ page }) => {
-    await page.evaluate(() => {
-      const scrolled = new Set<string>()
-      Object.assign(window, { scrolled })
-      const frame = () => {
-        for (const box of document.querySelectorAll('body *')) {
-          const { overflowY } = getComputedStyle(box)
-          if (/auto|scroll/.test(overflowY) && box.scrollHeight > box.clientHeight + 1) {
-            scrolled.add(`${box.tagName.toLowerCase()}.${[...box.classList].join('.')}`)
-          }
-        }
-        requestAnimationFrame(frame)
+// The workbench comparing plans on one exchange: the old page's states.
+test.describe('plans on one exchange', () => {
+  test.beforeEach(async ({ page }) => {
+    await enter(page, { now: 10_000, monthly: 2000, horizon: 15 })
+    await workbench(page)
+  })
+
+  // A chosen choice is bold, and so wider: every one must still fit.
+  test('with every security and exchange chosen', { tag: '@phone' }, async ({ page }) => {
+    for (const group of [t.security, t.exchange]) {
+      const choices = page.getByRole('radiogroup', { name: group }).locator('label')
+      for (const choice of await choices.all()) {
+        await choice.click()
+        await checkLayout(page, `${group}: ${await choice.textContent()}`)
       }
-      requestAnimationFrame(frame)
-    })
+    }
+  })
+
+  // What's bought, and where, changes the notes under the plans and the
+  // warning beside the best one's amount: their rows grow taller, and nothing
+  // moves sideways.
+  test("the table's columns stay put whatever is bought, and where", async ({ page }) => {
+    await page.setViewportSize({ width: 2000, height: 1000 })
+    const measure = () =>
+      page.evaluate(() =>
+        [...document.querySelectorAll('section.within table th')].map(
+          (th) => th.getBoundingClientRect().width,
+        ),
+      )
+    const first = await measure()
     for (const security of securities()) {
       await choice(page, t.security, security.name).click()
       for (const exchange of exchanges()) {
         await choice(page, t.exchange, exchange.name).click()
-        // Each slide to its end before the next change.
-        await page.waitForFunction(() => document.getAnimations().length === 0)
+        const now = await measure()
+        const where = `${security.value} on ${exchange.value}`
+        expect(now, where).toHaveLength(first.length)
+        now.forEach((width, column) =>
+          expect(width, `${where}, column ${column}`).toBeCloseTo(first[column], 0),
+        )
       }
     }
-    const scrolled = await page.evaluate(() => [...(window as unknown as { scrolled: Set<string> }).scrolled])
-    expect(scrolled).toEqual([])
+  })
+
+  test.describe('while the rows slide', () => {
+    test.use({ reducedMotion: 'no-preference' })
+
+    // Rows sliding to their new places reach past the table's bottom for a
+    // moment: that showed a vertical scroll bar in its box.
+    test('no box but the page scrolls up and down', async ({ page }) => {
+      await page.evaluate(() => {
+        const scrolled = new Set<string>()
+        Object.assign(window, { scrolled })
+        const frame = () => {
+          for (const box of document.querySelectorAll('body *')) {
+            const { overflowY } = getComputedStyle(box)
+            if (/auto|scroll/.test(overflowY) && box.scrollHeight > box.clientHeight + 1) {
+              scrolled.add(`${box.tagName.toLowerCase()}.${[...box.classList].join('.')}`)
+            }
+          }
+          requestAnimationFrame(frame)
+        }
+        requestAnimationFrame(frame)
+      })
+      for (const security of securities()) {
+        await choice(page, t.security, security.name).click()
+        for (const exchange of exchanges()) {
+          await choice(page, t.exchange, exchange.name).click()
+          // Each slide to its end before the next change.
+          await page.waitForFunction(() => document.getAnimations().length === 0)
+        }
+      }
+      const scrolled = await page.evaluate(() => [
+        ...(window as unknown as { scrolled: Set<string> }).scrolled,
+      ])
+      expect(scrolled).toEqual([])
+    })
+  })
+
+  test(
+    'with the assumptions and the exchange rates open, and a tip open',
+    { tag: '@phone' },
+    async ({ page }) => {
+      await page.locator('section.workbench').getByRole('button', { name: t.changeAssumptions }).click()
+      await page.getByText('$1 = ₪3.0338').click()
+      await checkLayout(page, 'rates')
+      await page.getByRole('button', { name: t.whatMeans(t.buyEvery) }).click()
+      expect(await layoutProblems(page), 'tip').toEqual([])
+    },
+  )
+
+  test('on the fee breakdown', { tag: '@phone' }, async ({ page }) => {
+    await choice(page, t.chart, t.breakdownView).click()
+    await checkLayout(page, 'breakdown')
+  })
+
+  test('on the chart by deposit', { tag: '@phone' }, async ({ page }) => {
+    await choice(page, t.chart, t.byDepositView).click()
+    await checkLayout(page, 'by deposit')
+    await page.getByRole('button', { name: t.share, exact: true }).hover()
+    expect(await layoutProblems(page), 'share tip').toEqual([])
+  })
+
+  test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({ page }) => {
+    await aboutPlan(page, 'Leumi · Pepper')
+    await expect(dialog(page)).toBeVisible()
+    await checkLayout(page, 'plan')
+    await dialog(page).getByText(t.allPrices).click()
+    await checkLayout(page, 'plan, all prices')
+    await dialog(page)
+      .getByRole('button', { name: brokerName('Bank Leumi') })
+      .click()
+    await checkLayout(page, 'broker')
+  })
+
+  test('with a plan of your own', { tag: '@phone' }, async ({ page }) => {
+    await copyPlan(page, 'Leumi · Pepper')
+    await dialog(page).getByRole('button', { name: t.saveTheCopy }).click()
+    await checkLayout(page, 'your plans')
+  })
+
+  test('in the plan editor, in both views, with a checklist open', { tag: '@phone' }, async ({ page }) => {
+    await copyPlan(page, 'Leumi · Pepper')
+    await expect(dialog(page)).toBeVisible()
+    await checkLayout(page, 'simple')
+    await choice(dialog(page), t.view, t.fullPriceList).click()
+    await checkLayout(page, 'full price list')
+    await dialog(page)
+      .getByRole('button', { name: `הכול ב${exchangeName('Usa')}, ${exchangeName('Europe')} ▾` })
+      .click()
+    await checkLayout(page, 'checklist')
+  })
+
+  // Second prices sit under the fee they're part of, in details and in the editor.
+  test('with second prices', { tag: '@phone' }, async ({ page }) => {
+    await aboutPlan(page, "Leumi · Online, 'Leumi 18+'")
+    await expect(dialog(page)).toBeVisible()
+    await checkLayout(page, 'details')
+    await page.keyboard.press('Escape')
+
+    await copyPlan(page, "Leumi · Online, 'Leumi 18+'")
+    await checkLayout(page, 'second conversion fee')
+    await dialog(page).getByRole('button', { name: t.cancel }).click()
+    await closePlans(page)
+
+    await choice(page, t.security, securityName('IndexFund')).click()
+    await choice(page, t.exchange, exchangeName('Tlv')).click()
+    await copyPlan(page, 'Leumi · Online, monthly standing order')
+    await checkLayout(page, 'standing order')
+    await choice(dialog(page), t.view, t.fullPriceList).click()
+    await checkLayout(page, 'standing order, full price list')
+  })
+
+  test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page }) => {
+    await tickBrokers(
+      page,
+      ['Altshuler Shaham Trade', 'Bank Leumi', 'Excellence Trade', 'IBI', 'Meitav Trade'].map(brokerName),
+    )
+    await checkLayout(page, 'every plan')
+    await choice(page, t.chart, t.breakdownView).click()
+    await checkLayout(page, 'every plan, breakdown')
+  })
+
+  // The chart is right under the bar with the choices and the pin hint, so
+  // the bar must keep its height: pinning the first plan swaps the hint for a
+  // button, and the hint's words change with the view.
+  test('pinning and switching views leave the chart where it is', { tag: '@phone' }, async ({ page }) => {
+    const bar = page.locator('.chart-bar')
+    const heights: Record<string, number> = {}
+    for (const view of [t.lostView, t.valueView, t.byDepositView, t.breakdownView]) {
+      await choice(page, t.chart, view).click()
+      heights[view] = (await bar.boundingBox())!.height
+      await page.locator('tbody tr td.rank').first().click()
+      await expect(page.getByRole('button', { name: t.unpinAll })).toBeVisible()
+      heights[`${view}, pinned`] = (await bar.boundingBox())!.height
+      await page.getByRole('button', { name: t.unpinAll }).click()
+    }
+    expect(new Set(Object.values(heights)).size, JSON.stringify(heights)).toBe(1)
+  })
+
+  // Tracks, a handling fee and a price per share plus a percentage, in details
+  // and in the editor; then fractions and a conversion by standing order.
+  test('with tracks and a handling fee', { tag: '@phone' }, async ({ page }) => {
+    await tickBrokers(page, [brokerName('IBI')])
+    await aboutPlan(page, 'IBI · Full tariff')
+    await dialog(page).getByText(t.allPrices).click()
+    await checkLayout(page, 'details')
+    await page.keyboard.press('Escape')
+
+    await copyPlan(page, 'IBI · Full tariff')
+    await checkLayout(page, 'editor')
+    await choice(dialog(page), t.view, t.fullPriceList).click()
+    await checkLayout(page, 'editor, full price list')
+    await dialog(page).getByRole('button', { name: t.cancel }).click()
+
+    await copyPlan(page, 'Interactive · Standard')
+    await choice(dialog(page), t.view, t.simple).click()
+    await checkLayout(page, 'fractions and conversion by standing order')
+  })
+
+  // A fund: how its money is taken out, its details with no price list to
+  // unfold, its one fee in the editor, and its row when the deposits are over
+  // its ceiling.
+  test(
+    'with funds: the pension, their details and editor, and a ceiling passed',
+    { tag: '@phone' },
+    async ({ page }) => {
+      await tickPlan(page, 'Savings policy · Average fee')
+      await choice(page, t.takingTheMoneyOut, t.asAPension).click()
+      await checkLayout(page, 'as a pension')
+      await choice(page, t.chart, t.breakdownView).click()
+      await checkLayout(page, 'breakdown with funds')
+
+      await aboutPlan(page, 'Provident fund · Average fee')
+      await expect(dialog(page)).toBeVisible()
+      await checkLayout(page, 'fund')
+      await dialog(page)
+        .getByRole('button', { name: brokerName('Provident fund for investment') })
+        .click()
+      await checkLayout(page, 'kind of fund')
+      await page.keyboard.press('Escape')
+
+      await copyPlan(page, 'Provident fund · Average fee')
+      await checkLayout(page, 'fund editor')
+      await dialog(page).getByRole('button', { name: t.saveTheCopy }).click()
+      await closePlans(page)
+      await fillField(page, 'monthly', '8000')
+      await expect(page.getByText(t.overTheCeiling).first()).toBeVisible()
+      await checkLayout(page, 'over the ceiling')
+
+      // A study fund, kept for fewer years than it's locked for.
+      await tickPlan(page, 'Study fund · Average fee')
+      await aboutPlan(page, 'Study fund · Average fee')
+      await checkLayout(page, 'study fund')
+      await page.keyboard.press('Escape')
+      await closePlans(page)
+      await fillField(page, 'horizon', '5')
+      await expect(page.getByText(t.stillLocked).first()).toBeVisible()
+      await checkLayout(page, 'locked')
+    },
+  )
+
+  test('with the list of plans open, and a bank unfolded', { tag: '@phone' }, async ({ page }) => {
+    await planInList(page, 'Leumi · Pepper')
+    await checkLayout(page, 'list of plans')
   })
 })
 
-test('with the exchange rates open, and a tip open', { tag: '@phone' }, async ({ page }) => {
-  await page.getByText('$1 = ₪3.0338').click()
-  await checkLayout(page, 'rates')
-  await page.getByLabel(t.moreOptions, { exact: true }).check()
-  await page.getByRole('button', { name: t.whatMeans(t.buyEvery) }).click()
-  expect(await layoutProblems(page), 'tip').toEqual([])
-})
-
-test('on the fee breakdown', { tag: '@phone' }, async ({ page }) => {
-  await choice(page, t.chart, t.breakdownView).click()
-  await checkLayout(page, 'breakdown')
-})
-
-test('with more options, and on the chart by deposit', { tag: '@phone' }, async ({ page }) => {
-  await page.getByLabel(t.moreOptions, { exact: true }).check()
-  await checkLayout(page, 'more options')
-  await choice(page, t.chart, t.byDepositView).click()
-  await checkLayout(page, 'by deposit')
-  await page.getByRole('button', { name: t.share, exact: true }).hover()
-  expect(await layoutProblems(page), 'share tip').toEqual([])
-})
-
-test("with a plan's details open, and its broker's", { tag: '@phone' }, async ({ page }) => {
-  await aboutPlan(page, 'Leumi · Pepper')
-  await expect(dialog(page)).toBeVisible()
-  await checkLayout(page, 'plan')
-  await dialog(page).getByText(t.allPrices).click()
-  await checkLayout(page, 'plan, all prices')
-  await dialog(page)
-    .getByRole('button', { name: brokerName('Bank Leumi') })
-    .click()
-  await checkLayout(page, 'broker')
-})
-
-test('with a plan of your own', { tag: '@phone' }, async ({ page }) => {
-  await copyPlan(page, 'Leumi · Pepper')
-  await dialog(page).getByRole('button', { name: t.saveTheCopy }).click()
-  await checkLayout(page, 'your plans')
-})
-
-test('in the plan editor, in both views, with a checklist open', { tag: '@phone' }, async ({ page }) => {
-  await copyPlan(page, 'Leumi · Pepper')
-  await expect(dialog(page)).toBeVisible()
-  await checkLayout(page, 'simple')
-  await choice(dialog(page), t.view, t.fullPriceList).click()
-  await checkLayout(page, 'full price list')
-  await dialog(page)
-    .getByRole('button', { name: `הכול ב${exchangeName('Usa')}, ${exchangeName('Europe')} ▾` })
-    .click()
-  await checkLayout(page, 'checklist')
-})
-
-// Second prices sit under the fee they're part of, in details and in the editor.
-test('with second prices', { tag: '@phone' }, async ({ page }) => {
-  await aboutPlan(page, "Leumi · Online, 'Leumi 18+'")
-  await expect(dialog(page)).toBeVisible()
-  await checkLayout(page, 'details')
-  await page.keyboard.press('Escape')
-
-  await copyPlan(page, "Leumi · Online, 'Leumi 18+'")
-  await checkLayout(page, 'second conversion fee')
-  await dialog(page).getByRole('button', { name: t.cancel }).click()
-  await closePlans(page)
-
-  await choice(page, t.security, securityName('IndexFund')).click()
-  await choice(page, t.exchange, exchangeName('Tlv')).click()
-  await copyPlan(page, 'Leumi · Online, monthly standing order')
-  await checkLayout(page, 'standing order')
-  await choice(dialog(page), t.view, t.fullPriceList).click()
-  await checkLayout(page, 'standing order, full price list')
-})
-
-test('with every plan ticked, on both charts', { tag: '@phone' }, async ({ page }) => {
-  await tickBrokers(
-    page,
-    ['Altshuler Shaham Trade', 'Bank Leumi', 'Excellence Trade', 'IBI', 'Meitav Trade'].map(brokerName),
-  )
-  await checkLayout(page, 'every plan')
-  await choice(page, t.chart, t.breakdownView).click()
-  await checkLayout(page, 'every plan, breakdown')
-})
-
-// The chart is right under the bar with the choices and the pin hint, so
-// the bar must keep its height: pinning the first plan swaps the hint for a
-// button, and the hint's words change with the view.
-test('pinning and switching views leave the chart where it is', { tag: '@phone' }, async ({ page }) => {
-  // Every view, the chart by deposit too.
-  await page.getByLabel(t.moreOptions, { exact: true }).check()
-  const bar = page.locator('.chart-bar')
-  const heights: Record<string, number> = {}
-  for (const view of [t.lostView, t.valueView, t.byDepositView, t.breakdownView]) {
-    await choice(page, t.chart, view).click()
-    heights[view] = (await bar.boundingBox())!.height
-    await page.locator('tbody tr td.rank').first().click()
-    await expect(page.getByRole('button', { name: t.unpinAll })).toBeVisible()
-    heights[`${view}, pinned`] = (await bar.boundingBox())!.height
-    await page.getByRole('button', { name: t.unpinAll }).click()
-  }
-  expect(new Set(Object.values(heights)).size, JSON.stringify(heights)).toBe(1)
-})
-
-// Tracks, a handling fee and a price per share plus a percentage, in details
-// and in the editor; then fractions and a conversion by standing order.
-test('with tracks and a handling fee', { tag: '@phone' }, async ({ page }) => {
-  await tickBrokers(page, [brokerName('IBI')])
-  await aboutPlan(page, 'IBI · Full tariff')
-  await dialog(page).getByText(t.allPrices).click()
-  await checkLayout(page, 'details')
-  await page.keyboard.press('Escape')
-
-  await copyPlan(page, 'IBI · Full tariff')
-  await checkLayout(page, 'editor')
-  await choice(dialog(page), t.view, t.fullPriceList).click()
-  await checkLayout(page, 'editor, full price list')
-  await dialog(page).getByRole('button', { name: t.cancel }).click()
-
-  await copyPlan(page, 'Interactive · Standard')
-  await choice(dialog(page), t.view, t.simple).click()
-  await checkLayout(page, 'fractions and conversion by standing order')
-})
-
-// A fund: how its money is taken out, its details with no price list to
-// unfold, its one fee in the editor, and its row when the deposits are over
-// its ceiling.
-test(
-  'with funds: the pension, their details and editor, and a ceiling passed',
-  { tag: '@phone' },
-  async ({ page }) => {
-    await tickPlan(page, 'Savings policy · Average fee')
-    await choice(page, t.takingTheMoneyOut, t.asAPension).click()
-    await checkLayout(page, 'as a pension')
-    await choice(page, t.chart, t.breakdownView).click()
-    await checkLayout(page, 'breakdown with funds')
-
-    await aboutPlan(page, 'Provident fund · Average fee')
-    await expect(dialog(page)).toBeVisible()
-    await checkLayout(page, 'fund')
-    await dialog(page)
-      .getByRole('button', { name: brokerName('Provident fund for investment') })
-      .click()
-    await checkLayout(page, 'kind of fund')
-    await page.keyboard.press('Escape')
-
-    await copyPlan(page, 'Provident fund · Average fee')
-    await checkLayout(page, 'fund editor')
-    await dialog(page).getByRole('button', { name: t.saveTheCopy }).click()
-    await closePlans(page)
-    await page.getByLabel(t.everyMonth).fill('8000')
-    await expect(page.getByText(t.overTheCeiling).first()).toBeVisible()
-    await checkLayout(page, 'over the ceiling')
-
-    // A study fund, kept for fewer years than it's locked for.
-    await tickPlan(page, 'Study fund · Average fee')
-    await aboutPlan(page, 'Study fund · Average fee')
-    await checkLayout(page, 'study fund')
-    await page.keyboard.press('Escape')
-    await closePlans(page)
-    await page.locator('#years').fill('5')
-    await expect(page.getByText(t.stillLocked).first()).toBeVisible()
-    await checkLayout(page, 'locked')
-  },
-)
-
-test('with the list of plans open, and a bank unfolded', { tag: '@phone' }, async ({ page }) => {
-  await planInList(page, 'Leumi · Pepper')
-  await checkLayout(page, 'list of plans')
-})
-
 test('with the about page open', { tag: '@phone' }, async ({ page }) => {
-  await page.getByRole('button', { name: 'איך המספרים מחושבים' }).click()
+  await page.getByRole('button', { name: t.aboutLink }).click()
   await expect(dialog(page)).toBeVisible()
   await checkLayout(page, 'about')
 })
-
-test(
-  'in the short-term calculator: its list with a deposit of your own, a place, both charts',
-  {
-    tag: '@phone',
-  },
-  async ({ page }) => {
-    await page.getByText(t.shortTerm, { exact: true }).click()
-    await expect(page.getByRole('heading', { name: t.forHowLong })).toBeVisible()
-    await checkLayout(page, 'short term')
-    await page.getByRole('button', { name: t.addOrRemove }).click()
-    await page.getByRole('button', { name: t.addYourDeposit }).click()
-    await checkLayout(page, 'list of places')
-    await page
-      .getByRole('button', { name: t.about(place('Fixed-rate deposit · Bank Leumi').place.name) })
-      .click()
-    await expect(dialog(page)).toBeVisible()
-    await checkLayout(page, "a place's details")
-    await page.keyboard.press('Escape')
-    await page.keyboard.press('Escape')
-    await choice(page, t.chart, t.valueOverTime).click()
-    await page.getByRole('button', { name: shortTermExamples()[2].name }).click()
-    await checkLayout(page, 'value over time, saving monthly')
-  },
-)

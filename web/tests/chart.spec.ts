@@ -1,24 +1,29 @@
 import { compare, inputsOnPage, listed, rowOf, rowOfKey } from './core'
 import { t } from '../src/lib/text'
-import { away, canvasPicture, choice, expect, recordDrawnText, test, type Page } from './fixtures'
+import { away, canvasPicture, choice, expect, recordDrawnText, test, workbench, type Page } from './fixtures'
 
 // The growth chart: pinning and hovering, linked with the table, and zooming.
 // What the lines look like is checked in src/lib/growth-chart.test.ts; here,
 // a picture of the canvas is compared before and after, with no stored
 // baseline.
 
+// The workbench, comparing plans on one exchange: where these charts are.
+test.beforeEach(async ({ page }) => {
+  await workbench(page)
+})
+
 /** Where the chart is, after scrolling it into view (so that later actions
  * don't scroll the page under the mouse). */
 const chartBox = async (page: Page) => {
-  await page.locator('.chart').scrollIntoViewIfNeeded()
+  await page.locator('#chart .chart').scrollIntoViewIfNeeded()
   // The phone's bar with the best plan leaves the bottom of the screen,
   // where the zoom slider is, a frame or two after the scroll.
   await expect(page.locator('.best-bar')).toHaveCount(0)
-  return (await page.locator('.chart').boundingBox())!
+  return (await page.locator('#chart .chart').boundingBox())!
 }
 
 test('rows highlight on hover and pin on click, and the chart redraws them', async ({ page }) => {
-  const chart = page.locator('.chart')
+  const chart = page.locator('#chart .chart')
   const plain = await canvasPicture(chart)
   const meitav = rowOf(page, 'Meitav · Typical offer')
   await meitav.hover()
@@ -59,7 +64,7 @@ test('coming back to the chart over the years draws nothing again', async ({ pag
 })
 
 test('the wheel zooms the years, dragging moves, and R resets', async ({ page }) => {
-  const chart = page.locator('.chart')
+  const chart = page.locator('#chart .chart')
   const box = await chartBox(page)
   const start = await canvasPicture(chart)
   await page.mouse.move(box.x + box.width * 0.7, box.y + box.height / 2)
@@ -132,13 +137,13 @@ test('a first tap on the chart moves neither the page nor its zoom', { tag: '@to
   await page.touchscreen.tap(box.x + box.width * 0.3, box.y + 150)
   expect(await views).toHaveLength(1)
   // Headed by the time, in either view over the years.
-  const tooltip = (await page.locator('.chart > div', { hasText: 'אחרי' }).boundingBox())!
+  const tooltip = (await page.locator('#chart .chart > div', { hasText: 'אחרי' }).boundingBox())!
   expect(tooltip.x).toBeGreaterThanOrEqual(box.x)
   expect(tooltip.x + tooltip.width).toBeLessThanOrEqual(box.x + box.width)
 })
 
 test('on touch screens, the slider zooms the years', { tag: '@touch' }, async ({ page }) => {
-  const chart = page.locator('.chart')
+  const chart = page.locator('#chart .chart')
   const box = await chartBox(page)
   const start = await canvasPicture(chart)
   // The slider runs along the bottom, from 24 px to 90 px short of the right.
@@ -166,8 +171,6 @@ test("a plan's fees in the table open its breakdown, pinned", { tag: '@phone' },
 test('the chart by deposit draws the plans, follows the pins, and its marker follows the deposit', async ({
   page,
 }) => {
-  await expect(choice(page, t.chart, t.byDepositView)).toHaveCount(0)
-  await page.getByLabel(t.moreOptions, { exact: true }).check()
   await choice(page, t.chart, t.byDepositView).click()
   const chart = page.locator('.by-deposit')
   await expect(chart.locator('canvas')).toBeVisible()
@@ -182,7 +185,7 @@ test('the chart by deposit draws the plans, follows the pins, and its marker fol
   await expect.poll(() => canvasPicture(chart)).not.toBe(plain)
 
   const pinned = await canvasPicture(chart)
-  await page.getByLabel(t.everyMonth).fill('5000')
+  await page.locator('#monthly').fill('5000')
   await expect.poll(() => canvasPicture(chart)).not.toBe(pinned)
 })
 

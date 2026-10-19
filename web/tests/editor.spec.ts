@@ -24,13 +24,22 @@ import {
   planInList,
   plansList,
   rows,
+  enter,
   test,
+  workbench,
   type Page,
 } from './fixtures'
 import { t } from '../src/lib/text'
 
 // Your plans: copying a listed plan to change, plans of your own, and the
 // editor's two views. Expected values come from the core's editor functions.
+
+// The workbench, comparing plans on one exchange: where plans are changed.
+// With money that a provident fund can take (the page's first answer is over its ceiling).
+test.beforeEach(async ({ page }) => {
+  await enter(page, { now: 10_000, monthly: 2000, horizon: 15 })
+  await workbench(page)
+})
 
 /** Your plans, in the list of plans, which it opens. */
 async function yourPlans(page: Page) {
@@ -184,6 +193,7 @@ test('your plans and the editor view stay after a reload', async ({ page }) => {
   await editor(page).getByRole('button', { name: t.done }).click()
 
   await page.reload()
+  await workbench(page)
   await expect(rows(page).filter({ hasText: name })).toContainText(t.yourDeal(broker.name))
   await (await yourPlans(page)).getByRole('button', { name: t.change(name) }).click()
   await expect(editor(page).getByRole('radio', { name: t.fullPriceList })).toBeChecked()

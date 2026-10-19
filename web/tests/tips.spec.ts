@@ -1,8 +1,14 @@
 import { feesFor, listed, purchaseOnPage, trackOnPage } from './core'
-import { aboutPlan, away, details, expect, test, type Page } from './fixtures'
+import { aboutPlan, away, details, expect, test, workbench, type Page } from './fixtures'
 import { t } from '../src/lib/text'
 
 // The "?" tips: how they open and close.
+
+/** The assumptions are folded behind a line in the workbench. */
+async function unfoldAssumptions(page: Page) {
+  await workbench(page)
+  await page.locator('section.workbench').getByRole('button', { name: t.changeAssumptions }).click()
+}
 
 const yearlyReturn = (page: Page) => ({
   button: page.getByRole('button', { name: t.whatMeans(t.yearlyReturn) }),
@@ -10,6 +16,7 @@ const yearlyReturn = (page: Page) => ({
 })
 
 test('a ? explains its label on hover, until the mouse leaves', async ({ page }) => {
+  await unfoldAssumptions(page)
   const { button, tip } = yearlyReturn(page)
   await expect(tip).toBeHidden()
   await button.hover()
@@ -19,6 +26,7 @@ test('a ? explains its label on hover, until the mouse leaves', async ({ page })
 })
 
 test('a tapped ? explains its label until a tap elsewhere', { tag: '@touch' }, async ({ page }) => {
+  await unfoldAssumptions(page)
   const { button, tip } = yearlyReturn(page)
   await button.tap()
   await expect(tip).toBeVisible()
@@ -39,6 +47,7 @@ test('a clicked ? stays open until Esc', async ({ page }) => {
 
 /** Opens Pepper's details, and finds the account fee's "?" and its tip. */
 async function custodyTip(page: Page) {
+  await workbench(page)
   const { key } = listed('Leumi · Pepper')
   const { inputs, purchase } = await purchaseOnPage(page)
   const custody = feesFor(key.broker, key.plan, purchase, trackOnPage(inputs, key)).fees.find(
