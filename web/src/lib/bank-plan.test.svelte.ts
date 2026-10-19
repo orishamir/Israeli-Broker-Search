@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { AppState } from './app.svelte'
 import { BRANCH_PLAN, branchPlans, yoursBranch } from './bank-plan'
 import * as core from './core/core'
+import { t } from './text'
 
 beforeEach(() => {
   localStorage.clear()
@@ -27,8 +28,22 @@ const recommended = (app: AppState) => core.recommend(app.guideRequest.answers, 
 
 test('the chosen bank’s own branch plan is the one the core marks, and it is found in the list', () => {
   const app = existingPortfolio()
-  expect(app.banks.map(({ bank }) => bank)).toEqual(['Leumi', 'MizrahiTefahot', 'OtsarHahayal'])
-  const names = { Leumi: 'Leumi', MizrahiTefahot: 'Mizrahi', OtsarHahayal: 'Otsar Hahayal' } as const
+  expect(app.banks.map(({ bank }) => bank)).toEqual([
+    'Hapoalim',
+    'Leumi',
+    'Discount',
+    'MizrahiTefahot',
+    'Beinleumi',
+    'OtsarHahayal',
+  ])
+  const names = {
+    Hapoalim: 'Hapoalim',
+    Leumi: 'Leumi',
+    Discount: 'Discount',
+    MizrahiTefahot: 'Mizrahi',
+    Beinleumi: 'Beinleumi',
+    OtsarHahayal: 'Otsar Hahayal',
+  } as const
   for (const bank of app.banks.map((each) => each.bank)) {
     app.setBank(bank)
     flushSync()
@@ -41,9 +56,16 @@ test('for another bank, the plan the core stands in with is found too', () => {
   const app = existingPortfolio()
   app.setBank(undefined)
   flushSync()
-  const found = yoursBranch(app.plans, recommended(app))
+  const rec = recommended(app)
+  const found = yoursBranch(app.plans, rec)
   expect(found).toBeDefined()
   expect(branchPlans(app.plans).map((plan) => plan.id)).toContain(found!.id)
+  // The guide doesn't show the bank whose price list stands in.
+  const own = rec.plans.find((plan) => plan.yours)!
+  const bank = found!.label.split('\u00a0· ')[0]
+  expect(own.name).toContain(t.otherBank)
+  expect(own.name).not.toContain(bank)
+  expect(own.ownPlan).toBe(found!.label)
 })
 
 test('ticking leaves exactly the saver’s branch plan ticked among the branch plans', () => {

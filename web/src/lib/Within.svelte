@@ -338,6 +338,10 @@
   }
   .rank {
     width: 1px;
+    /* Room for two digits (with the padding, the box is border-box), so the
+       columns don't move when a place has fewer than ten plans (ranks 1 to
+       9) and another has more. */
+    min-width: 1.5rem;
     padding-inline-end: 0;
     color: var(--weak);
     font-size: 0.75rem;

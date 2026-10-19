@@ -20,7 +20,10 @@ const plain = (text: string) => text.replaceAll(' ', ' ')
 /** The branch plan the recommendation marks as the saver's own, found by the
  * name the core gave it (the broker's short name, then the plan's). */
 export function yoursBranch(plans: Plan[], recommendation: RecommendationData | undefined): Plan | undefined {
-  const name = recommendation?.plans.find((plan) => plan.yours)?.name
+  // For "another bank" the core shows the plan as "Another bank", and says
+  // here which plan it really is.
+  const own = recommendation?.plans.find((plan) => plan.yours)
+  const name = own?.ownPlan ?? own?.name
   if (name === undefined) return undefined
   return branchPlans(plans).find((plan) => plain(plan.label) === plain(name))
 }

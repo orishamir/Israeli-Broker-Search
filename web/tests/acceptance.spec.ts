@@ -8,6 +8,7 @@ import {
   situationAnswers,
   ways,
 } from './core'
+import { brokerName } from './core'
 import type { AnswersInput, Kind } from './core'
 import {
   answerCard,
@@ -209,7 +210,10 @@ test('T4: a portfolio at a bank: its branch plan is ticked and ranked, and a pla
   await chip(page, situationName('existing')).click()
   const dialog = page.getByRole('dialog', { name: t.whichBank })
   await expect(dialog).toBeVisible()
-  await dialog.getByRole('group', { name: t.whichBank }).getByRole('button').first().click()
+  await dialog
+    .getByRole('group', { name: t.whichBank })
+    .getByRole('button', { name: brokerName('Bank Leumi') })
+    .click()
   const answers: AnswersInput = {
     ...situationAnswers('existing'),
     situation: { ExistingPortfolio: { bank: 'Leumi' } },
