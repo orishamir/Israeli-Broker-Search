@@ -25,6 +25,10 @@ use crate::{
 };
 
 pub mod answer;
+pub mod card;
+pub mod gain;
+pub mod how;
+pub mod outcome;
 pub mod reasons;
 mod steps;
 

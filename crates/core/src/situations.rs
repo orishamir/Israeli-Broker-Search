@@ -7,7 +7,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use crate::Text;
-use crate::guide::{Answers, Cushion, Flexibility, Horizon, Situation};
+use crate::guide::{Answers, Cushion, Horizon, Situation};
 
 /// One chip.
 #[derive(Debug, Clone)]
@@ -37,6 +37,7 @@ fn answers(now: Decimal, monthly: Decimal, horizon: Horizon) -> Answers {
         flexibility: None,
         cushion: None,
         needs_any_day: false,
+        bank: None,
     }
 }
 
@@ -62,14 +63,14 @@ pub fn situations() -> Vec<Preset> {
             "salary",
             Text::new("Saving from your salary", "חיסכון מהמשכורת"),
             Text::new(
-                "₪1,500 a month from your salary for 30 years. Over so long, what is charged every year on everything held matters far more than the fee on each purchase.",
-                "₪1,500 בחודש מהמשכורת במשך 30 שנה. לאורך זמן כזה, מה שנגבה כל שנה מכל התיק חשוב הרבה יותר מהעמלה על כל קנייה.",
+                "₪500 a month from your salary for 30 years. Over so long, what is charged every year on everything held matters far more than the fee on each purchase.",
+                "₪500 בחודש מהמשכורת במשך 30 שנה. לאורך זמן כזה, מה שנגבה כל שנה מכל התיק חשוב הרבה יותר מהעמלה על כל קנייה.",
             ),
             Text::new(
                 "A yearly fee compounds against you.",
                 "עמלה שנתית פוגעת בצמיחה, שנה אחרי שנה.",
             ),
-            answers(dec!(0), dec!(1500), years(30)),
+            answers(dec!(0), dec!(500), years(30)),
         ),
         preset(
             "child",
@@ -95,10 +96,7 @@ pub fn situations() -> Vec<Preset> {
                 "A fixed date asks for a sum known in advance.",
                 "תאריך קבוע מבקש סכום שידוע מראש.",
             ),
-            Answers {
-                flexibility: Some(Flexibility::Fixed),
-                ..answers(dec!(100_000), dec!(2000), years(3))
-            },
+            answers(dec!(100_000), dec!(2000), years(3)),
         ),
         preset(
             "cushion",
@@ -120,14 +118,14 @@ pub fn situations() -> Vec<Preset> {
             "bonus",
             Text::new("A bonus", "בונוס"),
             Text::new(
-                "₪15,000 once, with no plan for it yet. Not knowing when you will need it is an answer too: the page shows what the same sum does after a year, three, five, ten and twenty.",
-                "₪15,000 חד\u{2011}פעמיים, בלי תוכנית עדיין. גם לא לדעת מתי יהיה בהם צורך זו תשובה: הדף מראה מה אותו סכום עושה אחרי שנה, שלוש, חמש, עשר ועשרים.",
+                "₪15,000 once, for 5 years. Five years is where a date that can move a year or two decides between a sum known almost in advance and growth that can also fall.",
+                "₪15,000 חד\u{2011}פעמיים, ל\u{2011}5 שנים. בחמש שנים, תאריך שיכול לזוז בשנה\u{2011}שנתיים מכריע בין סכום שידוע כמעט מראש לבין צמיחה שיכולה גם לרדת.",
             ),
             Text::new(
-                "The date you need it changes the answer.",
-                "התאריך שבו תצטרכו את הכסף משנה את התשובה.",
+                "Whether the date can move decides it.",
+                "מה שמכריע הוא אם התאריך יכול לזוז.",
             ),
-            answers(dec!(15_000), dec!(0), Horizon::Unknown),
+            answers(dec!(15_000), dec!(0), years(5)),
         ),
         preset(
             "inheritance",

@@ -3,6 +3,13 @@ as `crates/core/src/history/sp500.rs`, from Robert Shiller's monthly data.
 
     uv run --with xlrd policies/sp500-history.py [--from 1926-01] [ie_data.xls] \
         > crates/core/src/history/sp500.rs && cargo fmt
+    uv run --with xlrd policies/sp500-history.py --months [ie_data.xls] \
+        > crates/core/src/history/sp500_months.rs && cargo fmt
+
+With `--months` it prints the total return index itself, month by month,
+instead of the table: the guide runs the saver's own deposits through every
+stretch of it (money that comes in every month meets each stretch at many
+prices, which a yearly rate of one sum doesn't say).
 
 Without a file it downloads http://www.econ.yale.edu/~shiller/data/ie_data.xls
 (the page that lists the data, http://www.econ.yale.edu/~shiller/data.htm,
@@ -83,6 +90,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("file", nargs="?")
     parser.add_argument("--from", dest="start", default="1926-01")
+    parser.add_argument("--months", action="store_true")
     args = parser.parse_args()
     y, m = args.start.split("-")
     # The index starts at the month before `--from`'s price, so the first
@@ -90,6 +98,9 @@ def main() -> None:
     series = months(args.file, (int(y), int(m)))
     values = [v for _, _, v in series]
     first, last = series[0], series[-1]
+    if args.months:
+        print_months(series)
+        return
 
     rows = []
     for years in HORIZONS:
@@ -123,6 +134,23 @@ def main() -> None:
             f"lower: {lower}, windows: {len(r)} }},\n"
         )
     w("    ]\n}\n")
+    sys.stdout.write(out.getvalue())
+
+
+def print_months(series: list[tuple[int, int, float]]) -> None:
+    """The index month by month, from 1 at the month before the first."""
+    out = io.StringIO()
+    w = out.write
+    first, last = series[0], series[-1]
+    w("// Made by `policies/sp500-history.py --months`; do not edit by hand.\n")
+    w(f"// Months {first[0]}-{first[1]:02} to {last[0]}-{last[1]:02} of Shiller's data.\n\n")
+    w("/// The total return index at the end of each month, in nominal dollars,\n")
+    w("/// from 1 at the start of the first: the same months as `sp500.rs`.\n")
+    w("#[allow(clippy::unreadable_literal, reason = \"a table\")]\n")
+    w(f"pub(super) const INDEX: [f64; {len(series)}] = [\n")
+    for _, _, v in series:
+        w(f"    {v:.10e},\n")
+    w("];\n")
     sys.stdout.write(out.getvalue())
 
 

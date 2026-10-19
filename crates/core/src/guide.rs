@@ -25,11 +25,20 @@ use crate::history::Band;
 use crate::ways::Way;
 use crate::{Broker, ExchangeRates, Lang, Named, Percent, Text};
 
+mod answer;
 mod index;
+mod outcome;
+mod robust;
 mod route;
 mod safe;
 mod series;
 
+pub use answer::{
+    Account, Answer, Choices, Confidence, ConfidenceState, CushionPick, Decision, DecisionId, Gain,
+    GainRow, Holdings, HorizonRow, How, Line, LineKind, LineState, Mark, Opt, Outcome, Pick, Pill,
+    Provider, Row, RowId, SafeBecause, SafeWay, Search, WhereToBuy, Wrapper, answer, answer_with,
+};
+pub use robust::{RATE_STEP, kind_margin, provider_margin};
 pub use route::{alternatives, ladder, recommend};
 pub use series::{Alternatives, BandSeries, Column, ColumnId, KindSeries, columns_for};
 
@@ -57,6 +66,12 @@ pub const LADDER_YEARS: [u32; 5] = [1, 3, 5, 10, 20];
 /// The years the index kind that can be opened any time is worked out for
 /// when the saver has no date.
 pub const REFERENCE_YEARS: u32 = 10;
+/// The month's expenses a cushion is sized by until the saver types theirs:
+/// a stand-in the page says is one, never taken as the saver's own.
+pub const STAND_IN_MONTHLY_EXPENSES: Decimal = dec!(8000);
+/// With no date and one sum, the growth the question "can it wait 5 years?"
+/// is about is worked out for this many years, and so is the safe sum.
+pub const NO_DATE_SUM_YEARS: u32 = 5;
 /// The age the saver is taken to have when they didn't say: it only decides
 /// when a provident fund's pension would open and the surtax's years.
 pub const USUAL_AGE: u32 = 30;
@@ -92,7 +107,7 @@ pub enum Situation {
 }
 
 /// The banks whose branch price list is modelled.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize, strum::EnumIter)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Bank {
     Hapoalim,
@@ -168,6 +183,10 @@ pub struct Answers {
     /// The money may be needed on any day (a cushion): only a place that
     /// pays it out the next day fits.
     pub needs_any_day: bool,
+    /// The saver's own bank, when they said: what the places are compared
+    /// from. Asked where it changes what is shown, never assumed.
+    #[serde(default)]
+    pub bank: Option<Bank>,
 }
 
 /// Why the answers can't be worked on.
@@ -244,6 +263,9 @@ pub struct Settings {
     /// so).
     pub ticked: Option<Vec<PlanRef>>,
     pub overrides: Overrides,
+    /// Today's date, for "in October 2029": the core keeps no clock. `None`
+    /// says "in 3 years" instead.
+    pub today: Option<time::Date>,
 }
 
 impl Settings {
@@ -257,6 +279,7 @@ impl Settings {
             rates,
             ticked: None,
             overrides: Overrides::default(),
+            today: None,
         }
     }
 }

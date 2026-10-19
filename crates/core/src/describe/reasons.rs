@@ -28,7 +28,7 @@ pub(super) fn shekels(amount: Decimal) -> String {
 }
 
 /// A whole number with thousands separators: "1,086".
-fn grouped(number: u32) -> String {
+pub(super) fn grouped(number: u32) -> String {
     let digits = number.to_string();
     let mut out = String::new();
     for (at, digit) in digits.chars().enumerate() {
@@ -89,7 +89,7 @@ fn years_phrase(years: Decimal, lang: Lang) -> String {
     }
 }
 
-fn month_year(date: Date, lang: Lang) -> String {
+pub(super) fn month_year(date: Date, lang: Lang) -> String {
     let months = [
         ("January", "ינואר"),
         ("February", "פברואר"),

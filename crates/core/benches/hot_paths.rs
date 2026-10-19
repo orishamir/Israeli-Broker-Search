@@ -123,6 +123,7 @@ fn guide_answers(
             monthly_expenses: dec!(17000),
         }),
         needs_any_day: false,
+        bank: None,
     }
 }
 

@@ -33,7 +33,7 @@ use super::{
 
 /// Which row of the table the answers fall in.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Route {
+pub(super) enum Route {
     /// Needs any day, or a year or less.
     Short,
     /// 13 to 36 months, a known date.
@@ -58,7 +58,7 @@ enum Route {
 }
 
 impl Route {
-    fn arena(self) -> Arena {
+    pub(super) fn arena(self) -> Arena {
         match self {
             Route::Short
             | Route::KnownDate
@@ -76,7 +76,7 @@ impl Route {
 
 /// The target of the cushion and the months of saving that fill it, when a
 /// cushion is still to be filled.
-fn cushion_to_fill(answers: &Answers) -> Option<(Decimal, u32)> {
+pub(super) fn cushion_to_fill(answers: &Answers) -> Option<(Decimal, u32)> {
     let Some(Cushion::HasNot { monthly_expenses }) = answers.cushion else {
         return None;
     };
@@ -89,7 +89,7 @@ fn cushion_to_fill(answers: &Answers) -> Option<(Decimal, u32)> {
     (months > 0).then_some((target, months))
 }
 
-fn natural_route(answers: &Answers) -> Route {
+pub(super) fn natural_route(answers: &Answers) -> Route {
     if answers.needs_any_day {
         return Route::Short;
     }
@@ -130,7 +130,7 @@ fn forced_arena(answers: &Answers, chosen: Overrides) -> Option<Arena> {
         })
 }
 
-fn route_for(answers: &Answers, chosen: Overrides) -> Route {
+pub(super) fn route_for(answers: &Answers, chosen: Overrides) -> Route {
     let natural = natural_route(answers);
     match forced_arena(answers, chosen) {
         Some(arena) if arena != natural.arena() => Route::Forced(arena),
@@ -149,7 +149,7 @@ fn safe_months(answers: &Answers, route: Route) -> u32 {
 }
 
 /// How long the money is kept in an index kind, in whole years.
-fn index_years(answers: &Answers) -> u32 {
+pub(super) fn index_years(answers: &Answers) -> u32 {
     match answers.horizon {
         Horizon::Months(months) => index::years_for(months),
         Horizon::Retirement { age, retire_at } => retire_at.saturating_sub(age).max(1),
@@ -158,22 +158,22 @@ fn index_years(answers: &Answers) -> u32 {
 }
 
 /// Everything the ranking decides, before the parts that cost more.
-struct Decision<'a> {
-    route: Route,
-    arena: Arena,
-    kind: Kind,
-    choice: Choice,
-    ranked: Vec<Ranked>,
-    plans: Vec<Ranked>,
-    left: Amount,
-    put_in: Amount,
-    current_account: Amount,
-    breakdown: Breakdown,
-    months: u32,
-    level: Decimal,
-    cost_a_year: Option<Percent>,
+pub(super) struct Decision<'a> {
+    pub route: Route,
+    pub arena: Arena,
+    pub kind: Kind,
+    pub choice: Choice,
+    pub ranked: Vec<Ranked>,
+    pub plans: Vec<Ranked>,
+    pub left: Amount,
+    pub put_in: Amount,
+    pub current_account: Amount,
+    pub breakdown: Breakdown,
+    pub months: u32,
+    pub level: Decimal,
+    pub cost_a_year: Option<Percent>,
     /// The index ways that were run, and which of them was chosen.
-    run: Option<(Run<'a>, usize)>,
+    pub run: Option<(Run<'a>, usize)>,
 }
 
 /// The deposits, in today's shekels and as they are, and the same left in a
@@ -220,7 +220,7 @@ fn safe_scenario(answers: &Answers, settings: &Settings, months: u32) -> short_t
 }
 
 /// The safe kinds that fit the route, in the order a tie is settled in.
-fn safe_pool(route: Route, answers: &Answers) -> Vec<Kind> {
+pub(super) fn safe_pool(route: Route, answers: &Answers) -> Vec<Kind> {
     let bonds = [
         Kind::GovernmentBond { linked: false },
         Kind::GovernmentBond { linked: true },
@@ -454,7 +454,7 @@ fn decide<'a>(answers: &Answers, settings: &Settings, data: &'a Data) -> Decisio
 }
 
 /// `decide`, with `chosen` in place of what the settings say the saver chose.
-fn decide_choosing<'a>(
+pub(super) fn decide_choosing<'a>(
     answers: &Answers,
     settings: &Settings,
     chosen: Overrides,

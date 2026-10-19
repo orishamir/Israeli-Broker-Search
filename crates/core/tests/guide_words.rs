@@ -30,6 +30,7 @@ fn answers(now: Decimal, monthly: Decimal, horizon: Horizon) -> Answers {
         flexibility: None,
         cushion: None,
         needs_any_day: false,
+        bank: None,
     }
 }
 

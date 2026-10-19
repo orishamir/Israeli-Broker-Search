@@ -35,6 +35,7 @@ fn answers(now: Decimal, monthly: Decimal, horizon: Horizon) -> Answers {
         flexibility: None,
         cushion: None,
         needs_any_day: false,
+        bank: None,
     }
 }
 
@@ -1180,7 +1181,12 @@ fn every_situation_can_be_run_and_teaches_something_of_its_own() {
     let find = |id: &str| all.iter().find(|p| p.id == id).unwrap();
     assert!(find("existing").opens_dialog);
     assert!(find("workbench").workbench);
-    assert_eq!(find("goal").answers.flexibility, Some(Flexibility::Fixed));
+    // A chip states the money's facts, never the visitor's own answers
+    // (REDESIGN.md principle 5): no date's flexibility, no bank.
+    assert!(
+        all.iter()
+            .all(|p| p.answers.flexibility.is_none() && p.answers.bank.is_none())
+    );
     assert!(find("cushion").answers.needs_any_day);
 }
 

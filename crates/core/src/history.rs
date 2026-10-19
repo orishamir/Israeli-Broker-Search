@@ -10,6 +10,7 @@
 //! data (`sp500.rs` is its output); `policies/sources.md` has the method.
 
 mod sp500;
+mod sp500_months;
 
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
@@ -103,6 +104,100 @@ pub fn band(years: Decimal) -> Option<Band> {
         from: sp500::FROM,
         to: sp500::TO,
     })
+}
+
+/// What every stretch of the history did to one saver's own deposits: a sum
+/// at the start and the same amount at the start of every month, each
+/// meeting the index at its own price. The yearly rates are money-weighted:
+/// the one flat rate that would end with the same money for these deposits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct DepositsBand {
+    pub months: u32,
+    pub worst: Percent,
+    pub median: Percent,
+    pub best: Percent,
+    /// How many stretches ended with less than was put in, and how many
+    /// there were.
+    pub lower: u32,
+    pub windows: u32,
+    pub from: Date,
+    pub to: Date,
+}
+
+/// [`DepositsBand`] for `now` and `monthly` over `months`, or `None` outside
+/// 1 to 30 years (as [`band`]) or for no money at all.
+///
+/// Each stretch's end is worked out in one step from running sums of the
+/// index's inverse, so every stretch costs the same however long it is; only
+/// the three stretches reported are turned into a rate.
+#[must_use]
+pub fn deposits_band(now: Decimal, monthly: Decimal, months: u32) -> Option<DepositsBand> {
+    if !(SHORTEST_YEARS * 12..=LONGEST_YEARS * 12).contains(&months) {
+        return None;
+    }
+    let now = now.to_f64()?;
+    let monthly = monthly.to_f64()?;
+    let put_in = now + monthly * f64::from(months);
+    if put_in <= 0.0 {
+        return None;
+    }
+    let index = &sp500_months::INDEX;
+    let n = months as usize;
+    // inverse[j] is the sum of 1/index[i] for i < j.
+    let mut inverse = Vec::with_capacity(index.len() + 1);
+    inverse.push(0.0_f64);
+    for value in index {
+        inverse.push(inverse.last().copied().unwrap_or(0.0) + 1.0 / value);
+    }
+    // What the deposits end with, as a multiple of what was put in.
+    let mut ends: Vec<f64> = (0..index.len() - n)
+        .map(|start| {
+            let end = index[start + n];
+            let monthly_part = monthly * end * (inverse[start + n] - inverse[start]);
+            (now * end / index[start] + monthly_part) / put_in
+        })
+        .collect();
+    let lower = u32::try_from(ends.iter().filter(|&&end| end < 1.0).count()).ok()?;
+    let windows = u32::try_from(ends.len()).ok()?;
+    ends.sort_by(f64::total_cmp);
+    let rate = |multiple: f64| flat_rate(now, monthly, months, multiple * put_in);
+    Some(DepositsBand {
+        months,
+        worst: rate(*ends.first()?)?,
+        median: rate(ends[ends.len() / 2])?,
+        best: rate(*ends.last()?)?,
+        lower,
+        windows,
+        from: sp500::FROM,
+        to: sp500::TO,
+    })
+}
+
+/// The flat yearly rate at which `now` and `monthly` (each put in at the
+/// start of its month) end at `end` after `months`. Found by halving: the end
+/// grows with the rate.
+fn flat_rate(now: f64, monthly: f64, months: u32, end: f64) -> Option<Percent> {
+    let ended = |yearly: f64| {
+        let growth = (1.0 + yearly).powf(1.0 / 12.0);
+        let mut total = now * growth.powf(f64::from(months));
+        let mut factor = 1.0;
+        for _ in 0..months {
+            factor *= growth;
+            total += monthly * factor;
+        }
+        total
+    };
+    let (mut low, mut high) = (-0.99_f64, 3.0_f64);
+    for _ in 0..60 {
+        let middle = f64::midpoint(low, high);
+        if ended(middle) < end {
+            low = middle;
+        } else {
+            high = middle;
+        }
+    }
+    let percent = Decimal::try_from(f64::midpoint(low, high) * 100.0).ok()?;
+    Some(Percent(percent.round_dp(2)))
 }
 
 fn share(row: &Row) -> Decimal {

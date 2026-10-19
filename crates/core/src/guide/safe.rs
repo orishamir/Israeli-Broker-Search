@@ -64,6 +64,7 @@ pub(super) fn kind_of(pays: Pays) -> Kind {
 }
 
 /// A safe kind, at its best place, for the money.
+#[derive(Debug, Clone)]
 pub(super) struct Priced {
     pub kind: Kind,
     pub choice: Choice,
