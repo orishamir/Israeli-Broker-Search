@@ -6,7 +6,9 @@ use rust_decimal::Decimal;
 use crate::describe::may_cost_more_text;
 use crate::simulation::{self, PlanOutcome, Scenario};
 use crate::ways::{Candidate, Way, WayOutcome, compare_chosen_ways};
-use crate::{Broker, Buying, Exchange, ExchangeRates, Money, Security, Text, Vehicle, Withdrawal};
+use crate::{
+    Broker, BrokerKind, Buying, Exchange, ExchangeRates, Money, Security, Text, Vehicle, Withdrawal,
+};
 
 use super::safe::{amount, joined};
 use super::{
@@ -100,9 +102,12 @@ fn branch_plan(
     }
 }
 
-/// The plans compared: the ones ticked (or, by default, what a new customer
-/// usually gets at each broker, and a fund's average), and the branch plan
-/// when the saver already has a portfolio at a bank.
+/// The plans compared: the brokers' ones ticked (or, by default, what a new
+/// customer usually gets at each), every kind of fund at its average fee
+/// whatever is ticked (the guide always draws the study fund and the savings
+/// policy beside the brokerage account, and a switch in the workbench must
+/// not change its answer), and the branch plan when the saver already has a
+/// portfolio at a bank.
 pub(super) fn candidates<'a>(
     answers: &Answers,
     settings: &Settings,
@@ -119,6 +124,15 @@ pub(super) fn candidates<'a>(
             })
             .collect()
     });
+    for (broker, listed) in data.brokers.iter().enumerate() {
+        let at = PlanRef {
+            broker,
+            plan: listed.new_customer_plan,
+        };
+        if listed.kind == BrokerKind::Funds && !chosen.contains(&at) {
+            chosen.push(at);
+        }
+    }
     let mut yours = None;
     if let Some(Situation::ExistingPortfolio { bank }) = answers.situation {
         yours = branch_plan(bank, data, base, &settings.rates);

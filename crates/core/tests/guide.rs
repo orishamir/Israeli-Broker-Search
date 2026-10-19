@@ -1744,3 +1744,49 @@ fn the_columns_follow_the_arena() {
             .all(|plan| plan.tax.is_some() && plan.fees.is_some())
     );
 }
+
+/// Row d: the workbench's ticks drive its own comparison only. With a single
+/// broker ticked the guide still draws the brokerage account, the study fund
+/// (with who can open one) and the savings policy, and answers the same.
+#[test]
+fn the_alternatives_do_not_depend_on_the_ticked_plans() {
+    let sum = answers(
+        dec!(0),
+        dec!(1500),
+        Horizon::Retirement {
+            age: 40,
+            retire_at: 60,
+        },
+    );
+    let usual = recommended(&sum);
+    let mut one = settings();
+    let leumi = DATA
+        .brokers
+        .iter()
+        .position(|broker| broker.short_name.en == "Leumi")
+        .unwrap();
+    one.ticked = Some(vec![broker_fees::guide::PlanRef {
+        broker: leumi,
+        plan: DATA.brokers[leumi].new_customer_plan,
+    }]);
+    let rec = recommend(&sum, &one, &DATA).unwrap();
+    assert_eq!(rec.kind, usual.kind);
+    assert_eq!(rec.choice, usual.choice);
+    for wanted in [
+        Vehicle::Brokerage,
+        Vehicle::StudyFund,
+        Vehicle::SavingsPolicy,
+    ] {
+        assert!(
+            rec.alternatives
+                .iter()
+                .any(|a| matches!(a.kind, Kind::Way(w) if w.vehicle == wanted)),
+            "{wanted:?} is drawn"
+        );
+    }
+    assert!(
+        rec.alternatives
+            .iter()
+            .any(|a| a.why_not.from == Circumstance::StudyFundNeedsEligibility)
+    );
+}
