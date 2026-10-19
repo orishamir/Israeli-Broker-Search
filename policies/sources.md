@@ -1043,3 +1043,81 @@ conversion pages, the IRS) aren't repeated; new ones are named here.
   page; the guide does not claim it.
 - The sale's tax is shown only as an upper bound, 25% of the whole value
   (`SALE_TAX_AT_MOST`): the cost basis is not asked.
+
+## The monthly pension (2026-10-20)
+
+`annuity.rs` gives the monthly pension a sum in a provident fund for
+investment would pay, as a range: the sum over the highest published
+conversion coefficient (מקדם המרה) for the age, up to the sum over the
+lowest, across the payers below and both sexes. It replaces nothing yet:
+`funds::CONVERSION_FACTOR` (200) is still what the page shows.
+
+- **Who pays it.** The fund pays no pension itself; from 60 the money moves
+  to a payer, and the transfer regulations (תקנות העברת כספים) allow that
+  for a pension only. Meitav's regulations name it: "קבלת קצבת זקנה
+  מכספים שהועברו לחשבונו של העמית בקרן מקופות גמל להשקעה בלבד, לשם קבלת
+  קצבת זקנה בהתאם להוראות תקנות העברת כספים" (Meitav Pensia Klalit, p. 19,
+  and Meitav Pensia Makifa alike); Clal Pensia Mashlima's April 2024
+  edition doesn't mention a provident fund for investment, and is kept as
+  a payer under the transfer regulations themselves (a reading). Pensuni
+  ([pensuni.com/?p=7060](https://pensuni.com/?p=7060), 2020) lists the
+  destinations as a comprehensive pension fund, a supplementary one, or a
+  managers' insurance policy without a guaranteed coefficient, and says a
+  transfer to a comprehensive fund is capped by its deposit ceiling (a
+  reading: the formula was not found in a primary source). So the
+  comprehensive funds, whose coefficients are lower (more pension: Meitav
+  Pensia Makifa, 06/2025, gives a man of 67 born in 1990 187.97, against
+  196.13 in Meitav's general fund), are left out of the range: they can't
+  take a large sum.
+- **The standard choice.** Each table is the one for a pension with 240
+  guaranteed months (20 years) and nothing for a spouse. A spouse's pension
+  raises the coefficient (lowers the pension): Meitav's general fund
+  gives a married man of 67 born in 1990, 20 years guaranteed, 209.80
+  (appendix 12-10, p. 103), against 195.47 unmarried, about 7% less
+  pension. The site doesn't ask; whether to is open.
+- **Clal Pensia Mashlima** (the supplementary fund),
+  [regulations, April 2024 edition](https://www.clalbit.co.il/media/29581/%D7%AA%D7%A7%D7%A0%D7%95%D7%9F-%D7%9B%D7%9C%D7%9C-%D7%A4%D7%A0%D7%A1%D7%99%D7%94-%D7%9E%D7%A9%D7%9C%D7%99%D7%9E%D7%94-%D7%90%D7%A4%D7%A8%D7%99%D7%9C-2024-101432.pdf)
+  (the newest on its site found; the comprehensive fund's is June 2025):
+  appendix 7-1, "הבטחה של 240 חודשים, ללא שאירים", men p. 110 and women
+  p. 111, ages 60 to 67, a column per birth year 1960 to 2005 (blank, 0.00,
+  where that cohort was past the age). From 68, 240 months would run past
+  87, which the regulations don't allow (section 50(a)), so 68 to 70 come
+  from appendix 7-6, "ללא בן/בת זוג ותקופת הבטחה עד גיל 87", p. 118. Its
+  assumptions (section on the coefficients, p. 55): 4.00% gross a year less
+  the highest allowed fee, and the Authority's mortality tables of circular
+  2022-9-18. A man of 67 born in 1990: 194.99; a woman: 203.05.
+- **Meitav Pensia Klalit** (the general fund),
+  [regulations, edition 24, 1 June 2025](https://www.prisha.co.il/UserFiles/File/pdf/takanon/meitav2.pdf)
+  (the copy on prisha.co.il): appendix 12-9, "מקדמי המרה לקצבת זקנה ללא
+  נשוי והבטחה ל-20 שנים", men p. 101 and women p. 102, ages 60 to 67, birth
+  years 1940 to 2010 where filled, with a 0.3% management fee. It prints no
+  ages past 67 ("טבלאות מלאות נמצאות במשרדי הקרן", in the comprehensive
+  fund's copy), so from 68 the range is Clal's and Harel's. A man of 67
+  born in 1990: 195.47; a woman: 202.74.
+- **Harel, the More policy** (managers' insurance),
+  [coefficients for 2024, not guaranteed](https://www.harel-group.co.il/long-term-savings/independent-and-employees/policies/DocLib/%D7%94%D7%A8%D7%90%D7%9C%20More%20%D7%9C%D7%A9%D7%9B%D7%99%D7%A8%D7%99%D7%9D/%D7%9E%D7%A7%D7%93%D7%9E%D7%99%20%D7%94%D7%9E%D7%A8%D7%94%20%D7%9C%D7%A7%D7%A6%D7%91%D7%94%20%D7%9E%D7%95%D7%A8%202024.pdf):
+  appendix A, 240 payments guaranteed, ages 60 to 80, a coefficient for
+  2024 and a yearly growth: in the year Y, `M × (1 + Z × (Y − 2024))`. A man
+  of 67: 201.81, growing 0.149% a year; a woman: 207.22 and 0.195%. A
+  reading: its heading says it is for those who joined from 1 January 2025
+  "וטרם הגיעו לגיל 60", so a policy opened at 60 or later to receive the
+  money may have other coefficients. It is kept because it is the only
+  current insurer's table found, and it sits at the range's low end (least
+  pension), so it can only widen the range on the cautious side.
+- **How the tables were read.** `pdftotext -layout`, direction marks
+  removed; the rows were pulled by a script (not kept: the PDFs aren't in
+  `policies`) and checked by eye against the printed pages for the cases in
+  `tests/annuity.rs`. A birth year between columns runs straight between
+  them; past the last column it takes the last (the columns move about half
+  a percent in five years). An insurer's year before 2024 takes the table
+  as printed.
+- **Not used.** Clal's and Phoenix's coefficient files for porting old
+  policies ([clalbit.co.il/allowancecoefficients](https://www.clalbit.co.il/allowancecoefficients/),
+  fnx.co.il's `annuity-factor.xls`): they are the guaranteed coefficients
+  of policies sold in 2001 to 2022, which a transfer can't go into. Harel's
+  plan 517 for those 60 and over: its PDF's digits don't extract.
+  Bizportal's calculator (an estimate of 170 to 220) and the Capital Market
+  Authority: no published table of maximum or standard coefficients for
+  these payers was found; the pension funds' coefficients follow its
+  circulars' assumptions, which is why Clal's and Meitav's agree within
+  about 0.5%.
