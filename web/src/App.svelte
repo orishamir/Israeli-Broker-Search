@@ -159,6 +159,8 @@
     justify-content: space-between;
     gap: 8px 16px;
     padding: 20px 24px 0;
+    max-width: var(--page-max);
+    margin-inline: auto;
   }
   .top h1 {
     margin: 0;
@@ -189,6 +191,8 @@
     gap: 16px;
     padding: 16px 24px 24px;
     align-items: start;
+    max-width: var(--page-max);
+    margin-inline: auto;
   }
   /* Phone: the columns dissolve into one, in the order each item says. */
   .column {
@@ -294,6 +298,8 @@
     flex-wrap: wrap;
     gap: 4px 16px;
     padding: 8px 24px 32px;
+    max-width: var(--page-max);
+    margin-inline: auto;
     color: var(--weak);
     font-size: 0.8rem;
   }

@@ -526,6 +526,17 @@ test.describe('plans on one exchange', () => {
   })
 })
 
+// On a 2560 px screen the rows of the alternatives ran 1000 px wide, an
+// amount far from the name it belongs to.
+test('on a very wide screen the page and its rows stop growing', async ({ page }) => {
+  await page.setViewportSize({ width: 2560, height: 1300 })
+  const row = page.locator('.alternatives li.row').first()
+  await expect(row).toBeVisible()
+  const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
+  expect((await row.boundingBox())!.width).toBeLessThanOrEqual(40 * rem + 1)
+  expect((await page.locator('.layout').boundingBox())!.width).toBeLessThanOrEqual(1600)
+})
+
 test('with the about page open', { tag: '@phone' }, async ({ page }) => {
   await page.getByRole('button', { name: t.aboutLink }).click()
   await expect(dialog(page)).toBeVisible()
