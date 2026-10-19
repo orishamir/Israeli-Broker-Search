@@ -45,3 +45,29 @@ test('the numbers are explained, from the title and from a plan', { tag: '@phone
     .click()
   await expect(dialog).toContainText(sections[1].title)
 })
+
+test(
+  'the About sheet opens with a table of contents that leads to every section',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await page.getByRole('button', { name: t.aboutLink }).click()
+    const dialog = page.getByRole('dialog', { name: t.aboutTheNumbers })
+    const { sections, accessibility } = about()
+    const all = [...sections, accessibility]
+    const contents = dialog.getByRole('navigation', { name: t.aboutContents })
+    const links = contents.getByRole('link')
+    await expect(links).toHaveCount(all.length)
+    // Every entry points at a section that is on the page.
+    const targets = await links.evaluateAll((anchors) => anchors.map((a) => a.getAttribute('href')!.slice(1)))
+    for (const target of targets) await expect(dialog.locator(`section[id="${target}"]`)).toHaveCount(1)
+    // The last entry scrolls its heading into view and takes the focus.
+    await links.last().click()
+    const heading = dialog.getByRole('heading', { name: accessibility.title })
+    await expect(heading).toBeInViewport()
+    await expect(heading).toBeFocused()
+    // And the way back.
+    await dialog.getByRole('link', { name: t.backToTop }).last().click()
+    await expect(dialog.getByRole('heading', { name: t.aboutTheNumbers })).toBeInViewport()
+    await closeDialog(page)
+  },
+)

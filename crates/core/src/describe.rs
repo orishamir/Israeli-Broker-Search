@@ -2443,6 +2443,8 @@ pub struct About {
 #[serde(rename_all = "camelCase")]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub struct Section {
+    /// Stable and language-free, for the table of contents' links to point at.
+    pub id: String,
     pub title: String,
     pub paragraphs: Vec<String>,
     /// A list after the paragraphs, if the section has one.
@@ -2489,6 +2491,7 @@ pub const ISSUES: &str = "https://github.com/orishamir/Israeli-Broker-Search/iss
 fn accessibility(lang: Lang) -> Section {
     let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
     Section {
+        id: "accessibility".to_owned(),
         title: paragraph("Accessibility", "נגישות"),
         paragraphs: vec![paragraph(
             "The calculator is built to be used with a keyboard, a screen reader and a \
@@ -2544,6 +2547,7 @@ pub fn about(lang: Lang) -> About {
     let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
     let surtax_threshold = format_money(ils(SURTAX_THRESHOLD));
     let method = Section {
+        id: "method".to_owned(),
         title: paragraph("How the numbers are made", "איך המספרים מחושבים"),
         paragraphs: vec![
             paragraph(
@@ -2649,6 +2653,7 @@ pub fn about(lang: Lang) -> About {
         sources: vec![],
     };
     let left_out = Section {
+        id: "left-out".to_owned(),
         title: paragraph("What isn't counted", "מה לא נכלל"),
         paragraphs: vec![paragraph(
             "Costs every broker has that the app leaves out, and why. Each plan's own gaps \
@@ -2778,6 +2783,7 @@ pub fn about(lang: Lang) -> About {
         ),
     });
     let sources = Section {
+        id: "sources".to_owned(),
         title: paragraph("Sources", "מקורות"),
         paragraphs: vec![match lang {
             Lang::En => format!(
@@ -4070,6 +4076,7 @@ impl short_term::NotOffered {
 pub fn about_short_term(lang: Lang) -> About {
     let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
     let method = Section {
+        id: "method".to_owned(),
         title: paragraph("How the numbers are made", "איך המספרים מחושבים"),
         paragraphs: vec![
             paragraph(
@@ -4114,6 +4121,7 @@ pub fn about_short_term(lang: Lang) -> About {
         sources: vec![],
     };
     let left_out = Section {
+        id: "left-out".to_owned(),
         title: paragraph("What isn't counted", "מה לא נכלל"),
         paragraphs: vec![paragraph(
             "Left out, so no place looks better than it is, or because it depends on you \
@@ -4178,6 +4186,7 @@ pub fn about_short_term(lang: Lang) -> About {
         day(short_term::money_market::checked()),
     );
     let sources = Section {
+        id: "sources".to_owned(),
         title: paragraph("Sources", "מקורות"),
         paragraphs: vec![match lang {
             Lang::En => format!(
@@ -4207,7 +4216,8 @@ pub fn about_short_term(lang: Lang) -> About {
 #[allow(clippy::too_many_lines, reason = "the page's text")]
 pub fn about_all(lang: Lang) -> About {
     let paragraph = |en: &str, he: &str| lang.pick(en, he).to_owned();
-    let section = |title: String, paragraphs: Vec<String>| Section {
+    let section = |id: &str, title: String, paragraphs: Vec<String>| Section {
+        id: id.to_owned(),
         title,
         paragraphs,
         items: vec![],
@@ -4223,12 +4233,17 @@ pub fn about_all(lang: Lang) -> About {
         paragraph("long-term investing", "השקעה לטווח ארוך"),
         paragraph("short-term saving", "חיסכון לטווח קצר"),
     );
+    "method-long".clone_into(&mut long_method.id);
+    "method-short".clone_into(&mut short_method.id);
+    "left-out-long".clone_into(&mut long_left_out.id);
+    "left-out-short".clone_into(&mut short_left_out.id);
     long_method.title = format!("{}: {for_long}", long_method.title);
     short_method.title = format!("{}: {for_short}", short_method.title);
     long_left_out.title = format!("{}: {for_long}", long_left_out.title);
     short_left_out.title = format!("{}: {for_short}", short_left_out.title);
 
     let how_it_chooses = section(
+        "how-it-chooses",
         paragraph(
             "What the guide does with your answers",
             "מה המדריך עושה עם התשובות שלכם",
@@ -4270,6 +4285,7 @@ pub fn about_all(lang: Lang) -> About {
     );
 
     let history = section(
+        "history",
         paragraph(
             "How the index's history is read",
             "איך קוראים את ההיסטוריה של המדד",
@@ -4300,6 +4316,7 @@ pub fn about_all(lang: Lang) -> About {
     }];
 
     let yield_curve = section(
+        "yield-curve",
         paragraph(
             "How the government bond's yield is read",
             "איך קוראים את התשואה של אג״ח ממשלתי",
@@ -4489,6 +4506,15 @@ mod learn_layer_tests {
             once.sort_unstable();
             once.dedup();
             assert_eq!(once.len(), titles.len(), "titles repeat: {titles:?}");
+            // The table of contents points at ids: each is a slug, once.
+            let mut ids: Vec<&str> = page.sections.iter().map(|s| s.id.as_str()).collect();
+            ids.push(page.accessibility.id.as_str());
+            assert!(ids.iter().all(|id| {
+                !id.is_empty() && id.chars().all(|c| c.is_ascii_lowercase() || c == '-')
+            }));
+            ids.sort_unstable();
+            ids.dedup();
+            assert_eq!(ids.len(), titles.len() + 1);
             let sources = page.sections.last().expect("sources come last");
             let groups: Vec<&str> = sources.sources.iter().map(|g| g.title.as_str()).collect();
             let mut distinct = groups.clone();

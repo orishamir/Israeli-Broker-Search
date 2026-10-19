@@ -250,6 +250,8 @@ export const he: Text = {
 
   // A plan's details
   aboutTheNumbers: 'על המספרים',
+  aboutContents: 'בעמוד הזה',
+  backToTop: 'חזרה לראש העמוד',
   close: 'סגירה',
   tariffPdf: 'תעריפון (PDF)',
   forPurchase: (purchase) => `ל${purchase}:`,
