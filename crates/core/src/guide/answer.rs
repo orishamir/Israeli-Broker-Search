@@ -1754,12 +1754,14 @@ fn rows(f: &Facts<'_>, chosen: Option<Chosen>) -> Vec<Row> {
         active: safe_active(way),
         excluded: None,
         note: match priced.kind {
+            // A bar that's drawn says what it spans (principle 10).
             Kind::MoneyMarketFund => match (cushion_months, fund_range) {
-                (Some(months), _) => Some(row_words::cushion_note(months)),
-                (None, Some(_)) if f.arena != Some(Arena::Index) => {
-                    Some(row_words::rate_note(f.settings.rate))
-                }
-                _ => None,
+                (Some(months), range) => Some(row_words::cushion_note(
+                    months,
+                    range.map(|_| f.settings.rate),
+                )),
+                (None, Some(_)) => Some(row_words::rate_note(f.settings.rate)),
+                (None, None) => None,
             },
             _ => None,
         },

@@ -63,29 +63,36 @@ export const PRODUCT_COLOR = '#bcc83c'
 export const wayColor = (index: number): string => PLAN_COLORS[index % PLAN_COLORS.length]
 
 // ── The guide's kinds ──
-// One color for each kind of place the money can go, the same in the
-// alternatives chart and beside each row's name, whatever else is drawn: a
-// kind never changes color when another is added or dropped. Checked with the
-// dataviz skill's validator on the page's surface (#151820), in the order
-// below, where each differs from the one before it: chroma, contrast,
-// color-blind and normal-vision separation pass. The lightness band fails as
-// it does for `PLAN_COLORS` (bright lines on a dark page). The current
-// account is the page's grey, drawn dashed.
+// One color for each type of product, the same in every view, whatever else
+// is drawn: a kind never changes color when another is added or dropped
+// (REDESIGN.md §2.8). The outcome chart shows up to five rows: any of the
+// five safe kinds, the study fund's track, and one other holding of the
+// S&P 500 (the guide's lead way). Those seven are told apart in every pair
+// (the dataviz skill's validator, `--pairs all`, on the page's surface
+// #151820: normal vision ΔE ≥ 15.1, contrast ≥ 3:1; color-blind ΔE ≥ 7.7,
+// in the band that needs secondary encoding, which every row's name is).
+// Thirteen kinds can't all be told apart, and the other holdings of the
+// S&P 500 are never drawn beside each other in the guide (the workbench
+// colors its ways by `wayColor`), so they share the index's magenta. The
+// lightness band fails as it does for `PLAN_COLORS` (bright marks on a dark
+// page). The current account is the page's grey, drawn dashed.
+
+const SP500 = '#c547a3'
 
 export const KIND_COLORS: Record<string, string> = {
-  IsraeliIndexFund: '#e141aa',
-  FixedDeposit: '#56b4e9',
-  GovernmentBond: '#27ef8e',
-  MoneyMarketFund: '#8d73f0',
-  'GovernmentBond:linked': '#e69f00',
-  LinkedDeposit: '#3ceedd',
-  IsraeliEtf: '#fd2e1c',
-  UsFund: '#c1e319',
-  IrishFund: '#fc899d',
-  InvestmentGemelTrack: '#4493d0',
-  StudyFundTrack: '#adc367',
-  SavingsPolicyTrack: '#c86b82',
-  ForeignEtfInTelAviv: '#39bda0',
+  MoneyMarketFund: '#c97dfc',
+  FixedDeposit: '#4682cc',
+  LinkedDeposit: '#39b7cb',
+  'GovernmentBond:linked': '#ca9d33',
+  GovernmentBond: '#419363',
+  StudyFundTrack: '#e54e3c',
+  IsraeliIndexFund: SP500,
+  IsraeliEtf: SP500,
+  UsFund: SP500,
+  IrishFund: SP500,
+  InvestmentGemelTrack: SP500,
+  SavingsPolicyTrack: SP500,
+  ForeignEtfInTelAviv: SP500,
   CurrentAccount: UNTICKED_COLOR,
 }
 

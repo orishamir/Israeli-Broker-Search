@@ -1675,6 +1675,40 @@ pub fn answer(request: Ts<AnswerRequest>) -> Result<Ts<AnswerData>, JsError> {
         .into_ts()?)
 }
 
+/// The outcome chart's fixed words (`describe::outcome::words`).
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct OutcomeWordsData {
+    pub subtitle: String,
+    pub deposited: String,
+    pub current_account: String,
+    pub known: String,
+    pub market: String,
+    pub worst: String,
+    pub median: String,
+    pub best: String,
+    pub per_year: String,
+    pub if_it_rises: String,
+}
+
+#[wasm_bindgen(js_name = outcomeWords)]
+pub fn outcome_words() -> Result<Ts<OutcomeWordsData>, JsError> {
+    let words = broker_fees::describe::outcome::words();
+    Ok(OutcomeWordsData {
+        subtitle: said(&words.subtitle),
+        deposited: said(&words.deposited),
+        current_account: said(&words.current_account),
+        known: said(&words.known),
+        market: said(&words.market),
+        worst: said(&words.worst),
+        median: said(&words.median),
+        best: said(&words.best),
+        per_year: said(&words.per_year),
+        if_it_rises: said(&words.if_it_rises),
+    }
+    .into_ts()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

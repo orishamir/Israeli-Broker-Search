@@ -534,6 +534,8 @@ export const he: Text = {
       : `נשארו ${count} החלטות. כשתבחרו, התוכנית שלכם תופיע כאן.`,
   yourMonthlyExpenses: 'ההוצאות שלכם בחודש',
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
+  // (The chart's words about money are the core's: `outcomeWords`.)
+  outcomeReturnLabel: 'התשואה השנתית שהחישוב מניח למדד S&P 500',
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label, the bank's question.
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
