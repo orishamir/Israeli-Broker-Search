@@ -879,6 +879,10 @@ pub fn recommend(
         .run
         .as_ref()
         .and_then(|(run, at)| run.unlock(&run.ways[*at], decision.level, &settings.rates));
+    let also_possible = decision
+        .run
+        .as_ref()
+        .and_then(|(run, at)| run.also_possible(&run.ways[*at], decision.level, &settings.rates));
     let two_parts = cushion_plan(answers, settings, data, &decision);
     let mut recommendation = Recommendation {
         answers: answers.clone(),
@@ -896,6 +900,7 @@ pub fn recommend(
         alternatives,
         band: ctx.band,
         unlock,
+        also_possible,
         steps: Vec::new(),
         follow_ups: follow_ups(answers),
         two_parts,

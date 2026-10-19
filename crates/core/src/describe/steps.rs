@@ -8,6 +8,7 @@ use std::sync::OnceLock;
 
 use rust_decimal::Decimal;
 
+use super::answer::also_possible_line;
 use super::reasons::{shekels, span};
 use crate::guide::{Circumstance, Kind, Recommendation, Step};
 use crate::short_term::deposits;
@@ -550,6 +551,21 @@ pub fn steps_for(recommendation: &Recommendation, lang: Lang) -> Vec<Step> {
                     shekels(plan.target),
                     span(plan.months_to_fill, lang)
                 ),
+            ),
+        );
+    }
+    // A plan that leaves more but may cost more is told here too, with how
+    // sure its price is, so it is not found out only after opening.
+    if let Some(also) = &rec.also_possible {
+        let en = also_possible_line(also, Lang::En);
+        let he = also_possible_line(also, Lang::He);
+        w.add(
+            ("If you prefer the other plan", "אם מעדיפים את המסלול האחר"),
+            (
+                format!(
+                    "{en} Before opening, you can ask them whether that condition applies to you."
+                ),
+                format!("{he} לפני שפותחים אפשר לשאול אותם אם התנאי הזה חל עליכם."),
             ),
         );
     }

@@ -8,7 +8,7 @@
 //! never has to parse markup out of a string.
 
 use super::reasons::{shekels, span};
-use crate::guide::{Amount, Arena, Choice, FollowUp, Horizon, Kind};
+use crate::guide::{AlsoPossible, Amount, Arena, Choice, FollowUp, Horizon, Kind};
 use crate::ways::Way;
 use crate::{Lang, Named, Product, Vehicle};
 
@@ -189,6 +189,40 @@ fn way_sentence(way: Way, horizon: &Horizon, lang: Lang) -> (String, String) {
             };
             (way.kind_name(lang).to_owned(), pension)
         }
+    }
+}
+
+/// The plan that leaves more but may cost more, said beside the answer: who,
+/// how much more, and why it was not the one chosen, in the caveat's own
+/// summary (so the sentence says how sure the price is).
+#[must_use]
+pub fn also_possible_line(also: &AlsoPossible, lang: Lang) -> String {
+    let dot = lang.pick(" · ", "\u{a0}· ");
+    let who = format!(
+        "{}{dot}{}",
+        &also.choice.provider[lang], &also.choice.plan[lang]
+    );
+    // A difference of under a shekel is not worth a number.
+    let more = if also.ahead_by.today < rust_decimal::Decimal::ONE {
+        lang.pick("a little more", "מעט יותר").to_owned()
+    } else {
+        match lang {
+            Lang::En => format!("about {} more", shekels(also.ahead_by.today)),
+            Lang::He => format!("כ־{} יותר", shekels(also.ahead_by.today)),
+        }
+    };
+    match lang {
+        Lang::En => format!(
+            "Also possible: {who}, which leaves {more}, but \u{26a0} {}.",
+            // "May cost more: ..." in the middle of a sentence.
+            also.warning
+                .en
+                .replacen("May cost more", "may cost more", 1)
+        ),
+        Lang::He => format!(
+            "אפשר גם: {who}, שמשאירה {more}, אבל \u{26a0} {}.",
+            &also.warning[lang]
+        ),
     }
 }
 

@@ -232,6 +232,10 @@ pub struct WayOutcome {
     pub may_cost_more: bool,
     /// Why, in words: the plan's reason, or else the product's.
     pub warning: Option<Text>,
+    /// Set by [`WayOutcome::put_unflagged_first`]: the plan (its place in the
+    /// candidates) that left more but may cost more, and now stands behind
+    /// the best.
+    pub flagged_ahead: Option<usize>,
 }
 
 impl WayOutcome {
@@ -242,6 +246,37 @@ impl WayOutcome {
         self.plans
             .first()
             .filter(|plan| plan.fits && plan.outcome.is_ok())
+    }
+
+    /// For the guide, which names one plan: if the best plan may cost more
+    /// (a caveat that its price is too low), the best plan without such a
+    /// caveat takes its place at the front and the flagged one stays right
+    /// behind it, noted in `flagged_ahead`. The table (`compare_ways`) keeps
+    /// its order; only a tie in the shekel goes to the unflagged plan there.
+    /// Nothing changes when the best plan has no caveat or every plan has one.
+    pub fn put_unflagged_first(
+        &mut self,
+        base: &Scenario,
+        candidates: &[Candidate<'_>],
+        rates: &ExchangeRates,
+    ) {
+        let scenario = self.way.scenario(base);
+        let flagged = |plan: &PlanOutcome| plan_may_cost_more(plan, candidates, &scenario, rates);
+        let Some(best) = self.best() else { return };
+        if !flagged(best) {
+            return;
+        }
+        let Some(at) = self
+            .plans
+            .iter()
+            .position(|plan| plan.fits && plan.outcome.is_ok() && !flagged(plan))
+        else {
+            return;
+        };
+        self.flagged_ahead = Some(self.plans[0].index);
+        let plan = self.plans.remove(at);
+        self.plans.insert(0, plan);
+        describe_best(self, candidates, &scenario, rates);
     }
 
     /// What the best plan leaves after selling and the tax.
@@ -283,6 +318,13 @@ pub fn compare_chosen_ways(
         .iter()
         .map(|&way| compare_way(way, base, candidates, rates))
         .collect();
+    sort_ways(&mut ways);
+    ways
+}
+
+/// Best first: what the best plan leaves after tax, a tie in the shekel
+/// going to the way whose price can't be too low.
+pub fn sort_ways(ways: &mut [WayOutcome]) {
     ways.sort_by_key(|way| {
         let after_tax = way.after_tax();
         (
@@ -292,7 +334,6 @@ pub fn compare_chosen_ways(
             Reverse(after_tax),
         )
     });
-    ways
 }
 
 fn compare_way(
@@ -322,17 +363,54 @@ fn compare_way(
         cost_a_year: None,
         may_cost_more: false,
         warning: None,
+        flagged_ahead: None,
     };
+    describe_best(&mut outcome, candidates, &scenario, rates);
+    outcome
+}
+
+/// What buying looks like for one plan's outcome: its largest trade decides
+/// which caveats matter.
+fn buying_of(scenario: &Scenario, outcome: Option<&crate::simulation::Outcome>) -> Buying {
+    Buying {
+        security: scenario.security,
+        exchange: scenario.exchange,
+        product: scenario.product,
+        largest_trade: outcome
+            .map(|used| Money::from_decimal(used.largest_trade, scenario.exchange.currency())),
+    }
+}
+
+/// Whether the plan's own price, or its broker's, may be too low.
+fn plan_may_cost_more(
+    plan: &PlanOutcome,
+    candidates: &[Candidate<'_>],
+    scenario: &Scenario,
+    rates: &ExchangeRates,
+) -> bool {
+    let candidate = candidates[plan.index];
+    let buying = buying_of(scenario, plan.outcome.as_ref().ok());
+    candidate
+        .plan
+        .has_may_cost_more(buying, candidate.broker_caveats, rates)
+}
+
+/// Fills the fields that describe the best plan: its cost a year and
+/// whether, and why, its price may be too low.
+fn describe_best(
+    outcome: &mut WayOutcome,
+    candidates: &[Candidate<'_>],
+    scenario: &Scenario,
+    rates: &ExchangeRates,
+) {
+    let way = outcome.way;
+    outcome.cost_a_year = None;
+    outcome.may_cost_more = false;
+    outcome.warning = None;
     if let Some(best) = outcome.best() {
         let used = best.outcome.as_ref().ok();
         let candidate = candidates[best.index];
-        let buying = Buying {
-            security: scenario.security,
-            exchange: scenario.exchange,
-            product: scenario.product,
-            largest_trade: used
-                .map(|used| Money::from_decimal(used.largest_trade, scenario.exchange.currency())),
-        };
+        let buying = buying_of(scenario, used);
         let plan_may = candidate
             .plan
             .has_may_cost_more(buying, candidate.broker_caveats, rates);
@@ -351,5 +429,4 @@ fn compare_way(
         )
         .or_else(|| may_cost_more_text(way.product.caveats().iter(), buying, rates));
     }
-    outcome
 }

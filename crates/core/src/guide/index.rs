@@ -12,8 +12,8 @@ use crate::{
 
 use super::safe::{amount, joined};
 use super::{
-    Answers, BRANCH_PLAN, Choice, Data, Horizon, Kind, PlanRef, Ranked, Settings, Situation,
-    USUAL_AGE, USUAL_SHARE_PRICE, UnlockLine,
+    AlsoPossible, Answers, BRANCH_PLAN, Choice, Data, Horizon, Kind, PlanRef, Ranked, Settings,
+    Situation, USUAL_AGE, USUAL_SHARE_PRICE, UnlockLine,
 };
 
 /// The years an index kind is worked out for, from a number of months: the
@@ -174,7 +174,13 @@ pub(super) fn run<'a>(
     rates: &ExchangeRates,
 ) -> Run<'a> {
     let candidates: Vec<Candidate<'_>> = cands.iter().map(|cand| cand.candidate).collect();
-    let ways = compare_chosen_ways(ways, &base, &candidates, rates);
+    let mut ways = compare_chosen_ways(ways, &base, &candidates, rates);
+    // The guide names one plan, and not one whose price may be too low when
+    // another is nearly as good: that one is drawn as "also possible".
+    for way in &mut ways {
+        way.put_unflagged_first(&base, &candidates, rates);
+    }
+    crate::ways::sort_ways(&mut ways);
     Run { base, cands, ways }
 }
 
@@ -195,6 +201,16 @@ pub(super) fn open_any_time() -> Vec<Way> {
 /// may not be able to.
 pub(super) fn open_to_anyone(way: Way) -> bool {
     way.vehicle != Vehicle::StudyFund
+}
+
+/// Whether the plan carries a caveat that its price may be too low, in any
+/// case (the guide doesn't know yet what it would buy).
+fn may_be_flagged(candidate: &Candidate<'_>) -> bool {
+    candidate
+        .broker_caveats
+        .iter()
+        .chain(&candidate.plan.caveats)
+        .any(|caveat| caveat.may_cost_more_summary().is_some())
 }
 
 pub(super) fn way_text(way: Way) -> Text {
@@ -237,46 +253,75 @@ impl Run<'_> {
     ) -> Vec<Ranked> {
         way.plans
             .iter()
-            .filter_map(|plan| {
-                let outcome = plan.outcome.as_ref().ok()?;
-                let cand = &self.cands[plan.index];
-                let scenario = way.way.scenario(&self.base);
-                let buying = Buying {
-                    security: scenario.security,
-                    exchange: scenario.exchange,
-                    product: scenario.product,
-                    largest_trade: Some(Money::from_decimal(
-                        outcome.largest_trade,
-                        scenario.exchange.currency(),
-                    )),
-                };
-                let may_cost_more = cand.candidate.plan.has_may_cost_more(
-                    buying,
-                    cand.candidate.broker_caveats,
-                    rates,
-                );
-                let warning = may_cost_more_text(
-                    cand.candidate
-                        .broker_caveats
-                        .iter()
-                        .chain(&cand.candidate.plan.caveats),
-                    buying,
-                    rates,
-                );
-                Some(Ranked {
-                    kind: Kind::Way(way.way),
-                    name: joined(&cand.broker.short_name, &cand.candidate.plan.name),
-                    left: amount(outcome.after_tax, level),
-                    cost_a_year: Some(outcome.yearly_cost),
-                    may_cost_more,
-                    warning,
-                    fees: Some(amount(outcome.fees.total(), level)),
-                    tax: Some(amount(outcome.tax, level)),
-                    fits: plan.fits,
-                    yours: cand.yours,
-                })
-            })
+            .filter_map(|plan| self.ranked_plan(way, plan, level, rates))
             .collect()
+    }
+
+    fn ranked_plan(
+        &self,
+        way: &WayOutcome,
+        plan: &PlanOutcome,
+        level: Decimal,
+        rates: &ExchangeRates,
+    ) -> Option<Ranked> {
+        let outcome = plan.outcome.as_ref().ok()?;
+        let cand = &self.cands[plan.index];
+        let scenario = way.way.scenario(&self.base);
+        let buying = Buying {
+            security: scenario.security,
+            exchange: scenario.exchange,
+            product: scenario.product,
+            largest_trade: Some(Money::from_decimal(
+                outcome.largest_trade,
+                scenario.exchange.currency(),
+            )),
+        };
+        let may_cost_more =
+            cand.candidate
+                .plan
+                .has_may_cost_more(buying, cand.candidate.broker_caveats, rates);
+        let warning = may_cost_more_text(
+            cand.candidate
+                .broker_caveats
+                .iter()
+                .chain(&cand.candidate.plan.caveats),
+            buying,
+            rates,
+        );
+        Some(Ranked {
+            kind: Kind::Way(way.way),
+            name: joined(&cand.broker.short_name, &cand.candidate.plan.name),
+            left: amount(outcome.after_tax, level),
+            cost_a_year: Some(outcome.yearly_cost),
+            may_cost_more,
+            warning,
+            fees: Some(amount(outcome.fees.total(), level)),
+            tax: Some(amount(outcome.tax, level)),
+            fits: plan.fits,
+            yours: cand.yours,
+        })
+    }
+
+    /// The plan that leaves more than the chosen one but may cost more, if
+    /// the way has one: what it would be, how much ahead and why it was not
+    /// chosen.
+    pub fn also_possible(
+        &self,
+        way: &WayOutcome,
+        level: Decimal,
+        rates: &ExchangeRates,
+    ) -> Option<AlsoPossible> {
+        let behind = way.flagged_ahead?;
+        let plan = way.plans.iter().find(|plan| plan.index == behind)?;
+        let line = self.ranked_plan(way, plan, level, rates)?;
+        let chosen = way.best()?.outcome.as_ref().ok()?;
+        let ahead = plan.outcome.as_ref().ok()?.after_tax - chosen.after_tax;
+        Some(AlsoPossible {
+            choice: self.choice_of(plan),
+            left: line.left,
+            ahead_by: amount(ahead, level),
+            warning: line.warning?,
+        })
     }
 
     /// Who runs the best plan of a way, and on what plan (and track).
@@ -328,6 +373,9 @@ impl Run<'_> {
         for way in &self.ways {
             let at: Vec<usize> = (0..self.cands.len())
                 .filter(|&at| self.cands[at].candidate.plan.vehicle == way.way.vehicle)
+                // The guide names no plan whose price may be too low, so
+                // none is promised for a bigger deposit either.
+                .filter(|&at| !may_be_flagged(&self.cands[at].candidate))
                 .collect();
             let plans: Vec<&crate::Plan> =
                 at.iter().map(|&at| self.cands[at].candidate.plan).collect();

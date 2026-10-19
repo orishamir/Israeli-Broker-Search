@@ -558,6 +558,21 @@ pub struct UnlockLine {
     pub instead_of: Amount,
 }
 
+/// A plan of the chosen kind that leaves more but whose price may be too low
+/// (a caveat of the cheap side, as a waiver that needs frequent trading): the
+/// answer is the best plan without such a caveat, and this one is said
+/// beside it, with the caveat in its own words.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct AlsoPossible {
+    pub choice: Choice,
+    /// What it leaves at the end.
+    pub left: Amount,
+    /// How much more than the plan chosen.
+    pub ahead_by: Amount,
+    /// "May cost more: ...", the caveat's own summary.
+    pub warning: Text,
+}
+
 /// A kind the saver could have chosen and wasn't offered, drawn beside the
 /// answer.
 #[derive(Debug, Clone, PartialEq)]
@@ -660,6 +675,8 @@ pub struct Recommendation {
     /// What the index did over stretches as long as the horizon.
     pub band: Option<Band>,
     pub unlock: Option<UnlockLine>,
+    /// A plan of the kind that leaves more but may cost more.
+    pub also_possible: Option<AlsoPossible>,
     pub steps: Vec<StepText>,
     pub follow_ups: Vec<FollowUp>,
     pub two_parts: Option<CushionPlan>,
