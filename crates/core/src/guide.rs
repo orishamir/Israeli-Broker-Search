@@ -533,6 +533,12 @@ pub struct Ranked {
     pub cost_a_year: Option<Percent>,
     /// Its price may be too low: marked ⚠, and a tie goes to the one without.
     pub may_cost_more: bool,
+    /// Why, in words ("May cost more: …"), where `may_cost_more` is.
+    pub warning: Option<Text>,
+    /// Fees paid over the years (the index kinds' lines only).
+    pub fees: Option<Amount>,
+    /// Tax paid on the gain, where the engine states it.
+    pub tax: Option<Amount>,
     /// The first deposit opens it.
     pub fits: bool,
     /// It is the saver's own bank's branch plan.
@@ -566,6 +572,8 @@ pub struct Alternative {
     pub why_not: Reason,
     /// What the index did over the horizon: carried by index kinds.
     pub band: Option<Band>,
+    /// Where its money would go, when it can be worked out.
+    pub breakdown: Option<Breakdown>,
 }
 
 /// The first part of a two-part answer: the cushion first.
@@ -616,8 +624,11 @@ pub struct StepText {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Breakdown {
     pub put_in: Decimal,
-    /// Fees to the broker, the manager and the product.
+    /// Fees to the broker and the manager.
     pub fees: Decimal,
+    /// What the product holding the index took on its own (a fund's fee, the
+    /// tax it lost on dividends): `fees + product` is every fee there was.
+    pub product: Decimal,
     /// What a place kept of the rate (a bank paying less than the rate).
     pub kept_by_the_place: Decimal,
     pub tax: Decimal,

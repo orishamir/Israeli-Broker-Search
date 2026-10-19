@@ -138,6 +138,20 @@ pub fn exchanges_for(security: Ts<Security>) -> Result<Vec<Ts<Choice<Exchange>>>
         .collect()
 }
 
+/// The funds that can hold an index for `security` on `exchange`, the one
+/// most held first (none for a share or a bond), named and explained.
+#[wasm_bindgen(js_name = productsFor)]
+pub fn products_for(
+    security: Ts<Security>,
+    exchange: Ts<Exchange>,
+) -> Result<Vec<Ts<Choice<Product>>>, JsError> {
+    let (security, exchange) = (security.to_rust()?, exchange.to_rust()?);
+    Product::for_purchase(security, exchange)
+        .iter()
+        .map(|&product| Ok(Choice::new(product, lang()).into_ts()?))
+        .collect()
+}
+
 /// A kind of fee, like a [`Choice`], with its name under the fee it's part of.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]

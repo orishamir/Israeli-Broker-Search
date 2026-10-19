@@ -807,6 +807,31 @@ fn the_breakdown_names_where_the_money_went() {
     assert!(split.left + split.fees + split.tax > split.put_in);
 }
 
+/// The product's own cost is a slice of its own, and every alternative
+/// that has a figure carries the breakdown that ends at it (the current
+/// account's is only a line).
+#[test]
+fn the_products_cost_is_apart_and_alternatives_carry_breakdowns() {
+    let rec = recommended(&answers(dec!(10_000), dec!(2000), years(20)));
+    assert!(rec.breakdown.product > Decimal::ZERO, "an index fund costs");
+    let mut with_breakdown = 0;
+    for alternative in &rec.alternatives {
+        match (&alternative.breakdown, alternative.left) {
+            (Some(split), Some(left)) => {
+                assert!(near(split.left, left.today), "{:?}", alternative.kind);
+                with_breakdown += 1;
+            }
+            (None, _) => assert!(
+                alternative.kind == Kind::CurrentAccount || alternative.left.is_none(),
+                "{:?}",
+                alternative.kind
+            ),
+            (Some(_), None) => panic!("a breakdown without a figure"),
+        }
+    }
+    assert!(with_breakdown > 0);
+}
+
 // ─────────────────────────── §8: the user's questions ───────────────────────────
 
 /// a1: ₪50,000 now, 5 years, fixed: a government bond or the 5-year
@@ -1684,8 +1709,9 @@ fn the_bands_lines_bracket_the_deposits() {
     );
 }
 
-/// The columns of the list within an arena: both rank by what is left; only
-/// the index arena's plans show the fees and the tax.
+/// The columns of the list within an arena: both rank by what is left and
+/// show the tax; only the index arena's plans show the fees. Every row has an
+/// amount for each column of its arena's list.
 #[test]
 fn the_columns_follow_the_arena() {
     let ids = |arena| {
@@ -1696,7 +1722,7 @@ fn the_columns_follow_the_arena() {
     };
     assert_eq!(
         ids(Arena::Safe),
-        [ColumnId::LeftAfterTax, ColumnId::CostAYear]
+        [ColumnId::LeftAfterTax, ColumnId::CostAYear, ColumnId::Tax]
     );
     assert_eq!(
         ids(Arena::Index),
@@ -1706,5 +1732,15 @@ fn the_columns_follow_the_arena() {
             ColumnId::Fees,
             ColumnId::Tax
         ]
+    );
+    let safe = recommended(&fixed(answers(dec!(100_000), dec!(0), Horizon::Months(8))));
+    assert_eq!(safe.arena, Arena::Safe);
+    assert!(safe.plans.iter().any(|place| place.tax.is_some()));
+    let index = recommended(&answers(dec!(10_000), dec!(2000), years(20)));
+    assert!(
+        index
+            .plans
+            .iter()
+            .all(|plan| plan.tax.is_some() && plan.fees.is_some())
     );
 }

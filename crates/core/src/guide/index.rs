@@ -3,6 +3,7 @@
 
 use rust_decimal::Decimal;
 
+use crate::describe::may_cost_more_text;
 use crate::simulation::{self, PlanOutcome, Scenario};
 use crate::ways::{Candidate, Way, WayOutcome, compare_chosen_ways};
 use crate::{Broker, Buying, Exchange, ExchangeRates, Money, Security, Text, Vehicle, Withdrawal};
@@ -200,6 +201,9 @@ impl Run<'_> {
                     left: amount(outcome.after_tax, level),
                     cost_a_year: way.cost_a_year,
                     may_cost_more: way.may_cost_more,
+                    warning: way.warning.clone(),
+                    fees: Some(amount(outcome.fees.total(), level)),
+                    tax: Some(amount(outcome.tax, level)),
                     fits: true,
                     yours: self.cands[best.index].yours,
                 })
@@ -234,12 +238,23 @@ impl Run<'_> {
                     cand.candidate.broker_caveats,
                     rates,
                 );
+                let warning = may_cost_more_text(
+                    cand.candidate
+                        .broker_caveats
+                        .iter()
+                        .chain(&cand.candidate.plan.caveats),
+                    buying,
+                    rates,
+                );
                 Some(Ranked {
                     kind: Kind::Way(way.way),
                     name: joined(&cand.broker.short_name, &cand.candidate.plan.name),
                     left: amount(outcome.after_tax, level),
                     cost_a_year: Some(outcome.yearly_cost),
                     may_cost_more,
+                    warning,
+                    fees: Some(amount(outcome.fees.total(), level)),
+                    tax: Some(amount(outcome.tax, level)),
                     fits: plan.fits,
                     yours: cand.yours,
                 })

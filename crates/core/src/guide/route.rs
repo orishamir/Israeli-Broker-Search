@@ -15,7 +15,8 @@ use rust_decimal::prelude::ToPrimitive;
 use crate::describe::reasons;
 use crate::history;
 use crate::short_term;
-use crate::ways::Way;
+use crate::simulation;
+use crate::ways::{Way, WayOutcome};
 use crate::{Lang, Percent, Text, Vehicle};
 
 use super::index::{self, Run};
@@ -314,6 +315,7 @@ fn decide_safe<'a>(
         breakdown: Breakdown {
             put_in: put_in.nominal / level,
             fees: Decimal::ZERO,
+            product: Decimal::ZERO,
             kept_by_the_place: outcome.kept / level,
             tax: outcome.tax / level,
             left: chosen.left.today,
@@ -325,6 +327,42 @@ fn decide_safe<'a>(
     }
 }
 
+/// Where an index way's money went: the product's own cost apart from the
+/// broker's and the manager's.
+fn index_breakdown(today: &simulation::Outcome, put_in: Decimal) -> Breakdown {
+    Breakdown {
+        put_in,
+        fees: today.fees.total() - today.fees.product,
+        product: today.fees.product,
+        kept_by_the_place: Decimal::ZERO,
+        tax: today.tax,
+        left: today.after_tax,
+    }
+}
+
+/// The same for a safe kind, from what the short term's engine says.
+fn safe_breakdown(priced: &Priced, put_in: Decimal, level: Decimal) -> Breakdown {
+    Breakdown {
+        put_in,
+        fees: Decimal::ZERO,
+        product: Decimal::ZERO,
+        kept_by_the_place: priced.outcome.kept / level,
+        tax: priced.outcome.tax / level,
+        left: priced.left.today,
+    }
+}
+
+/// An index way's breakdown in today's shekels, when it has a plan.
+fn way_breakdown(outcome: &WayOutcome, inflation: Percent, put_in: Decimal) -> Option<Breakdown> {
+    let today = outcome
+        .best()?
+        .outcome
+        .as_ref()
+        .ok()?
+        .in_todays_money(inflation);
+    Some(index_breakdown(&today, put_in))
+}
+
 fn kind_line(priced: &Priced) -> Ranked {
     Ranked {
         kind: priced.kind,
@@ -332,6 +370,9 @@ fn kind_line(priced: &Priced) -> Ranked {
         left: priced.left,
         cost_a_year: Some(priced.outcome.yearly_cost),
         may_cost_more: priced.may_cost_more,
+        warning: priced.warning.clone(),
+        fees: None,
+        tax: Some(priced.tax),
         fits: true,
         yours: false,
     }
@@ -388,13 +429,7 @@ fn decide_index<'a>(
         .ok()?
         .in_todays_money(settings.inflation);
     let (put_in, current_account) = yardsticks(answers, settings, months, level);
-    let breakdown = Breakdown {
-        put_in: run.base.deposited() / level,
-        fees: today.fees.total(),
-        kept_by_the_place: Decimal::ZERO,
-        tax: today.tax,
-        left: today.after_tax,
-    };
+    let breakdown = index_breakdown(&today, run.base.deposited() / level);
     Some(Decision {
         route,
         arena: Arena::Index,
@@ -622,6 +657,7 @@ fn alternative(
     circumstance: Circumstance,
     left: Option<Amount>,
     band: Option<history::Band>,
+    breakdown: Option<Breakdown>,
     ctx: &Context,
 ) -> Alternative {
     Alternative {
@@ -632,9 +668,13 @@ fn alternative(
         safety: kind.safety(),
         why_not: why_not(kind, circumstance, left, ctx),
         band,
+        breakdown,
     }
 }
 
+// One match over the two arenas, each drawing its own kinds: splitting it
+// would only scatter the shared bookkeeping.
+#[allow(clippy::too_many_lines)]
 fn alternatives_for(
     answers: &Answers,
     settings: &Settings,
@@ -670,7 +710,16 @@ fn alternatives_for(
                 };
                 match safe::price(kind, data, &scenario, level) {
                     Some(priced) => {
-                        alternatives.push(alternative(kind, because, Some(priced.left), None, ctx));
+                        let breakdown =
+                            safe_breakdown(&priced, d.put_in.nominal / d.level, d.level);
+                        alternatives.push(alternative(
+                            kind,
+                            because,
+                            Some(priced.left),
+                            None,
+                            Some(breakdown),
+                            ctx,
+                        ));
                     }
                     // A deposit that money coming every month can't use is
                     // still worth saying why not.
@@ -678,7 +727,7 @@ fn alternatives_for(
                         && answers.monthly > Decimal::ZERO
                         && months <= short_term::DEPOSITS_LONGEST =>
                     {
-                        alternatives.push(alternative(kind, because, None, None, ctx));
+                        alternatives.push(alternative(kind, because, None, None, None, ctx));
                     }
                     None => {}
                 }
@@ -689,6 +738,7 @@ fn alternatives_for(
                     main,
                     Some(stock.1),
                     ctx.band,
+                    stock.2,
                     ctx,
                 ));
             }
@@ -704,26 +754,18 @@ fn alternatives_for(
             ];
             for kind in kinds {
                 if let Some(priced) = safe::price(kind, data, &scenario, level) {
+                    let breakdown = safe_breakdown(&priced, d.put_in.nominal / level, level);
                     alternatives.push(alternative(
                         kind,
                         Circumstance::WhatSafetyCosts,
                         Some(priced.left),
                         band,
+                        Some(breakdown),
                         ctx,
                     ));
                 }
             }
-            if let Some((run, chosen)) = &d.run {
-                alternatives.extend(other_ways(
-                    run,
-                    *chosen,
-                    answers,
-                    level,
-                    band,
-                    ctx,
-                    d.route == Route::Retirement,
-                ));
-            }
+            alternatives.extend(other_ways(d, answers, settings.inflation, band, ctx));
         }
     }
     alternatives.push(alternative(
@@ -732,6 +774,7 @@ fn alternatives_for(
             inflation: settings.inflation,
         },
         Some(d.current_account),
+        None,
         None,
         ctx,
     ));
@@ -745,7 +788,7 @@ fn stock_fund(
     settings: &Settings,
     data: &Data,
     months: u32,
-) -> Option<(Way, Amount)> {
+) -> Option<(Way, Amount, Option<Breakdown>)> {
     let years = index::years_for(months);
     let level = price_level(settings.inflation, years * 12);
     let base = index::base_scenario(answers, settings, years);
@@ -753,21 +796,27 @@ fn stock_fund(
     let way = Way::for_index()[0];
     let run = index::run(&[way], base, cands, &settings.rates);
     let left = run.ranked(level).into_iter().next()?.left;
-    Some((way, left))
+    let breakdown = run.ways.first().and_then(|outcome| {
+        way_breakdown(outcome, settings.inflation, run.base.deposited() / level)
+    });
+    Some((way, left, breakdown))
 }
 
 /// What is shown beside the fund of an index answer: the study fund, with
 /// who can open one, and, for a retirement saver (`all`), the brokerage
 /// account after tax and the policy too.
 fn other_ways(
-    run: &Run<'_>,
-    chosen: usize,
+    d: &Decision<'_>,
     answers: &Answers,
-    level: Decimal,
+    inflation: Percent,
     band: Option<history::Band>,
     ctx: &Context,
-    all: bool,
 ) -> Vec<Alternative> {
+    let Some((run, chosen)) = &d.run else {
+        return Vec::new();
+    };
+    let (chosen, level) = (*chosen, d.level);
+    let all = d.route == Route::Retirement;
     let age_at_the_end = match answers.horizon {
         Horizon::Retirement { retire_at, .. } => retire_at,
         Horizon::Months(_) | Horizon::Unknown => 0,
@@ -797,6 +846,7 @@ fn other_ways(
             because,
             Some(left),
             band,
+            way_breakdown(outcome, inflation, run.base.deposited() / level),
             ctx,
         ));
     }

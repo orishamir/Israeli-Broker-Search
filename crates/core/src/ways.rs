@@ -17,10 +17,11 @@ use std::cmp::Reverse;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::describe::may_cost_more_text;
 use crate::simulation::{PlanOutcome, Scenario, compare_with_broker_caveats};
 use crate::{
     Broker, BrokerKind, Buying, Caveat, Exchange, ExchangeRates, Lang, Money, Percent, Plan,
-    Product, Security, Vehicle,
+    Product, Security, Text, Vehicle,
 };
 
 /// How the saver holds the index: the fund that holds it, the kind of
@@ -187,6 +188,8 @@ pub struct WayOutcome {
     /// Whether the best plan's price, or the product's, may be too low: a
     /// tie against another way goes to the one without.
     pub may_cost_more: bool,
+    /// Why, in words: the plan's reason, or else the product's.
+    pub warning: Option<Text>,
 }
 
 impl WayOutcome {
@@ -276,6 +279,7 @@ fn compare_way(
         plans,
         cost_a_year: None,
         may_cost_more: false,
+        warning: None,
     };
     if let Some(best) = outcome.best() {
         let used = best.outcome.as_ref().ok();
@@ -295,6 +299,15 @@ fn compare_way(
         });
         outcome.cost_a_year = used.map(|used| used.yearly_cost);
         outcome.may_cost_more = plan_may || product_may;
+        outcome.warning = may_cost_more_text(
+            candidate
+                .broker_caveats
+                .iter()
+                .chain(&candidate.plan.caveats),
+            buying,
+            rates,
+        )
+        .or_else(|| may_cost_more_text(way.product.caveats().iter(), buying, rates));
     }
     outcome
 }

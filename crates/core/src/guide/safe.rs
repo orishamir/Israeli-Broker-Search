@@ -72,6 +72,31 @@ pub(super) struct Priced {
     /// Every place of the kind that can hold the money, best first.
     pub places: Vec<Ranked>,
     pub may_cost_more: bool,
+    pub warning: Option<Text>,
+    pub tax: Amount,
+}
+
+/// The places' caveats that say a price may be too low, as one line.
+fn warning(place: &Place) -> Option<Text> {
+    let summaries: Vec<&Text> = place
+        .caveats
+        .iter()
+        .filter_map(|caveat| caveat.may_cost_more_summary())
+        .collect();
+    if summaries.is_empty() {
+        return None;
+    }
+    let joined = |pick: fn(&Text) -> &str| {
+        summaries
+            .iter()
+            .map(|summary| pick(summary))
+            .collect::<Vec<_>>()
+            .join("; ")
+    };
+    Some(Text::owned(
+        format!("May cost more: {}", joined(|text| &text.en)),
+        format!("עשוי לעלות יותר: {}", joined(|text| &text.he)),
+    ))
 }
 
 fn may_cost_more(place: &Place) -> bool {
@@ -112,6 +137,9 @@ pub(super) fn price(
                 left: amount(outcome.after_tax, level),
                 cost_a_year: Some(outcome.yearly_cost),
                 may_cost_more: may_cost_more(place),
+                warning: warning(place),
+                fees: None,
+                tax: Some(amount(outcome.tax, level)),
                 fits: true,
                 yours: false,
             })
@@ -134,6 +162,9 @@ pub(super) fn price(
                     left: amount(after_tax, level),
                     cost_a_year: None,
                     may_cost_more: false,
+                    warning: None,
+                    fees: None,
+                    tax: None,
                     fits: true,
                     yours: false,
                 })
@@ -161,6 +192,8 @@ pub(super) fn price(
         choice,
         left: amount(outcome.after_tax, level),
         may_cost_more: may_cost_more(place),
+        warning: warning(place),
+        tax: amount(outcome.tax, level),
         outcome,
         places: places_ranked,
     })

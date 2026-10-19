@@ -8,9 +8,9 @@
 use broker_fees::describe::reasons::Span;
 use broker_fees::describe::{self, About, LearnCard, Term};
 use broker_fees::guide::{
-    self, Alternative, Amount, Answers, Arena, Bank, Choice as GuideChoice, Circumstance, ColumnId,
-    Cushion, Data, FollowUp, Horizon, InvalidAnswers, Kind, Overrides, Ranked, Reason, Safety,
-    Settings, Situation,
+    self, Alternative, Amount, Answers, Arena, Bank, Breakdown, Choice as GuideChoice,
+    Circumstance, ColumnId, Cushion, Data, FollowUp, Horizon, InvalidAnswers, Kind, Overrides,
+    Ranked, Reason, Safety, Settings, Situation,
 };
 use broker_fees::history;
 use broker_fees::simulation::{self, Outcome};
@@ -389,9 +389,15 @@ pub struct RankedData {
     /// What it loses a year, as a fund's fee is stated: 0.4 means 0.4%.
     pub cost_a_year: Option<f64>,
     pub may_cost_more: bool,
+    /// Why, in words, where `may_cost_more` is.
+    pub may_cost_more_text: Option<String>,
     pub fits: bool,
     /// The saver's own bank's branch plan.
     pub yours: bool,
+    /// Fees paid over the years, where the kind has them.
+    pub fees: Option<AmountData>,
+    /// Tax paid on the gain, where the engine states it.
+    pub tax: Option<AmountData>,
 }
 
 impl From<&Ranked> for RankedData {
@@ -402,8 +408,11 @@ impl From<&Ranked> for RankedData {
             left: ranked.left.into(),
             cost_a_year: ranked.cost_a_year.map(|cost| number(cost.0)),
             may_cost_more: ranked.may_cost_more,
+            may_cost_more_text: ranked.warning.as_ref().map(|text| text[lang()].to_owned()),
             fits: ranked.fits,
             yours: ranked.yours,
+            fees: ranked.fees.map(AmountData::from),
+            tax: ranked.tax.map(AmountData::from),
         }
     }
 }
@@ -462,6 +471,8 @@ pub struct AlternativeData {
     pub left: Option<AmountData>,
     pub why_not: ReasonData,
     pub band: Option<BandData>,
+    /// Where its money would go, for the donut's other tab.
+    pub breakdown: Option<BreakdownData>,
 }
 
 impl From<&Alternative> for AlternativeData {
@@ -471,6 +482,7 @@ impl From<&Alternative> for AlternativeData {
             left: alternative.left.map(AmountData::from),
             why_not: (&alternative.why_not).into(),
             band: alternative.band.as_ref().map(BandData::from),
+            breakdown: alternative.breakdown.as_ref().map(BreakdownData::from),
         }
     }
 }
@@ -508,11 +520,26 @@ pub struct CushionPlanData {
 #[serde(rename_all = "camelCase")]
 pub struct BreakdownData {
     pub put_in: f64,
-    /// Fees to the broker, the manager and the product.
+    /// Fees to the broker and the manager.
     pub fees: f64,
+    /// What the product holding the index took on its own.
+    pub product: f64,
     pub kept_by_the_place: f64,
     pub tax: f64,
     pub left: f64,
+}
+
+impl From<&Breakdown> for BreakdownData {
+    fn from(split: &Breakdown) -> Self {
+        BreakdownData {
+            put_in: number(split.put_in),
+            fees: number(split.fees),
+            product: number(split.product),
+            kept_by_the_place: number(split.kept_by_the_place),
+            tax: number(split.tax),
+            left: number(split.left),
+        }
+    }
 }
 
 /// The answer, every text in the app's language.
@@ -609,13 +636,7 @@ pub fn recommend_for(
         left: r.left.into(),
         put_in: r.put_in.into(),
         current_account: r.current_account.into(),
-        breakdown: BreakdownData {
-            put_in: number(r.breakdown.put_in),
-            fees: number(r.breakdown.fees),
-            kept_by_the_place: number(r.breakdown.kept_by_the_place),
-            tax: number(r.breakdown.tax),
-            left: number(r.breakdown.left),
-        },
+        breakdown: (&r.breakdown).into(),
         months: r.months,
         reasons: r.reasons.iter().map(ReasonData::from).collect(),
         alternatives: r.alternatives.iter().map(AlternativeData::from).collect(),

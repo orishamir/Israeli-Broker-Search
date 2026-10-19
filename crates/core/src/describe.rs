@@ -1100,6 +1100,36 @@ pub struct FeesFor {
     pub others: Vec<CaveatText>,
 }
 
+/// "May cost more: conversion markup not published", in both languages, from
+/// the caveats that matter to `buying` and say the numbers may be too low.
+#[must_use]
+pub fn may_cost_more_text<'a>(
+    caveats: impl IntoIterator<Item = &'a Caveat>,
+    buying: Buying,
+    rates: &ExchangeRates,
+) -> Option<Text> {
+    let mut summaries: Vec<&Text> = caveats
+        .into_iter()
+        .filter(|caveat| caveat.matters_for(buying, rates))
+        .filter_map(Caveat::may_cost_more_summary)
+        .collect();
+    summaries.dedup();
+    if summaries.is_empty() {
+        return None;
+    }
+    let joined = |lang: Lang| {
+        summaries
+            .iter()
+            .map(|summary| &summary[lang])
+            .collect::<Vec<&str>>()
+            .join("; ")
+    };
+    Some(Text::owned(
+        format!("May cost more: {}", joined(Lang::En)),
+        format!("עשוי לעלות יותר: {}", joined(Lang::He)),
+    ))
+}
+
 impl Plan {
     /// Every page its caveats rest on, each once, in the order first named,
     /// as links.
@@ -1413,21 +1443,8 @@ impl Plan {
         rates: &ExchangeRates,
         lang: Lang,
     ) -> Option<String> {
-        let mut summaries: Vec<&str> = broker_caveats
-            .iter()
-            .chain(&self.caveats)
-            .filter(|caveat| caveat.matters_for(buying, rates))
-            .filter_map(Caveat::may_cost_more_summary)
-            .map(|summary| &summary[lang])
-            .collect();
-        summaries.dedup();
-        (!summaries.is_empty()).then(|| {
-            let summaries = summaries.join("; ");
-            match lang {
-                Lang::En => format!("May cost more: {summaries}"),
-                Lang::He => format!("עשוי לעלות יותר: {summaries}"),
-            }
-        })
+        may_cost_more_text(broker_caveats.iter().chain(&self.caveats), buying, rates)
+            .map(|text| text[lang].to_owned())
     }
 
     /// "US track: 1¢ a share, the cheapest for you", if `track` is one of the

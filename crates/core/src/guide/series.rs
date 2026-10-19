@@ -56,7 +56,7 @@ pub enum ColumnId {
     CostAYear,
     /// Fees paid over the years (the index kinds' lists only).
     Fees,
-    /// Tax paid on the gain (the index kinds' lists only).
+    /// Tax paid on the gain.
     Tax,
 }
 
@@ -67,9 +67,8 @@ pub struct Column {
 }
 
 /// The columns of the list within an arena, in the order shown. The safe
-/// kinds' places differ by what they leave and their yearly cost only; the
-/// index kinds' plans also show the fees and the tax, which the page reads
-/// from the workbench's comparison.
+/// kinds' places differ by what they leave, their yearly cost and the tax;
+/// the index kinds' plans also show the fees.
 #[must_use]
 pub fn columns_for(arena: Arena) -> Vec<Column> {
     let column = |id, en, he| Column {
@@ -80,10 +79,11 @@ pub fn columns_for(arena: Arena) -> Vec<Column> {
         column(ColumnId::LeftAfterTax, "Left after tax", "נשאר אחרי מס"),
         column(ColumnId::CostAYear, "Cost a year", "עלות בשנה"),
     ];
+    // A fund's or a bank's cost is the yearly one; fees are paid to brokers.
     if arena == Arena::Index {
         columns.push(column(ColumnId::Fees, "Fees", "עמלות"));
-        columns.push(column(ColumnId::Tax, "Tax", "מס"));
     }
+    columns.push(column(ColumnId::Tax, "Tax", "מס"));
     columns
 }
 
