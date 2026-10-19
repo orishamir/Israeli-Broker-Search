@@ -723,3 +723,16 @@ server by hand, on a phone-sized viewport, with screenshots on one contact
 sheet for the user's review; the old page's components, texts, link
 parameters and preferences gone from the tree (`grep` for `family`,
 `FamilySwitch`, `moreOptions`, `shortTermExamples` finds nothing).
+
+---
+
+## 12. Amendments
+
+- **No named index (2026-10-19).** The guide never suggests an index, a
+  fund or a ticker. Its stock kind is named as a kind, "קרן מחקה מדד מניות
+  רחב" (`Way::kind_name`, for the guide's what-sentences, reasons, steps,
+  alternatives, ladder and tables); the workbench's `Way::name` may keep a
+  ticker as an example in its expert list. The costs and the history band
+  still come from S&P 500 data, and the page says so once, in the history's
+  caveat (`basis_sentence`: "להדגמה, ההיסטוריה והעלויות נמדדות על מדד S&P
+  500"). `guide_words.rs` fails if a guide text names one.

@@ -198,7 +198,10 @@ pub(super) fn open_to_anyone(way: Way) -> bool {
 }
 
 pub(super) fn way_text(way: Way) -> Text {
-    Text::new(way.name(crate::Lang::En), way.name(crate::Lang::He))
+    Text::new(
+        way.kind_name(crate::Lang::En),
+        way.kind_name(crate::Lang::He),
+    )
 }
 
 impl Run<'_> {

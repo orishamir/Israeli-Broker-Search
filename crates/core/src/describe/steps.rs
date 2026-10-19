@@ -113,34 +113,34 @@ pub fn steps_for(recommendation: &Recommendation, lang: Lang) -> Vec<Step> {
                 );
                 let what = match way.product {
                     Product::IsraeliIndexFund => (
-                        "Buy an index fund (קרן מחקה) that follows the S&P 500, listed in Tel \
-                         Aviv. It is a kind of mutual fund; search for it by the index's name \
-                         or by its security number on the exchange."
+                        "Buy an index fund (קרן מחקה) that follows a broad stock index, listed \
+                         in Tel Aviv. It is a kind of mutual fund; search for it by the index's \
+                         name or by its security number on the exchange."
                             .to_owned(),
-                        "קונים קרן מחקה על S&P\u{a0}500 בבורסה בתל אביב. היא סוג של קרן נאמנות; מחפשים אותה לפי שם המדד או לפי מספר הנייר שלה בבורסה."
+                        "קונים קרן מחקה על מדד מניות רחב בבורסה בתל אביב. היא סוג של קרן נאמנות; מחפשים אותה לפי שם המדד או לפי מספר הנייר שלה בבורסה."
                             .to_owned(),
                     ),
                     Product::IsraeliEtf => (
-                        "Buy an ETF (קרן סל) that follows the S&P 500 and trades in Tel Aviv. \
+                        "Buy an ETF (קרן סל) that follows a broad stock index and trades in Tel Aviv. \
                          It trades all day like a share."
                             .to_owned(),
-                        "קונים קרן סל על S&P\u{a0}500 שנסחרת בבורסה בתל אביב. היא נסחרת כל היום כמו מניה."
+                        "קונים קרן סל על מדד מניות רחב שנסחרת בבורסה בתל אביב. היא נסחרת כל היום כמו מניה."
                             .to_owned(),
                     ),
                     Product::UsFund => (
-                        "Buy an ETF (קרן סל) on the US exchange that follows the S&P 500, like \
-                         VOO. It is bought in dollars, so the money is converted, which costs \
+                        "Buy an ETF (קרן סל) on the US exchange that follows a broad stock index. \
+                         It is bought in dollars, so the money is converted, which costs \
                          a little (the table shows how much)."
                             .to_owned(),
-                        "קונים קרן סל בבורסה בארה״ב שעוקבת אחרי S&P\u{a0}500, כמו VOO. היא נקנית בדולרים, ולכן הכסף מומר, וזה עולה קצת (הטבלה מראה כמה)."
+                        "קונים קרן סל בבורסה בארה״ב שעוקבת אחרי מדד מניות רחב. היא נקנית בדולרים, ולכן הכסף מומר, וזה עולה קצת (הטבלה מראה כמה)."
                             .to_owned(),
                     ),
                     _ => (
-                        "Buy an ETF (קרן סל) on a European exchange that follows the S&P 500, \
-                         like CSPX. It is bought in dollars or euros, so the money is \
+                        "Buy an ETF (קרן סל) on a European exchange that follows a broad stock \
+                         index. It is bought in dollars or euros, so the money is \
                          converted, which costs a little (the table shows how much)."
                             .to_owned(),
-                        "קונים קרן סל בבורסה באירופה שעוקבת אחרי S&P\u{a0}500, כמו CSPX. היא נקנית במטבע חוץ, ולכן הכסף מומר, וזה עולה קצת (הטבלה מראה כמה)."
+                        "קונים קרן סל בבורסה באירופה שעוקבת אחרי מדד מניות רחב. היא נקנית במטבע חוץ, ולכן הכסף מומר, וזה עולה קצת (הטבלה מראה כמה)."
                             .to_owned(),
                     ),
                 };
@@ -226,10 +226,10 @@ pub fn steps_for(recommendation: &Recommendation, lang: Lang) -> Vec<Step> {
                 w.add(
                     ("Choose the track", "בוחרים מסלול"),
                     (
-                        "Choose the investment track (מסלול השקעה) that follows the S&P 500 \
+                        "Choose the investment track (מסלול השקעה) that follows a broad stock index \
                          (מסלול עוקב מדד)."
                             .to_owned(),
-                        "בוחרים מסלול השקעה שעוקב אחרי S&P\u{a0}500 (מסלול עוקב מדד).".to_owned(),
+                        "בוחרים מסלול השקעה שעוקב אחרי מדד מניות רחב (מסלול עוקב מדד).".to_owned(),
                     ),
                 );
                 if monthly {
@@ -293,8 +293,9 @@ pub fn steps_for(recommendation: &Recommendation, lang: Lang) -> Vec<Step> {
                 w.add(
                     ("Choose the track", "בוחרים מסלול"),
                     (
-                        "Choose the track that follows the S&P 500 (מסלול עוקב מדד).".to_owned(),
-                        "בוחרים את המסלול שעוקב אחרי S&P\u{a0}500 (מסלול עוקב מדד).".to_owned(),
+                        "Choose the track that follows a broad stock index (מסלול עוקב מדד)."
+                            .to_owned(),
+                        "בוחרים את המסלול שעוקב אחרי מדד מניות רחב (מסלול עוקב מדד).".to_owned(),
                     ),
                 );
                 w.add(
@@ -328,8 +329,9 @@ pub fn steps_for(recommendation: &Recommendation, lang: Lang) -> Vec<Step> {
                 w.add(
                     ("Choose the track", "בוחרים מסלול"),
                     (
-                        "Choose the track that follows the S&P 500 (מסלול עוקב מדד).".to_owned(),
-                        "בוחרים את המסלול שעוקב אחרי S&P\u{a0}500 (מסלול עוקב מדד).".to_owned(),
+                        "Choose the track that follows a broad stock index (מסלול עוקב מדד)."
+                            .to_owned(),
+                        "בוחרים את המסלול שעוקב אחרי מדד מניות רחב (מסלול עוקב מדד).".to_owned(),
                     ),
                 );
                 w.add(

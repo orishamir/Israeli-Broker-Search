@@ -150,9 +150,9 @@ export const en = {
     "Israel's government bonds trade in Tel Aviv in shekels, and US Treasuries in New York in dollars.",
   tradedOnStocks: 'Teva, for example, trades in Tel Aviv in shekels and in New York in dollars.',
   tradedOnFunds:
-    'Each exchange has another ETF on the same S&P 500: in Tel Aviv an Israeli one in shekels, in New York a US one such as VOO, and in Europe usually an Irish one. Each has a fee of its own, and loses another tax on its dividends: 25% of each dividend in a US fund, 15% inside an Irish one.',
+    'Each exchange has another ETF on the same index: in Tel Aviv an Israeli one in shekels, in New York a US one such as VOO, and in Europe usually an Irish one. Each has a fee of its own, and loses another tax on its dividends: 25% of each dividend in a US fund, 15% inside an Irish one.',
   tradedOnIndexFunds:
-    'The same S&P 500 has an Israeli index fund in shekels, and foreign index funds in dollars, bought through your broker. Each has a fee of its own, and another tax on its dividends.',
+    'The same index has an Israeli index fund in shekels, and foreign index funds in dollars, bought through your broker. Each has a fee of its own, and another tax on its dividends.',
   exchange: 'Exchange',
   downloadingRates: "· downloading today's…",
   couldntDownloadRates: "· couldn't download today's",
@@ -410,8 +410,8 @@ export const en = {
   alternativesLead:
     "Each line is what the same money would come to in that kind of place, by its own assumption: in today's money, after tax.",
   alternativesTip:
-    "Every line starts from the same deposits and ends at what is left after fees and tax, in today's money. The shaded range behind the stock fund is what the S&P 500 did over every stretch of this length since 1926, as if it had grown at a steady rate in each: the worst stretch at the bottom, the best at the top. Real paths wander more. Where the best case is far above the lines, the range is cut off at the top of the chart.",
-  bandName: 'What the S&P 500 did before',
+    "Every line starts from the same deposits and ends at what is left after fees and tax, in today's money. The shaded range behind the stock fund is what a broad stock index did over every stretch of this length since 1926, as if it had grown at a steady rate in each: the worst stretch at the bottom, the best at the top. Real paths wander more. Where the best case is far above the lines, the range is cut off at the top of the chart.",
+  bandName: 'What a broad stock index did before',
   bandCaption: 'The shaded range',
   endRecommended: 'Recommended',
   endStock: 'Stocks',
@@ -421,7 +421,7 @@ export const en = {
   continueHint: 'To go on with one of the others anyway, tap its row.',
   continueWith: (name: string) => `Go on with ${name}`,
   chartYears: 'years',
-  rangeInTooltip: 'S&P 500 history',
+  rangeInTooltip: 'Broad stock index history',
   donutDeposit: 'Deposits',
   donutGain: 'Gain',
   whichFund: 'Which fund holds it?',
@@ -445,7 +445,7 @@ export const en = {
   back: 'Back',
   glossaryHint: "Every term the calculator uses, as it's called in your bank's app and in ads.",
   whatToBuy: 'What do you want to buy?',
-  thingSp500: 'The S&P 500 index',
+  thingSp500: 'A broad stock index, e.g. the S&P 500',
   thingOther: 'Another index or a stock',
   thingBonds: 'Bonds',
   thingShort: 'Short-term money',

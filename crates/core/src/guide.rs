@@ -371,7 +371,7 @@ impl Named for Kind {
                 "CPI-linked government bond (אג״ח ממשלתי צמוד מדד)",
                 "אג״ח ממשלתי צמוד מדד",
             ),
-            Kind::Way(way) => way.name(lang),
+            Kind::Way(way) => way.kind_name(lang),
             Kind::CurrentAccount => lang.pick("Current account (עו״ש)", "עו״ש, בלי להשקיע"),
         }
     }

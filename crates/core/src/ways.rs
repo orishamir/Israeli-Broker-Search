@@ -104,6 +104,48 @@ impl Way {
         }
     }
 
+    /// Its name as the guide says it: the kind of thing, in the words of
+    /// the bank's app, with no index or fund named. The workbench's
+    /// [`Way::name`] may give a ticker as an example; the guide never
+    /// suggests one.
+    #[must_use]
+    pub fn kind_name(self, lang: Lang) -> &'static str {
+        match (self.product, self.vehicle) {
+            (Product::IsraeliIndexFund, _) => lang.pick(
+                "Index fund (קרן מחקה) on a broad stock index",
+                "קרן מחקה מדד מניות רחב",
+            ),
+            (Product::IsraeliEtf, _) => lang.pick(
+                "ETF (קרן סל) on a broad stock index",
+                "קרן סל על מדד מניות רחב",
+            ),
+            (Product::ForeignEtfInTelAviv, _) => lang.pick(
+                "Irish ETF (קרן סל) on a broad stock index, bought in Tel Aviv",
+                "קרן סל אירית על מדד מניות רחב, בתל אביב",
+            ),
+            (Product::UsFund, _) => lang.pick(
+                "US ETF (קרן סל) on a broad stock index",
+                "קרן סל אמריקאית על מדד מניות רחב",
+            ),
+            (Product::IrishFund, _) => lang.pick(
+                "Irish ETF (קרן סל) on a broad stock index, bought in Europe",
+                "קרן סל אירית על מדד מניות רחב, באירופה",
+            ),
+            (_, Vehicle::InvestmentGemel) => lang.pick(
+                "Provident fund for investment (קופת גמל להשקעה), index track",
+                "קופת גמל להשקעה, מסלול עוקב מדד מניות רחב",
+            ),
+            (_, Vehicle::StudyFund) => lang.pick(
+                "Study fund (קרן השתלמות), index track",
+                "קרן השתלמות, מסלול עוקב מדד מניות רחב",
+            ),
+            (_, Vehicle::SavingsPolicy | Vehicle::Brokerage) => lang.pick(
+                "Savings policy (פוליסת חיסכון), index track",
+                "פוליסת חיסכון, מסלול עוקב מדד מניות רחב",
+            ),
+        }
+    }
+
     /// Its name, in the terms people meet in their bank's app.
     #[must_use]
     pub fn name(self, lang: Lang) -> &'static str {
