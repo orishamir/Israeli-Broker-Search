@@ -93,6 +93,14 @@ fn at_date(today: Option<Date>, months: u32, lang: Lang) -> String {
     }
 }
 
+/// "until October 2029" / "עד אוקטובר 2029", or "for 3 years" / "למשך 3 שנים".
+fn until_date(today: Option<Date>, months: u32, lang: Lang) -> String {
+    match today.and_then(|today| end_date(today, months)) {
+        Some(end) => format!("{}{}", lang.pick("until ", "עד "), month_year(end, lang)),
+        None => format!("{} {}", lang.pick("for", "למשך"), span(months, lang)),
+    }
+}
+
 /// The year the money is needed, or "in 3 years".
 fn in_year(today: Option<Date>, months: u32, lang: Lang) -> String {
     match today.and_then(|today| end_date(today, months)) {
@@ -126,9 +134,13 @@ pub fn chip_note(state: ConfidenceState, arena: Option<Arena>, open: bool) -> Te
             "The direction is clear. The decisions below are about the way.",
             "הכיוון ברור. ההחלטות למטה הן על הדרך.",
         ),
+        (ConfidenceState::A, Some(Arena::Index)) => fixed(
+            "The direction is clear, and it holds in every version we checked.",
+            "הכיוון ברור, והוא לא משתנה בשום גרסה שבדקנו.",
+        ),
         (ConfidenceState::A, _) => fixed(
-            "It comes out ahead in every version we checked.",
-            "זה יוצא קדימה בכל גרסה שבדקנו.",
+            "In every version we checked, the answer stays the same.",
+            "בכל גרסה שבדקנו, התשובה לא משתנה.",
         ),
         (ConfidenceState::B, Some(Arena::Safe)) => fixed(
             "What matters is clear: not stocks. The rest depends on what suits you.",
@@ -168,14 +180,11 @@ pub struct TitleFigures {
 
 fn safe_range(low: Option<Decimal>, high: Option<Decimal>, lang: Lang) -> String {
     match (low, high) {
-        (Some(low), Some(high)) if high - low >= Decimal::ONE => {
-            format!(
-                "{}{}–{}",
-                lang.pick("about ", "בערך "),
-                shekels(low),
-                shekels(high)
-            )
-        }
+        // In words, not "₪a–₪b": right to left, the two would swap places.
+        (Some(low), Some(high)) if high - low >= Decimal::ONE => match lang {
+            Lang::En => format!("about {}–{}", about(low), about(high)),
+            Lang::He => format!("בין {} ל\u{2011}{} בערך", about(low), about(high)),
+        },
         (_, Some(high)) => format!("{}{}", lang.pick("about ", "בערך "), about(high)),
         _ => String::new(),
     }
@@ -189,18 +198,16 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
             "Safety or growth: that's your decision.",
             "ביטחון או צמיחה: זו החלטה שלכם.",
         );
-        let body = both(|lang| {
-            let safe = safe_range(f.safe_low, f.safe_high, lang);
-            match lang {
-                Lang::En => format!(
-                    "In {}, a safe way would leave {safe}, known almost in advance. A fund on the S&P 500 index can leave much more, but also less than you put in, in the very year you need the money.",
-                    when(lang)
-                ),
-                Lang::He => format!(
-                    "בעוד {}, דרך בטוחה תשאיר {safe}, ידוע כמעט מראש. קרן על מדד S&P\u{a0}500 יכולה להשאיר הרבה יותר, אבל גם פחות ממה ששמתם, דווקא בשנה שתצטרכו את הכסף.",
-                    when(lang)
-                ),
-            }
+        // The figures are the options' own, below: each number once.
+        let body = both(|lang| match lang {
+            Lang::En => format!(
+                "In {}, a safe way leaves a sum known almost in advance. A fund on the S&P 500 index can leave much more, but also less than you put in, in the very year you need the money.",
+                when(lang)
+            ),
+            Lang::He => format!(
+                "בעוד {}, דרך בטוחה משאירה סכום שידוע כמעט מראש. קרן על מדד S&P\u{a0}500 יכולה להשאיר הרבה יותר, אבל גם פחות ממה ששמתם, דווקא בשנה שתצטרכו את הכסף.",
+                when(lang)
+            ),
         });
         return (title, body);
     }
@@ -218,12 +225,12 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
                 let cash = about(f.current_account);
                 out = match lang {
                     Lang::En => format!(
-                        "If the index rises {} a year, about {} would be left, against {fund} in a money market fund and {cash} in a current account.",
+                        "If the S&P 500 index rises {} a year, about {} would be left, against {fund} in a money market fund and {cash} in a current account.",
                         f.index_return,
                         about(left)
                     ),
                     Lang::He => format!(
-                        "אם המדד יעלה {} בשנה, יישאר בערך {}, לעומת {fund} בקרן כספית ו\u{2011}{cash} בעו״ש.",
+                        "אם מדד S&P\u{a0}500 יעלה {} בשנה, יישאר בערך {}, לעומת {fund} בקרן כספית ו\u{2011}{cash} בעו״ש.",
                         f.index_return,
                         about(left)
                     ),
@@ -247,10 +254,6 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
         });
         (title, body)
     } else {
-        let spread = f
-            .safe_high
-            .zip(f.safe_low)
-            .map_or_default(|(high, low)| high - low);
         if f.state == ConfidenceState::A {
             let lead = f.safe_lead.map(super::outcome::name);
             let title = both(|lang| match (&lead, lang) {
@@ -260,12 +263,12 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
             });
             let body = both(|lang| match lang {
                 Lang::En => format!(
-                    "In every version we checked (the Bank of Israel's rate, inflation) it leaves more than the other safe ways: {} in {}, in today's money and after tax.",
+                    "In every version we checked (the Bank of Israel's rate, inflation), this is the safe way that leaves the most: {} in {}, in today's money and after tax.",
                     f.safe_high.map_or_default(about),
                     when(lang)
                 ),
                 Lang::He => format!(
-                    "בכל גרסה שבדקנו (ריבית בנק ישראל, אינפלציה) הוא משאיר יותר משאר הדרכים הבטוחות: {} בעוד {}, בכסף של היום ואחרי מס.",
+                    "בכל גרסה שבדקנו (ריבית בנק ישראל, אינפלציה), זו הדרך הבטוחה שמשאירה הכי הרבה: {} בעוד {}, בכסף של היום ואחרי מס.",
                     f.safe_high.map_or_default(about),
                     when(lang)
                 ),
@@ -278,24 +281,22 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
         );
         let body = both(|lang| match lang {
             Lang::En => format!(
-                "The money is needed in {}{}. All the safe ways end within {} of each other, in today's money and after tax, so the choice between them is about what suits you.",
+                "The money is needed in {}{}. All the safe ways end close to each other, in today's money and after tax, so the choice between them is about what suits you.",
                 when(lang),
                 if f.fixed_date {
                     ", on a date that can't move"
                 } else {
                     ""
-                },
-                shekels(spread)
+                }
             ),
             Lang::He => format!(
-                "הכסף נדרש בעוד {}{}. כל הדרכים הבטוחות מסתיימות בטווח של {} זו מזו, בכסף של היום ואחרי מס, ולכן הבחירה ביניהן היא לפי מה שנוח לכם.",
+                "הכסף נדרש בעוד {}{}. כל הדרכים הבטוחות מסתיימות קרוב זו לזו, בכסף של היום ואחרי מס, ולכן הבחירה ביניהן היא לפי מה שנוח לכם.",
                 when(lang),
                 if f.fixed_date {
                     ", בתאריך שלא זז"
                 } else {
                     ""
-                },
-                shekels(spread)
+                }
             ),
         });
         (title, body)
@@ -453,6 +454,15 @@ pub fn place_index(f: &PlaceIndexFigures) -> Text {
 
 // ─────────────────────────── The decisions ───────────────────────────
 
+/// A stretch said as roughly as it's known: 80 months is "about 7 years".
+fn rough_months(months: u32) -> u32 {
+    if months >= 24 {
+        (months + 6) / 12 * 12
+    } else {
+        months
+    }
+}
+
 #[must_use]
 pub fn cushion_decision(
     monthly: Decimal,
@@ -461,7 +471,7 @@ pub fn cushion_decision(
     expenses: Decimal,
     stand_in: bool,
 ) -> DecisionWords {
-    let months = u32::try_from(months_to_fill.mantissa()).unwrap_or(0);
+    let months = rough_months(u32::try_from(months_to_fill.mantissa()).unwrap_or(0));
     DecisionWords {
         question: fixed(
             "Do you already have 3 months of expenses set aside?",
@@ -505,12 +515,14 @@ pub fn cushion_decision(
                         ),
                     }),
                     both(|lang| match (lang, stand_in) {
-                        (Lang::En, true) => {
-                            format!("By expenses of {} a month: enter yours.", shekels(expenses))
-                        }
-                        (Lang::He, true) => {
-                            format!("לפי הוצאות של {} בחודש: כתבו את שלכם.", shekels(expenses))
-                        }
+                        (Lang::En, true) => format!(
+                            "By expenses of {} a month, a stand-in: enter yours.",
+                            shekels(expenses)
+                        ),
+                        (Lang::He, true) => format!(
+                            "לפי הוצאות של {} בחודש, הערכה: כתבו את שלכם.",
+                            shekels(expenses)
+                        ),
                         (Lang::En, false) => {
                             format!("By your expenses of {} a month.", shekels(expenses))
                         }
@@ -694,22 +706,23 @@ pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
 }
 
 #[must_use]
-pub fn safe_way_stated(way: SafeWay, kind: Kind, months: u32) -> Text {
+/// The safe way, stated: the only one that fits (`only`), or the one that
+/// leaves the most by far in every version.
+pub fn safe_way_stated(kind: Kind, months: u32, only: bool) -> Text {
     let name = super::outcome::name(kind);
     both(|lang| {
-        let reason = match way {
-            SafeWay::MoneyMarketFund => lang.pick(
-                "it's the only safe way here, or leaves the most by far",
-                "היא הדרך הבטוחה היחידה כאן, או שהיא משאירה הכי הרבה בפער",
+        let when = span(months, lang);
+        match (lang, only) {
+            (Lang::En, true) => format!("{}: for {when}, the only safe way here.", name.en),
+            (Lang::He, true) => format!("{}: לטווח של {when}, זו הדרך הבטוחה היחידה כאן.", name.he),
+            (Lang::En, false) => format!(
+                "{}: for {when}, the safe way that leaves the most, by far, in every version we checked.",
+                name.en
             ),
-            SafeWay::Bond | SafeWay::Deposit => lang.pick(
-                "it leaves the most by far in every version we checked",
-                "הוא משאיר הכי הרבה, בפער, בכל גרסה שבדקנו",
+            (Lang::He, false) => format!(
+                "{}: לטווח של {when}, זו הדרך הבטוחה שמשאירה הכי הרבה, בפער, בכל גרסה שבדקנו.",
+                name.he
             ),
-        };
-        match lang {
-            Lang::En => format!("{}: {reason}, over {}.", name.en, span(months, lang)),
-            Lang::He => format!("{}: {reason}, לאורך {}.", name.he, span(months, lang)),
         }
     })
 }
@@ -763,26 +776,46 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
     } else {
         fixed("Which safe way?", "איזו דרך בטוחה?")
     };
-    let why = both(|lang| match (lang, has_fund && f.flips) {
-        (Lang::En, true) => format!(
-            "The difference in money is small (up to {}), and depends on a rate nobody knows in advance. So it's about what suits you, not about which leaves more.",
-            shekels(high - low)
-        ),
-        (Lang::He, true) => format!(
-            "ההבדל בכסף קטן (עד {}), ותלוי בריבית שאף אחד לא יודע מראש. לכן זה עניין של מה שנוח לכם, ולא של מי משאירה יותר.",
-            shekels(high - low)
-        ),
-        (Lang::En, false) => format!(
-            "They're at most {} apart over {}. What sets them apart is locking against flexibility, and simple against a new account.",
-            shekels(high - low),
-            span(f.months, lang)
-        ),
-        (Lang::He, false) => format!(
-            "ההבדל ביניהן עד {} על פני {}. מה שמבדיל הוא נעילה מול גמישות, ופשטות מול חשבון חדש.",
-            shekels(high - low),
-            span(f.months, lang)
-        ),
-    });
+    // How far apart they are is the difference's, under the options, except
+    // for three ways, where the difference is only the first two's.
+    let apart = |lang: Lang| {
+        if f.options.len() > 2 {
+            match lang {
+                Lang::En => format!(
+                    "They're at most {} apart over {}. ",
+                    shekels(high - low),
+                    span(f.months, lang)
+                ),
+                Lang::He => format!(
+                    "ההבדל ביניהן עד {} על פני {}. ",
+                    shekels(high - low),
+                    span(f.months, lang)
+                ),
+            }
+        } else {
+            String::new()
+        }
+    };
+    let why = both(
+        |lang| match (lang, has_fund && (f.flips || f.switch.is_some())) {
+            (Lang::En, true) => format!(
+                "{}The difference in money is small, and depends on a rate nobody knows in advance. So it's about what suits you, not about which leaves more.",
+                apart(lang)
+            ),
+            (Lang::He, true) => format!(
+                "{}ההבדל בכסף קטן, ותלוי בריבית שאף אחד לא יודע מראש. לכן זה עניין של מה שנוח לכם, ולא של מה שמשאיר יותר.",
+                apart(lang)
+            ),
+            (Lang::En, false) => format!(
+                "{}What sets them apart is locking against flexibility, and simple against a new account.",
+                apart(lang)
+            ),
+            (Lang::He, false) => format!(
+                "{}מה שמבדיל ביניהן הוא נעילה מול גמישות, ופשטות מול חשבון חדש.",
+                apart(lang)
+            ),
+        },
+    );
     let options = f
         .options
         .iter()
@@ -877,8 +910,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
             if let Some(second) = f.options.get(1) {
                 let name = super::outcome::name(lead.kind);
                 out = match lang {
-                    Lang::En => format!("At today's rate, {} leaves {} more.", name.en, shekels(lead.left - second.left)),
-                    Lang::He => format!("בריבית של היום, {} משאיר {} יותר.", name.he, shekels(lead.left - second.left)),
+                    Lang::En => format!("At today's rate, the difference is {} in favour of: {}.", shekels(lead.left - second.left), name.en),
+                    Lang::He => format!("בריבית של היום, ההפרש הוא {} לטובת {}.", shekels(lead.left - second.left), name.he),
                 };
             }
             if let Some(switch) = f.switch {
@@ -1024,12 +1057,12 @@ pub fn index_way_stated(lead: Way, tied_with: Option<Way>) -> Text {
         };
         match (tied_with, lang) {
             (Some(other), Lang::En) => format!(
-                "{}{how}. {} leaves about the same.",
+                "{}{how}. About the same is left by: {}.",
                 name.en,
                 super::outcome::name(Kind::Way(other)).en
             ),
             (Some(other), Lang::He) => format!(
-                "{}{how}. {} משאירה בערך אותו דבר.",
+                "{}{how}. בערך אותו סכום משאירה גם: {}.",
                 name.he,
                 super::outcome::name(Kind::Way(other)).he
             ),
@@ -1082,12 +1115,10 @@ pub fn account_decision(f: &AccountFigures<'_>) -> DecisionWords {
     });
     let bank_amount = both(|lang| match (f.yours, f.yours_left, f.range) {
         (Some(_), Some(left), _) => shekels(left),
-        (_, _, Some((low, high))) => format!(
-            "{}{}–{}",
-            lang.pick("through a bank: ", "דרך בנק: "),
-            shekels(low),
-            shekels(high)
-        ),
+        (_, _, Some((low, high))) => match lang {
+            Lang::En => format!("{}–{}, by the bank", shekels(low), shekels(high)),
+            Lang::He => format!("בין {} ל\u{2011}{}, לפי הבנק", shekels(low), shekels(high)),
+        },
         _ => String::new(),
     });
     let mut new_facts = vec![fixed(
@@ -1103,8 +1134,8 @@ pub fn account_decision(f: &AccountFigures<'_>) -> DecisionWords {
             "לפתוח חשבון חדש, או לקנות דרך הבנק שלכם?",
         ),
         why: fixed(
-            "Opening an account is a one-time chore; the fees are paid every year. It's your call, but here the difference is large.",
-            "פתיחת חשבון היא טרחה של פעם אחת. העמלות משולמות כל שנה. ההחלטה שלכם, אבל כאן ההבדל גדול.",
+            "Opening an account is a one-time chore; the fees are paid every year. Only you can say whether the chore is worth the difference.",
+            "פתיחת חשבון היא טרחה של פעם אחת, והעמלות משולמות כל שנה. רק אתם יודעים אם הטרחה שווה לכם את ההפרש.",
         ),
         options: vec![
             OptWords {
@@ -1388,7 +1419,7 @@ fn deposits(now: Decimal, monthly: Decimal, lang: Lang) -> String {
 pub fn plan(f: &PlanFigures<'_>) -> Text {
     both(|lang| {
         let money = deposits(f.now, f.monthly, lang);
-        let until = at_date(f.today, f.months, lang);
+        let until = until_date(f.today, f.months, lang);
         let name = super::outcome::name(f.kind);
         let name = &name[lang];
         let pre = match (f.cushion, lang) {
@@ -1396,13 +1427,13 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
                 "First {} a month to a money market fund in the bank's app, until {} is set aside (about {}). Then: ",
                 shekels(f.monthly),
                 shekels(target),
-                span(months, lang)
+                span(rough_months(months), lang)
             ),
             (Some((target, months)), Lang::He) => format!(
                 "קודם {} בחודש לקרן כספית באפליקציה של הבנק, עד שיצטברו {} (בערך {}). אחר כך: ",
                 shekels(f.monthly),
                 shekels(target),
-                span(months, lang)
+                span(rough_months(months), lang)
             ),
             (None, _) => String::new(),
         };
@@ -1414,8 +1445,8 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
             (_, Some(Holdings::Managed), _, Lang::He) => "בודקים את דמי הניהול של כל קרן ושל ניהול התיק לפני מעבר: מעבר לבד לא מוריד אותם.".to_owned(),
             (_, Some(Holdings::DontKnow), _, Lang::En) => "First see in the bank's app what the portfolio holds; then come back to this answer.".to_owned(),
             (_, Some(Holdings::DontKnow), _, Lang::He) => "קודם רואים באפליקציה של הבנק מה יש בתיק, ואז חוזרים לתשובה הזאת.".to_owned(),
-            (Kind::MoneyMarketFund, _, _, Lang::En) => format!("{name} in your bank's app: {money}, until {until}."),
-            (Kind::MoneyMarketFund, _, _, Lang::He) => format!("{name} באפליקציה של הבנק שלכם: {money}, עד {until}."),
+            (Kind::MoneyMarketFund, _, _, Lang::En) => format!("{name} in your bank's app: {money}, {until}."),
+            (Kind::MoneyMarketFund, _, _, Lang::He) => format!("{name} באפליקציה של הבנק שלכם: {money}, {until}."),
             (Kind::FixedDeposit, _, _, Lang::En) => format!("{name} at {at}: {money}, {until}. Ask the bank what rate you'll get."),
             (Kind::FixedDeposit, _, _, Lang::He) => format!("{name} ב{at}: {money}, {until}. שאלו את הבנק מה הריבית שתקבלו."),
             (Kind::Way(way), _, _, Lang::En) if way.vehicle == Vehicle::StudyFund => format!("{money} to your study fund, on the track that follows the S&P 500 index."),
