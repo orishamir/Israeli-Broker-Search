@@ -73,7 +73,11 @@ function lineSeries(
       return [index === 0 ? { value: point, label: { position: 'right' } } : point]
     }),
     color: line.color,
-    lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? FADED_LINE : 1, type: line.dotted ? 'dotted' : 'solid' },
+    lineStyle: {
+      width: pinned ? 3.5 : 2,
+      opacity: faded ? FADED_LINE : 1,
+      type: line.dotted ? 'dotted' : 'solid',
+    },
     itemStyle: { opacity: faded ? FADED_LINE : 1 },
     symbol: 'emptyCircle',
     symbolSize: 6,
