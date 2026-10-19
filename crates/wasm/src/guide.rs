@@ -385,6 +385,10 @@ impl KindData {
 }
 
 /// One line of a ranking: a kind, a place or a plan.
+#[allow(
+    clippy::struct_excessive_bools,
+    reason = "each flag is a fact the page shows on its own"
+)]
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct RankedData {

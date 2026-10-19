@@ -552,6 +552,22 @@ fn safe_kind_circumstances(d: &Decision<'_>, ctx: &Context) -> Vec<Circumstance>
     }
 }
 
+/// A period nobody gave is said, or the figures would look asked for.
+fn assumed_period(answers: &Answers, d: &Decision<'_>) -> Option<Circumstance> {
+    if answers.horizon != Horizon::Unknown {
+        return None;
+    }
+    let because = match d.route {
+        Route::CushionFirst => AssumedBecause::CushionFills,
+        Route::UnknownSum | Route::OpenAnyTime | Route::Forced(_) => AssumedBecause::NoDate,
+        _ => return None,
+    };
+    Some(Circumstance::AssumedPeriod {
+        months: d.months,
+        because,
+    })
+}
+
 fn reasons_for(
     answers: &Answers,
     settings: &Settings,
@@ -579,25 +595,7 @@ fn reasons_for(
         cost_a_year: d.cost_a_year,
     };
     circumstances.push(horizon_circumstance(d.route, answers, d));
-    // A period nobody gave is said, or the figures would look asked for.
-    if answers.horizon == Horizon::Unknown {
-        let because = if d.route == Route::CushionFirst {
-            Some(AssumedBecause::CushionFills)
-        } else if matches!(
-            d.route,
-            Route::UnknownSum | Route::OpenAnyTime | Route::Forced(_)
-        ) {
-            Some(AssumedBecause::NoDate)
-        } else {
-            None
-        };
-        if let Some(because) = because {
-            circumstances.push(Circumstance::AssumedPeriod {
-                months: d.months,
-                because,
-            });
-        }
-    }
+    circumstances.extend(assumed_period(answers, d));
     match d.route {
         Route::Short | Route::Forced(Arena::Safe) => {
             circumstances.extend(safe_kind_circumstances(d, ctx));
@@ -888,9 +886,9 @@ fn way_held(
         answers,
         settings,
         data,
-        whole + u32::from(months % 12 > 0),
+        whole + u32::from(!months.is_multiple_of(12)),
     )?;
-    let (nominal, today, breakdown) = if months % 12 == 0 {
+    let (nominal, today, breakdown) = if months.is_multiple_of(12) {
         (to.after_tax, to.today, to.breakdown.clone())
     } else {
         let share = Decimal::from(months % 12) / Decimal::from(12);

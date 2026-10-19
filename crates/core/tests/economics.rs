@@ -2438,5 +2438,5 @@ fn ties_share_a_rank_and_near_ties_are_marked() {
     // The best is near a tie only if the second is close, not the last.
     let mixed = standings(&[dec!(200_000), dec!(150_000), dec!(149_000)]);
     assert!(!mixed[0].near_tie && !mixed[1].near_tie && !mixed[2].near_tie);
-    assert!(standings(&[]).is_empty());
+    assert_eq!(standings(&[]), []);
 }

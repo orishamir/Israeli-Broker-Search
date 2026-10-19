@@ -203,7 +203,10 @@ pub fn situations() -> Vec<Preset> {
             workbench: true,
             ..preset(
                 "workbench",
-                Text::new("I know what I want to buy", "אני יודע מה אני רוצה לקנות"),
+                Text::new(
+                    "I know what I want to buy",
+                    "אני יודע / יודעת מה אני רוצה לקנות",
+                ),
                 Text::new(
                     "The S&P 500, ₪10,000 now and ₪2,000 a month for 20 years, with every way to hold it side by side: an index fund or ETF in Tel Aviv, the US or Europe, and the provident funds. The one that leaves the most isn't always the one with the lowest fee.",
                     "ה\u{2011}S&P\u{a0}500, ₪10,000 עכשיו ועוד ₪2,000 בחודש במשך 20 שנה, וכל הדרכים להחזיק אותו זו לצד זו: קרן מחקה או קרן סל בתל אביב, בארה״ב או באירופה, וקופות הגמל. זו שמשאירה הכי הרבה היא לא תמיד זו עם הדמי ניהול הנמוכים.",

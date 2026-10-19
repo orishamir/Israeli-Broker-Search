@@ -2026,3 +2026,25 @@ fn reasons_do_not_show_false_precision() {
     assert!(has_false_precision("takes about 0.3052% a year").is_some());
     assert!(has_false_precision("takes about 0.31% a year").is_none());
 }
+
+/// "ב" and "הבנק" are one word, "בבנק": the portfolio reason never says
+/// "בהבנק", whichever bank (or none) the saver named.
+#[test]
+fn the_portfolio_reason_reads_right_in_hebrew() {
+    for bank in [None, Some(Bank::Leumi), Some(Bank::MizrahiTefahot)] {
+        let mut asked = answers(dec!(200_000), dec!(0), years(20));
+        asked.situation = Some(Situation::ExistingPortfolio { bank });
+        let rec = recommended(&asked);
+        let reason = rec
+            .reasons
+            .iter()
+            .find(|r| matches!(r.from, Circumstance::ExistingPortfolio))
+            .expect("the portfolio reason");
+        assert!(
+            !reason.text[Lang::He].contains("בהבנק"),
+            "{}",
+            &reason.text[Lang::He]
+        );
+        assert!(reason.text[Lang::He].contains("תיק בבנק") || bank.is_some());
+    }
+}

@@ -120,7 +120,8 @@ fn bank_name(situation: Option<Situation>, lang: Lang) -> String {
         Some(Situation::ExistingPortfolio {
             bank: Some(Bank::OtsarHahayal),
         }) => lang.pick("Otsar Hahayal", "אוצר החייל").to_owned(),
-        _ => lang.pick("your bank", "הבנק שלכם").to_owned(),
+        // Written to follow "ב" (a bank of yours: "בבנק שלכם", not "בהבנק שלכם").
+        _ => lang.pick("your bank", "בנק שלכם").to_owned(),
     }
 }
 

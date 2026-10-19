@@ -86,7 +86,7 @@ pub enum Situation {
         /// of those listed stands in for it, and the answer says so.
         bank: Option<Bank>,
     },
-    /// "I know what I want to buy" (אני יודע מה אני רוצה לקנות): the index
+    /// "I know what I want to buy" (אני יודע / יודעת מה אני רוצה לקנות): the index
     /// kinds, every way side by side, as the workbench shows them.
     KnowsWhatToBuy,
 }

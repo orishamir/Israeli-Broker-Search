@@ -11,7 +11,7 @@
 //   app.setSituation(id)             fills the answers from a chip, clears overrides;
 //                                    a 'workbench' chip turns the switch on, an
 //                                    `opensDialog` one opens the portfolio dialog
-//   app.knowsWhatToBuy()             the "אני יודע מה אני רוצה לקנות" link: switch on
+//   app.knowsWhatToBuy()             the "אני יודע / יודעת מה אני רוצה לקנות" link: switch on
 //   app.followUps: FollowUp[]        the cards the answers still need
 //   app.setHorizonMonths(m) / setHorizonUnknown() / setHorizonRetirement(age, retireAt)
 //   app.horizonMonths: number | undefined
@@ -824,7 +824,7 @@ export class AppState {
     if (situation.opensDialog) this.portfolioDialogOpen = true
   }
 
-  /** "אני יודע מה אני רוצה לקנות ולהשוות": the switch on, the workbench's. */
+  /** "אני יודע / יודעת מה אני רוצה לקנות ולהשוות": the switch on, the workbench's. */
   knowsWhatToBuy() {
     this.expert = true
   }
