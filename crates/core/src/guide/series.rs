@@ -138,10 +138,11 @@ fn grown(
 }
 
 /// A nominal line as today's shekels, month by month, ending at `left`.
-/// `waiting` is a deposit the engine already counts in the month before it
-/// is made (the short term's, which starts at the first sum plus the first
-/// month's deposit): it is taken off, so month 0 is the first sum alone in
-/// every line, as the brokers' engine has it.
+/// `waiting` is a deposit the engine already counts at the start (the short
+/// term's month 0 is the first sum plus the first month's deposit; from
+/// month 1 on it holds exactly the deposits made so far): it is taken off
+/// month 0 alone, so month 0 is the first sum alone in every line, as the
+/// brokers' engine has it.
 pub(super) fn deflated(
     nominal: &[Decimal],
     inflation: Percent,
@@ -158,7 +159,7 @@ pub(super) fn deflated(
             if month > 0 {
                 prices *= per_month;
             }
-            let value = if month < last {
+            let value = if month == 0 && last > 0 {
                 value - waiting
             } else {
                 *value
@@ -179,16 +180,16 @@ mod tests {
     use super::*;
     use crate::guide::safe::price_level;
 
-    /// Prices rise a little each month, and a deposit the engine counts a
-    /// month early is taken off every month but the last, which is `left`.
+    /// Prices rise a little each month, and a deposit the engine counts at
+    /// the start is taken off month 0 only; the last month is `left`.
     #[test]
     fn deflating_divides_by_the_prices_of_that_month() {
         let inflation = Percent(dec!(2));
         let nominal = [dec!(100), dec!(110), dec!(120), dec!(130)];
         let series = deflated(&nominal, inflation, dec!(77), dec!(10));
         assert_eq!(series[0], dec!(90));
-        assert_eq!(series[1], dec!(100) / price_level(inflation, 1));
-        assert_eq!(series[2], dec!(110) / price_level(inflation, 2));
+        assert_eq!(series[1], dec!(110) / price_level(inflation, 1));
+        assert_eq!(series[2], dec!(120) / price_level(inflation, 2));
         assert_eq!(series[3], dec!(77));
     }
 

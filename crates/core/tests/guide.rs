@@ -1951,3 +1951,34 @@ fn a_period_the_saver_did_not_give_is_said() {
         None
     );
 }
+
+/// The money market fund's line is drawn from the same deposits as the
+/// current account's, a little above it while the rate beats prices: it must
+/// not sit a whole deposit below it until the last month, as it did when the
+/// engine's early first deposit was taken off every month, not only the
+/// first.
+#[test]
+fn the_money_market_line_starts_from_the_same_deposits_as_the_current_account() {
+    for (now, monthly, months) in [(dec!(0), dec!(3000), 12), (dec!(10_000), dec!(1000), 24)] {
+        let asked = answers(now, monthly, Horizon::Months(months));
+        let lines = alternatives(&asked, &settings(), &DATA).unwrap();
+        let line = |kind| {
+            &lines
+                .series
+                .iter()
+                .find(|l| l.kind == kind)
+                .unwrap()
+                .value_by_month
+        };
+        let (account, fund) = (line(Kind::CurrentAccount), line(Kind::MoneyMarketFund));
+        assert_eq!(account[0], fund[0], "month 0 is the first sum alone");
+        for month in 1..=months as usize {
+            assert!(
+                fund[month] > account[month] - dec!(1),
+                "month {month}: fund {} below the account {}",
+                fund[month],
+                account[month]
+            );
+        }
+    }
+}
