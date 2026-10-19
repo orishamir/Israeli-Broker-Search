@@ -31,12 +31,15 @@ import { arenaOf } from '../src/lib/kinds'
 import { shekels } from '../src/lib/format'
 import { t } from '../src/lib/text'
 
-// The user's five questions and the audit's five tasks (REDESIGN.md §8),
+// The previous plan's five questions and the audit's five tasks (§8 of
+// `git show d14e955:REDESIGN.md`),
 // end to end: what a person types, and that the page then does what the
 // core says for it. Each checks behaviour (the arena, the kind named, the
 // band, the unlock line, the two-part plan, the ladder) and never wording:
 // the words are the core's, tested in Rust. Where the real data differs
 // from what the plan expected, the test follows the data (the core).
+// With the redesign it checks REDESIGN.md §2.5's worked examples by their
+// structure, never by their amounts.
 
 const isIndexKind = (kind: Kind) => typeof kind === 'object' && 'Way' in kind
 const kindsDrawn = (answers: AnswersInput) => alternativesFor(answers).series.map(({ kind }) => kind)

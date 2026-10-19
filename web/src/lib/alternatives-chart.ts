@@ -1,9 +1,10 @@
 // The alternatives chart's options: one line per kind (what the same money
 // does in each), the history's band behind the stock fund's line, and end
 // labels for three lines only. Pure, so it is tested without a browser; the
-// component wires it to ECharts and to the state.
+// component wires it to ECharts and to the state. REDESIGN.md (§2.6,
+// §2.13) replaces it with the chart of what each option leaves on the date.
 //
-// Rules that bind (REDESIGN.md 6.3, CLAUDE.md "Known traps"): every series
+// Rules that bind (CLAUDE.md "Known traps"): every series
 // has an `id` (the kind's `kindKey`); the band is two `stack`ed series, the
 // lower one's line transparent and the upper one's `areaStyle`; labels never
 // wrap or are cut by ECharts (`fitName`, measured on a canvas); only the

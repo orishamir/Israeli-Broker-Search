@@ -33,7 +33,7 @@ catch the bug:
   | Alternatives, alternatives-chart.ts, Donut, Ladder, linked.svelte.ts            | `alternatives` |
   | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign | `workbench`    |
   | LearnCard, Glossary, Tip's "עוד על זה", the about page                          | `learn`        |
-  | the user's five questions and the audit's tasks (REDESIGN.md §8), end to end    | `acceptance`   |
+  | the situations, end to end (`REDESIGN.md` §2.5)                                 | `acceptance`   |
   | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                          | `chart`        |
   | FeeBreakdown                                                                    | `breakdown`    |
   | DetailsDialog, FeesForInputs, Caveat\*, Sources                                 | `details`      |
@@ -129,6 +129,23 @@ catch the bug:
   changes.
 - Hidden content (a closed `<details>`, a popover) still has a size, so use
   `checkVisibility`. Mobile WebKit has no mouse wheel.
+- `getByText` for a chart view's name can also match its hidden tip: click a
+  choice through `choice(page, group, name)`. Two buttons may share a name
+  across cards ("לשנות ›"): scope by card. A reload loses the workbench's
+  thing chosen (it follows the recommendation): call `workbench` again.
+  `getByRole('status')` also matches an `<output>` (a slider's readout).
+- A click that "intercepts pointer events" and then succeeds on a retry can
+  hide a real jump: Playwright scrolls again before each retry. Log the
+  page's scroll events around the click before blaming the test.
+- Headless Chromium draws no scroll bars, so `offsetWidth - clientWidth` is
+  0 even where a user sees one: to catch one, watch every frame for a box
+  whose `overflow-y` is auto or scroll and whose `scrollHeight` passes its
+  `clientHeight`.
+- `--repeat-each=40` shows whether a flake is gone.
+- The owner found most tests "not useful and waste time" (2026-10-18):
+  pictures, aria snapshots and browser tests that re-checked the core's
+  words went. Don't bring them back; a new check goes in the cheapest layer
+  that catches the bug.
 - The chart draws after the paint that follows a change, only while its
   view is shown, and while a number is typed, once the typing pauses for
   300 ms (`glide.ts`, whose timing is unit-tested); `expect` retries cover
@@ -141,8 +158,12 @@ catch the bug:
   the donut (`section.donut .chart`): a spec says which with its class.
 - **Acceptance follows the data.** `acceptance.spec.ts` asserts what the
   core's `recommend` says for the inputs a person types, never a kind the
-  plan expected: where REDESIGN.md §8 and the data differ, the test follows
-  the data and says so in a comment.
+  plan expected: where the previous plan's table (§8 of
+  `git show d14e955:REDESIGN.md`) and the data differ, the test follows the
+  data and says so in a comment. With the redesign it checks the worked
+  examples of `REDESIGN.md` §2.5 by their structure (which questions
+  appear, on which line, the options, the confidence state), never by their
+  amounts.
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.
@@ -164,5 +185,131 @@ heap grows over 30 rounds of changes. First the guide (typing the money,
 the situation chips, a long horizon that the worker answers, a ladder rung,
 "continue anyway", the cards, the switch), then the workbench with plans on
 one exchange (the old page's measures); prints a table; and fails on the
-budgets at the top of the spec. Run it on a quiet machine: the numbers it
-should give are in LESSONS.md ("Speed"). The build takes about a minute.
+budgets at the top of the spec. Run it on a quiet machine; the build takes
+about a minute. What it gave on 2026-10-19 (a production build, this
+machine; the budgets in the spec are about twice these):
+
+| Measure                                           | phone (4×) | desktop |
+| ------------------------------------------------- | ---------: | ------: |
+| load, to the first chart (ms)                     |        811 |     286 |
+| guide: typing the money now (ms)                  |         56 |      48 |
+| guide: typing the monthly amount (ms)             |         32 |      16 |
+| guide: switching the situation (ms)               |         72 |      24 |
+| guide: typing a long horizon (worker) (ms)        |         56 |      24 |
+| guide: tapping a ladder rung (ms)                 |         48 |      16 |
+| guide: "continue anyway" and back (ms)            |         40 |      24 |
+| guide: opening the kind's card, the glossary (ms) |         24 |      16 |
+| guide: the switch on and off (ms)                 |         40 |      16 |
+| guide: frame gap while the money changes (ms)     |         17 |      17 |
+| workbench: typing a deposit (ms)                  |         80 |      32 |
+| workbench: typing the one-time deposit (ms)       |         72 |      24 |
+| workbench: switching what to buy (ms)             |        120 |      32 |
+| workbench: switching the security, exchange (ms)  |      72–80 |      24 |
+| workbench: ticking a broker's plans (ms)          |        104 |      24 |
+| workbench: switching the chart view, by deposit   |         32 |      24 |
+| workbench: opening a plan's details (ms)          |         40 |      48 |
+| workbench: frame gap, rows reorder, by deposit    |         50 |      17 |
+| zoom: slider drag, or six wheel notches (ms)      |         40 |      16 |
+| heap growth over 30 rounds, workbench / guide     |      1 / 0 |   1 / 0 |
+
+Anything under about 50 ms isn't felt. A frame gap moves by one frame
+(17 ms) from run to run, so compare runs on a quiet machine, not with the
+dev server and a test run going. Two traps in measuring: a toggle measured
+three times ends on the other view, so measure there and back as one
+action; and a key pressed to reset the zoom goes into a field that still
+has focus, so click away first. The redesign's new parts (the decisions,
+the outcome chart) get rows here once built.
+
+## Recipes
+
+Many screenshots at once, on one labelled sheet: resize each to 420 px
+wide, five to a row, and look at that one image instead of each file.
+
+```python
+# uv run --with pillow python sheet.py sheet.png a.png b.png …
+import sys
+from PIL import Image, ImageDraw
+
+out, *paths = sys.argv[1:]
+width, tiles = 420, []
+for path in paths:
+    image = Image.open(path).convert('RGB')
+    image = image.resize((width, int(image.height * width / image.width)))
+    tile = Image.new('RGB', (width, image.height + 20), (60, 60, 60))
+    ImageDraw.Draw(tile).text((4, 4), path.split('/')[-1], fill=(255, 255, 0))
+    tile.paste(image, (0, 20))
+    tiles.append(tile)
+rows = [tiles[i:i + 5] for i in range(0, len(tiles), 5)]
+sheet = Image.new('RGB', (width * 5, sum(max(t.height for t in row) for row in rows)))
+y = 0
+for row in rows:
+    for column, tile in enumerate(row):
+        sheet.paste(tile, (column * width, y))
+    y += max(t.height for t in row)
+sheet.thumbnail((2100, 3000))
+sheet.save(out)
+```
+
+Screenshots of the app outside the tests: start
+`npx vite --port 5173 --strictPort` in `web/` first, and stop it
+afterwards (`npm run dev` needs the port).
+
+```js
+// node shots.mjs
+import { chromium, devices } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+
+const browser = await chromium.launch()
+const context = await browser.newContext({
+  ...devices['Galaxy S24'],
+  reducedMotion: 'reduce',
+})
+const page = await context.newPage()
+// Fixed rates, as tests/fixtures.ts has.
+await page.route('https://api.frankfurter.dev/**', (route) =>
+  route.fulfill({
+    json: { date: '2026-09-25', rates: { ILS: 3.4594, USD: 1.1403 } },
+  }),
+)
+await page.goto('http://localhost:5173/')
+await page.locator('.chart canvas').first().waitFor()
+await page.screenshot({ path: 'page.png', fullPage: true })
+await browser.close()
+```
+
+The text of a page drawn by JavaScript (a broker's page; the root
+CLAUDE.md, "Researching a tariff"):
+
+```js
+// node text.mjs https://…  > page.txt
+import { chromium } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+
+const browser = await chromium.launch()
+const context = await browser.newContext({
+  userAgent:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36',
+  locale: 'he-IL',
+})
+const page = await context.newPage()
+await page.goto(process.argv[2], { waitUntil: 'networkidle', timeout: 60000 })
+process.stdout.write(await page.evaluate(() => document.body.innerText))
+await browser.close()
+```
+
+A jump that lasts a frame or two, which pictures and videos miss: record
+what could move, every frame, around the action, and print only the
+changes (`chart.spec.ts`, "a first tap", does it as a test). On a phone,
+`innerWidth` growing past the screen's width means the page zoomed out.
+
+```js
+const chart = document.querySelector('.chart')
+const log = []
+const t0 = performance.now()
+let last = ''
+const step = () => {
+  const state = `${innerWidth}×${innerHeight} ${scrollX},${scrollY} ${chart.getBoundingClientRect().top}`
+  if (state !== last) log.push(`${Math.round(performance.now() - t0)}ms ${state}`)
+  last = state
+  if (performance.now() - t0 < 1500) requestAnimationFrame(step)
+}
+step()
+```

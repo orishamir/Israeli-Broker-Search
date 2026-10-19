@@ -1,8 +1,9 @@
 // The donut's options: where every shekel goes at the end (deposit, gain
 // kept, fees, tax, and what the place keeps out of the rate). Pure, so it is
-// tested without a browser.
+// tested without a browser. REDESIGN.md (§2.7, §2.13) replaces it with
+// bars of how much of the gain is kept.
 //
-// Rules (REDESIGN.md 6.3): labels short (הפקדה / רווח / עמלות / מס) and
+// Rules: labels short (הפקדה / רווח / עמלות / מס) and
 // `overflow: 'none'`, so ECharts never wraps or cuts them (zrender guesses
 // every Hebrew letter as wide as a Chinese one); a slice under 0.5% is
 // listed under the donut instead of labelled on it, where its label would

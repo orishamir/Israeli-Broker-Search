@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The dialog "כבר יש לי תיק בבנק" opens (REDESIGN 6.8): which bank (its
+  // The dialog "כבר יש לי תיק בבנק" opens: which bank (its
   // branch plan is then ticked and compared), the guide's words for the
   // existing-account case (the recommendation's steps), and "+ מסלול משלכם"
   // for a deal the list doesn't have.

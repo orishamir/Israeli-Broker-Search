@@ -321,7 +321,7 @@ The plan "Branch or through a banker" (בסניף או דרך בנקאי) of Leu
 Mizrahi-Tefahot, Otsar Hahayal, and (from 19 October 2026) Hapoalim, Discount
 and the First International (Beinleumi) is the bank's own main price list, what a
 clerk charges for an order given at a branch or by phone, from the same PDF
-the bank's Online plan comes from (REDESIGN.md §4.10). It is never ticked at
+the bank's Online plan comes from (the previous plan's §4.10, `git show d14e955:REDESIGN.md`). It is never ticked at
 first (only the bank's `new_customer_plan` is); it is what the situation
 "I already have a portfolio at a bank" ticks. Read 19 October 2026 from the
 PDFs in this folder; custody is one row for both channels, so the plan keeps
@@ -766,7 +766,7 @@ and the tax.
 ## The guide's rules
 
 `crates/core/src/guide.rs` (the constants) and `guide/route.rs` (a `Route`
-for each row), from the table in REDESIGN.md §3; `tests/guide.rs` has a
+for each row), from the table in REDESIGN.md, Appendix A; `tests/guide.rs` has a
 test for each row. The guide invents no figure: it asks the engines for what
 each kind comes to after tax and ranks within an arena by it. What is a
 decision (marked) and what is a fact the sources above give:
@@ -902,7 +902,7 @@ yields are the monthly average of September 2026.
 ## CPI-linked deposits
 
 Looked for on 19 October 2026 for `short_term/linked_deposits.rs`; not
-built. The Bank of Israel's `g060a.xls` has none (REDESIGN.md 4.4). Of the
+built. The Bank of Israel's `g060a.xls` has none (the previous plan's §4.4). Of the
 big banks only Leumi's page of deposit rates
 ([leumi.co.il](https://www.leumi.co.il/savings/Payments-saving-month)) lists
 linked savings: "חסכון צמוד למדד לשנה" and "תשלומים צמוד מדד 15 שנים", both

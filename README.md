@@ -15,25 +15,30 @@ broker. And two kinds of people come: newcomers who don't know the
 strategies (a money market fund, a bond ETF, a stock ETF, a mutual fund, a
 CPI-linked deposit) and want to learn by example, and people who know
 exactly what they want to compare and see. So the site guides through
-questions while accepting the advanced ones, and educates on the way: when
-it chooses something for you it says what that thing is, in the words your
-bank's app and the ads use, why it fits your circumstances, and it draws
-how your money would have looked in the choices it didn't pick.
+questions while accepting the advanced ones, and educates on the way. It
+doesn't pretend to know your whole situation: it says what is clear and how
+sure it is, and puts the choices only you can make in front of you, at the
+point they matter, with what each would leave you. Whatever it names, it
+says what the thing is, in the words your bank's app and the ads use, and
+what to search for.
 
 ## Two routes, one page
 
-**The guide.** Answer a few questions: what the money is for, how much now
-and a month, when you need it (and, for a goal three to seven years away,
-whether the date can move; with no date, whether you already have a
-cushion). The page answers "מה שמתאים לכסף כזה": **what** it chose, in the
-words of your bank's app and the ads (a קרן סל, a קרן מחקה, a קרן כספית, a
-פיקדון, an אג״ח ממשלתית לפדיון, a קופת גמל להשקעה...), **why** it fits your
-circumstances, and **how** to do it step by step; and it draws what the same
-money would have come to in the kinds it didn't choose, with the S&P 500's
-past range (since 1926) beside it and where every shekel goes (deposits,
-gain, fees, tax). Each term opens a card that explains it. A ladder shows
-the same money at 1, 3, 5, 10 and 20 years, and chips start from a reason
-people save.
+**The guide.** Say what you have now, what you'll add each month, when
+you'll need the money, and where you bank. The page answers on a few lines:
+the type of place (safe, or a stock index), the way (a deposit, a money
+market fund, a bond of the State of Israel, an ETF on the S&P 500, a
+provident fund...) and where. Each line is either stated, with how sure the
+site is (כאן קשה לטעות, ההבדל קטן, תלוי במה שחשוב לכם), or a decision only
+you can make, shown in place as options side by side with what each would
+leave you; nothing is asked unless the answer changes the outcome. Below
+it: every option on one chart of what it would come to on your date, after
+tax and in today's money, beside what you put in and what a current account
+would leave; how to do it, with what to search for in your bank's app; how
+much of the gain fees and tax take; and what changes if the date moves.
+Each term opens a card that explains it, and chips start from a reason
+people save. The guide's answer is being rebuilt to this design
+(`REDESIGN.md`); the live page still shows the previous one.
 
 **The workbench.** Switch on "כל האפשרויות" when you know what you want to
 compare: what to buy (the S&P 500, another index or stock, bonds, short-term
@@ -59,7 +64,8 @@ rates. Only what earns the same thing is ranked: the safe kinds among
 themselves, the index kinds among themselves.
 
 Banks and investment houses (בנקים ובתי השקעות) covered: Altshuler Shaham
-Trade, Bank Leumi (including Leumi Trade and Pepper), Excellence Trade, IBI,
+Trade, Bank Leumi (including Leumi Trade and Pepper), Bank Hapoalim, Bank
+Discount, the First International Bank (Beinleumi), Excellence Trade, IBI,
 Interactive Israel, Meitav Trade, Mizrahi-Tefahot Bank and Bank Otsar
 Hahayal. Investment houses publish only their full tariffs; their "Typical
 offer" plans are what comparison sites list for new customers, and every
@@ -90,8 +96,9 @@ financial advice: check the current terms before opening an account.
 ## Development
 
 The fee model is Rust, compiled to WebAssembly; the UI is Svelte 5 with
-ECharts. `CLAUDE.md` describes the layout and the conventions, and
-`REDESIGN.md` the plan the page was built from.
+ECharts. `CLAUDE.md` describes the layout, the conventions and the design
+rules in short; `REDESIGN.md` has the design rules in full and the plan of
+record.
 
 ```sh
 cargo test                       # the core: tariffs, economics, bindings

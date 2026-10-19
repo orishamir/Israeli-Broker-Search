@@ -839,7 +839,7 @@ export class AppState {
     this.answers.situation = { ExistingPortfolio: { bank } }
   }
 
-  // ── Package I: the bank's branch plan, ticked (REDESIGN 6.8) ──
+  // ── Package I: the bank's branch plan, ticked ──
   /** Ticks the plan the recommendation marks as the saver's own bank's
    * branch plan, and unticks the other banks' branch plans that an earlier
    * choice of bank ticked. Called by the answer while the situation is the

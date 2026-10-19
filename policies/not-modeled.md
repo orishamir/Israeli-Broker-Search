@@ -337,7 +337,7 @@ time. Left out (October 2026); the rules it does follow are in `sources.md`,
 
 - **Banks that aren't in the app** (One Zero, Mercantile Discount, Massad,
   Jerusalem, Union, Yahav, Pagi and the rest): there is no tariff in
-  `policies`, so no branch plan. REDESIGN.md §6.8 stands in the dearest
+  `policies`, so no branch plan. The app stands in the dearest
   branch plan of the six that are; the guide calls it "another bank", not
   the bank it was taken from. One Zero publishes its tariff
   (`onezerobank.com/company/information/2250`) but its files sit behind a

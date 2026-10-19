@@ -1,0 +1,790 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>כמה יישאר לכם בסוף: התשובה החדשה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&amp;family=Rubik:wght@500;600;700&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#F2F4F5}
+a{color:#0B5F7A}a:hover{color:#083F52}
+button{font:inherit}
+.num{font-variant-numeric:tabular-nums}
+.cols2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.row{display:grid;grid-template-columns:250px minmax(0,1fr) 116px;align-items:stretch}
+.layer{display:grid;grid-template-columns:110px minmax(0,1fr) auto;gap:12px;align-items:center}
+@media (max-width:900px){
+.cols3{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+.cols2{grid-template-columns:minmax(0,1fr)}
+.row{grid-template-columns:minmax(0,1fr) 100px}
+.row .track{grid-column:1 / -1;order:3}
+.layer{grid-template-columns:minmax(0,1fr) auto}
+.layer .layer-k{grid-column:1 / -1}
+}
+</style>
+</helmet>
+<div dir="rtl" style="font-family: Assistant, 'Segoe UI', sans-serif; color: #14212B; background: #F2F4F5; min-height: 100vh; padding: 32px 20px 64px; box-sizing: border-box">
+<div style="max-width: 1120px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h1 style="margin: 0; font-family: Rubik, sans-serif; font-size: 28px; font-weight: 700">כמה יישאר לכם בסוף</h1>
+<p style="margin: 0; font-size: 15px; color: #51606B">שלוש דוגמאות, אחת לכל רמת ביטחון של התשובה</p>
+</div>
+<div role="group" aria-label="דוגמה" style="display: flex; flex-wrap: wrap; gap: 4px; background: #E1E6E9; padding: 4px; border-radius: 12px">
+<sc-for list="{{scenarios}}" as="sc" hint-placeholder-count="3">
+<button type="button" onClick="{{sc.pick}}" aria-pressed="{{sc.pressed}}" style="min-height: 44px; padding: 0 16px; border: 0; border-radius: 9px; cursor: pointer; font-size: 15px; font-weight: 600; background: {{sc.bg}}; color: {{sc.fg}}">{{sc.label}}</button>
+</sc-for>
+</div>
+</header>
+
+<section aria-label="הכסף שלכם" style="background: #FFFFFF; border: 1px solid #DDE3E7; border-radius: 16px; padding: 18px 24px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px 28px; font-size: 16px">
+<sc-for list="{{inputs}}" as="it" hint-placeholder-count="4">
+<div style="display: flex; gap: 6px; align-items: baseline"><span style="color: #51606B">{{it.k}}</span><strong class="num" style="font-weight: 700">{{it.v}}</strong></div>
+</sc-for>
+</div>
+</section>
+
+<section aria-label="התשובה" style="background: #FFFFFF; border-style: solid; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px; border-width: {{answer.bw}}; border-color: {{answer.border}}">
+<div style="display: flex; flex-wrap: wrap; gap: 10px; align-items: center">
+<span style="padding: 6px 14px; border-radius: 999px; font-weight: 700; font-size: 14px; background: {{answer.chipBg}}; color: {{answer.chipFg}}">{{answer.chip}}</span>
+<span style="font-size: 14px; color: #51606B">{{answer.chipNote}}</span>
+</div>
+<h2 style="margin: 0; font-family: Rubik, sans-serif; font-size: 26px; font-weight: 600; line-height: 1.3">{{answer.title}}</h2>
+<p style="margin: 0; font-size: 17px; line-height: 1.6; color: #24333D; max-width: 840px">{{answer.body}}</p>
+
+<div style="display: flex; flex-direction: column; border-top: 1px solid #E6EAED">
+<sc-for list="{{layers}}" as="ly" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 14px 0; border-bottom: 1px solid #EEF1F3">
+<div class="layer">
+<span class="layer-k" style="font-weight: 700; color: #33424C; font-size: 15px">{{ly.k}}</span>
+<span style="font-size: 16px; line-height: 1.5; font-weight: {{ly.vw}}; color: {{ly.vc}}">{{ly.v}}</span>
+<span style="padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 700; white-space: nowrap; background: {{ly.bg}}; color: {{ly.fg}}">{{ly.pill}}</span>
+</div>
+<sc-if value="{{ly.isDecision}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #51606B">{{ly.why}}</p>
+<div class="{{ly.grid}}">
+<sc-for list="{{ly.cards}}" as="cd" hint-placeholder-count="2">
+<div style="border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 8px; border-style: solid; border-width: 2px; background: #FFFFFF; border-color: {{cd.bd}}; opacity: {{cd.op}}">
+<div style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="flex: none; width: 12px; height: 12px; border-radius: 50%; background: {{cd.color}}"></span><span style="font-weight: 700; font-size: 16.5px">{{cd.title}}</span></div>
+<div class="num" style="font-family: Rubik, sans-serif; font-size: 20px; font-weight: 600">{{cd.amount}}</div>
+<sc-for list="{{cd.facts}}" as="fa" hint-placeholder-count="2">
+<p style="margin: 0; font-size: 15px; line-height: 1.5; color: #33424C">{{fa}}</p>
+</sc-for>
+<sc-if value="{{cd.hasFit}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; font-size: 15px; line-height: 1.5; font-weight: 600; color: #14212B">{{cd.fit}}</p>
+</sc-if>
+<button type="button" onClick="{{cd.pick}}" aria-pressed="{{cd.pressed}}" style="margin-top: auto; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #B9C4CB; cursor: pointer; font-size: 15px; font-weight: 600; background: {{cd.bbg}}; color: {{cd.bfg}}">{{cd.button}}</button>
+</div>
+</sc-for>
+</div>
+<sc-if value="{{ly.hasDiff}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; padding: 12px 16px; border-radius: 12px; background: #F1F5F7; font-size: 15.5px; line-height: 1.6; color: #20303A">{{ly.diff}}</p>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+
+<sc-if value="{{hasPlan}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 16px 18px; border-radius: 14px; background: #E3F0F5; display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 700; font-size: 15px; color: #0B4F66">התוכנית שלכם</span>
+<p style="margin: 0; font-size: 17px; line-height: 1.6">{{plan}}</p>
+</div>
+</sc-if>
+<sc-if value="{{hasPending}}" hint-placeholder-val="{{ true }}">
+<p style="margin: 0; font-size: 15px; color: #51606B">{{pendingText}}</p>
+</sc-if>
+</section>
+
+<section aria-labelledby="chart-h" style="background: #FFFFFF; border: 1px solid #DDE3E7; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 id="chart-h" style="margin: 0; font-family: Rubik, sans-serif; font-size: 22px; font-weight: 600">{{chart.title}}</h2>
+<p style="margin: 0; color: #51606B; font-size: 15px">בכסף של היום, אחרי עמלות ומס. הקישו על שורה כדי לראות איך עושים את זה.</p>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 8px 22px; font-size: 14px; color: #33424C">
+<span style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 0; height: 18px; border-left: 2px solid #14212B"></span>מה שהפקדתם: <strong class="num">{{chart.depText}}</strong></span>
+<span style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 0; height: 18px; border-left: 2px dashed #6F7A80"></span>אם הכסף יישאר בעו״ש: <strong class="num">{{chart.cashText}}</strong></span>
+<span style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 50%; background: #2F6FB0"></span>סכום שידוע פחות או יותר מראש</span>
+<span style="display: flex; align-items: center; gap: 8px"><span aria-hidden="true" style="width: 34px; height: 10px; border: 2px dashed #C2571A; border-radius: 5px; box-sizing: border-box"></span>מניות: מהגרוע לטוב שהיו בעבר</span>
+</div>
+
+<div role="list" style="display: flex; flex-direction: column; border-top: 1px solid #EEF1F3">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="5">
+<div role="listitem" style="display: flex; flex-direction: column; border-bottom: 1px solid #EEF1F3; background: {{r.bg}}; opacity: {{r.opacity}}">
+<button type="button" class="row" onClick="{{r.pick}}" aria-pressed="{{r.selected}}" aria-label="{{r.aria}}" style="width: 100%; min-height: 66px; border: 0; background: transparent; cursor: pointer; padding: 0; text-align: right; color: #14212B">
+<span style="display: flex; flex-direction: column; gap: 5px; padding: 10px 12px; align-self: center">
+<span style="font-weight: 700; font-size: 16px">{{r.name}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px">
+<sc-for list="{{r.tags}}" as="tg" hint-placeholder-count="2">
+<span style="font-size: 13px; padding: 2px 8px; border-radius: 999px; background: #EAEFF2; color: #33424C">{{tg}}</span>
+</sc-for>
+</span>
+</span>
+<span class="track" style="position: relative; display: block; direction: ltr; min-height: 62px">
+<span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; border-left: 2px solid #14212B; left: {{chart.depLeft}}"></span>
+<span aria-hidden="true" style="position: absolute; top: 0; bottom: 0; border-left: 2px dashed #6F7A80; left: {{chart.cashLeft}}"></span>
+<sc-if value="{{r.hasRange}}" hint-placeholder-val="{{ false }}">
+<span aria-hidden="true" style="position: absolute; top: 50%; height: 10px; margin-top: -5px; border-radius: 5px; background: #BFD6EC; left: {{r.rLeft}}; width: {{r.rWidth}}"></span>
+</sc-if>
+<sc-if value="{{r.isStock}}" hint-placeholder-val="{{ false }}">
+<span aria-hidden="true" style="position: absolute; top: 50%; left: 2px; right: 2px; height: 12px; margin-top: -6px; border: 2px dashed #C2571A; border-radius: 6px; box-sizing: border-box"></span>
+<span aria-hidden="true" dir="rtl" style="position: absolute; top: 3px; left: 6px; font-size: 12px; color: #7A3410">[הגרוע שהיה: ₪—]</span>
+<span aria-hidden="true" dir="rtl" style="position: absolute; top: 3px; right: 6px; font-size: 12px; color: #7A3410">[הטוב שהיה: ₪—]</span>
+<span aria-hidden="true" style="position: absolute; top: 50%; height: 26px; margin-top: -13px; width: 4px; margin-left: -2px; border-radius: 2px; background: #C2571A; left: {{r.tickLeft}}"></span>
+<span aria-hidden="true" dir="rtl" style="position: absolute; bottom: 2px; transform: translateX(-50%); font-size: 12px; font-weight: 700; color: #7A3410; white-space: nowrap; left: {{r.tickLeft}}">10% בשנה</span>
+</sc-if>
+<sc-if value="{{r.hasDot}}" hint-placeholder-val="{{ true }}">
+<span aria-hidden="true" style="position: absolute; top: 50%; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #FFFFFF; box-sizing: border-box; background: {{r.color}}; box-shadow: 0 0 0 1px {{r.color}}; left: {{r.dotLeft}}"></span>
+</sc-if>
+</span>
+<span class="num" style="align-self: center; padding: 0 12px; font-weight: 700; font-size: 16px; text-align: left; color: {{r.valueColor}}">{{r.value}}</span>
+</button>
+<sc-if value="{{r.hasNote}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; padding: 0 12px 10px; font-size: 14px; line-height: 1.5; color: #51606B">{{r.note}}</p>
+</sc-if>
+</div>
+</sc-for>
+<div class="row" aria-hidden="true">
+<span></span>
+<span class="track" style="position: relative; display: block; direction: ltr; height: 30px">
+<sc-for list="{{chart.ticks}}" as="tk" hint-placeholder-count="6">
+<span style="position: absolute; top: 6px; transform: translateX(-50%); font-size: 12.5px; color: #51606B; white-space: nowrap; left: {{tk.left}}">{{tk.label}}</span>
+</sc-for>
+</span>
+<span></span>
+</div>
+</div>
+<p style="margin: 0; font-size: 13.5px; color: #51606B">[₪—]: יחושב מתקופות העבר שהאתר כבר בודק (הגרועה, האמצעית והטובה).</p>
+</section>
+
+<section aria-labelledby="how-h" style="background: #FFFFFF; border: 1px solid #DDE3E7; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<span style="font-size: 14px; color: #51606B; font-weight: 600">איך עושים את זה</span>
+<h2 id="how-h" style="margin: 0; font-family: Rubik, sans-serif; font-size: 22px; font-weight: 600">{{sel.name}}</h2>
+</div>
+<sc-if value="{{sel.isEmpty}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #51606B">{{sel.emptyText}}</p>
+</sc-if>
+<sc-if value="{{sel.hasIdentity}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{sel.identity}}" as="idn" hint-placeholder-count="4">
+<span style="padding: 6px 12px; border-radius: 999px; border: 1px solid #C2CCD2; font-size: 14.5px; color: #20303A">{{idn}}</span>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{sel.hasSearch}}" hint-placeholder-val="{{ true }}">
+<div style="background: #F1F5F7; border-radius: 12px; padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: baseline">
+<span style="font-weight: 700">מה מחפשים באפליקציה:</span>
+<span style="font-size: 16px">{{sel.search}}</span>
+</div>
+</sc-if>
+<sc-if value="{{sel.hasSteps}}" hint-placeholder-val="{{ true }}">
+<ol style="margin: 0; padding-inline-start: 24px; display: flex; flex-direction: column; gap: 8px; font-size: 16px; line-height: 1.55">
+<sc-for list="{{sel.steps}}" as="st" hint-placeholder-count="3">
+<li>{{st}}</li>
+</sc-for>
+</ol>
+</sc-if>
+<sc-if value="{{sel.hasNoSteps}}" hint-placeholder-val="{{ false }}">
+<p style="margin: 0; font-size: 16px; line-height: 1.6; color: #33424C">{{sel.noSteps}}</p>
+</sc-if>
+<sc-if value="{{sel.hasWhere}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<h3 style="margin: 0; font-size: 17px">{{sel.whereTitle}}</h3>
+<sc-if value="{{sel.hasWhereRows}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column">
+<sc-for list="{{sel.where}}" as="wh" hint-placeholder-count="3">
+<div style="display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 14px; align-items: center; padding: 9px 0; border-bottom: 1px solid #EEF1F3; font-size: 15.5px">
+<span style="font-weight: {{wh.fw}}">{{wh.name}}</span>
+<span class="num" style="font-weight: 700">{{wh.value}}</span>
+<span class="num" style="min-width: 120px; text-align: left; color: {{wh.color}}">{{wh.diff}}</span>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<p style="margin: 0; font-size: 15px; line-height: 1.55; color: #33424C">{{sel.whereNote}}</p>
+</div>
+</sc-if>
+</section>
+
+<sc-if value="{{hasGain}}" hint-placeholder-val="{{ false }}">
+<section aria-labelledby="gain-h" style="background: #FFFFFF; border: 1px solid #DDE3E7; border-radius: 16px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<h2 id="gain-h" style="margin: 0; font-family: Rubik, sans-serif; font-size: 22px; font-weight: 600">כמה מהרווח נשאר אצלכם</h2>
+<p style="margin: 0; color: #51606B; font-size: 15px">{{gain.lead}}</p>
+<div style="display: flex; flex-wrap: wrap; gap: 8px 20px; font-size: 14px; color: #33424C">
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 3px; background: #0E6E8C"></span>נשאר לכם</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 3px; background: #A3AEB5"></span>מס</span>
+<span style="display: flex; align-items: center; gap: 6px"><span aria-hidden="true" style="width: 14px; height: 14px; border-radius: 3px; background: #C2571A"></span>עמלות</span>
+</div>
+<sc-for list="{{gain.rows}}" as="gr" hint-placeholder-count="2">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-weight: 700; font-size: 16px">{{gr.name}}</span>
+<span aria-hidden="true" style="display: flex; height: 24px; border-radius: 6px; overflow: hidden; background: #F2F4F5">
+<span style="flex: none; background: #0E6E8C; width: {{gr.keptW}}"></span>
+<span style="flex: none; background: #A3AEB5; width: {{gr.taxW}}"></span>
+<span style="flex: none; background: #C2571A; width: {{gr.feeW}}"></span>
+</span>
+<span class="num" style="font-size: 14.5px; color: #33424C">{{gr.text}}</span>
+</div>
+</sc-for>
+<p style="margin: 0; font-size: 16px; line-height: 1.6">{{gain.takeaway}}</p>
+</section>
+</sc-if>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":3000}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { scenario: 'apt', selected: null, aptWay: null, bType: null, bWay: null, sCushion: null, sWrap: null, sWhere: null };
+  }
+
+  fmt(n) {
+    return '₪' + Math.round(n).toLocaleString('en-US');
+  }
+
+  pos(v, ax) {
+    const p = (v - ax.min) / (ax.max - ax.min) * 100;
+    return Math.max(0, Math.min(100, p)).toFixed(2) + '%';
+  }
+
+  ticks(ax) {
+    const out = [];
+    for (let v = ax.min; v <= ax.max; v += ax.step) {
+      out.push({ left: this.pos(v, ax), label: v === 0 ? '₪0' : '₪' + Math.round(v / 1000).toLocaleString('en-US') + ' אלף' });
+    }
+    return out;
+  }
+
+  pill(kind) {
+    const m = {
+      clear: ['#D6ECF3', '#0B4F66', 'ברור'],
+      tie: ['#EAEFF2', '#33424C', 'תיקו'],
+      rules: ['#EAEFF2', '#33424C', 'לפי הכללים'],
+      decide: ['#FBE6D6', '#7A3410', 'החלטה שלכם'],
+      chosen: ['#14212B', '#FFFFFF', 'בחרתם'],
+      pending: ['#F2F4F5', '#51606B', 'אחרי הבחירה']
+    }[kind];
+    return { bg: m[0], fg: m[1], pill: m[2] };
+  }
+
+  pending(k) {
+    return { k: k, type: 'pending', v: 'יתברר אחרי ההחלטה למעלה' };
+  }
+
+  mmfDetails(steps) {
+    return {
+      name: 'קרן כספית',
+      identity: ['קרן נאמנות בשקלים', 'מלווה כסף לזמן קצר למדינה ולבנקים', 'נקנית באפליקציה של הבנק', 'נמכרת בכל יום מסחר', 'הריבית משתנה עם ריבית בנק ישראל'],
+      search: 'כספית שקלית · הזולה לפי האתר: דולפין כספית שקלית · מספר נייר: [—]',
+      steps: steps,
+      whereTitle: 'איפה לקנות',
+      where: [],
+      whereNote: 'בבנק שלכם. בנק לא רשאי לגבות דמי משמרת על קרן כספית; בית השקעות יכול לגבות עמלה על כל קנייה.'
+    };
+  }
+
+  apt(s) {
+    const SAFE = '#2F6FB0', GROW = '#C2571A';
+    const bondFirst = 'פותחים חשבון מסחר, אם אין לכם. הזול לפי האתר: אקסלנס טרייד, במבצע הצטרפות.';
+
+    let where;
+    if (s.aptWay === 'mmf') where = { k: 'איפה', type: 'stated', kind: 'clear', v: 'באפליקציה של הבנק שלכם. בנק לא רשאי לגבות דמי משמרת על קרן כספית.' };
+    else if (s.aptWay === 'bond') where = { k: 'איפה', type: 'stated', kind: 'tie', v: 'אקסלנס, אלטשולר או מיטב: ההפרש ביניהם עד ₪149, אז כל אחד בסדר. לעומת הבנק שלכם: בערך ₪2,900 יותר.' };
+    else where = this.pending('איפה');
+
+    const layers = [
+      { k: 'סוג המקום', type: 'stated', kind: 'clear', v: 'בטוח, לא מניות: 3 שנים, ותאריך שלא זז. גם אם התאריך יכול לזוז קצת, 3 שנים קצר מדי למניות לפי הכללים של האתר.' },
+      {
+        k: 'הדרך', type: 'decision', key: 'aptWay',
+        question: 'מה חשוב לכם יותר: הכי פשוט, או לדעת כבר היום כמה יהיה?',
+        why: 'ההבדל בכסף קטן, ותלוי בריבית שאף אחד לא יודע מראש. לכן זה עניין של מה שנוח לכם, ולא של מי משאירה יותר.',
+        cards: [
+          { val: 'mmf', title: 'הכי פשוט: קרן כספית', amount: '₪173,728 בריבית של היום', color: SAFE, facts: ['באפליקציה של הבנק שלכם, בלי חשבון חדש.', 'אפשר למכור בכל יום מסחר.', 'הסכום זז עם ריבית בנק ישראל: ₪176,045 אם תהיה בממוצע 4%, ופחות אם תרד.'], fit: 'מתאים אם: אתם רוצים כמה שפחות התעסקות.', button: 'הכי פשוט, בבנק שלי' },
+          { val: 'bond', title: 'ידוע מראש: אג״ח צמודה של מדינת ישראל', amount: '₪174,934, ידוע כבר היום', color: SAFE, facts: ['צריך חשבון מסחר בבית השקעות. אם כבר יש לכם אחד, זו עוד פקודה.', 'קונים בכל חודש את אותה סדרה, ומחזיקים עד הפדיון ב‑2029.', 'כוח הקנייה ידוע מראש: הסכום עולה עם האינפלציה. יש גם אג״ח שקלית: ₪174,010.'], fit: 'מתאים אם: חשוב לכם לדעת היום כמה יהיה בסוף.', button: 'לדעת מראש, גם אם צריך חשבון' }
+        ],
+        diff: 'בריבית של היום האג״ח משאירה ₪1,206 יותר. אם הריבית תהיה בממוצע מעל כ‑3.6%, הקרן הכספית משאירה יותר. ובלי חשבון חדש: אג״ח דרך הבנק שלכם הייתה משאירה ₪171,940, פחות מהקרן הכספית.'
+      },
+      where
+    ];
+
+    const rows = [
+      { id: 'mmf', name: 'קרן כספית', tags: ['הריבית משתנה', 'בבנק שלכם'], kind: 'dot', v: 173728, range: [173728, 176045], color: SAFE, note: 'הפס: מה יישאר אם ריבית בנק ישראל תהיה בממוצע בין 3.25% ל‑4%.' },
+      { id: 'cpi', name: 'אג״ח צמודה של מדינת ישראל', tags: ['כוח הקנייה ידוע מראש', 'צריך חשבון מסחר'], kind: 'dot', v: 174934, color: SAFE },
+      { id: 'nis', name: 'אג״ח שקלית של מדינת ישראל', tags: ['הסכום ידוע מראש', 'צריך חשבון מסחר'], kind: 'dot', v: 174010, color: SAFE },
+      { id: 'stock', name: 'קרן על מדד S&P 500', tags: ['עולה ויורד', 'לא לתאריך קבוע'], kind: 'stock', v: 194460, color: GROW, alwaysDim: true, note: 'ב‑178 מתוך 1,134 תקופות של 3 שנים מאז 1926 המדד נגמר בהפסד (בדולרים, לפני עמלות ומס). לכן הוא לא מוצע לתאריך קבוע בעוד 3 שנים.' }
+    ];
+
+    const details = {
+      mmf: this.mmfDetails(['באפליקציה של הבנק, תחת קרנות נאמנות, מחפשים ״כספית שקלית״.', 'קונים ב‑₪100,000 עכשיו, ועוד ₪2,000 בכל חודש.', 'מוכרים כשצריך, בכל יום מסחר. משלמים 25% מהרווח שמעבר לאינפלציה.']),
+      cpi: {
+        name: 'אג״ח צמודה של מדינת ישראל',
+        identity: ['הלוואה למדינת ישראל', 'נסחרת בבורסה בתל אביב', 'בשקלים, צמודה למדד המחירים לצרכן', 'נפדית ב‑2029: מחזיקים עד אז'],
+        search: 'ממשלתי צמוד ____ (הסדרה שנפדית הכי קרוב לאוקטובר 2029)',
+        steps: [bondFirst, 'מחפשים את הסדרה שנפדית ב‑2029, וקונים ב‑₪100,000.', 'בכל חודש קונים את אותה סדרה ב‑₪2,000.', 'מחזיקים עד הפדיון. משלמים 25% מהרווח שמעבר לאינפלציה.'],
+        whereTitle: 'איפה לקנות, לעומת הבנק שלכם',
+        where: [['אקסלנס טרייד · מבצע הצטרפות', 174934, '+₪2,994'], ['אלטשולר שחם טרייד · מבצע הצטרפות', 174848, '+₪2,908'], ['מיטב טרייד · מבצע הצטרפות', 174785, '+₪2,845'], ['הבנק שלכם: הפועלים · אונליין', 171940, 'נקודת השוואה']],
+        whereNote: 'שלושת בתי ההשקעות נבדלים זה מזה בפחות מ‑₪150, אז כל אחד מהם בסדר. ההבדל שחשוב הוא מול הבנק: בערך ₪2,900 על פני 3 שנים.'
+      },
+      nis: {
+        name: 'אג״ח שקלית של מדינת ישראל',
+        identity: ['הלוואה למדינת ישראל', 'נסחרת בבורסה בתל אביב', 'בשקלים, לא צמודה', 'נפדית ב‑2029: הסכום ידוע מראש'],
+        search: 'ממשלתי שקלי ____ (הסדרה שנפדית הכי קרוב לאוקטובר 2029)',
+        steps: [bondFirst, 'מחפשים את הסדרה שנפדית ב‑2029, וקונים ב‑₪100,000.', 'בכל חודש קונים את אותה סדרה ב‑₪2,000.', 'מחזיקים עד הפדיון.'],
+        whereTitle: 'איפה לקנות',
+        where: [],
+        whereNote: '[פירוט לפי בית השקעות ובנק, כמו באג״ח הצמודה]'
+      },
+      stock: {
+        name: 'קרן על מדד S&P 500',
+        identity: ['קרן שמחזיקה את 500 החברות הגדולות בארה״ב', 'הערך עולה ויורד כל יום'],
+        search: '',
+        steps: [],
+        noSteps: 'לא מוצע לכסף שצריך בעוד 3 שנים בתאריך קבוע. אם התאריך רחוק 5 שנים ויותר ואפשר לחכות, זה משתנה.',
+        where: [],
+        whereNote: ''
+      }
+    };
+
+    const focus = s.aptWay === 'mmf' ? 'mmf' : (s.aptWay === 'bond' ? 'cpi' : null);
+    let plan = null;
+    if (s.aptWay === 'mmf') plan = 'קרן כספית באפליקציה של הבנק שלכם: ₪100,000 עכשיו ועוד ₪2,000 בכל חודש, עד אוקטובר 2029.';
+    if (s.aptWay === 'bond') plan = 'אג״ח צמודה של מדינת ישראל שנפדית ב‑2029, דרך חשבון מסחר באקסלנס, באלטשולר או במיטב: ₪100,000 עכשיו ועוד ₪2,000 בכל חודש.';
+
+    return {
+      inputs: [['יש לי עכשיו', '₪100,000'], ['אוסיף כל חודש', '₪2,000'], ['אצטרך את הכסף', 'בעוד 3 שנים, באוקטובר 2029'], ['הבנק שלי', 'הפועלים']],
+      answer: {
+        state: 'B',
+        title: 'לא מניות. ובין הדרכים הבטוחות, אתם בוחרים.',
+        body: 'הכסף נדרש בעוד 3 שנים, בתאריך שלא זז. כל הדרכים הבטוחות מסתיימות בטווח של ₪1,206 זו מזו, בכסף של היום ואחרי מס, ולכן הבחירה ביניהן היא לפי מה שנוח לכם.',
+        chipNote: 'מה שחשוב ברור: לא מניות. השאר תלוי במה שנוח לכם.'
+      },
+      layers: layers,
+      chart: { title: 'מה יהיה לכם באוקטובר 2029', ax: { min: 150000, max: 200000, step: 10000 }, dep: 172000, cash: 162079, rows: rows },
+      details: details,
+      focus: focus,
+      active: focus ? [focus] : null,
+      plan: plan,
+      gain: null
+    };
+  }
+
+  bonus(s) {
+    const SAFE = '#2F6FB0', GROW = '#C2571A';
+
+    let way;
+    if (s.bType === 'safe') {
+      way = {
+        k: 'הדרך', type: 'decision', key: 'bWay',
+        question: 'איזו דרך בטוחה?',
+        why: 'ההבדל ביניהן עד ₪330 על פני 5 שנים. מה שמבדיל הוא נעילה מול גמישות, ופשטות מול חשבון חדש.',
+        cards: [
+          { val: 'deposit', title: 'פיקדון בריבית קבועה ל‑5 שנים', amount: '₪15,960', color: SAFE, facts: ['בבנק. לפי האתר, בנק ירושלים פותח פיקדון גם בלי חשבון עו״ש אצלו.', 'הכסף נעול עד 2031.'], fit: 'מתאים אם: לא תצטרכו לגעת בכסף לפני 2031.', button: 'פיקדון' },
+          { val: 'bond', title: 'אג״ח צמודה של מדינת ישראל', amount: '₪16,030', color: SAFE, facts: ['צריך חשבון מסחר. אם כבר יש לכם אחד, זו עוד פקודה.', 'אפשר למכור לפני 2031, במחיר של אותו יום.'], fit: 'מתאים אם: לא אכפת לכם לפתוח חשבון, או שכבר יש לכם.', button: 'אג״ח' },
+          { val: 'mmf', title: 'קרן כספית', amount: '₪15,700 בריבית של היום', color: SAFE, facts: ['באפליקציה של הבנק שלכם, בלי חשבון חדש.', 'אפשר למכור בכל יום. הריבית משתנה.'], fit: 'מתאים אם: אתם רוצים הכי פשוט.', button: 'קרן כספית' }
+        ],
+        diff: ''
+      };
+    } else if (s.bType === 'growth') {
+      way = { k: 'הדרך', type: 'stated', kind: 'rules', v: 'קרן מחקה על מדד S&P 500, דרך חשבון מסחר.' };
+    } else {
+      way = this.pending('הדרך');
+    }
+
+    let where;
+    if (s.bType === 'growth') where = { k: 'איפה', type: 'stated', kind: 'tie', v: 'אקסלנס או אלטשולר (תיקו, ₪19,925) · מיטב ₪597 פחות · דרך הבנק שלכם: [יחושב]' };
+    else if (s.bType === 'safe' && s.bWay === 'deposit') where = { k: 'איפה', type: 'stated', kind: 'rules', v: 'בנק ירושלים, שלפי האתר פותח פיקדון גם בלי חשבון עו״ש אצלו. הריבית בחישוב היא ממוצע, לא הצעה: שאלו מה תקבלו.' };
+    else if (s.bType === 'safe' && s.bWay === 'bond') where = { k: 'איפה', type: 'stated', kind: 'rules', v: 'בחשבון מסחר: [פירוט לפי בית השקעות ובנק]' };
+    else if (s.bType === 'safe' && s.bWay === 'mmf') where = { k: 'איפה', type: 'stated', kind: 'clear', v: 'באפליקציה של הבנק שלכם.' };
+    else where = this.pending('איפה');
+
+    const layers = [
+      {
+        k: 'סוג המקום', type: 'decision', key: 'bType',
+        question: 'אם ב‑2031 הבורסה תהיה בירידה, תוכלו לחכות עוד שנה‑שנתיים?',
+        why: 'רק אתם יודעים אם התאריך יכול לזוז. זה מה שמכריע בין ביטחון לצמיחה.',
+        cards: [
+          { val: 'safe', title: 'בטוח', amount: 'בערך ₪15,700–₪16,030', color: SAFE, facts: ['ידוע כמעט מראש: פיקדון, אג״ח של מדינת ישראל או קרן כספית.', 'אחרי הבחירה הזאת תבחרו איזו דרך בטוחה.'], fit: '', button: 'לא, אצטרך את הכסף בדיוק אז' },
+          { val: 'growth', title: 'צמיחה: קרן על מדד S&P 500', amount: '₪19,925 אם המדד יעלה 10% בשנה', color: GROW, facts: ['ב‑135 מתוך 1,110 תקופות של 5 שנים מאז 1926 המדד נגמר בהפסד (בדולרים, לפני עמלות ומס).', 'אפשר למכור בכל יום. אם יש ירידה, מחכים שנה‑שנתיים.', 'צריך חשבון מסחר. אם כבר יש לכם אחד, זו עוד פקודה.'], fit: '', button: 'כן, אפשר לחכות' }
+        ],
+        diff: 'אם המדד יעלה 10% בשנה, הוא ישאיר בערך ₪3,900 יותר מהדרך הבטוחה הטובה. בתמורה: הוא יכול להיות מתחת ל‑₪15,000 דווקא בשנה שתצטרכו את הכסף.'
+      },
+      way,
+      where
+    ];
+
+    const rows = [
+      { id: 'cpi', name: 'אג״ח צמודה של מדינת ישראל', tags: ['כוח הקנייה ידוע מראש', 'צריך חשבון מסחר'], kind: 'dot', v: 16030, color: SAFE },
+      { id: 'deposit', name: 'פיקדון בריבית קבועה ל‑5 שנים', tags: ['הסכום ידוע מראש', 'נעול עד 2031'], kind: 'dot', v: 15960, color: SAFE },
+      { id: 'nis', name: 'אג״ח שקלית של מדינת ישראל', tags: ['הסכום ידוע מראש', 'צריך חשבון מסחר'], kind: 'dot', v: 15891, color: SAFE },
+      { id: 'mmf', name: 'קרן כספית', tags: ['הריבית משתנה', 'בבנק שלכם'], kind: 'dot', v: 15700, color: SAFE },
+      { id: 'stock', name: 'קרן מחקה על מדד S&P 500', tags: ['עולה ויורד', 'צריך חשבון מסחר'], kind: 'stock', v: 19925, color: GROW, note: 'ב‑135 מתוך 1,110 תקופות של 5 שנים מאז 1926 המדד נגמר בהפסד (בדולרים, לפני עמלות ומס).' }
+    ];
+
+    const bondSteps = ['פותחים חשבון מסחר, אם אין לכם.', 'מחפשים את הסדרה שנפדית ב‑2031, וקונים ב‑₪15,000.', 'מחזיקים עד הפדיון.'];
+    const details = {
+      cpi: {
+        name: 'אג״ח צמודה של מדינת ישראל',
+        identity: ['הלוואה למדינת ישראל', 'נסחרת בבורסה בתל אביב', 'בשקלים, צמודה למדד המחירים לצרכן', 'נפדית ב‑2031'],
+        search: 'ממשלתי צמוד ____ (הסדרה שנפדית הכי קרוב לאוקטובר 2031)',
+        steps: bondSteps,
+        where: [],
+        whereNote: '[פירוט לפי בית השקעות ובנק]'
+      },
+      deposit: {
+        name: 'פיקדון בריבית קבועה ל‑5 שנים',
+        identity: ['פיקדון בבנק, בשקלים', 'ריבית קבועה: הסכום ידוע מראש', 'הכסף נעול עד 2031'],
+        search: 'פיקדון בריבית קבועה, 5 שנים · בבנק ירושלים (לפי האתר, פותח גם בלי חשבון עו״ש אצלו)',
+        steps: ['פותחים באפליקציה או בסניף. הריבית בחישוב היא הממוצע שהבנק נתן ב‑10/2026, לא הצעה: שאלו מה תקבלו.', 'בוחרים 5 שנים, ריבית קבועה.', 'לא נוגעים: שבירה מוקדמת היא לפי תנאי הפיקדון.', 'מס: 15% מכל הריבית.'],
+        where: [],
+        whereNote: ''
+      },
+      nis: {
+        name: 'אג״ח שקלית של מדינת ישראל',
+        identity: ['הלוואה למדינת ישראל', 'נסחרת בבורסה בתל אביב', 'בשקלים, לא צמודה', 'נפדית ב‑2031: הסכום ידוע מראש'],
+        search: 'ממשלתי שקלי ____ (הסדרה שנפדית הכי קרוב לאוקטובר 2031)',
+        steps: bondSteps,
+        where: [],
+        whereNote: '[פירוט לפי בית השקעות ובנק]'
+      },
+      mmf: this.mmfDetails(['באפליקציה של הבנק, תחת קרנות נאמנות, מחפשים ״כספית שקלית״.', 'קונים ב‑₪15,000.', 'מוכרים כשצריך, בכל יום מסחר. משלמים 25% מהרווח שמעבר לאינפלציה.']),
+      stock: {
+        name: 'קרן מחקה על מדד S&P 500',
+        identity: ['קרן נאמנות שעוקבת אחרי מדד S&P 500 (500 החברות הגדולות בארה״ב)', 'נקנית פעם ביום, במחיר של סוף היום', 'בשקלים, עולה ויורדת עם המניות ועם הדולר'],
+        search: 'קרן מחקה S&P 500 · מספר נייר: [—]',
+        steps: ['פותחים חשבון מסחר, אם אין לכם. הזול לפי האתר: אקסלנס או אלטשולר, במבצע הצטרפות.', 'קונים את הקרן ב‑₪15,000.', 'לא נוגעים עד 2031. אם המדד בירידה, מחכים שנה‑שנתיים.', 'מס: 25% מהרווח שמעבר לאינפלציה, כשמוכרים.'],
+        whereTitle: 'איפה לקנות',
+        where: [['אקסלנס · מבצע הצטרפות', 19925, 'הכי הרבה'], ['אלטשולר · מבצע הצטרפות', 19925, 'אותו סכום'], ['מיטב · מבצע הצטרפות', 19328, '−₪597']],
+        whereNote: 'אלטשולר: לפי האתר, הפטור מעמלה ניתן רק לחשבון עם מסחר תדיר. דרך הבנק שלכם: [יחושב].'
+      }
+    };
+
+    const wayId = { deposit: 'deposit', bond: 'cpi', mmf: 'mmf' };
+    let focus = null, active = null, plan = null;
+    if (s.bType === 'growth') {
+      focus = 'stock';
+      active = ['stock'];
+      plan = 'קרן מחקה על מדד S&P 500: ₪15,000, דרך חשבון מסחר באקסלנס או באלטשולר. אם ב‑2031 המדד יהיה בירידה, מחכים שנה‑שנתיים לפני שמוכרים.';
+    } else if (s.bType === 'safe') {
+      if (s.bWay) {
+        focus = wayId[s.bWay];
+        active = [focus];
+        plan = {
+          deposit: 'פיקדון בריבית קבועה ל‑5 שנים: ₪15,000, עד אוקטובר 2031. שאלו את הבנק מה הריבית שתקבלו.',
+          bond: 'אג״ח צמודה של מדינת ישראל שנפדית ב‑2031: ₪15,000, דרך חשבון מסחר.',
+          mmf: 'קרן כספית באפליקציה של הבנק שלכם: ₪15,000.'
+        }[s.bWay];
+      } else {
+        active = ['cpi', 'deposit', 'nis', 'mmf'];
+      }
+    }
+
+    return {
+      inputs: [['יש לי עכשיו', '₪15,000'], ['אוסיף כל חודש', '₪0'], ['אצטרך את הכסף', 'בעוד 5 שנים, באוקטובר 2031'], ['הבנק שלי', 'הפועלים']],
+      answer: {
+        state: 'C',
+        title: 'ביטחון או צמיחה: זו החלטה שלכם.',
+        body: 'בעוד 5 שנים, דרך בטוחה תשאיר בערך ₪15,700–₪16,030, ידוע כמעט מראש. קרן על מדד המניות יכולה להשאיר הרבה יותר, אבל גם פחות ממה ששמתם, דווקא בשנה שתצטרכו את הכסף.',
+        chipNote: 'אין כאן תשובה אחת נכונה. ההחלטה למטה מכריעה.'
+      },
+      layers: layers,
+      chart: { title: 'מה יהיה לכם באוקטובר 2031', ax: { min: 12000, max: 22000, step: 2000 }, dep: 15000, cash: 13586, rows: rows },
+      details: details,
+      focus: focus,
+      active: active,
+      plan: plan,
+      gain: s.bType === 'growth' ? {
+        lead: 'שמתם ₪15,000. זה הרווח שמעליהם, לפני מס ועמלות, ולאן הוא הולך:',
+        rows: [['אקסלנס', 4925, 1642, 250], ['מיטב', 4328, 1576, 820]],
+        takeaway: 'במיטב העמלות לוקחות ₪820 במקום ₪250, ולכן נשאר ₪597 פחות.'
+      } : null
+    };
+  }
+
+  salary(s) {
+    const SAFE = '#2F6FB0', GROW = '#C2571A', NEUTRAL = '#6F7A80', ACC = '#0E6E8C';
+
+    let where;
+    if (s.sWrap === 'etf') {
+      where = {
+        k: 'איפה', type: 'decision', key: 'sWhere',
+        question: 'לפתוח חשבון חדש, או לקנות דרך הבנק שלכם?',
+        why: 'פתיחת חשבון היא טרחה של פעם אחת. העמלות משולמות כל חודש, 30 שנה. ההחלטה שלכם, אבל כאן ההבדל גדול.',
+        cards: [
+          { val: 'ib', title: 'חשבון חדש באינטראקטיב', amount: '₪427,357', color: ACC, facts: ['פותחים חשבון חדש, בלי הפקדת מינימום.', 'העמלות והעלות של הקרן: בערך 0.46% בשנה.'], fit: '', button: 'לפתוח חשבון' },
+          { val: 'bank', title: 'דרך הבנק שלכם: הפועלים', amount: '₪337,171', color: NEUTRAL, facts: ['בלי חשבון חדש.', 'העמלות והעלות של הקרן: בערך 1.57% בשנה.'], fit: '', button: 'להישאר בבנק' }
+        ],
+        diff: 'ההבדל: ₪90,186 לאורך 30 שנה, רובו עמלות. הפירוט ב״כמה מהרווח נשאר אצלכם״, למטה.'
+      };
+    } else if (s.sWrap === 'study') {
+      where = { k: 'איפה', type: 'stated', kind: 'clear', v: 'בקרן ההשתלמות שלכם, במסלול שעוקב אחרי מדד S&P 500.' };
+    } else {
+      where = this.pending('איפה');
+    }
+
+    const layers = [
+      {
+        k: 'קודם', type: 'decision', key: 'sCushion',
+        question: 'יש לכם כבר כסף בצד ל‑3 חודשי הוצאות?',
+        why: 'בלי כרית, הוצאה פתאומית יכולה להכריח למכור מניות דווקא בירידה. רק אתם יודעים מה יש לכם בצד.',
+        cards: [
+          { val: 'yes', title: 'יש לי כרית', amount: 'כל ה‑₪500 למדד, מהחודש הזה', color: NEUTRAL, facts: ['הכרית נשארת איפה שהיא.'], fit: '', button: 'יש לי' },
+          { val: 'no', title: 'עוד לא', amount: 'קודם ₪24,000 לכרית', color: SAFE, facts: ['₪500 בחודש לקרן כספית, בערך 4 שנים.', 'לפי הוצאות של ₪8,000 בחודש. באתר תכתבו את שלכם.', 'אחר כך ה‑₪500 עוברים למדד.'], fit: '', button: 'עוד לא' }
+        ],
+        diff: 'ההבדל: בערך 4 שנים פחות במדד, בתמורה לכסף זמין לחירום.'
+      },
+      { k: 'סוג המקום', type: 'stated', kind: 'clear', v: 'מדד מניות: 30 שנה. באף אחת מ‑810 תקופות של 30 שנים מאז 1926 המדד לא נגמר בהפסד (בדולרים, לפני עמלות ומס).' },
+      {
+        k: 'הדרך', type: 'decision', key: 'sWrap',
+        question: 'איפה ייצבר הכסף: קרן סל, או קרן השתלמות שלכם?',
+        why: 'קרן השתלמות פתוחה רק לעצמאים או דרך מעסיק. רק אתם יודעים אם יש לכם אחת שאפשר להוסיף לה.',
+        cards: [
+          { val: 'etf', title: 'קרן סל על מדד S&P 500', amount: '₪427,357 אם המדד יעלה 10% בשנה', color: GROW, facts: ['כל אחד יכול לפתוח, דרך חשבון מסחר.', 'מס: 25% מהרווח כשמוכרים.'], fit: 'מתאים אם: אין לכם קרן השתלמות שאפשר להוסיף לה.', button: 'קרן סל' },
+          { val: 'study', title: 'קרן השתלמות, מסלול מדד S&P 500', amount: '₪468,537 אם המדד יעלה 10% בשנה', color: GROW, facts: ['רק לעצמאים, או דרך מעסיק.', 'הרווח פטור ממס אחרי 6 שנים.', 'החישוב לעצמאי. לשכירים: [יחושב].'], fit: 'מתאים אם: יש לכם קרן כזאת, ואפשר להוסיף לה ₪500 בחודש.', button: 'יש לי קרן השתלמות' }
+        ],
+        diff: 'אם קרן ההשתלמות זמינה לכם, היא משאירה בערך ₪41,000 יותר, בעיקר בגלל הפטור ממס.'
+      },
+      where
+    ];
+
+    const rows = [
+      { id: 'etf', name: 'קרן סל על מדד S&P 500', tags: ['עולה ויורד', 'דרך חשבון מסחר'], kind: 'stock', v: 427357, color: GROW },
+      { id: 'study', name: 'קרן השתלמות, מסלול מדד S&P 500', tags: ['רק לעצמאים או דרך מעסיק', 'החישוב: לעצמאי'], kind: 'stock', v: 468537, color: GROW },
+      { id: 'mmf', name: 'קרן כספית', tags: ['הריבית משתנה', 'בבנק שלכם'], kind: 'dot', v: 158994, color: SAFE, note: s.sCushion === 'no' ? 'בתוכנית שלכם: 4 השנים הראשונות, לכרית.' : '' }
+    ];
+
+    const cushionStep = s.sCushion === 'no' ? ['קודם: ₪500 בחודש לקרן כספית באפליקציה של הבנק, עד ₪24,000.'] : [];
+    const etfSteps = s.sWhere === 'bank'
+      ? cushionStep.concat(['בחשבון ניירות הערך בבנק הפועלים, קונים את הקרן ב‑₪500 בכל חודש.', 'לא נוגעים עד שצריך את הכסף.', 'מס: 25% מהרווח כשמוכרים, נמדד מול שער הדולר.'])
+      : cushionStep.concat(['פותחים חשבון באינטראקטיב, בתעריפון הרגיל. אין הפקדת מינימום.', 'מגדירים הוראת קבע: ₪500 בכל חודש לקנייה של הקרן.', 'לא נוגעים עד שצריך את הכסף.', 'מס: 25% מהרווח כשמוכרים, נמדד מול שער הדולר.']);
+    const details = {
+      etf: {
+        name: 'קרן סל על מדד S&P 500, בבורסה בארה״ב',
+        identity: ['קרן שמחזיקה את 500 החברות הגדולות בארה״ב', 'נסחרת בבורסה בארה״ב, בדולרים', 'נמכרת בכל יום מסחר', 'הערך עולה ויורד'],
+        search: 'למשל VOO (דוגמה, לא המלצה)',
+        steps: etfSteps,
+        whereTitle: 'איפה לקנות, לעומת הבנק שלכם',
+        where: [['אינטראקטיב · תעריפון', 427357, '+₪90,186'], ['מזרחי‑טפחות · אונליין', 338390, '+₪1,219'], ['הבנק שלכם: הפועלים · אונליין', 337171, 'נקודת השוואה']],
+        whereNote: 'כאן ההבדל גדול, ורובו עמלות. הפירוט למטה.'
+      },
+      study: {
+        name: 'קרן השתלמות, מסלול מדד S&P 500',
+        identity: ['חיסכון דרך חברה מנהלת', 'נפתחת לעצמאים, או דרך מעסיק', 'הרווח פטור ממס אחרי 6 שנים'],
+        search: 'מסלול שעוקב אחרי מדד S&P 500, בקרן ההשתלמות שלכם',
+        steps: cushionStep.concat(['בודקים מול הקרן, או מול המעסיק, אם אפשר להוסיף ₪500 בחודש.', 'בוחרים מסלול שעוקב אחרי מדד S&P 500.']),
+        where: [],
+        whereNote: ''
+      },
+      mmf: this.mmfDetails(['באפליקציה של הבנק, תחת קרנות נאמנות, מחפשים ״כספית שקלית״.', 'קונים ב‑₪500 בכל חודש.', 'מוכרים כשצריך, בכל יום מסחר. משלמים 25% מהרווח שמעבר לאינפלציה.'])
+    };
+
+    let active = null;
+    if (s.sWrap) active = [s.sWrap];
+    if (s.sCushion === 'yes' && !active) active = ['etf', 'study'];
+    if (s.sCushion === 'no') active = (active || ['etf', 'study']).concat(['mmf']);
+
+    let plan = null;
+    const done = s.sCushion && s.sWrap && (s.sWrap === 'study' || s.sWhere);
+    if (done) {
+      const pre = s.sCushion === 'no' ? 'קודם ₪500 בחודש לקרן כספית באפליקציה של הבנק, עד שיצטברו ₪24,000 (בערך 4 שנים). אחר כך: ' : '';
+      let main;
+      if (s.sWrap === 'study') main = '₪500 בחודש לקרן ההשתלמות שלכם, במסלול שעוקב אחרי מדד S&P 500.';
+      else if (s.sWhere === 'ib') main = '₪500 בחודש לקרן סל על מדד S&P 500, בחשבון חדש באינטראקטיב.';
+      else main = '₪500 בחודש לקרן סל על מדד S&P 500, דרך בנק הפועלים. זה משאיר בערך ₪90,000 פחות מאינטראקטיב, בגלל עמלות.';
+      plan = pre + main;
+    }
+
+    return {
+      inputs: [['יש לי עכשיו', '₪0'], ['אוסיף כל חודש', '₪500'], ['אצטרך את הכסף', 'בעוד 30 שנה, באוקטובר 2056'], ['הבנק שלי', 'הפועלים']],
+      answer: {
+        state: 'A',
+        title: 'מדד מניות, לטווח של 30 שנה.',
+        body: 'אם המדד יעלה 10% בשנה, יישאר בערך ₪427,000, לעומת ₪159,000 בקרן כספית ו‑₪99,000 בעו״ש. נשארו כמה החלטות על הדרך, ורק אתם יכולים לקבל אותן.',
+        chipNote: 'הכיוון ברור. ההחלטות למטה הן על הדרך.'
+      },
+      layers: layers,
+      chart: { title: 'מה יהיה לכם באוקטובר 2056', ax: { min: 0, max: 550000, step: 100000 }, dep: 180000, cash: 99373, rows: rows },
+      details: details,
+      focus: s.sWrap || null,
+      active: active,
+      plan: plan,
+      gain: {
+        lead: 'תפקידו ₪180,000. זה הרווח שמעליהם, לפני מס ועמלות, ולאן הוא הולך:',
+        rows: [['אינטראקטיב', 247357, 92637, 19673], ['הבנק שלכם: הפועלים', 157171, 74614, 53948]],
+        takeaway: 'בבנק הפועלים העמלות לוקחות ₪53,948, כמעט פי 3 מאשר באינטראקטיב, ולכן נשאר בערך ₪90,000 פחות.'
+      }
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const f = (n) => this.fmt(n);
+    const d = s.scenario === 'apt' ? this.apt(s) : (s.scenario === 'bonus' ? this.bonus(s) : this.salary(s));
+
+    const scenarios = [['apt', 'דירה בעוד 3 שנים'], ['bonus', 'בונוס, 5 שנים'], ['salary', 'חיסכון חודשי, 30 שנה']].map((p) => {
+      const pressed = s.scenario === p[0];
+      return { label: p[1], pressed: pressed, bg: pressed ? '#FFFFFF' : 'transparent', fg: pressed ? '#14212B' : '#33424C', pick: () => this.setState({ scenario: p[0], selected: null }) };
+    });
+
+    const chipMap = {
+      A: ['כאן קשה לטעות', '#0E6E8C', '#FFFFFF', '#0E6E8C', '2px'],
+      B: ['ההבדל קטן', '#D6ECF3', '#0B4F66', '#DDE3E7', '1px'],
+      C: ['תלוי במה שחשוב לכם', '#FBE6D6', '#7A3410', '#DDE3E7', '1px']
+    };
+    const cm = chipMap[d.answer.state];
+    const answer = { chip: cm[0], chipBg: cm[1], chipFg: cm[2], border: cm[3], bw: cm[4], chipNote: d.answer.chipNote, title: d.answer.title, body: d.answer.body };
+
+    let openDecisions = 0;
+    const layers = d.layers.map((l) => {
+      if (l.type === 'decision') {
+        const cur = s[l.key];
+        if (!cur) openDecisions += 1;
+        const p = this.pill(cur ? 'chosen' : 'decide');
+        return {
+          k: l.k, v: l.question, vw: '700', vc: '#14212B', pill: p.pill, bg: p.bg, fg: p.fg,
+          isDecision: true, why: l.why, grid: l.cards.length > 2 ? 'cols3' : 'cols2',
+          hasDiff: !!l.diff, diff: l.diff || '',
+          cards: l.cards.map((c) => {
+            const pressed = cur === c.val;
+            const other = !!cur && !pressed;
+            const patch = { selected: null };
+            patch[l.key] = c.val;
+            return {
+              title: c.title, amount: c.amount, facts: c.facts, hasFit: !!c.fit, fit: c.fit || '', button: c.button,
+              color: c.color, bd: pressed ? '#14212B' : '#DDE3E7', op: other ? '0.55' : '1', pressed: pressed,
+              bbg: pressed ? '#14212B' : '#FFFFFF', bfg: pressed ? '#FFFFFF' : '#14212B',
+              pick: () => this.setState(patch)
+            };
+          })
+        };
+      }
+      const isPending = l.type === 'pending';
+      const p = this.pill(isPending ? 'pending' : l.kind);
+      return { k: l.k, v: l.v, vw: '400', vc: isPending ? '#51606B' : '#14212B', pill: p.pill, bg: p.bg, fg: p.fg, isDecision: false, why: '', grid: 'cols2', hasDiff: false, diff: '', cards: [] };
+    });
+
+    const ax = d.chart.ax;
+    const ids = d.chart.rows.map((r) => r.id);
+    const focusId = ids.indexOf(s.selected) >= 0 ? s.selected : d.focus;
+    const rows = d.chart.rows.map((r) => {
+      const isSel = r.id === focusId;
+      const dim = r.alwaysDim || (d.active && d.active.indexOf(r.id) < 0);
+      return {
+        name: r.name,
+        tags: r.tags,
+        value: f(r.v),
+        color: r.color,
+        valueColor: r.kind === 'stock' ? '#7A3410' : '#14212B',
+        hasDot: r.kind === 'dot',
+        isStock: r.kind === 'stock',
+        hasRange: !!r.range,
+        dotLeft: this.pos(r.v, ax),
+        tickLeft: this.pos(r.v, ax),
+        rLeft: r.range ? this.pos(r.range[0], ax) : '0%',
+        rWidth: r.range ? ((r.range[1] - r.range[0]) / (ax.max - ax.min) * 100).toFixed(2) + '%' : '0%',
+        hasNote: !!r.note,
+        note: r.note || '',
+        bg: isSel ? '#E9F2F6' : '#FFFFFF',
+        opacity: dim && !isSel ? '0.5' : '1',
+        selected: isSel,
+        aria: r.name + ': ' + f(r.v) + (r.kind === 'stock' ? ', אם המדד יעלה 10% בשנה' : ''),
+        pick: () => this.setState({ selected: r.id })
+      };
+    });
+
+    const chart = {
+      title: d.chart.title,
+      depLeft: this.pos(d.chart.dep, ax),
+      cashLeft: this.pos(d.chart.cash, ax),
+      depText: f(d.chart.dep),
+      cashText: f(d.chart.cash),
+      ticks: this.ticks(ax)
+    };
+
+    let sel;
+    const dt = focusId ? d.details[focusId] : null;
+    if (!dt) {
+      sel = {
+        name: 'עוד לא בחרתם', isEmpty: true, emptyText: 'בחרו למעלה, או הקישו על שורה בגרף, ותראו כאן מה קונים, איפה ואיך.',
+        hasIdentity: false, identity: [], search: '', hasSearch: false, steps: [], hasSteps: false, noSteps: '', hasNoSteps: false,
+        whereTitle: '', where: [], hasWhereRows: false, hasWhere: false, whereNote: ''
+      };
+    } else {
+      const where = (dt.where || []).map((w) => ({
+        name: w[0],
+        value: f(w[1]),
+        diff: w[2],
+        fw: w[2] === 'נקודת השוואה' ? '700' : '400',
+        color: w[2].charAt(0) === '+' ? '#0B4F66' : (w[2].charAt(0) === '−' ? '#7A3410' : '#51606B')
+      }));
+      sel = {
+        name: dt.name,
+        isEmpty: false,
+        emptyText: '',
+        hasIdentity: true,
+        identity: dt.identity,
+        search: dt.search || '',
+        hasSearch: !!dt.search,
+        steps: dt.steps || [],
+        hasSteps: (dt.steps || []).length > 0,
+        noSteps: dt.noSteps || '',
+        hasNoSteps: !!dt.noSteps,
+        whereTitle: dt.whereTitle || 'איפה לקנות',
+        where: where,
+        hasWhereRows: where.length > 0,
+        hasWhere: where.length > 0 || !!dt.whereNote,
+        whereNote: dt.whereNote || ''
+      };
+    }
+
+    const hasGain = !!d.gain;
+    let gain = { lead: '', takeaway: '', rows: [] };
+    if (hasGain) {
+      const totals = d.gain.rows.map((g) => g[1] + g[2] + g[3]);
+      const mx = Math.max.apply(null, totals);
+      const w = (x) => (x / mx * 100).toFixed(2) + '%';
+      gain = {
+        lead: d.gain.lead,
+        takeaway: d.gain.takeaway,
+        rows: d.gain.rows.map((g) => ({ name: g[0], keptW: w(g[1]), taxW: w(g[2]), feeW: w(g[3]), text: 'נשאר לכם ' + f(g[1]) + ' · מס ' + f(g[2]) + ' · עמלות ' + f(g[3]) }))
+      };
+    }
+
+    const hasPlan = !!d.plan && openDecisions === 0;
+    const hasPending = openDecisions > 0;
+    const pendingText = openDecisions === 1 ? 'נשארה החלטה אחת. כשתבחרו, התוכנית שלכם תופיע כאן.' : 'נשארו ' + openDecisions + ' החלטות. כשתבחרו, התוכנית שלכם תופיע כאן.';
+
+    return {
+      scenarios: scenarios,
+      inputs: d.inputs.map((p) => ({ k: p[0], v: p[1] })),
+      answer: answer,
+      layers: layers,
+      hasPlan: hasPlan,
+      plan: d.plan || '',
+      hasPending: hasPending,
+      pendingText: pendingText,
+      chart: chart,
+      rows: rows,
+      sel: sel,
+      hasGain: hasGain,
+      gain: gain
+    };
+  }
+}
+</script>
+</body>
+</html>
