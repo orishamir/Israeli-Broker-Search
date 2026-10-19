@@ -149,3 +149,32 @@ test('what is bought and where changes the table, and the core still agrees', as
   expect(inputs.security).toBe('Bond')
   await expect.poll(() => rowsOnPage(page)).toEqual(expectedRows(inputs))
 })
+
+// The fees and tax columns are a swipe away on a phone, so each plan says
+// them under its name too; on a screen that shows the columns it does not.
+test('on a phone each plan says its fees and tax under its name', { tag: '@touch' }, async ({ page }) => {
+  await enter(page, money)
+  await workbench(page)
+  const rows = page.locator('section.within tbody tr:not(.not-offered)')
+  const count = await rows.count()
+  expect(count).toBeGreaterThan(0)
+  for (let index = 0; index < count; index++) {
+    const row = rows.nth(index)
+    const line = row.locator('.fees-line')
+    await expect(line).toBeVisible()
+    const fees = (await row.locator('td.amount button.link').innerText()).replace(/\s*›\s*$/, '')
+    const tax = await row.locator('td.amount').last().innerText()
+    await expect(line).toContainText(t.feesShort)
+    await expect(line).toContainText(fees)
+    await expect(line).toContainText(tax.trim())
+  }
+  // The row still links to the charts: a tap pins it.
+  await rows.first().locator('.names').tap()
+  await expect(rows.first()).toHaveClass(/pinned/)
+})
+
+test('where the columns show, the line under the name does not', async ({ page }) => {
+  await enter(page, money)
+  await workbench(page)
+  await expect(page.locator('section.within tbody tr .fees-line').first()).toBeHidden()
+})

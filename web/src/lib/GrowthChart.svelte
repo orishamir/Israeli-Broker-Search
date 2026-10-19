@@ -20,8 +20,16 @@
     return lastLost
   })
 
+  const context = document.createElement('canvas').getContext('2d')!
+  const font = getComputedStyle(document.documentElement).fontFamily
+  const measure = (text: string) => {
+    context.font = `12px ${font}`
+    return context.measureText(text).width
+  }
+
   const option = () =>
     growthOption({
+      measure,
       lines: entries.map(({ id, label, color, rank, yours, outcome }): Line => ({
         id,
         label,

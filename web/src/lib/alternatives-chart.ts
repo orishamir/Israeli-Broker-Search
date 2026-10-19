@@ -14,6 +14,7 @@ import type { LineSeriesOption } from 'echarts/charts'
 import type { AlternativesData, KindSeriesData } from './core/core'
 import type { ChartOption } from './echarts.svelte'
 import { BLUR, FADED_LABEL, FADED_LINE } from './end-label'
+import { lastMonthMarker } from './end-label'
 import { fitName } from './fee-breakdown'
 import { compactShekels, elapsed, shekels } from './format'
 import { kindKey } from './kinds'
@@ -209,6 +210,6 @@ export function alternativesOption(view: AlternativesView): ChartOption {
         return `<div>${timeText(month)}</div>${body.join('')}`
       },
     },
-    series: [...band, ...lines],
+    series: [...band, ...lines, lastMonthMarker(inMonths ? data.months : data.months / 12, measure)],
   }
 }

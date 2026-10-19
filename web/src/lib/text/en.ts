@@ -59,6 +59,7 @@ export const en = {
   lostToFeesTip: (selling: boolean) =>
     `How much less you end up with${selling ? ', after selling and before tax,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
   tax: 'Tax',
+  feesShort: 'Fees',
   taxTip: (inflation: string, surtax: string, threshold: string) =>
     `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year), in shekels and in a fund or a policy. At a broker, a security in dollars or euros is measured against the exchange rate, which stays as it is here, so its whole gain is taxed. A large gain in one year also pays the surtax: ${surtax} of what's above ${threshold} (raised with prices from 2028), as if you had no other income that year; a salary adds to it, and selling over several years can avoid it. A shekel bond that isn't linked to prices pays 15% of its whole gain, which the app doesn't tell apart. What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
   noTax: 'none',
@@ -425,6 +426,7 @@ export const en = {
   continueWith: (name: string) => `Go on with ${name}`,
   chartYears: 'years',
   chartMonths: 'months',
+  afterSaleAndTax: 'After selling and tax',
   lastPointAfterTax: 'The last point is after selling and tax, so it is below the one before it',
   rangeInTooltip: 'Broad stock index history',
   donutDeposit: 'Deposits',
