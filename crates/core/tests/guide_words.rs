@@ -266,3 +266,32 @@ fn the_guide_names_no_index_fund_or_ticker() {
         }
     }
 }
+
+/// The sentence about moving a portfolio has both languages, no placeholder,
+/// names the sale's tax as an upper bound, and rests on linked pages.
+#[test]
+fn the_move_sentence_says_the_saving_the_transfer_and_the_sale() {
+    use broker_fees::describe::answer::{move_portfolio_line, move_portfolio_sources};
+    let rec = recommend(
+        &Answers {
+            situation: Some(Situation::ExistingPortfolio {
+                bank: Some(Bank::Leumi),
+            }),
+            ..answers(dec!(200_000), dec!(0), Horizon::Months(240))
+        },
+        &settings(),
+        &DATA,
+    )
+    .unwrap();
+    let moved = rec.move_portfolio.unwrap();
+    for lang in [Lang::En, Lang::He] {
+        let line = move_portfolio_line(&moved, rec.months, lang);
+        clean(&line, "the move sentence");
+        assert!(line.contains("ניוד"), "{line}");
+        assert!(line.contains("25%"), "{line}");
+        assert!(!line.contains("S&P"), "{line}");
+    }
+    let sources = move_portfolio_sources();
+    assert!(sources.len() >= 2);
+    assert!(sources.iter().all(|page| page.url.starts_with("https://")));
+}

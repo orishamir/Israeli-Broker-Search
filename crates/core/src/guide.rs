@@ -573,6 +573,23 @@ pub struct AlsoPossible {
     pub warning: Text,
 }
 
+/// What moving a portfolio the saver already has at a bank to the place the
+/// answer names is worth, over the horizon: the same money in the bank's
+/// branch plan and in the chosen plan, both run by the engines.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MovePortfolio {
+    /// The saver's bank, and its branch plan.
+    pub from: Choice,
+    pub to: Choice,
+    /// What the chosen plan leaves more than the bank's, at the end.
+    pub saves: Amount,
+    /// The portfolio's value now: what a sale would be taxed on, at most.
+    pub value: Decimal,
+    /// The tax on selling first if all of `value` were gain, which is the
+    /// most it could be (the base rate; the surtax can add to it).
+    pub sale_tax_at_most: Decimal,
+}
+
 /// A kind the saver could have chosen and wasn't offered, drawn beside the
 /// answer.
 #[derive(Debug, Clone, PartialEq)]
@@ -677,6 +694,8 @@ pub struct Recommendation {
     pub unlock: Option<UnlockLine>,
     /// A plan of the kind that leaves more but may cost more.
     pub also_possible: Option<AlsoPossible>,
+    /// For a saver with a portfolio at a bank: what moving it saves.
+    pub move_portfolio: Option<MovePortfolio>,
     pub steps: Vec<StepText>,
     pub follow_ups: Vec<FollowUp>,
     pub two_parts: Option<CushionPlan>,

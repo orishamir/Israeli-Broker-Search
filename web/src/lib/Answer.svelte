@@ -97,6 +97,9 @@
       </div>
     {/if}
     <p class="base">{recommendation.currentAccountLine}</p>
+    {#if recommendation.alsoPossibleText}
+      <p class="also" transition:reveal>{recommendation.alsoPossibleText}</p>
+    {/if}
 
     <h3>{t.whyThis}</h3>
     <ul class="reasons">
@@ -107,6 +110,15 @@
 
     {#if recommendation.unlockText}
       <p class="unlock" transition:reveal>{recommendation.unlockText}</p>
+    {/if}
+
+    {#if recommendation.movePortfolioText}
+      <p class="move" transition:reveal>
+        {recommendation.movePortfolioText}
+        {#each recommendation.movePortfolioSources as source (source.url)}
+          <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>{' '}
+        {/each}
+      </p>
     {/if}
   {/if}
 </section>
@@ -208,6 +220,21 @@
   }
   .base {
     margin-top: 10px;
+  }
+  .move {
+    margin: 14px 0 0;
+    font-size: 0.9rem;
+  }
+  .move a {
+    display: inline-block;
+    margin-inline-end: 8px;
+    color: var(--weak);
+    font-size: 0.8rem;
+  }
+  .also {
+    margin: 6px 0 0;
+    color: var(--weak);
+    font-size: 0.9rem;
   }
   .reasons {
     display: grid;

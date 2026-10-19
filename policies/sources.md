@@ -955,3 +955,17 @@ conversion pages, the IRS) aren't repeated; new ones are named here.
 - The tax rules of קופת גמל לחיסכון beyond what `not-modeled.md` says.
 - Deposit insurance, and the days the Bank of Israel decides on its rate in
   the next months.
+
+## Moving a portfolio between houses (2026-10-19)
+
+- A transfer of securities to an account with the same ID number is an
+  exception to "every transfer is a tax event": Bank Leumi's page
+  (leumi.co.il/he/account-to-account-transfer) lists it, and A-S Invest's FAQ
+  (as-invest.co.il/trade/faq_transfer/) says a transfer between accounts of
+  the same owner is not a tax event. A transfer to another owner resets the
+  receiving cost to zero (Leumi). The Tax Authority's own guidance was not
+  found, so the guide says "according to the banks' pages". Whether the
+  cost price and dates travel with the securities is not stated on either
+  page; the guide does not claim it.
+- The sale's tax is shown only as an upper bound, 25% of the whole value
+  (`SALE_TAX_AT_MOST`): the cost basis is not asked.

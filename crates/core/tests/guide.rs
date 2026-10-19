@@ -1887,3 +1887,42 @@ fn nothing_is_said_when_the_best_plan_has_no_caveat() {
     assert!(rec.also_possible.is_none());
     assert!(!rec.plans[0].may_cost_more);
 }
+
+// ─────────────────────────── Moving a portfolio ───────────────────────────
+
+/// A saver with a portfolio at a bank is told what moving it saves: the
+/// bank's branch plan against the plan named, on the same money, and what a
+/// sale first would pay at most.
+#[test]
+fn moving_a_portfolio_saves_what_the_bank_plan_leaves_less() {
+    let mut portfolio = answers(dec!(200_000), dec!(0), years(20));
+    portfolio.situation = Some(Situation::ExistingPortfolio {
+        bank: Some(Bank::Leumi),
+    });
+    let rec = recommended(&portfolio);
+    let moved = rec
+        .move_portfolio
+        .as_ref()
+        .expect("a bank's plan costs more");
+    let yours = rec.plans.iter().find(|line| line.yours).unwrap();
+    assert_eq!(moved.saves.today, rec.left.today - yours.left.today);
+    assert!(moved.saves.today > Decimal::ZERO);
+    assert_eq!(moved.from.provider.en, "Leumi");
+    assert_eq!(moved.to, rec.choice);
+    // A sale pays a quarter of the gain, and the gain is at most the value.
+    assert_eq!(moved.value, dec!(200_000));
+    assert_eq!(moved.sale_tax_at_most, dec!(50_000));
+}
+
+#[test]
+fn nothing_is_said_about_moving_without_a_portfolio_at_a_bank() {
+    assert!(
+        recommended(&answers(dec!(200_000), dec!(0), years(20)))
+            .move_portfolio
+            .is_none()
+    );
+    // Nor when the money goes to a safe kind, which has no plans to move to.
+    let mut short = answers(dec!(200_000), dec!(0), years(1));
+    short.situation = Some(Situation::ExistingPortfolio { bank: None });
+    assert!(recommended(&short).move_portfolio.is_none());
+}

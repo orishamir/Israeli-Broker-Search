@@ -8,7 +8,7 @@
 //! never has to parse markup out of a string.
 
 use super::reasons::{shekels, span};
-use crate::guide::{AlsoPossible, Amount, Arena, Choice, FollowUp, Horizon, Kind};
+use crate::guide::{AlsoPossible, Amount, Arena, Choice, FollowUp, Horizon, Kind, MovePortfolio};
 use crate::ways::Way;
 use crate::{Lang, Named, Product, Vehicle};
 
@@ -224,6 +224,65 @@ pub fn also_possible_line(also: &AlsoPossible, lang: Lang) -> String {
             &also.warning[lang]
         ),
     }
+}
+
+/// What moving a portfolio from the saver's bank to the plan named saves,
+/// and what selling first would cost, in words. The saving is the engines':
+/// the same money in the bank's branch plan and in the plan named. The tax is
+/// an upper bound (a sale pays tax on the gain only, and the gain is not
+/// known here), and a transfer in kind is described as the banks' own pages
+/// describe it (see [`move_portfolio_sources`]), not as the Tax Authority's.
+#[must_use]
+pub fn move_portfolio_line(m: &MovePortfolio, months: u32, lang: Lang) -> String {
+    let dot = lang.pick(" · ", "\u{a0}· ");
+    let to = format!("{}{dot}{}", &m.to.provider[lang], &m.to.plan[lang]);
+    match lang {
+        Lang::En => format!(
+            "Moving the portfolio from {} to {to} leaves about {} more after {} (in today's \
+             money, the same money in both). Securities can be moved as they are, a transfer \
+             of securities between houses (ניוד), to an account in your own name, which the \
+             banks' pages say is not a sale, so nothing is taxed when it moves. Selling first \
+             does pay tax on the gain: at most {} of tax on {} (25% of the gain, and more with \
+             the surtax; the gain is not the whole value), and if you know what the securities \
+             cost, the tax is a quarter of the difference. Not every security can be moved, \
+             mostly those held abroad: the house you move to says which.",
+            &m.from.provider[lang],
+            shekels(m.saves.today),
+            span(months, lang),
+            shekels(m.sale_tax_at_most),
+            shekels(m.value),
+        ),
+        Lang::He => format!(
+            "העברת התיק מ{} אל {to} משאירה בערך {} יותר אחרי {} (בכסף של היום, אותו כסף בשניהם). אפשר להעביר את הניירות כמו שהם, העברת ניירות ערך בין בתי השקעות (ניוד), לחשבון על שם אותו בעלים, ולפי האתרים של הבנקים זו לא מכירה, ולכן אין מס כשהם עוברים. מכירה לפני כן כן משלמת מס על הרווח: לכל היותר {} מס על {} (25% מהרווח, ויותר עם מס יסף; הרווח הוא לא כל הסכום), ומי שיודע כמה שילם על הניירות משלם רבע מההפרש. לא כל נייר אפשר להעביר, בעיקר ניירות שמוחזקים בחו״ל: הבית שמעבירים אליו אומר איזה.",
+            &m.from.provider[lang],
+            shekels(m.saves.today),
+            span(months, lang),
+            shekels(m.sale_tax_at_most),
+            shekels(m.value),
+        ),
+    }
+}
+
+/// The pages the transfer rule rests on: banks' and houses' own pages (the
+/// Tax Authority's own guidance was not found; `policies/sources.md` says so).
+#[must_use]
+pub fn move_portfolio_sources() -> Vec<crate::Page> {
+    let page = |en: &'static str, he: &'static str, url: &str| crate::Page {
+        name: crate::Text::new(en, he),
+        url: url.to_owned(),
+    };
+    vec![
+        page(
+            "Bank Leumi: transferring securities between accounts",
+            "בנק לאומי: העברת ניירות ערך בין חשבונות",
+            "https://www.leumi.co.il/he/account-to-account-transfer",
+        ),
+        page(
+            "A-S Invest: portfolio transfer FAQ",
+            "אס-אינוסט: שאלות נפוצות על ניוד תיק",
+            "https://www.as-invest.co.il/trade/faq_transfer/",
+        ),
+    ]
 }
 
 /// The note under the amount: what the saver is shown, and the same sum in
