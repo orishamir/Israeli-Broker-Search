@@ -531,6 +531,18 @@ export const en = {
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label, the bank's question.
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
+  gainTitle: 'How much of the gain stays with you',
+  gainKept: 'Stays with you',
+  gainTax: 'Tax',
+  gainFees: 'Fees and management fees',
+  gainProduct: 'The fund’s own cost',
+  gainBarLabel: (name: string, parts: string) => `${name}: ${parts}`,
+  horizonsTitle: 'And if the date moves?',
+  horizonsLead:
+    'The same deposits for another date: what the answer above would be then. Everything in today’s money.',
+  horizonsIn: (years: number) => `In ${years === 1 ? 'a year' : `${years} years`}`,
+  horizonsYours: 'Your date',
+  horizonsOpen: (when: string) => `${when}: show the answer for this date`,
 }
 
 export type Text = typeof en

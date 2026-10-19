@@ -1435,12 +1435,18 @@ pub struct GainData {
 pub struct HorizonRowData {
     pub years: u32,
     pub flexibility: Option<guide::Flexibility>,
+    pub condition: Option<String>,
+    pub current: bool,
     pub deposited: AmountData,
+    pub deposits: String,
     pub kind: Kind,
     pub name: String,
     pub low: AmountData,
     pub high: AmountData,
+    pub range: String,
+    pub range_note: String,
     pub per_shekel: (f64, f64),
+    pub per_shekel_text: String,
 }
 
 /// The answer, in the page's language.
@@ -1623,21 +1629,27 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                 .collect(),
             takeaway: said(&gain.takeaway),
         }),
-        horizons: answer
-            .horizons
-            .iter()
-            .map(|row| HorizonRowData {
-                years: row.years,
-                flexibility: row.flexibility,
-                deposited: row.deposited.into(),
-                kind: row.kind,
-                name: said(&row.name),
-                low: row.low.into(),
-                high: row.high.into(),
-                per_shekel: (number(row.per_shekel.0), number(row.per_shekel.1)),
-            })
-            .collect(),
+        horizons: answer.horizons.iter().map(horizon_data).collect(),
         annuity: answer.annuity.as_ref().map(said),
+    }
+}
+
+fn horizon_data(row: &guide::HorizonRow) -> HorizonRowData {
+    HorizonRowData {
+        years: row.years,
+        flexibility: row.flexibility,
+        condition: row.condition.as_ref().map(said),
+        current: row.current,
+        deposited: row.deposited.into(),
+        deposits: said(&row.deposits),
+        kind: row.kind,
+        name: said(&row.name),
+        low: row.low.into(),
+        high: row.high.into(),
+        range: said(&row.range),
+        range_note: said(&row.range_note),
+        per_shekel: (number(row.per_shekel.0), number(row.per_shekel.1)),
+        per_shekel_text: said(&row.per_shekel_text),
     }
 }
 
