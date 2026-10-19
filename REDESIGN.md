@@ -373,6 +373,9 @@ Examples:
 
 Naming rules:
 - **"מדד" never stands alone.** Write "מדד המחירים לצרכן" or "מדד S&P 500".
+  - **Amended by the owner (2026-10-20):** "מדד" may stand alone only to refer back to an index already named in the same unit, and only if no other index is named in that unit. A unit is an option card, a stated line, a chart row with its label, or an identity line. A tag or fragment shown on its own isn't a unit, so it names the index in full.
+  - **Why:** the rule exists for ambiguity (BUT‑25: "צמוד מדד" and "מדד מניות רחב" a few lines apart). Read literally, it repeated "מדד S&P 500" eight to ten times on one card ("₪427,000 אם המדד יעלה 10% בשנה", under a title that names the S&P 500), or forced less precise rephrasings.
+  - **Allowed:** "המדד" in an option titled "קרן סל על מדד S&P 500". **Not allowed:** "המדד" in a bond option that also says "צמודה למדד המחירים לצרכן", or a "המדד" whose index is named only elsewhere on the page.
 - **Lead with what the product is.** "אג״ח צמודה של מדינת ישראל", not "אג״ח ממשלתי צמוד מדד". The trade name goes in the search slot, because that's what the app shows.
 - **Separate the wrapper from its content.** "קרן השתלמות, מסלול מדד S&P 500".
 - **Colour:** one colour per type of product, the same in every view, and no two options in near‑identical hues.
