@@ -1790,3 +1790,22 @@ fn the_alternatives_do_not_depend_on_the_ticked_plans() {
             .any(|a| a.why_not.from == Circumstance::StudyFundNeedsEligibility)
     );
 }
+
+/// The ticked brokers are the ones compared: a broker that is not ticked is
+/// not among the plans, though every kind of fund always is drawn.
+#[test]
+fn only_the_ticked_brokers_are_compared() {
+    let sum = answers(dec!(15_000), dec!(0), years(20));
+    let leumi = DATA
+        .brokers
+        .iter()
+        .position(|broker| broker.short_name.en == "Leumi")
+        .unwrap();
+    let mut one = settings();
+    one.ticked = Some(vec![broker_fees::guide::PlanRef {
+        broker: leumi,
+        plan: DATA.brokers[leumi].new_customer_plan,
+    }]);
+    let rec = recommend(&sum, &one, &DATA).unwrap();
+    assert_eq!(rec.plans.len(), 1, "{:?}", rec.plans);
+}

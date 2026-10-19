@@ -171,3 +171,36 @@ pub(super) fn deflated(
     }
     series
 }
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal_macros::dec;
+
+    use super::*;
+    use crate::guide::safe::price_level;
+
+    /// Prices rise a little each month, and a deposit the engine counts a
+    /// month early is taken off every month but the last, which is `left`.
+    #[test]
+    fn deflating_divides_by_the_prices_of_that_month() {
+        let inflation = Percent(dec!(2));
+        let nominal = [dec!(100), dec!(110), dec!(120), dec!(130)];
+        let series = deflated(&nominal, inflation, dec!(77), dec!(10));
+        assert_eq!(series[0], dec!(90));
+        assert_eq!(series[1], dec!(100) / price_level(inflation, 1));
+        assert_eq!(series[2], dec!(110) / price_level(inflation, 2));
+        assert_eq!(series[3], dec!(77));
+    }
+
+    /// A line growing at a set rate a year, from the first sum and a deposit
+    /// each month, in today's money.
+    #[test]
+    fn the_line_at_a_yearly_rate_grows_by_that_rate() {
+        let line = grown_at(dec!(1000), dec!(0), 12, Percent(dec!(0)), Percent(dec!(10)));
+        assert_eq!(line[0], dec!(1000));
+        assert!((line[12] - dec!(1100)).abs() < dec!(0.01), "{}", line[12]);
+        // One month's deposit, grown by that month's share of the rate.
+        let line = grown_at(dec!(0), dec!(100), 1, Percent(dec!(0)), Percent(dec!(10)));
+        assert!(line[1] > dec!(100) && line[1] < dec!(101), "{}", line[1]);
+    }
+}

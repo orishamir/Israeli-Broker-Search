@@ -65,3 +65,24 @@ fn it_says_which_months_it_is_cut_from() {
     assert!(b.from < b.to);
     assert_eq!(b.from.year(), 1926);
 }
+
+/// Between whole years the band is a straight line between the two rows, and
+/// the number of stretches that ended lower follows from the share.
+#[test]
+fn between_whole_years_the_band_is_halfway_between_the_rows() {
+    let (below, above, between) = (at(10), at(11), band(dec!(10.5)).unwrap());
+    let half = |a: Decimal, b: Decimal| (a + b) / dec!(2);
+    assert_eq!(between.worst.0, half(below.worst.0, above.worst.0));
+    assert_eq!(between.p10.0, half(below.p10.0, above.p10.0));
+    assert_eq!(between.median.0, half(below.median.0, above.median.0));
+    assert_eq!(between.p90.0, half(below.p90.0, above.p90.0));
+    assert_eq!(between.best.0, half(below.best.0, above.best.0));
+    assert_eq!(between.windows, 1170 - 126);
+    let share = |b: &Band| Decimal::from(b.lower) / Decimal::from(b.windows);
+    let expected = half(share(&below), share(&above));
+    assert_eq!(between.share_lower, expected);
+    assert_eq!(
+        Decimal::from(between.lower),
+        (expected * Decimal::from(between.windows)).round()
+    );
+}
