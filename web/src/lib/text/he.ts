@@ -420,7 +420,11 @@ export const he: Text = {
   rangeInTooltip: 'היסטוריית ה־S&P\u00a0500',
   donutDeposit: 'הפקדה',
   donutGain: 'רווח',
+  whichFund: 'איזו קרן מחזיקה את זה?',
+  whichFundTip:
+    'את אותו מדד אפשר לקנות בתל אביב דרך קרן סל ישראלית או דרך קרן זרה שנסחרת גם שם. העלות השנתית שלהן שונה, והמחשבון מחשב כל אחת לחוד.',
   donutFees: 'עמלות',
+  donutProduct: 'הקרן עצמה',
   donutTax: 'מס',
   donutKept: 'נשאר אצל האפיק',
   donutTiny: (parts: string) => `פחות מ־0.5%: ${parts}`,

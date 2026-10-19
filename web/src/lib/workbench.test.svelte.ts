@@ -132,4 +132,19 @@ test('the guide’s list has only the columns it has amounts for, and the top ro
   const columns = usedColumns(recommendation.columns, rows).map(({ id }) => id)
   expect(columns).toContain('LeftAfterTax')
   expect(columns).not.toContain('Fees')
+  expect(columns).toContain('Tax')
+})
+
+test('an ETF in Tel Aviv can be held by two funds, and a picked fund that stops fitting is dropped', () => {
+  const app = scenarioB('other')
+  app.security = 'Etf'
+  app.exchange = 'Tlv'
+  expect(app.productChoices.map(({ value }) => value)).toEqual(['IsraeliEtf', 'ForeignEtfInTelAviv'])
+  app.product = 'ForeignEtfInTelAviv'
+  expect(app.chosenProduct).toBe('ForeignEtfInTelAviv')
+  app.exchange = 'Usa'
+  expect(app.productChoices).toHaveLength(1)
+  expect(app.chosenProduct).toBeUndefined()
+  app.security = 'Stock'
+  expect(app.productChoices).toHaveLength(0)
 })

@@ -67,6 +67,7 @@ export function rankedRows(plans: RankedData[], arena: Arena, todaysMoney: boole
   const cost = arena === 'Index' ? yearlyCost : placeCost
   const anyFits = plans.some(({ fits }) => fits)
   const firstUnfit = plans.findIndex(({ fits }) => !fits)
+  const money = (amount: { today: number; nominal: number }) => (todaysMoney ? amount.today : amount.nominal)
   return plans.map((plan, index) => ({
     id: `${index}:${plan.name}`,
     key: `${index}:${plan.name}`,
@@ -78,9 +79,11 @@ export function rankedRows(plans: RankedData[], arena: Arena, todaysMoney: boole
     cells: {
       LeftAfterTax: shekels(todaysMoney ? plan.left.today : plan.left.nominal),
       ...(plan.costAYear === undefined ? {} : { CostAYear: cost(plan.costAYear) }),
+      ...(plan.fees === undefined ? {} : { Fees: shekels(money(plan.fees)) }),
+      ...(plan.tax === undefined ? {} : { Tax: money(plan.tax) === 0 ? t.noTax : shekels(money(plan.tax)) }),
     },
     absent: undefined,
-    notes: [],
+    notes: plan.mayCostMoreText ? [{ kind: 'warning', text: `⚠ ${plan.mayCostMoreText}` }] : [],
     linked: false,
     feesLink: false,
     firstUnfit: anyFits && index === firstUnfit,

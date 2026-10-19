@@ -424,7 +424,11 @@ export const en = {
   rangeInTooltip: 'S&P 500 history',
   donutDeposit: 'Deposits',
   donutGain: 'Gain',
+  whichFund: 'Which fund holds it?',
+  whichFundTip:
+    'The same index can be bought in Tel Aviv through an Israeli ETF or through a foreign ETF that is also listed there. Their yearly costs differ, and the calculator works each one out apart.',
   donutFees: 'Fees',
+  donutProduct: 'The fund itself',
   donutTax: 'Tax',
   donutKept: 'Kept by the place',
   donutTiny: (parts: string) => `Under 0.5%: ${parts}`,

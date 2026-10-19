@@ -308,6 +308,23 @@ export class AppState {
   get exchangeChoices(): Choice<Exchange>[] {
     return this.exchangesFor.get(this.security)!
   }
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a cache of the core's answers
+  private readonly productsCache = new Map<string, Choice<Product>[]>()
+  /** The funds that can hold the chosen security on the chosen exchange, the
+   * most held first; none for a share or a bond. */
+  get productChoices(): Choice<Product>[] {
+    const key = `${this.security}/${this.exchange}`
+    let choices = this.productsCache.get(key)
+    if (!choices) {
+      choices = core.productsFor(this.security, this.exchange)
+      this.productsCache.set(key, choices)
+    }
+    return choices
+  }
+  /** The fund the user picked, if it is still one of the choices. */
+  get chosenProduct(): Product | undefined {
+    return this.productChoices.find(({ value }) => value === this.product)?.value
+  }
 
   readonly situations: SituationData[] = core.situations()
   readonly banks: BankChoice[] = core.banks()
@@ -903,7 +920,7 @@ export class AppState {
     return {
       security: this.security,
       exchange: this.exchange,
-      product: this.product,
+      product: this.chosenProduct,
       firstDeposit,
       monthlyDeposit,
       yearlyReturnPercent: this.yearlyReturnPercent,

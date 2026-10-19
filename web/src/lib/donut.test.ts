@@ -1,13 +1,14 @@
 import { expect, test } from 'vitest'
 import type { PieSeriesOption } from 'echarts/charts'
 import type { BreakdownData } from './core/core'
-import { DONUT_COLORS, donutOption, donutParts, sharePercent, tinyList } from './donut'
-import { PART_COLORS } from './colors'
+import { DONUT_COLORS, donutOption, donutParts, donutTabs, sharePercent, tinyList } from './donut'
+import { PART_COLORS, PRODUCT_COLOR } from './colors'
 import { t } from './text'
 
 const breakdown = (over: Partial<BreakdownData> = {}): BreakdownData => ({
   putIn: 50000,
   fees: 60,
+  product: 0,
   keptByThePlace: 0,
   tax: 1625,
   left: 59208,
@@ -22,6 +23,13 @@ test('the parts are the deposits, the gain kept, the fees and the tax, in the sh
   expect(parts.map(({ name }) => name)).toEqual([t.donutDeposit, t.donutGain, t.donutFees, t.donutTax])
   expect(parts.find(({ id }) => id === 'gain')!.value).toBe(9208)
   expect(parts.reduce((sum, { share }) => sum + share, 0)).toBeCloseTo(1)
+})
+
+test("the fund's own cost is a slice of its own, in its own color", () => {
+  const parts = donutParts(breakdown({ product: 400, fees: 60 }))
+  expect(parts.map(({ id }) => id)).toEqual(['putIn', 'gain', 'fees', 'product', 'tax'])
+  expect(parts.find(({ id }) => id === 'product')!.name).toBe(t.donutProduct)
+  expect(DONUT_COLORS.product).toBe(PRODUCT_COLOR)
 })
 
 test('what the place keeps is a part only when it keeps something', () => {
@@ -68,10 +76,19 @@ test('each part has one color, from the interest split’s where they are the sa
   expect(DONUT_COLORS.gain).toBe(PART_COLORS.yours)
   expect(DONUT_COLORS.tax).toBe(PART_COLORS.tax)
   expect(DONUT_COLORS.kept).toBe(PART_COLORS.kept)
-  expect(new Set(Object.values(DONUT_COLORS)).size).toBe(5)
+  expect(new Set(Object.values(DONUT_COLORS)).size).toBe(6)
   const [series] = pie(breakdown())
   const colors = (series.data as { id: keyof typeof DONUT_COLORS; itemStyle: { color: string } }[]).map(
     ({ id, itemStyle }) => [id, itemStyle.color],
   )
   for (const [id, color] of colors) expect(color).toBe(DONUT_COLORS[id as keyof typeof DONUT_COLORS])
+})
+
+test('the tabs are the answer first, then each alternative that has a breakdown of its own', () => {
+  const tabs = donutTabs({ kind: { kind: 'a', name: 'גמל' }, breakdown: breakdown() }, [
+    { kind: 'b', name: 'חשבון מסחר', breakdown: breakdown({ tax: 2000 }) },
+    { kind: 'c', name: 'עו״ש', breakdown: undefined },
+  ])
+  expect(tabs.map(({ name }) => name)).toEqual(['גמל', 'חשבון מסחר'])
+  expect(new Set(tabs.map(({ id }) => id)).size).toBe(tabs.length)
 })

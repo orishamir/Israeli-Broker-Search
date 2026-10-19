@@ -21,7 +21,7 @@
   <dl>
     {#each fees as fee (fee.name)}
       <dt>
-        {fee.name}{#if tips}<Tip about={fee.name}>
+        {fee.name}{#if tips}<Tip about={fee.name} card={fee.card}>
             <HebrewNames names={fee.hebrewNames} />
             <p>{fee.explanation}</p>
           </Tip>{/if}
@@ -34,7 +34,7 @@
       {#each fee.parts as part (part.name)}
         <dd class="part">
           <span class="part-name"
-            >{part.label}{#if tips}<Tip about={part.name}>
+            >{part.label}{#if tips}<Tip about={part.name} card={part.card}>
                 <HebrewNames names={part.hebrewNames} />
                 <p>{part.explanation}</p>
               </Tip>{/if}</span

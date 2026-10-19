@@ -11,7 +11,7 @@
 
 <div class="part">
   <p class="part-name">
-    {kind.label}<Tip about={kind.name}>
+    {kind.label}<Tip about={kind.name} card={kind.card}>
       <HebrewNames names={kind.hebrewNames} />
       <p>{kind.explanation}</p>
     </Tip>

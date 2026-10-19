@@ -13,10 +13,10 @@ import type { PieSeriesOption } from 'echarts/charts'
 import type { BreakdownData } from './core/core'
 import type { ChartOption } from './echarts.svelte'
 import { shekels } from './format'
-import { PART_COLORS } from './colors'
+import { PART_COLORS, PRODUCT_COLOR } from './colors'
 import { t } from './text'
 
-export type PartId = 'putIn' | 'gain' | 'fees' | 'tax' | 'kept'
+export type PartId = 'putIn' | 'gain' | 'fees' | 'product' | 'tax' | 'kept'
 
 /** The parts' colors. The gain, the tax and what the place keeps are the
  * interest split's (`PART_COLORS`); the deposit is a neutral, as it isn't
@@ -28,6 +28,8 @@ export const DONUT_COLORS: Record<PartId, string> = {
   putIn: '#4a5266',
   gain: PART_COLORS.yours,
   fees: '#3aa6e0',
+  // The fund itself, in the breakdown's color for it.
+  product: PRODUCT_COLOR,
   tax: PART_COLORS.tax,
   kept: PART_COLORS.kept,
 }
@@ -43,6 +45,27 @@ export interface Part {
   share: number
 }
 
+export interface DonutTab {
+  id: string
+  name: string
+  breakdown: BreakdownData
+}
+
+/** The tabs over the donut: the answer's kind first, then each kind drawn
+ * beside it that has a breakdown of its own (the current account has none). */
+export function donutTabs(
+  recommendation: { kind: { kind: unknown; name: string }; breakdown: BreakdownData },
+  alternatives: readonly { kind: unknown; name: string; breakdown: BreakdownData | undefined }[],
+): DonutTab[] {
+  const tabs: DonutTab[] = [
+    { id: 'answer', name: recommendation.kind.name, breakdown: recommendation.breakdown },
+  ]
+  alternatives.forEach(({ name, breakdown }, index) => {
+    if (breakdown) tabs.push({ id: `${index}:${name}`, name, breakdown })
+  })
+  return tabs
+}
+
 export interface DonutView {
   breakdown: BreakdownData
   touch: boolean
@@ -53,11 +76,12 @@ export interface DonutView {
  * after fees and tax); what a place keeps is shown only when it keeps
  * something: a bank paying above the rate has no such slice. Nothing under a
  * shekel is a part. */
-export function donutParts({ putIn, fees, keptByThePlace, tax, left }: BreakdownData): Part[] {
+export function donutParts({ putIn, fees, product, keptByThePlace, tax, left }: BreakdownData): Part[] {
   const named: [PartId, string, number][] = [
     ['putIn', t.donutDeposit, putIn],
     ['gain', t.donutGain, Math.max(0, left - putIn)],
     ['fees', t.donutFees, fees],
+    ['product', t.donutProduct, product],
     ['tax', t.donutTax, tax],
     ['kept', t.donutKept, keptByThePlace],
   ]

@@ -104,8 +104,9 @@
             </span>
             <bdi class="amount" dir="ltr">{shekels(row.line.left.today)}</bdi>
             <span class="tag-line">
-              <span class="tag">{row.line.safetyTag}</span><Tip about={row.line.safetyTag}
-                >{row.line.safetyNote}</Tip
+              <span class="tag">{row.line.safetyTag}</span><Tip
+                about={row.line.safetyTag}
+                card={row.line.card}>{row.line.safetyNote}</Tip
               >
             </span>
             {#if row.why}

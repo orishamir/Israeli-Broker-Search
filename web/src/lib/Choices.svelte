@@ -1,7 +1,10 @@
 <script lang="ts" generics="T extends string">
+  import { getContext } from 'svelte'
   import type { Attachment } from 'svelte/attachments'
+  import { OPEN_CARD, type OpenCard } from './cards'
   import type { Choice } from './core/core'
   import HebrewNames from './HebrewNames.svelte'
+  import { t } from './text'
   import { tip } from './tip'
 
   /** Radio buttons shown as a segmented control. Hovering a choice explains
@@ -17,6 +20,7 @@
   }: { label: string; options: Choice<T>[]; value: T; wraps?: boolean } = $props()
 
   const popovers = $state<HTMLElement[]>([])
+  const openCard = getContext<OpenCard | undefined>(OPEN_CARD)
 
   /** Keeps the highlight under the chosen button (see `.highlight` in
    * app.css). It glides there when the choice changes, and jumps when the
@@ -60,6 +64,26 @@
       <p><strong>{option.name}</strong></p>
       <HebrewNames names={option.hebrewNames} english={option.englishName} main={option.name} />
       <p>{option.explanation}</p>
+      {#if option.card && openCard}
+        {@const card = option.card}
+        <!-- tip.ts keeps the tip open while the pointer crosses to it. -->
+        <button type="button" class="more" onclick={() => openCard(card)}>{t.learnMore}</button>
+      {/if}
     </div>
   {/if}
 {/each}
+
+<style>
+  .more {
+    display: block;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: inherit;
+  }
+  .more:hover {
+    background: none;
+    text-decoration: underline;
+  }
+</style>

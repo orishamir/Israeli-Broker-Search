@@ -7,7 +7,7 @@
   let { kind }: { kind: Choice<FeeKind> } = $props()
 </script>
 
-{kind.name}<Tip about={kind.name}>
+{kind.name}<Tip about={kind.name} card={kind.card}>
   <HebrewNames names={kind.hebrewNames} />
   <p>{kind.explanation}</p>
 </Tip>

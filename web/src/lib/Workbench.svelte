@@ -184,6 +184,23 @@
         </div>
       </div>
     </div>
+
+    <!-- Only where more than one fund holds it (an ETF in Tel Aviv). -->
+    {#if app.productChoices.length > 1}
+      <div class="heading" transition:reveal>
+        <h3>{t.whichFund}</h3>
+        <Tip about={t.whichFund}><p>{t.whichFundTip}</p></Tip>
+      </div>
+      <div transition:reveal>
+        <Choices
+          label={t.whichFund}
+          options={app.productChoices}
+          bind:value={
+            () => app.chosenProduct ?? app.productChoices[0].value, (value) => (app.product = value)
+          }
+        />
+      </div>
+    {/if}
   {/if}
 
   {#if index}
