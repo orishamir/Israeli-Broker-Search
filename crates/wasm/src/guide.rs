@@ -385,8 +385,12 @@ impl From<&history::Band> for BandData {
 }
 
 /// A kind the saver could have chosen and wasn't offered.
+// `hashmap_as_object`: a flattened struct is a map to serde, and without this
+// the page would get a JavaScript `Map`, whose fields `.kind` and `.name` read
+// as nothing.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
+#[tsify(hashmap_as_object)]
 pub struct AlternativeData {
     #[serde(flatten)]
     pub kind: KindData,
@@ -447,8 +451,10 @@ pub struct BreakdownData {
 }
 
 /// The answer, every text in the app's language.
+// The outermost type decides how maps are written: see `AlternativeData`.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
+#[tsify(hashmap_as_object)]
 pub struct RecommendationData {
     pub arena: Arena,
     pub kind: KindData,
@@ -608,8 +614,10 @@ pub fn ladder(
 // ─────────────────────────── The alternatives' lines ───────────────────────────
 
 /// One line of the alternatives chart.
+// Flattened too: see `AlternativeData`.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
+#[tsify(hashmap_as_object)]
 pub struct KindSeriesData {
     #[serde(flatten)]
     pub kind: KindData,
@@ -631,8 +639,10 @@ pub struct BandSeriesData {
     pub best: Vec<f64>,
 }
 
+// The outermost type decides how maps are written: see `AlternativeData`.
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
+#[tsify(hashmap_as_object)]
 pub struct AlternativesData {
     pub months: u32,
     pub series: Vec<KindSeriesData>,

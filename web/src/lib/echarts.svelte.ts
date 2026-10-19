@@ -2,7 +2,7 @@
 // a Svelte attachment to put a chart on an element.
 
 import type { Attachment } from 'svelte/attachments'
-import { BarChart, CustomChart, LineChart } from 'echarts/charts'
+import { BarChart, CustomChart, LineChart, PieChart } from 'echarts/charts'
 import {
   DataZoomInsideComponent,
   DataZoomSliderComponent,
@@ -12,7 +12,7 @@ import {
 } from 'echarts/components'
 import * as echarts from 'echarts/core'
 import type { ComposeOption, ECharts } from 'echarts/core'
-import type { BarSeriesOption, CustomSeriesOption, LineSeriesOption } from 'echarts/charts'
+import type { BarSeriesOption, CustomSeriesOption, LineSeriesOption, PieSeriesOption } from 'echarts/charts'
 import type {
   DataZoomComponentOption,
   GridComponentOption,
@@ -29,6 +29,7 @@ echarts.use([
   LineChart,
   BarChart,
   CustomChart,
+  PieChart,
   GridComponent,
   TooltipComponent,
   DataZoomInsideComponent,
@@ -41,6 +42,7 @@ echarts.use([
 /** The options of the parts registered above, so TypeScript checks them. */
 export type ChartOption = ComposeOption<
   | LineSeriesOption
+  | PieSeriesOption
   | BarSeriesOption
   | CustomSeriesOption
   | GridComponentOption

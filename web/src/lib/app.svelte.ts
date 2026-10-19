@@ -1,37 +1,124 @@
+// The page's state: one class, made once by App.svelte (opened from a link,
+// perhaps). Everything the page shows is derived here from what the user
+// chose, and the Rust core does the work. Components read these fields and
+// call these methods, and nothing else:
+//
+// ANSWERS (the guide's questions; `$state`, edit freely, e.g. bind:value)
+//   app.answers: AnswersInput        situation, now, monthly, horizon, flexibility,
+//                                    cushion, needsAnyDay (null amounts = empty field)
+//   app.situationId: string?         the chip chosen (SituationData.id)
+//   app.situations: SituationData[]  the chips, in the core's order
+//   app.setSituation(id)             fills the answers from a chip, clears overrides;
+//                                    a 'workbench' chip turns the switch on, an
+//                                    `opensDialog` one opens the portfolio dialog
+//   app.knowsWhatToBuy()             the "אני יודע מה אני רוצה לקנות" link: switch on
+//   app.followUps: FollowUp[]        the cards the answers still need
+//   app.setHorizonMonths(m) / setHorizonUnknown() / setHorizonRetirement(age, retireAt)
+//   app.horizonMonths: number | undefined
+//   app.banks: BankChoice[]; app.setBank(bank | undefined)   the existing-portfolio chips
+//
+// THE ANSWER
+//   app.recommendation: RecommendationData | undefined   what fits, why, steps, plans
+//        Computed on the page's thread when it is cheap (horizon <= 5 years or
+//        unknown; <10 ms), in the worker otherwise; until the new one arrives the old
+//        stays (`recommendationFresh` false). undefined only before the first valid one.
+//   app.recommendationFresh: boolean
+//   app.inputError: string | undefined   why the answers/inputs can't be compared; the
+//        last results stay under it, faded (`stale` true)
+//   app.stale: boolean
+//   app.ladder: RungData[] | undefined, app.ladderFresh
+//   app.alternatives: AlternativesData | undefined, app.alternativesFresh
+//        (worker; keep the last answer while the next is being worked out. Wrap in
+//        `HeldWhileTyping` where a chart should wait for the typing to pause.)
+//   app.chooseKind(kind) / app.chooseArena(arena) / app.clearOverrides()
+//        "לשנות" and "continue anyway": the kind or arena the user chose over the guide
+//   app.overrides: Overrides; app.overridden: boolean
+//
+// THE SWITCH AND THE WORKBENCH (`expert`; turning it on changes only what is shown)
+//   app.expert: boolean              persisted ('expert-v2'), in links (x=1)
+//   app.thing: Thing                 'sp500' | 'other' | 'bonds' | 'short'; the
+//        recommendation's unless `app.chooseThing(thing)` chose another
+//   app.wayChoices: WayChoice[]; app.selectedWays: Way[]; app.toggleWay(way)
+//   app.security / exchange / product, yearlyReturnPercent, inflationPercent,
+//   boiRatePercent, depositGrowthPercent, buyEveryMonths, sharePrice, atEnd, wayOut,
+//   age, todaysMoney (default true), ilsPerUsd, ilsPerEur, ratesStatus
+//   app.waysComparison: WaysView | undefined      thing 'sp500': compareWays
+//   app.comparison: Comparison | undefined        thing 'other': compare (plans)
+//   app.best, app.rowOf(id), app.around, app.aroundLine, app.sweep   (as before)
+//   app.chartView ('lost'|'value'|'crossover'|'breakdown'; guide mode offers value only)
+//   app.resultsOf(plans: PlanOutcomeData[]): Result[]   a way's plans as table rows
+//
+// PLANS (as before): brokers, listedPlans, plans, plansById, selected (ticked ids),
+//   compared, yourPlans, pinned/hovered/highlighted, details, editorView, feesFor,
+//   draftCopyOf, draftNewPlan, addYourPlan, updateYourPlan, deleteYourPlan, setSelected,
+//   togglePin, showFees, brokerCaveats.
+//
+// SHEETS AND DIALOGS (open and close by setting these; `Sheet` binds them)
+//   app.cardStack: Term[]; app.cardTerm; app.openCard(term) pushes (the sheet opens
+//        on the first); app.cardBack(); app.closeCard(); app.cardFor(term): LearnCard
+//   app.glossaryOpen; app.glossary: LearnCard[] (lazy)
+//   app.planSheetOpen: boolean       "מה משווים": the plans' list
+//   app.portfolioDialogOpen: boolean the existing-portfolio situation's dialog
+//   app.details / openAbout(section?)   brokers, plans, the editor, and the about page
+//   app.about: About; app.footer: string[]; app.dataDates: string
+//
+// LINKS: app.shareLink(): string (the Share button); the constructor reads a `Shared`.
+
 import { SvelteSet } from 'svelte/reactivity'
 import * as core from './core/core'
 import type {
+  AlternativesData,
+  AnswersInput,
+  Arena,
   AroundData,
+  Bank,
+  BankChoice,
   BrokerInfo,
   CaveatGroup,
   Choice,
   ComparisonData,
   Exchange,
-  ExampleData,
   FeesFor,
+  FollowUp,
+  GuideSettings,
+  Horizon,
   Inputs,
+  Kind,
+  LearnCard,
   OutcomeData,
+  Overrides,
   PlanData,
   PlanInfo,
   PlanKey,
+  PlanOutcomeData,
+  Product,
   Purchase,
+  RecommendationData,
+  RungData,
   Security,
+  SituationData,
   SpreadData,
   SweepData,
   Swept,
+  Term,
+  WaysComparisonData,
+  Way,
+  WayChoice,
   WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
 import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
-import { encode, type Shared } from './link'
+import { arenaOf, kindByKey, kindKey, wayByKey, wayKey } from './kinds'
+import { encode, type Shared, type Thing } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
 import { firstOfEachId, load, save } from './saved'
-import { ShortTermState, type Place } from './short-term.svelte'
-import type { SweepRequest } from './sweeper'
+import { ask, askSweep, type GuideRequest, type SweepRequest } from './sweeper'
+import { run, type Worked } from './work'
 import { t } from './text'
 
 export { PLAN_COLORS } from './colors'
+export type { Thing } from './link'
 
 /** One of the user's own plans, as kept in this browser. */
 export interface YourPlan {
@@ -102,8 +189,6 @@ export interface Result {
   whyNot: WhyNot | undefined
 }
 
-export type Family = 'long' | 'short'
-
 export type ChartView = 'value' | 'lost' | 'crossover' | 'breakdown'
 const FIRST_VIEW: ChartView = 'lost'
 
@@ -129,14 +214,43 @@ export type Comparison =
 
 /** What the details dialog shows. A plan of the user's own opens in the
  * editor, and so does a draft, before "Add plan". `about` is the page on how
- * the numbers are made, the chosen calculator's, opened at one of its
- * sections. A place is one of the short term's. */
+ * the numbers are made, opened at one of its sections. */
 export type Details =
   | { kind: 'broker'; broker: BrokerInfo }
   | { kind: 'plan'; plan: Plan }
   | { kind: 'draft'; draft: YourPlan }
   | { kind: 'about'; section?: number }
-  | { kind: 'place'; place: Place }
+
+/** The ways compared side by side, or why they couldn't be. */
+export type WaysView = WaysComparisonData | { error: string }
+
+/** What a worker answered, and the request it answers (matched by identity,
+ * so an answer to an older request is known for what it is). */
+type Answered<T> = Worked<T> & { request: GuideRequest }
+
+/** The months a horizon is, if it says: "I don't know yet" doesn't. */
+export function monthsOf(horizon: Horizon): number | undefined {
+  if (horizon === 'Unknown') return undefined
+  if ('Months' in horizon) return horizon.Months
+  return Math.max(0, horizon.Retirement.retire_at - horizon.Retirement.age) * 12
+}
+
+/** Up to this horizon the recommendation is worked out on the page's thread
+ * (measured in Node on the real core: 0.4 to 8 ms for 6 months to 5 years or
+ * an unknown horizon, where the safe kinds win; 10 to 50 ms for 15 to 30
+ * years, where the index arena is run). Beyond it the worker does it, and
+ * the answer on screen is the last one until the new one arrives. */
+export const RECOMMEND_ON_PAGE_UP_TO_MONTHS = 60
+
+/** Where the guide opens: the situation of a dated goal in about five years. */
+const FIRST_SITUATION = 'goal'
+const NO_OVERRIDES: Overrides = { arena: undefined, kind: undefined }
+const USUAL_RETURN_PERCENT = 10
+
+/** The ways ticked at first: every way a broker's account or a fund's track
+ * holds, except the ones the guide offers only when asked (a study fund,
+ * a savings policy). */
+const NOT_AT_FIRST: Product[] = ['StudyFundTrack', 'SavingsPolicyTrack']
 
 export type EditorView = 'simple' | 'full'
 
@@ -167,24 +281,16 @@ function readable(plans: YourPlan[], what: string): YourPlan[] {
   })
 }
 
-/** Everything the page shows, and what the user chose. The comparison is
- * derived: it's recalculated by the Rust core whenever an input changes. */
+/** Everything the page shows, and what the user chose. Everything shown is
+ * derived: the Rust core works it out again whenever an answer or an input
+ * changes. */
 export class AppState {
-  /** The calculator shown. Every link says which; the page opens on the
-   * long term's otherwise. */
-  family = $state<Family>('long')
-  /** The short-term calculator, kept while the long term's is shown. */
-  readonly short: ShortTermState
   readonly brokers: BrokerInfo[] = core.brokers()
   /** How much prices are taken to rise a year, in percent, unless the user
    * says otherwise: the core's, since the tax is worked out with it. */
   readonly usualInflation: number = core.usualInflationPercent()
   /** The surtax's rate and threshold, for the tax's tip. */
   readonly surtaxTerms = core.surtaxTerms() as [string, string]
-  readonly about = core.about()
-  get aboutShown() {
-    return this.family === 'short' ? this.short.about : this.about
-  }
   readonly dataDates: string = core.dataDates()
   readonly securities: Choice<Security>[] = core.securities()
   readonly exchanges: Choice<Exchange>[] = core.exchanges()
@@ -197,7 +303,72 @@ export class AppState {
   get exchangeChoices(): Choice<Exchange>[] {
     return this.exchangesFor.get(this.security)!
   }
-  readonly examples: ExampleData[] = core.examples()
+
+  readonly situations: SituationData[] = core.situations()
+  readonly banks: BankChoice[] = core.banks()
+  readonly wayChoices: WayChoice[] = core.ways()
+  readonly footer: string[] = core.footer()
+  readonly about = core.aboutAll()
+  /** The Bank of Israel's rate the saver is taken to expect, unless they say. */
+  readonly usualBoiRate: number = core.todaysRatePercent()
+
+  // ── The guide's answers ──
+  /** Raw numbers are `null` while their field is empty. */
+  answers = $state<AnswersInput>({
+    situation: undefined,
+    now: null,
+    monthly: null,
+    horizon: { Months: 60 },
+    flexibility: undefined,
+    cushion: undefined,
+    needsAnyDay: false,
+  })
+  situationId = $state<string | undefined>()
+  /** What the user chose over the guide ("לשנות", "continue anyway"). */
+  overrides = $state.raw<Overrides>(NO_OVERRIDES)
+  overridden: boolean = $derived(this.overrides.arena !== undefined || this.overrides.kind !== undefined)
+
+  /** The switch: the workbench is shown, and every lever. Remembered. Turning
+   * it on changes only what is shown. */
+  expert = $state(load<boolean>('expert-v2', false))
+
+  // ── The workbench's inputs ──
+  private chosenThing = $state<Thing | undefined>()
+  private chosenWays = $state.raw<string[] | undefined>()
+  security = $state<Security>('Etf')
+  exchange = $state<Exchange>('Usa')
+  /** The fund that holds the index, if the user picked one. */
+  product = $state<Product | undefined>()
+  sharePrice = $state<number | null>(500)
+  yearlyReturnPercent = $state<number | null>(USUAL_RETURN_PERCENT)
+  depositGrowthPercent = $state<number | null>(0)
+  buyEveryMonths = $state(1)
+  /** How much prices rise a year: the tax is on the gain beyond it. */
+  inflationPercent = $state<number | null>(this.usualInflation)
+  /** The Bank of Israel's rate the saver expects, for the safe kinds. */
+  boiRatePercent = $state<number | null>(this.usualBoiRate)
+  /** Amounts in today's shekels, with the nominal figure as a note. */
+  todaysMoney = $state(true)
+  atEnd = $state<AtEnd>('sell')
+  /** How the money is taken out, as chosen; asked only while a ticked plan
+   * pays a pension. */
+  wayOut = $state<WayOut>('atOnce')
+  /** The saver's age today: a pension opens from an age. */
+  age = $state<number | null>(45)
+  ilsPerUsd = $state<number | null>(DEFAULT_RATES.ilsPerUsd)
+  ilsPerEur = $state<number | null>(DEFAULT_RATES.ilsPerEur)
+  ratesStatus = $state<RatesStatus>({ kind: 'downloading' })
+
+  /** The months of the horizon, if it says. */
+  horizonMonths: number | undefined = $derived(monthsOf(this.answers.horizon))
+
+  /** The ways ticked. Never none: none means every way to the core. */
+  selectedWays: Way[] = $derived(
+    this.chosenWays
+      ? this.chosenWays.flatMap((key) => wayByKey(key) ?? [])
+      : this.wayChoices.filter(({ product }) => !NOT_AT_FIRST.includes(product)).map(({ way }) => way),
+  )
+
   /** Every plan the list offers. A kind of fund's cheapest and dearest
    * company and its maximum aren't among them: they're shown beside its
    * average (`shownBeside`). */
@@ -274,35 +445,6 @@ export class AppState {
   // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
   plansById: ReadonlyMap<string, Plan> = $derived(new Map(this.plans.map((plan) => [plan.id, plan])))
 
-  security = $state<Security>('Etf')
-  exchange = $state<Exchange>('Usa')
-  // Numbers are null while their field is empty.
-  firstDeposit = $state<number | null>(10_000)
-  monthlyDeposit = $state<number | null>(2_000)
-  yearlyReturnPercent = $state<number | null>(10)
-  years = $state(20)
-  sharePrice = $state<number | null>(500)
-  /** The expert inputs below are shown, and used. Off, the deposits stay the
-   * same and are bought every month, prices rise as usual, amounts are shown
-   * as they will be and everything is sold at the end, whatever their fields
-   * say. Remembered. */
-  moreOptions = $state(load<boolean>('more-options', false))
-  depositGrowthPercent = $state<number | null>(0)
-  buyEveryMonths = $state(1)
-  /** How much prices rise a year: the tax is on the gain beyond it. */
-  inflationPercent = $state<number | null>(this.usualInflation)
-  todaysMoney = $state(false)
-  atEnd = $state<AtEnd>('sell')
-  /** How the money is taken out, as chosen; asked only while a ticked plan
-   * pays a pension. */
-  wayOut = $state<WayOut>('atOnce')
-  /** The saver's age today: a pension opens from an age. */
-  age = $state<number | null>(45)
-  ilsPerUsd = $state<number | null>(DEFAULT_RATES.ilsPerUsd)
-  ilsPerEur = $state<number | null>(DEFAULT_RATES.ilsPerEur)
-  ratesStatus = $state<RatesStatus>({ kind: 'downloading' })
-  /** Ticked: at first, the plan a new customer usually gets from each
-   * broker, and all of the user's own. */
   selected = new SvelteSet<string>(
     this.plans
       .filter(
@@ -349,17 +491,18 @@ export class AppState {
     })
   })
 
-  editorView = $state<EditorView>(load<EditorView>('editor-view', 'simple'))
+  editorView = $state<EditorView>(load<EditorView>('editor-view-v2', 'simple'))
 
   private chosenView = $state<ChartView>(FIRST_VIEW)
-  /** The chart shown. The chart by deposit is for experts: without More
-   * options it's the first one instead, and the choice comes back with them. */
+  /** The chart shown. The guide offers the growth chart alone; the other
+   * views are the workbench's, and the choice comes back with the switch. */
   get chartView(): ChartView {
-    return this.chosenView === 'crossover' && !this.moreOptions ? FIRST_VIEW : this.chosenView
+    return this.expert ? this.chosenView : 'value'
   }
   set chartView(view: ChartView) {
     this.chosenView = view
   }
+
   /** Plans clicked in the table or the chart; they stay highlighted. */
   pinned = new SvelteSet<string>()
   hovered = $state<string | null>(null)
@@ -395,9 +538,15 @@ export class AppState {
   /** The track the comparison picked for a plan, if it's compared and its
    * tracks price what the user buys. */
   trackOf(plan: Plan): number | undefined {
-    const { comparison } = this
-    if ('error' in comparison) return undefined
-    return comparison.results.find((result) => result.plan.id === plan.id)?.track
+    const { comparison, waysComparison } = this
+    if (comparison && 'results' in comparison) {
+      return comparison.results.find((result) => result.plan.id === plan.id)?.track
+    }
+    if (waysComparison && 'ways' in waysComparison) {
+      return waysComparison.ways.flatMap((way) => way.plans).find((each) => planId(each.key) === plan.id)
+        ?.track
+    }
+    return undefined
   }
 
   originalOf(yours: YourPlan): Plan | undefined {
@@ -499,10 +648,213 @@ export class AppState {
     this.pinned.add(id)
   }
 
-  sellAtEnd: boolean = $derived(!this.moreOptions || this.atEnd === 'sell')
-  inTodaysMoney: boolean = $derived(
-    this.moreOptions && this.todaysMoney && (this.inflationPercent ?? 0) !== 0,
+  // ── What the guide says ──
+  /** The plans ticked, as the core's keys: the guide's list of places. */
+  private tickedKeys: PlanKey[] = $derived(
+    this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.key),
   )
+
+  settings: GuideSettings = $derived({
+    indexReturnPercent: this.yearlyReturnPercent,
+    inflationPercent: this.inflationPercent,
+    boiRatePercent: this.boiRatePercent,
+    ilsPerUsd: this.ilsPerUsd,
+    ilsPerEur: this.ilsPerEur,
+    plans: this.tickedKeys,
+    yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
+    overrides: this.overrides,
+  })
+
+  /** What the guide is asked: a new object whenever the answers or the
+   * settings change, to match the workers' answers to. */
+  guideRequest: GuideRequest = $derived({
+    answers: $state.snapshot(this.answers) as AnswersInput,
+    settings: this.settings,
+  })
+
+  /** Whether the recommendation is worked out on the page's thread. */
+  private get onThePage(): boolean {
+    const months = this.horizonMonths
+    return months === undefined || months <= RECOMMEND_ON_PAGE_UP_TO_MONTHS
+  }
+
+  private lastRecommendation: RecommendationData | undefined = undefined
+
+  /** The recommendation as worked out here: always for a short horizon, and
+   * for a long one the first time, when there's nothing to show meanwhile. */
+  private onPage = $derived.by((): Worked<RecommendationData> | undefined =>
+    this.onThePage || !this.lastRecommendation ? run('recommend', this.guideRequest) : undefined,
+  )
+  /** The worker's answer for a long horizon, and the request it answers. */
+  private recommendAnswer = $state.raw<Answered<RecommendationData>>()
+  private recommended: Worked<RecommendationData> | undefined = $derived.by(() => {
+    const worked = this.onPage ?? this.recommendAnswer
+    if (worked?.value) this.lastRecommendation = worked.value
+    return worked
+  })
+
+  /** What fits money like this, and why. While the answers can't be
+   * compared, or the worker is still at it, the last one stays. Missing only
+   * before the first one that could be made. */
+  recommendation: RecommendationData | undefined = $derived(
+    this.recommended?.value ?? this.lastRecommendation,
+  )
+  /** Whether `recommendation` answers the answers as they are now. */
+  recommendationFresh: boolean = $derived(
+    this.onPage
+      ? this.onPage.value !== undefined
+      : this.recommendAnswer?.request === this.guideRequest && this.recommendAnswer.value !== undefined,
+  )
+
+  /** What the same money does at other horizons, and each kind's money
+   * month by month: from the worker, so a little behind the answers. */
+  private ladderAnswer = $state.raw<Answered<RungData[]>>()
+  private alternativesAnswer = $state.raw<Answered<AlternativesData>>()
+  private lastLadder: RungData[] | undefined
+  private lastAlternatives: AlternativesData | undefined
+  ladder: RungData[] | undefined = $derived.by(() => {
+    if (this.ladderAnswer?.value) this.lastLadder = this.ladderAnswer.value
+    return this.lastLadder
+  })
+  ladderFresh: boolean = $derived(
+    this.ladderAnswer?.request === this.guideRequest && this.ladderAnswer.value !== undefined,
+  )
+  alternatives: AlternativesData | undefined = $derived.by(() => {
+    if (this.alternativesAnswer?.value) this.lastAlternatives = this.alternativesAnswer.value
+    return this.lastAlternatives
+  })
+  alternativesFresh: boolean = $derived(
+    this.alternativesAnswer?.request === this.guideRequest && this.alternativesAnswer.value !== undefined,
+  )
+
+  /** The years the comparison runs, from the horizon, or from what the
+   * guide worked out when the horizon isn't known. */
+  years: number = $derived(
+    Math.min(50, Math.max(1, Math.ceil((this.horizonMonths ?? this.recommendation?.months ?? 60) / 12))),
+  )
+
+  /** The questions the answers still need. */
+  followUps: FollowUp[] = $derived.by(() => {
+    if (this.recommendation) return this.recommendation.followUps
+    try {
+      return core.followUps($state.snapshot(this.answers) as AnswersInput)
+    } catch {
+      return []
+    }
+  })
+
+  /** What the workbench looks at: what the user chose there, or what the
+   * recommendation is about. */
+  thing: Thing = $derived.by(() => {
+    if (this.chosenThing) return this.chosenThing
+    const kind = this.recommendation?.kind.kind
+    if (kind === undefined || (typeof kind === 'object' && 'Way' in kind)) return 'sp500'
+    return typeof kind === 'object' ? 'bonds' : 'short'
+  })
+
+  chooseThing(thing: Thing) {
+    this.chosenThing = thing
+    if (thing === 'sp500') this.overrides = { arena: 'Index', kind: undefined }
+    else if (thing === 'bonds')
+      this.overrides = { arena: 'Safe', kind: { GovernmentBond: { linked: false } } }
+    else if (thing === 'short') this.overrides = { arena: 'Safe', kind: 'MoneyMarketFund' }
+  }
+
+  /** "לשנות" / "continue anyway": the guide goes on with this kind. */
+  chooseKind(kind: Kind) {
+    this.overrides = { arena: arenaOf(kind), kind }
+    this.chosenThing = undefined
+  }
+  chooseArena(arena: Arena) {
+    this.overrides = { arena, kind: undefined }
+    this.chosenThing = undefined
+  }
+  /** Back to what the guide recommends. */
+  clearOverrides() {
+    this.overrides = NO_OVERRIDES
+    this.chosenThing = undefined
+  }
+
+  toggleWay(way: Way) {
+    const key = wayKey(way)
+    const keys = this.selectedWays.map(wayKey)
+    const next = keys.includes(key) ? keys.filter((each) => each !== key) : [...keys, key]
+    // None ticked would mean every way to the core: keep the last one.
+    if (next.length > 0) this.chosenWays = next
+  }
+
+  /** A chip: fills the answers with the situation's. */
+  setSituation(id: string) {
+    const situation = this.situations.find((each) => each.id === id)
+    if (!situation) return
+    this.situationId = id
+    this.answers = $state.snapshot(situation.answers) as AnswersInput
+    this.clearOverrides()
+    if (situation.workbench) this.expert = true
+    if (situation.opensDialog) this.portfolioDialogOpen = true
+  }
+
+  /** "אני יודע מה אני רוצה לקנות ולהשוות": the switch on, the workbench's. */
+  knowsWhatToBuy() {
+    this.expert = true
+  }
+
+  /** The bank the existing-portfolio situation asked about. */
+  setBank(bank: Bank | undefined) {
+    this.answers.situation = { ExistingPortfolio: { bank } }
+  }
+
+  setHorizonMonths(months: number | null) {
+    this.answers.horizon = { Months: months ?? 0 }
+  }
+  setHorizonUnknown() {
+    this.answers.horizon = 'Unknown'
+  }
+  setHorizonRetirement(age: number, retireAt: number) {
+    this.answers.horizon = { Retirement: { age, retire_at: retireAt } }
+  }
+
+  // ── Sheets and dialogs ──
+  /** The learn cards open in the sheet, the first at the bottom: "back" goes
+   * to the one before. */
+  cardStack = $state.raw<Term[]>([])
+  get cardTerm(): Term | undefined {
+    return this.cardStack.at(-1)
+  }
+  openCard(term: Term) {
+    this.cardStack = [...this.cardStack, term]
+  }
+  cardBack() {
+    this.cardStack = this.cardStack.slice(0, -1)
+  }
+  closeCard() {
+    this.cardStack = []
+  }
+  // eslint-disable-next-line svelte/prefer-svelte-reactivity -- a cache, never watched
+  private readonly cards = new Map<Term, LearnCard>()
+  cardFor(term: Term): LearnCard {
+    let card = this.cards.get(term)
+    if (!card) this.cards.set(term, (card = core.learnCard(term)))
+    return card
+  }
+  glossaryOpen = $state(false)
+  private glossaryCards: LearnCard[] | undefined
+  /** Every card, for the index in the header. */
+  get glossary(): LearnCard[] {
+    return (this.glossaryCards ??= core.glossary())
+  }
+  /** The list of plans to compare ("מה משווים"). */
+  planSheetOpen = $state(false)
+  /** The dialog the existing-portfolio situation opens. */
+  portfolioDialogOpen = $state(false)
+
+  openAbout(section?: number) {
+    this.details = { kind: 'about', section }
+  }
+
+  // ── The workbench's comparisons ──
+  sellAtEnd: boolean = $derived(this.atEnd === 'sell')
+  inTodaysMoney: boolean = $derived(this.todaysMoney && (this.inflationPercent ?? 0) !== 0)
   /** The age from which a ticked plan can be taken as a pension, the
    * youngest if they differ; none if no ticked plan pays one. How the money
    * is taken out is asked only while there is one, and while it's sold. */
@@ -515,7 +867,7 @@ export class AppState {
   })
   asPension: boolean = $derived(this.pensionFromAge !== undefined && this.wayOut === 'pension')
 
-  inputs: Inputs = $derived(this.inputsWith(this.firstDeposit, this.monthlyDeposit))
+  inputs: Inputs = $derived(this.inputsWith(this.answers.now, this.answers.monthly))
 
   /** The inputs with the deposits given: the comparison's own, or the
    * sweep's, which leaves out the deposit it varies. */
@@ -523,39 +875,42 @@ export class AppState {
     return {
       security: this.security,
       exchange: this.exchange,
+      product: this.product,
       firstDeposit,
       monthlyDeposit,
       yearlyReturnPercent: this.yearlyReturnPercent,
       years: this.years,
-      buyEveryMonths: this.moreOptions ? this.buyEveryMonths : 1,
+      buyEveryMonths: this.buyEveryMonths,
       sharePrice: this.sharePrice,
-      depositGrowthPercent: this.moreOptions ? this.depositGrowthPercent : 0,
-      inflationPercent: this.moreOptions ? this.inflationPercent : this.usualInflation,
+      depositGrowthPercent: this.depositGrowthPercent,
+      inflationPercent: this.inflationPercent,
       inTodaysMoney: this.inTodaysMoney,
       asPension: this.asPension,
       age: this.age,
       sellAtEnd: this.sellAtEnd,
       ilsPerUsd: this.ilsPerUsd,
       ilsPerEur: this.ilsPerEur,
-      plans: this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.key),
+      plans: this.tickedKeys,
       yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
     }
   }
 
   /** Which deposit the chart by deposit varies: the monthly one if there is
    * one, else the one-time deposit. */
-  swept: Swept = $derived((this.monthlyDeposit ?? 0) > 0 ? 'Monthly' : 'OneTime')
+  swept: Swept = $derived((this.answers.monthly ?? 0) > 0 ? 'Monthly' : 'OneTime')
 
   /** What the sweep is asked for: the inputs without the deposit it varies,
    * so typing that deposit asks for nothing new (only the chart's marker
-   * moves). A new object whenever the inputs change, to match answers to. */
-  sweepRequest: SweepRequest = $derived.by(() => {
+   * moves). A new object whenever the inputs change, to match answers to.
+   * Missing when the workbench isn't comparing plans on one exchange. */
+  sweepRequest: SweepRequest | undefined = $derived.by(() => {
+    if (this.thing !== 'other') return undefined
     const swept = this.swept
     return {
       swept,
       inputs: this.inputsWith(
-        swept === 'OneTime' ? 0 : this.firstDeposit,
-        swept === 'Monthly' ? 0 : this.monthlyDeposit,
+        swept === 'OneTime' ? 0 : this.answers.now,
+        swept === 'Monthly' ? 0 : this.answers.monthly,
       ),
     }
   })
@@ -574,11 +929,17 @@ export class AppState {
    * swept deposit, if the sweep answers the inputs as they are now. */
   around: AroundData | undefined = $derived.by(() => {
     const answer = this.sweepAnswer
-    if (!answer?.sweep || answer.request !== this.sweepRequest || 'error' in this.comparison) return undefined
+    if (
+      !answer?.sweep ||
+      answer.request !== this.sweepRequest ||
+      !this.comparison ||
+      'error' in this.comparison
+    )
+      return undefined
     try {
       return core.around({
         sweep: answer.sweep,
-        deposit: (this.swept === 'Monthly' ? this.monthlyDeposit : this.firstDeposit) ?? 0,
+        deposit: (this.swept === 'Monthly' ? this.answers.monthly : this.answers.now) ?? 0,
         // A plan the first deposit can't open isn't in the running, as in
         // the sweep.
         costs: this.comparison.results.map(({ plan, outcome, fits }) => ({
@@ -612,48 +973,188 @@ export class AppState {
    * `aroundLine` reads and writes it. */
   private lastAround: { planId: string; text: string } | undefined
 
-  /** Fills every basic input from an example, how the money is taken out
-   * and the age included. The expert inputs stay. */
-  applyExample(example: ExampleData) {
-    this.security = example.security
-    this.exchange = example.exchange
-    this.firstDeposit = example.firstDeposit
-    this.monthlyDeposit = example.monthlyDeposit
-    this.yearlyReturnPercent = example.yearlyReturnPercent
-    this.years = example.years
-    this.wayOut = example.asPension ? 'pension' : 'atOnce'
-    this.age = example.age
+  /** The share price's currency, "$", if the share price matters to what's
+   * compared; its field is hidden otherwise. */
+  sharePriceSymbol = $derived.by(() => {
+    try {
+      return core.sharePriceSymbol(this.inputs)
+    } catch {
+      // The comparison says what's wrong.
+      return undefined
+    }
+  })
+
+  /** The plans' outcomes as table rows, best first, with the row numbers the
+   * charts show: a plan the first deposit can't open isn't ranked, unless
+   * none can be. */
+  resultsOf(plans: PlanOutcomeData[]): Result[] {
+    const anyFits = plans.some(({ outcome, fits }) => outcome && fits)
+    return plans.map(
+      (
+        {
+          key,
+          outcome,
+          track,
+          warning,
+          fits,
+          mayCostMore,
+          note,
+          whoCanJoin,
+          pensionNote,
+          spread,
+          taxNote,
+          notOffered,
+          whyNot,
+        },
+        index,
+      ) => ({
+        plan: this.plansById.get(planId(key))!,
+        outcome,
+        rank: outcome && (fits || !anyFits) ? index + 1 : undefined,
+        track,
+        warning,
+        fits,
+        mayCostMore,
+        note,
+        whoCanJoin,
+        pensionNote,
+        spread,
+        taxNote,
+        notOffered,
+        whyNot,
+      }),
+    )
   }
 
-  /** A link to this comparison: the inputs and the ticked plans, your own
-   * ticked plans included, in the page's address. */
-  shareLink(): string {
-    if (this.family === 'short') {
-      return `${location.origin}${location.pathname}#${encode({ family: 'short', short: this.short.shared() })}`
+  /** The plans compared on one exchange (the workbench's "another index or
+   * stock"), or why they couldn't be. Missing for the other things. */
+  private latest = $derived.by((): Comparison | undefined => {
+    if (this.thing !== 'other') return undefined
+    let data: ComparisonData
+    try {
+      data = core.compare(this.inputs)
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
     }
+    return {
+      deposited: data.deposited,
+      noFees: data.noFees,
+      largestTrade: data.largestTrade,
+      usEstateTax: data.usEstateTax,
+      results: this.resultsOf(data.plans),
+    }
+  })
+
+  private lastWorked: Comparison | undefined
+
+  /** What the page shows: the comparison, or while the inputs can't be
+   * compared (a field being retyped), the last one that could, faded under
+   * why not, so the page keeps its shape. */
+  comparison: Comparison | undefined = $derived.by(() => {
+    if (this.latest && 'results' in this.latest) this.lastWorked = this.latest
+    return this.lastWorked ?? this.latest
+  })
+
+  /** The ways side by side, for the S&P 500 (switch on), or why not. */
+  private latestWays = $derived.by((): WaysView | undefined => {
+    if (!this.expert || this.thing !== 'sp500') return undefined
+    try {
+      return core.compareWays({ inputs: this.inputs, ways: this.selectedWays })
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : String(error) }
+    }
+  })
+  private lastWays: WaysView | undefined
+  waysComparison: WaysView | undefined = $derived.by(() => {
+    if (this.latestWays && 'ways' in this.latestWays) this.lastWays = this.latestWays
+    return this.lastWays ?? this.latestWays
+  })
+
+  /** Why the answers or the inputs can't be compared, in the core's words;
+   * the last results stay, faded, under it. */
+  inputError: string | undefined = $derived.by(() => {
+    if (this.recommended?.error) return this.recommended.error
+    if (this.latest && 'error' in this.latest) return this.latest.error
+    if (this.latestWays && 'error' in this.latestWays) return this.latestWays.error
+    return undefined
+  })
+  stale: boolean = $derived(this.inputError !== undefined)
+
+  /** The table's first plan, which the first deposit can open: the core
+   * ranks the ones it can't after the rest. Only if none can is one of them
+   * the best, with its warning. */
+  best: Result | undefined = $derived(
+    this.comparison && 'results' in this.comparison
+      ? this.comparison.results.find((result) => result.outcome)
+      : undefined,
+  )
+
+  /** The plans with numbers in the table, by id, each with its row number
+   * (none for a plan the first deposit can't open), for the chart by
+   * deposit: its sweep answers a moment after the table, which it may not
+   * match. */
+  private ranks: ReadonlyMap<string, { rank: number | undefined }> = $derived(
+    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
+    new Map(
+      this.comparison && 'results' in this.comparison
+        ? this.comparison.results.flatMap(({ plan, outcome, rank }) =>
+            outcome ? [[plan.id, { rank }] as const] : [],
+          )
+        : [],
+    ),
+  )
+
+  rowOf(id: string): { rank: number | undefined } | undefined {
+    return this.ranks.get(id)
+  }
+
+  /** What the user buys, for the fees and caveats that matter to them, with
+   * the comparison's biggest order: a caveat about large orders shows only
+   * when the user's orders reach it. */
+  buying: Purchase = $derived({
+    security: this.security,
+    exchange: this.exchange,
+    largestTrade: this.comparison && 'results' in this.comparison ? this.comparison.largestTrade : null,
+    ilsPerUsd: this.ilsPerUsd,
+    ilsPerEur: this.ilsPerEur,
+  })
+
+  /** A link to this page: the answers, the switch, the workbench's inputs
+   * when they matter, and the ticked plans, your own included, in the page's
+   * address. */
+  shareLink(): string {
+    const { answers } = this
     const ticked = this.plans.filter((plan) => this.selected.has(plan.id))
     const shared: Shared = {
-      security: this.security,
-      exchange: this.exchange,
-      firstDeposit: this.firstDeposit ?? undefined,
-      monthlyDeposit: this.monthlyDeposit ?? undefined,
-      yearlyReturnPercent: this.yearlyReturnPercent ?? undefined,
-      years: this.years,
-      sharePrice: this.sharePrice ?? undefined,
+      situation: this.situationId,
+      now: answers.now ?? undefined,
+      monthly: answers.monthly ?? undefined,
+      horizon: $state.snapshot(answers.horizon) as Horizon,
+      flexibility: answers.flexibility,
+      cushion: $state.snapshot(answers.cushion),
+      needsAnyDay: answers.needsAnyDay || undefined,
+      expert: this.expert || undefined,
       plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.englishLabel),
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
     }
-    // The expert inputs only when they'd change something.
-    if (this.moreOptions) {
+    if (typeof answers.situation === 'object') shared.bank = answers.situation.ExistingPortfolio.bank
+    const { overrides } = this
+    if (overrides.arena) shared.overrideArena = overrides.arena
+    if (overrides.kind) shared.overrideKind = kindKey(overrides.kind)
+    // The workbench's inputs, when the user can see them or chose in it.
+    if (this.expert || this.overridden) {
+      shared.thing = this.chosenThing
+      if (this.chosenWays) shared.ways = this.chosenWays
+      shared.security = this.security
+      shared.exchange = this.exchange
+      shared.yearlyReturnPercent = this.yearlyReturnPercent ?? undefined
+      shared.sharePrice = this.sharePrice ?? undefined
+      if (this.boiRatePercent !== this.usualBoiRate) shared.boiRatePercent = this.boiRatePercent ?? undefined
+      if (this.inflationPercent !== this.usualInflation)
+        shared.inflationPercent = this.inflationPercent ?? undefined
       if (this.depositGrowthPercent) shared.depositGrowthPercent = this.depositGrowthPercent
       if (this.buyEveryMonths !== 1) shared.buyEveryMonths = this.buyEveryMonths
-      if (this.inflationPercent !== null && this.inflationPercent !== this.usualInflation) {
-        shared.inflationPercent = this.inflationPercent
-      }
-      if (this.inTodaysMoney) {
-        shared.inflationPercent = this.inflationPercent ?? undefined
-        shared.inTodaysMoney = true
-      }
+      if (!this.todaysMoney) shared.todaysMoney = false
       if (!this.sellAtEnd) shared.sellAtEnd = false
     }
     if (this.asPension) {
@@ -667,31 +1168,34 @@ export class AppState {
    * own, replace what's ticked; your plans from it join yours, a plan with
    * the same id (from your own other device) taking the newer version. */
   private applyShared(shared: Shared) {
-    if (shared.family !== undefined) this.family = shared.family
+    if (shared.bank !== undefined) this.setBank(shared.bank)
+    if (shared.now !== undefined) this.answers.now = shared.now
+    if (shared.monthly !== undefined) this.answers.monthly = shared.monthly
+    if (shared.horizon !== undefined) this.answers.horizon = shared.horizon
+    if (shared.flexibility !== undefined) this.answers.flexibility = shared.flexibility
+    if (shared.cushion !== undefined) this.answers.cushion = shared.cushion
+    if (shared.needsAnyDay) this.answers.needsAnyDay = true
+    if (shared.expert) this.expert = true
+    this.chosenThing = shared.thing
+    if (shared.ways) this.chosenWays = shared.ways
     if (shared.security !== undefined) this.security = shared.security
     if (shared.exchange !== undefined) this.exchange = shared.exchange
-    if (shared.firstDeposit !== undefined) this.firstDeposit = shared.firstDeposit
-    if (shared.monthlyDeposit !== undefined) this.monthlyDeposit = shared.monthlyDeposit
     if (shared.yearlyReturnPercent !== undefined) this.yearlyReturnPercent = shared.yearlyReturnPercent
-    if (shared.years !== undefined) this.years = shared.years
+    if (shared.inflationPercent !== undefined) this.inflationPercent = shared.inflationPercent
+    if (shared.boiRatePercent !== undefined) this.boiRatePercent = shared.boiRatePercent
+    if (shared.depositGrowthPercent !== undefined) this.depositGrowthPercent = shared.depositGrowthPercent
     if (shared.buyEveryMonths !== undefined) this.buyEveryMonths = shared.buyEveryMonths
     if (shared.sharePrice !== undefined) this.sharePrice = shared.sharePrice
-    if (shared.depositGrowthPercent !== undefined) this.depositGrowthPercent = shared.depositGrowthPercent
-    if (shared.inflationPercent !== undefined) this.inflationPercent = shared.inflationPercent
-    if (shared.inTodaysMoney) this.todaysMoney = true
+    if (shared.todaysMoney === false) this.todaysMoney = false
     if (shared.sellAtEnd === false) this.atEnd = 'hold'
-    // Older links carry how often to buy even when it's every month.
-    if (
-      shared.depositGrowthPercent ||
-      (shared.buyEveryMonths ?? 1) !== 1 ||
-      shared.inflationPercent !== undefined ||
-      shared.short?.inflationPercent !== undefined ||
-      shared.sellAtEnd === false
-    ) {
-      this.moreOptions = true
-    }
     if (shared.asPension) this.wayOut = 'pension'
     if (shared.age !== undefined) this.age = shared.age
+    if (shared.overrideArena !== undefined || shared.overrideKind !== undefined) {
+      this.overrides = {
+        arena: shared.overrideArena,
+        kind: shared.overrideKind === undefined ? undefined : kindByKey(shared.overrideKind),
+      }
+    }
     const yours = readable(shared.yours ?? [], 'a plan from the link')
     if (yours.length > 0) {
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
@@ -718,130 +1222,35 @@ export class AppState {
     }
   }
 
-  /** The share price's currency, "$", if the share price matters to what's
-   * compared; its field is hidden otherwise. */
-  sharePriceSymbol = $derived.by(() => {
-    try {
-      return core.sharePriceSymbol(this.inputs)
-    } catch {
-      // The comparison says what's wrong.
-      return undefined
-    }
-  })
-
-  private latest = $derived.by((): Comparison => {
-    let data: ComparisonData
-    try {
-      data = core.compare(this.inputs)
-    } catch (error) {
-      return {
-        error: error instanceof Error ? error.message : String(error),
-      }
-    }
-    // A plan the first deposit can't open isn't ranked, unless none can be.
-    const anyFits = data.plans.some(({ outcome, fits }) => outcome && fits)
-    return {
-      deposited: data.deposited,
-      noFees: data.noFees,
-      largestTrade: data.largestTrade,
-      usEstateTax: data.usEstateTax,
-      // Best first, and the plans without an outcome last.
-      results: data.plans.map(
-        (
-          {
-            key,
-            outcome,
-            track,
-            warning,
-            fits,
-            mayCostMore,
-            note,
-            whoCanJoin,
-            pensionNote,
-            spread,
-            taxNote,
-            notOffered,
-            whyNot,
-          },
-          index,
-        ) => ({
-          plan: this.plansById.get(planId(key))!,
-          outcome,
-          rank: outcome && (fits || !anyFits) ? index + 1 : undefined,
-          track,
-          warning,
-          fits,
-          mayCostMore,
-          note,
-          whoCanJoin,
-          pensionNote,
-          spread,
-          taxNote,
-          notOffered,
-          whyNot,
-        }),
-      ),
-    }
-  })
-
-  private lastWorked: Comparison | undefined
-
-  /** What the page shows: the comparison, or while the inputs can't be
-   * compared (a field being retyped), the last one that could, faded under
-   * why not, so the page keeps its shape. Only a page opened with bad inputs
-   * has none to show. */
-  comparison: Comparison = $derived.by(() => {
-    if ('results' in this.latest) this.lastWorked = this.latest
-    return this.lastWorked ?? this.latest
-  })
-
-  inputError: string | undefined = $derived('error' in this.latest ? this.latest.error : undefined)
-
-  /** The table's first plan, which the first deposit can open: the core
-   * ranks the ones it can't after the rest. Only if none can is one of them
-   * the best, with its warning. */
-  best: Result | undefined = $derived(
-    'error' in this.comparison ? undefined : this.comparison.results.find((result) => result.outcome),
-  )
-
-  /** The plans with numbers in the table, by id, each with its row number
-   * (none for a plan the first deposit can't open), for the chart by
-   * deposit: its sweep answers a moment after the table, which it may not
-   * match. */
-  private ranks: ReadonlyMap<string, { rank: number | undefined }> = $derived(
-    // eslint-disable-next-line svelte/prefer-svelte-reactivity -- rebuilt, never changed
-    new Map(
-      'error' in this.comparison
-        ? []
-        : this.comparison.results.flatMap(({ plan, outcome, rank }) =>
-            outcome ? [[plan.id, { rank }] as const] : [],
-          ),
-    ),
-  )
-
-  rowOf(id: string): { rank: number | undefined } | undefined {
-    return this.ranks.get(id)
-  }
-
-  /** What the user buys, for the fees and caveats that matter to them, with
-   * the comparison's biggest order: a caveat about large orders shows only
-   * when the user's orders reach it. */
-  buying: Purchase = $derived({
-    security: this.security,
-    exchange: this.exchange,
-    largestTrade: 'error' in this.comparison ? null : this.comparison.largestTrade,
-    ilsPerUsd: this.ilsPerUsd,
-    ilsPerEur: this.ilsPerEur,
-  })
-
   /** `shared`: what the page's address says, if it was opened from a link. */
   constructor(shared: Shared = {}) {
-    this.short = new ShortTermState(() => this.moreOptions, shared.short)
+    // The guide opens on its first situation (or the link's); a link's own
+    // answers come over it.
+    this.setSituation(shared.situation ?? FIRST_SITUATION)
+    this.portfolioDialogOpen = false
     this.applyShared(shared)
     this.loadRates()
     $effect(() => save('your-plans-v1', this.yourPlans))
-    $effect(() => save('editor-view', this.editorView))
-    $effect(() => save('more-options', this.moreOptions))
+    $effect(() => save('editor-view-v2', this.editorView))
+    $effect(() => save('expert-v2', this.expert))
+    // The heavy work runs off the page's thread; its answers come a moment later.
+    $effect(() => {
+      if (this.onPage) return
+      const request = this.guideRequest
+      ask('recommend', request, (worked) => (this.recommendAnswer = { request, ...worked }))
+    })
+    $effect(() => {
+      const request = this.guideRequest
+      ask('ladder', request, (worked) => (this.ladderAnswer = { request, ...worked }))
+    })
+    $effect(() => {
+      const request = this.guideRequest
+      ask('alternatives', request, (worked) => (this.alternativesAnswer = { request, ...worked }))
+    })
+    $effect(() => {
+      const request = this.sweepRequest
+      if (request) askSweep(request, (sweep) => (this.sweepAnswer = { request, sweep }))
+    })
   }
 
   private async loadRates() {

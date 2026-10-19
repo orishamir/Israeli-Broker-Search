@@ -29,7 +29,7 @@
       amounts: sweep?.amounts ?? [],
       lines,
       swept: app.swept,
-      yours: app.swept === 'Monthly' ? app.monthlyDeposit : app.firstDeposit,
+      yours: app.swept === 'Monthly' ? app.answers.monthly : app.answers.now,
       pinned: app.pinned,
     })
   }

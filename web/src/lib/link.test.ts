@@ -1,7 +1,8 @@
 import { expect, test } from 'vitest'
 import type { YourPlan } from './app.svelte'
 import * as core from './core/core'
-import { BUYING_INTERVALS, decode, encode, type Shared } from './link'
+import { kindByKey, kindKey, wayKey } from './kinds'
+import { BUYING_INTERVALS, decode, decodeLocation, encode, type Shared } from './link'
 
 const yours: YourPlan = {
   id: 'abc-123',
@@ -10,97 +11,101 @@ const yours: YourPlan = {
   basedOn: { broker: 'Bank Leumi', plan: 'Pepper' },
 }
 
+const way = core.ways()[0].way
+
 const shared: Shared = {
+  situation: core.situations().find(({ id }) => id === 'existing')?.id ?? core.situations()[0].id,
+  bank: 'MizrahiTefahot',
+  now: 10_000,
+  monthly: 2_500.5,
+  horizon: { Months: 60 },
+  flexibility: 'CanWait',
+  cushion: { kind: 'hasNot', monthlyExpenses: 7_000 },
+  needsAnyDay: true,
+  expert: true,
+  thing: 'sp500',
+  ways: [wayKey(way)],
   security: 'IndexFund',
   exchange: 'Tlv',
-  firstDeposit: 10_000,
-  monthlyDeposit: 2_500.5,
   yearlyReturnPercent: 7,
-  years: 25,
-  buyEveryMonths: 3,
-  sharePrice: 500,
+  inflationPercent: 3,
+  boiRatePercent: 4.25,
   depositGrowthPercent: 3,
-  inflationPercent: 2,
-  inTodaysMoney: true,
+  buyEveryMonths: BUYING_INTERVALS[2].months,
+  sharePrice: 500,
+  todaysMoney: false,
   sellAtEnd: false,
   asPension: true,
   age: 41,
+  overrideArena: 'Safe',
+  overrideKind: kindKey({ GovernmentBond: { linked: true } }),
   plans: ['Leumi · Pepper', 'Meitav · Typical offer'],
   yours: [yours],
 }
 
-test('a link carries everything there and back, and reads as short keys', () => {
+test('a link carries every field there and back', () => {
   const hash = encode(shared)
-  expect(hash).toMatch(/^s=IndexFund&x=Tlv&d=10000&m=2500.5&r=7&y=25&b=3&p=500&g=3&a=41&i=2&h=1&k=1&plan=/)
+  expect(hash.startsWith('v=2&')).toBe(true)
   expect(decode(hash)).toEqual(shared)
   // With or without the #, as the address bar gives it.
   expect(decode(`#${hash}`)).toEqual(shared)
 })
 
-test("an inflation alone is for the tax; with today's money it keeps the key older links used", () => {
-  expect(encode({ inflationPercent: 3 })).toBe('f=3')
-  expect(decode('f=3')).toEqual({ inflationPercent: 3 })
-  expect(encode({ inflationPercent: 3, inTodaysMoney: true })).toBe('i=3')
-  // A link from before the two were told apart: its amounts were in today's money.
-  expect(decode('i=3')).toEqual({ inflationPercent: 3, inTodaysMoney: true })
-  expect(decode('a=500&k=2')).toEqual({})
+test.each([
+  ['months', { Months: 18 }],
+  ['not known', 'Unknown'],
+  ['retirement', { Retirement: { age: 41, retire_at: 67 } }],
+] as const)('a horizon of %s round-trips', (_, horizon) => {
+  expect(decode(encode({ horizon })).horizon).toEqual(horizon)
 })
 
-test('what is left out stays out, and selling at the end is the default that is not written', () => {
-  expect(encode({})).toBe('')
-  expect(decode('')).toEqual({})
-  expect(encode({ sellAtEnd: true, plans: [], yours: [] })).toBe('')
-  expect(decode(encode({ years: 20 }))).toEqual({ years: 20 })
+test.each([
+  [{ kind: 'has' }],
+  [{ kind: 'hasNot', monthlyExpenses: null }],
+  [{ kind: 'hasNot', monthlyExpenses: 8_000 }],
+] as const)('a cushion answer round-trips', (cushion) => {
+  expect(decode(encode({ cushion })).cushion).toEqual(cushion)
 })
 
-test('nonsense is dropped, field by field', () => {
-  const decoded = decode('s=Gold&x=Usa&d=-5&m=abc&y=200&b=5&p=0&g=1e999&yours=notbase64&plan=Anything')
-  expect(decoded).toEqual({ exchange: 'Usa', plans: ['Anything'] })
-  expect(decode('yours=' + btoa('{"not":"a list"}'))).toEqual({})
-  expect(
-    decode('yours=' + btoa('[1, {"id": 5}, {"id": "ok", "plan": {}, "brokerName": null, "basedOn": null}]')),
-  ).toEqual({
-    yours: [{ id: 'ok', plan: {}, brokerName: null, basedOn: null }],
-  })
-  expect(BUYING_INTERVALS.map(({ months }) => months)).toEqual([1, 2, 3, 6, 12])
+test('a flexibility answer round-trips, both ways', () => {
+  expect(decode(encode({ flexibility: 'Fixed' })).flexibility).toBe('Fixed')
+  expect(decode(encode({ flexibility: 'CanWait' })).flexibility).toBe('CanWait')
 })
 
-test('a short-term link carries its inputs, places and your deposits, and nothing of the long term', () => {
-  const short: Shared = {
-    family: 'short',
-    short: {
-      firstDeposit: 40_000,
-      monthlyDeposit: 0,
-      months: 24,
-      ratePercent: 3,
-      inflationPercent: 2.5,
-      places: ['Fixed-rate deposit · Bank Leumi', 'Money market fund · Cheapest fund'],
-      yours: [{ id: 'd-1', name: 'הצעה מלאומי', ratePercent: 4.1 }],
-    },
+test('every kind and way the core lists has a key that reads back', () => {
+  for (const { way: each } of core.ways()) {
+    expect(kindByKey(kindKey({ Way: each }))).toEqual({ Way: each })
   }
-  const hash = encode(short)
-  expect(hash).toMatch(/^c=s&d=40000&m=0&n=24&r=3&f=2.5&place=/)
-  expect(decode(hash)).toEqual(short)
-})
-
-test('a link with an id twice keeps the first of each, as a keyed list needs', () => {
-  const plan = (id: string, brokerName: string) => ({ id, plan: {}, brokerName, basedOn: null })
-  expect(
-    decode('yours=' + btoa(JSON.stringify([plan('a', 'first'), plan('b', 'b'), plan('a', 'second')]))),
-  ).toEqual({
-    yours: [plan('a', 'first'), plan('b', 'b')],
-  })
-  const deposit = (id: string, name: string) => ({ id, name, ratePercent: 4 })
-  expect(
-    decode('c=s&deposits=' + btoa(JSON.stringify([deposit('d-1', 'first'), deposit('d-1', 'second')]))),
-  ).toEqual({
-    family: 'short',
-    short: { yours: [deposit('d-1', 'first')] },
+  for (const kind of ['MoneyMarketFund', 'FixedDeposit', 'LinkedDeposit', 'CurrentAccount'] as const) {
+    expect(kindByKey(kindKey(kind))).toBe(kind)
+  }
+  expect(kindByKey(kindKey({ GovernmentBond: { linked: false } }))).toEqual({
+    GovernmentBond: { linked: false },
   })
 })
 
-test('a short-term link keeps only what makes sense', () => {
-  expect(decode('c=s&n=0&d=-5&m=x&deposits=nonsense')).toEqual({ family: 'short', short: {} })
-  expect(decode('c=s&n=61')).toEqual({ family: 'short', short: {} })
-  expect(decode('c=s&n=60')).toEqual({ family: 'short', short: { months: 60 } })
+test('a link without v=2, or with another version, is not read', () => {
+  expect(decode('n=5000&m=100&h=60')).toEqual({})
+  expect(decode('v=1&n=5000')).toEqual({})
+  expect(decode('s=IndexFund&x=Tlv&d=10000&y=25')).toEqual({})
+  expect(decode('')).toEqual({})
+})
+
+test('a link may be in the query string, the hash first', () => {
+  expect(decodeLocation({ hash: '', search: '?v=2&n=5' })).toEqual({ now: 5 })
+  expect(decodeLocation({ hash: '#v=2&n=7', search: '?v=2&n=5' })).toEqual({ now: 7 })
+  expect(decodeLocation({ hash: '', search: '' })).toEqual({})
+})
+
+test('what makes no sense is left out and the rest still applies', () => {
+  const read = decode(
+    'v=2&n=-5&m=abc&h=0&fx=maybe&cu=n:x&s=Crypto&e=Mars&b=5&p=0&a=200&th=moon&way=nothing&oa=Sea&ok=Way:nope&si=nope&bk=Nobody&r=7',
+  )
+  expect(read).toEqual({ yearlyReturnPercent: 7 })
+})
+
+test("a plan's id is kept once, and a list that isn't one is left out", () => {
+  const twice = encode({ yours: [yours, { ...yours, brokerName: 'again' }] })
+  expect(decode(twice).yours).toEqual([yours])
+  expect(decode('v=2&yours=!!!').yours).toBeUndefined()
 })

@@ -16,22 +16,8 @@ export const en = {
     'Copies a link to this comparison: what you buy, your deposits and expectations, and the plans you ticked. Your own plans among them travel with the link, so whoever opens it sees them too.',
 
   // The summary
-  youDeposit: 'You deposit',
   overYears: (years: number, todaysMoney: boolean) =>
     `over ${years} year${years === 1 ? '' : 's'}${todaysMoney ? ', in today’s money' : ''}`,
-  withNoFees: 'With no fees',
-  ifSoldBeforeTax: 'if sold at the end, before tax',
-  heldAtEnd: 'held at the end',
-  best: (label: string) => `Most left: ${label}`,
-  lostAndYearly: (lost: string, yearly: string) => `${lost} lost to fees · ${yearly} a year`,
-  yearlyAndLost: (yearly: string, lost: string) => `${yearly} a year · ${lost} lost to fees`,
-  /** Under the best plan's amount: what it is, and the tax it's after. */
-  leftAfter: (tax: string | undefined, pensionFrom?: number) =>
-    tax
-      ? `after ${tax} of tax`
-      : pensionFrom === undefined
-        ? 'with no tax'
-        : `with no tax, as a pension from ${pensionFrom}`,
   // The best plan at other values of the deposit the chart by deposit varies.
   cheapestThroughout: (from: string, to: string, swept: Swept) =>
     swept === 'Monthly'
@@ -50,7 +36,6 @@ export const en = {
       ? `Below ${below} a month, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`
       : `For a one-time deposit below ${below}, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`,
   checkInputs: (error: string) => `Check your inputs: ${error}.`,
-  tickABroker: 'Tick at least one plan to compare.',
 
   // The table
   rank: 'Rank',
@@ -65,17 +50,7 @@ export const en = {
   spreadBetween: (low: string, lowName: string, high: string, highName: string) =>
     `From ${low} (${lowName}) to ${high} (${highName})`,
   spreadAtMost: (name: string, amount: string) => `${name}: ${amount}`,
-  assumptions: (yearly: string, inflation: string, selling: boolean, pension: boolean, abroad: boolean) =>
-    selling
-      ? `Assuming a return of ${yearly} a year and inflation of ${inflation}, selling at the end, and 25% tax on the real gain${abroad ? ', at a broker abroad on the whole gain (by the exchange rate, which stays as it is)' : ''}${pension ? '; a fund taken as a pension: no tax' : ''}`
-      : `Assuming a return of ${yearly} a year and inflation of ${inflation}, with nothing sold and no tax`,
-  shortAssumptions: (rate: string, inflation: string) =>
-    `Assuming the Bank of Israel's rate is ${rate} on average and inflation is ${inflation}`,
-  anyDayInstead: (label: string, amount: string, less: string) =>
-    `Can be taken out any day: ${label}, ${amount} (${less} less)`,
   ratesOf: (date: string) => `exchange rates of ${date}`,
-  notAdvice: 'The calculator doesn’t advise: it works out fees and tax from what you typed.',
-  notAffiliated: 'Not connected to any bank, investment house or fund.',
   reportAMistake: 'Report a mistake (GitHub)',
   accessibilityStatement: 'Accessibility statement',
   needBiggerFirstDeposit: 'Need a bigger one-time deposit',
@@ -164,10 +139,6 @@ export const en = {
   overTimeAria: (label: string) => `${label}'s fees piling up year by year, by kind`,
 
   // The inputs
-  tryAnExample: 'Try an example',
-  moreOptions: 'More options',
-  moreOptionsTip: (inflation: string) =>
-    `More inputs, for a closer picture: deposits that grow every year as a salary does, buying every few months rather than every month, another inflation, amounts in today's money, and whether everything is sold at the end or kept. Off, the app takes deposits that stay the same and are bought every month, prices rising ${inflation} a year, amounts as they will be, and selling at the end.`,
   whatYouBuy: 'What you buy',
   whatYouBuyTip:
     'ETFs, index funds, bonds and stocks are all securities, and banks and investment houses charge different fees for each kind. An ETF and an index fund can hold exactly the same companies: they differ in how they are bought, and so in what you pay in fees.',
@@ -234,7 +205,6 @@ export const en = {
   addOrRemove: 'Add or remove',
   comparedOf: (count: number, total: number) => `${count} of ${total} plans`,
   doneComparing: (count: number) => `Done · ${count} compared`,
-  placesOf: (count: number, total: number) => `${count} of ${total} places`,
   countOf: (count: number, total: number) => `${count} of ${total}`,
   banksAndHouses: 'Banks and investment houses',
   banksAndHousesTip:
@@ -381,16 +351,8 @@ export const en = {
   backTo: (original: string) => `Back to ${original}'s fee`,
   was: (original: string, what?: string) => (what ? `${original}: ${what}` : `${original}:`),
   // The two calculators
-  calculators: 'For how long',
-  longTerm: 'Long-term investing',
-  longTermKinds: 'ETFs and index funds, bonds, stocks, funds and policies',
-  shortTerm: 'Short-term saving',
-  shortTermKinds: 'Bank deposits, money market funds',
-  calculatorsTip:
-    "Two calculators, because a fee calculator can only rank what earns the same thing. For the long term, everything earns the return you expect, and differs in fees, tax and how long the money is locked. For the short term, everything earns about the Bank of Israel's rate, and differs in how much of it reaches you: a fund's fee, or a bank paying less than the rate. An ETF and a deposit don't earn the same thing, so they're never in one table.",
 
   // The short term's inputs
-  forHowLong: 'For how long',
   monthsCount: (months: number) =>
     months === 1 ? 'a month' : months === 2 ? '2 months' : `${months} months`,
   boiRate: "Bank of Israel's rate, on average",
@@ -398,76 +360,62 @@ export const en = {
     "The rate the Bank of Israel sets, which savings rates across the economy follow. It decides it eight times a year. Type the rate you expect, on average over the months: a money market fund will earn about that, less its fee. A fixed-rate deposit isn't affected by it once opened, so the lower the rate you expect, the better the deposits do against the funds.",
   boiRateNote: (today: string) =>
     `Today it's ${today}. A fixed-rate deposit locks in its rate on the day it's opened; a money market fund changes with the Bank of Israel's rate.`,
-  shortTickedAtFirst: 'Ticked at first: the averages, the cheapest fund and the five big banks.',
-  shortWhatsComparedTip:
-    'Money market funds are listed as a kind: the average fee, the cheapest fund and the dearest, since their fees are close. Deposits are listed by bank, at the rates the Bank of Israel published for each. Under “Add or remove” you can also add a deposit at a rate you were offered.',
-  shortMoreOptionsTip: (inflation: string) =>
-    `One more setting: inflation, which a fund's tax depends on. With the switch off, the calculator takes ${inflation} a year.`,
-  shortInflationTip:
-    "How much prices rise a year. A fund's tax is on the gain beyond it, so the higher it is, the less tax a fund pays; a deposit's tax is on all its interest, whatever prices do.",
 
   // The places to compare
-  yourDeposits: 'Your deposits',
-  yourDepositsTip:
-    "A bank may offer you more than it gives on average, especially for a large sum. Add the deposit you were offered, with its yearly rate, and it's compared like the banks': its tax is 15% of the interest, and the money is locked until the end.",
-  addYourDeposit: '+ Your deposit',
-  depositName: 'Name',
-  depositRate: 'Rate',
-  deleteDeposit: (name: string) => `Delete ${name}`,
-  yourDepositName: 'Your deposit',
-  yourDepositNumbered: (count: number) => `Your deposit ${count}`,
-  ratesFor: (term: string) => `The rates for a deposit of ${term}`,
-  rateOf: (rate: string) => `${rate} interest`,
-  feeOf: (fee: string) => `${fee} fee`,
-  noRate: 'no rate for these months',
-  monthlyNotForDeposits: "A fixed-rate deposit takes one sum: with money every month, it isn't compared.",
-  mayLeaveLess: (name: string) => `${name}: may leave you less. Why?`,
-  whatItCharges: 'What it charges',
-  whatItPays: 'What it pays',
-  ratesByTerm: 'Its rates, by how long the deposit is',
-  yourRateIs: (rate: string) => `The rate you typed: ${rate} a year, for any term.`,
-  taxRule: 'Tax',
   caveats: 'Caveats',
-  aboutKind: 'About the kind',
 
   // The short term's results
   forMonths: (months: number) => (months === 1 ? 'for a month' : `for ${months} months`),
-  atTheRate: "At the Bank of Israel's rate",
-  noCostsNoTax: 'with no costs and no tax',
-  netYearly: (rate: string) => `${rate} a year, after costs and tax`,
-  canTakeOut: (when: string) => `Can be taken out: ${when.toLowerCase()}`,
-  place: 'Place',
-  placeTip: 'Where the money is kept. The calculator compares these kinds:',
-  netYearlyColumn: 'A year, net',
-  netYearlyTip:
-    'What the money earned after costs and tax, as a yearly rate: the rate at which the same deposits would come to the same sum.',
-  shortLeftAfterTaxTip:
-    'What you end up with, and what the table is ranked by: what you put in, with what it earned in the deposit or the fund (after the fund’s fee), less the tax.',
-  costYearly: 'Cost a year',
-  costYearlyTip:
-    "How much of the Bank of Israel's rate the place keeps, as a yearly percentage, like a fund's fee: a fund's fee, or how much less than the rate a bank pays. A bank paying more than the rate is marked \"above the rate\".",
   aboveTheRate: (rate: string) => `${rate} above the rate`,
-  shortTaxTip: (inflation: string) =>
-    `A deposit pays 15% of all its interest. A fund pays 25% of its gain beyond inflation (${inflation} a year), when it's sold.`,
-  whenOut: 'When it can come out',
-  whenOutTip:
-    "A money market fund can be sold any business day, and the money reaches the account within a day or two. A deposit locks the money until its term ends: taking it out earlier needs the bank's consent, and usually loses the interest.",
-  tickAPlace: 'Tick at least one place to compare.',
-  splitView: 'Where the interest goes',
-  splitViewTip:
-    "The interest the Bank of Israel's rate would pay on your money, split three ways: what you keep, what the fund or the bank keeps, and the tax. A bank that pays more than the rate goes past the line.",
-  valueOverTime: 'Value over time',
-  valueOverTimeTip: 'What the money is worth in each place, month by month, before tax.',
-  rateLine: (amount: string) => `The line: the Bank of Israel's rate on your money, ${amount}`,
   yoursPart: 'Yours',
   keptPart: 'Kept by the fund or the bank',
   taxPart: 'Tax',
-  splitAria: "Where each place's interest goes: to you, to the place, and to tax",
-  placePinHintMouse: (bars: boolean) => `Click a row or a ${bars ? 'bar' : 'line'} to pin a place`,
-  placePinHintTouch: (bars: boolean) => `Tap a row or a ${bars ? 'bar' : 'line'} to pin a place`,
   monthsAxis: 'Months',
   afterMonths: (months: number) => (months === 1 ? 'After a month' : `After ${months} months`),
-  bestBarNote: (rate: string, when: string) => `${rate} a year, after tax · ${when.toLowerCase()}`,
+
+  // The guide's frame (the sentences themselves are the core's)
+  glossary: 'Glossary',
+  aboutLink: 'How the numbers are made',
+  allOptions: 'All options',
+  allOptionsTip:
+    "Shows everything that can be changed and compared: what to buy, in which ways, on which exchange and with which assumptions. Turning it on doesn't change the answer, only what is shown.",
+  whatForTitle: 'What is the money for?',
+  whatForHint: 'Pick a situation like yours, or skip it and answer below',
+  whatForTip:
+    'Each situation fills the questions below with an example and shows what it teaches. Every number can be changed.',
+  iKnowWhatToBuy: 'I know what I want to buy and compare ›',
+  iHaveNow: 'I have now',
+  iAddMonthly: "And I'll add every month",
+  neededIn: "I'll need the money in",
+  timeUnit: 'Unit of time',
+  monthsUnit: 'months',
+  yearsUnit: 'years',
+  dontKnowYet: "Don't know yet",
+  iAmAge: 'I am',
+  retireAtAge: "and I'll retire at",
+  answerUpdatesBelow: '↓ The answer updates below',
+  whichBank: 'Which bank holds the portfolio?',
+  otherBank: 'Another bank',
+  answerTitle: 'What fits money like this',
+  whatIsIt: 'What is it? ›',
+  changeKind: 'Change ›',
+  backToRecommendation: 'Back to the recommendation ›',
+  alternativesTitle: 'Compared with the other options',
+  withinTitle: "Where it's cheapest to buy",
+  allPlans: (count: number) => `All ${count} plans ›`,
+  stepsTitle: 'How to do it',
+  donutTitle: 'Where every shekel goes at the end',
+  ladderTitle: 'And if you need the money sooner or later?',
+  learnMore: 'More about this ›',
+  back: 'Back',
+  glossaryHint: "Every term the calculator uses, as it's called in your bank's app and in ads.",
+  whatToBuy: 'What do you want to buy?',
+  thingSp500: 'The S&P 500 index',
+  thingOther: 'Another index or a stock',
+  thingBonds: 'Bonds',
+  thingShort: 'Short-term money',
+  waysTitle: 'In which ways to compare?',
+  waysBest: 'The ways, best first',
 }
 
 export type Text = typeof en

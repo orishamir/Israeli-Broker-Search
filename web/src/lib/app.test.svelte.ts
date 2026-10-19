@@ -1,9 +1,8 @@
 import { flushSync } from 'svelte'
 import { beforeEach, expect, test, vi } from 'vitest'
-import { AppState, PLAN_COLORS, planId, type Details } from './app.svelte'
+import { AppState, planId, type Details } from './app.svelte'
 import * as core from './core/core'
 import { decode, encode } from './link'
-import { t } from './text'
 
 // Fixed rates instead of today's, so nothing depends on the network or the day.
 beforeEach(() => {
@@ -15,607 +14,216 @@ beforeEach(() => {
 })
 
 /** An app, as App.svelte makes one: its effects need a root to live in. */
-function start(): AppState {
+function start(shared = {}): AppState {
   let app!: AppState
   $effect.root(() => {
-    app = new AppState()
+    app = new AppState(shared)
   })
+  flushSync()
   return app
 }
 
-const results = (app: AppState) => {
-  const { comparison } = app
-  if ('error' in comparison) throw new Error(comparison.error)
-  return comparison.results
-}
-
-/** Answers the app's sweep request, as the worker does (see sweeper.ts). */
-function answerSweep(app: AppState) {
-  const request = app.sweepRequest
-  let sweep: core.SweepData | undefined
-  try {
-    sweep = core.sweep(request.inputs, request.swept)
-  } catch {
-    sweep = undefined
-  }
-  app.sweepAnswer = { request, sweep }
-}
+/** What the core says for the answers and settings as they are now. */
+const coreSays = (app: AppState) => core.recommend(app.guideRequest.answers, app.settings)
 
 const draftOf = (details: Details | null) => {
   if (details?.kind !== 'draft') throw new Error('no draft open')
   return details.draft
 }
 
-test("each broker's usual plan and the provident fund's average are ticked at first, ranked by what is left after tax", () => {
+test('the guide opens on its first situation, and what it recommends is the core’s answer', () => {
   const app = start()
-  const usual = app.brokers.flatMap((broker, index) =>
-    broker.comparedAtFirst ? [planId({ kind: 'listed', broker: index, plan: broker.newCustomerPlan })] : [],
-  )
-  expect([...app.selected]).toEqual(usual)
-  // Every broker, and of the funds only the provident fund for investment.
-  const funds = app.brokers.filter(({ kind }) => kind === 'Funds')
-  expect(funds.map(({ englishName, comparedAtFirst }) => [englishName, comparedAtFirst])).toEqual([
-    ['Provident fund for investment', true],
-    ['Study fund', false],
-    ['Savings policy', false],
-  ])
-  expect(usual).toHaveLength(app.brokers.length - 2)
-  const ranked = results(app)
-  expect(ranked.map(({ plan }) => plan.id).toSorted()).toEqual(usual.toSorted())
-  // The plans the first deposit opens first, each group by what's left.
-  for (const fits of [true, false]) {
-    const left = ranked
-      .filter((row) => row.fits === fits)
-      .map(({ outcome }) => outcome?.afterTax ?? -Infinity)
-    expect(left).toEqual(left.toSorted((a, b) => b - a))
-  }
-  expect(app.purchase).toBe('קרן סל בארה״ב')
-})
-
-test('the card names each ticked plan as briefly as it can be told apart, in the list’s order', () => {
-  const app = start()
-  const names = () => app.compared.map(({ name }) => name)
-  const index = app.brokers.findIndex(({ englishName }) => englishName === 'Bank Leumi')
-  const leumi = app.brokers[index]
-  const plan = (at: number) => planId({ kind: 'listed', broker: index, plan: at })
-  const usual = leumi.newCustomerPlan
-  const other = leumi.plans.findIndex((_, at) => at !== usual)
-  expect(names()).toEqual(
-    app.brokers.filter((broker) => broker.comparedAtFirst).map(({ shortName }) => shortName),
-  )
-  app.setSelected([plan(other)], true)
-  expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[usual].name}`)
-  expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[other].name}`)
-  expect(names()).not.toContain(leumi.shortName)
-  app.setSelected([plan(usual)], false)
-  expect(names()).toContain(`${leumi.shortName}\u00a0· ${leumi.plans[other].name}`)
-  expect(names()).not.toContain(leumi.shortName)
-  app.draftNewPlan()
-  app.addYourPlan(draftOf(app.details))
-  expect(names().at(-1)).toBe(t.yourPlan)
-  expect(app.compared.map(({ plan }) => plan.id)).toEqual(
-    app.plans.filter(({ id }) => app.selected.has(id)).map(({ id }) => id),
-  )
-})
-
-test('how the money is taken out is asked only while a ticked plan pays a pension, and everything is sold', () => {
-  const app = start()
-  const fund = app.listedPlans.find((plan) => plan.englishLabel === 'Provident fund · Average fee')!
-  const outcomeOf = () => results(app).find(({ plan }) => plan.id === fund.id)!.outcome!
-  expect(app.pensionFromAge).toBe(60)
-  expect(app.inputs).toMatchObject({ asPension: false })
-  const atOnce = outcomeOf()
-  expect(atOnce.tax).toBeGreaterThan(0)
-
-  // 45 today, 65 after the 20 years: old enough, and the fund comes first.
-  app.wayOut = 'pension'
-  expect(app.inputs).toMatchObject({ asPension: true, age: 45 })
-  expect(outcomeOf().tax).toBe(0)
-  expect(outcomeOf().afterTax).toBe(atOnce.afterSelling)
-  expect(results(app)[0].plan.id).toBe(fund.id)
-  app.age = 39
-  expect(outcomeOf().tax).toBe(atOnce.tax)
-  app.age = null
-  expect(app.inputError).toBe('מלאו את הגיל שלכם')
-  app.age = 45
-
-  app.setSelected([fund.id], false)
-  expect(app.pensionFromAge).toBeUndefined()
-  expect(app.inputs).toMatchObject({ asPension: false })
-  app.setSelected([fund.id], true)
-  expect(app.inputs).toMatchObject({ asPension: true })
-  app.moreOptions = true
-  app.atEnd = 'hold'
-  expect(app.pensionFromAge).toBeUndefined()
-  expect(outcomeOf().tax).toBe(0)
-})
-
-test("deposits over a fund's yearly ceiling leave it without numbers, saying why", () => {
-  const app = start()
-  const fund = app.listedPlans.find((plan) => plan.englishLabel === 'Provident fund · Average fee')!
-  app.monthlyDeposit = 10_000
-  const row = results(app).at(-1)!
-  expect(row.plan.id).toBe(fund.id)
-  expect(row).toMatchObject({ outcome: undefined, rank: undefined, whyNot: 'OverTheCeiling' })
-  expect(row.notOffered).toContain('₪83,641')
-  expect(row.notOffered).toContain('₪130,000')
-})
-
-test('a study fund is locked for six years, and taxes only the gains on what is over its yearly amount', () => {
-  const app = start()
-  const study = app.listedPlans.find((plan) => plan.englishLabel === 'Study fund · Average fee')!
-  app.setSelected([study.id], true)
-  const rowOf = () => results(app).find(({ plan }) => plan.id === study.id)!
-  // ₪10,000 and ₪2,000 a month is more than the ₪20,566 a year whose gains
-  // are tax-free: some tax, less than the same money pays elsewhere.
-  const fund = app.listedPlans.find((plan) => plan.englishLabel === 'Provident fund · Average fee')!
-  const taxOf = (id: string) => results(app).find(({ plan }) => plan.id === id)!.outcome!.tax
-  expect(taxOf(study.id)).toBeGreaterThan(0)
-  expect(taxOf(study.id)).toBeLessThan(taxOf(fund.id))
-  app.firstDeposit = 0
-  app.monthlyDeposit = 1_500
-  expect(taxOf(study.id)).toBe(0)
-  // The fund says its rule under its name, and its row what became of it.
-  expect(study.broker!.taxRule).toContain('₪20,566')
-  const within = rowOf().taxNote
-  expect(within).toContain('₪20,566')
-  app.monthlyDeposit = 2_000
-  expect(rowOf().taxNote).not.toBe(within)
-  expect(results(app).find(({ plan }) => plan.broker?.kind !== 'Funds')!.taxNote).toBeUndefined()
-  expect(study.info.pensionFromAge).toBeUndefined()
-
-  app.years = 5
-  expect(rowOf()).toMatchObject({ outcome: undefined, whyNot: 'Locked' })
-  expect(rowOf().notOffered).toContain('רק 6 שנים אחרי ההפקדה הראשונה')
-})
-
-test('bad inputs are reported in words, not thrown, and the last results stay', () => {
-  const app = start()
-  const before = results(app)
-  app.monthlyDeposit = -5
-  expect(app.inputError).toMatch(/ערך שלילי/)
-  // A field being retyped: the page keeps the last results, faded.
-  expect(results(app)).toBe(before)
-  app.monthlyDeposit = 2000
-  app.yearlyReturnPercent = null
-  expect(app.inputError).toMatch(/התשואה השנתית/)
-  app.yearlyReturnPercent = 10
+  expect(app.situationId).toBe('goal')
+  expect(app.recommendation).toEqual(coreSays(app))
+  expect(app.recommendationFresh).toBe(true)
   expect(app.inputError).toBeUndefined()
-  expect(results(app)).not.toBe(before)
-  expect(results(app).length).toBeGreaterThan(0)
-  expect(app.buying.largestTrade).toBeGreaterThan(0)
 })
 
-test('a page opened with bad inputs has no results to show, only why', () => {
-  let app!: AppState
-  $effect.root(() => {
-    app = new AppState({ monthlyDeposit: -5 })
-  })
-  expect(app.comparison).toEqual({ error: expect.stringMatching(/ערך שלילי/) })
-  expect(app.buying.largestTrade).toBeNull()
-})
+test.each(['goal', 'cushion', 'salary', 'retirement'])(
+  'the situation %s: the arena and the kind are the core’s, short horizons on the page and long ones from the worker',
+  async (id) => {
+    const app = start()
+    app.setSituation(id)
+    flushSync()
+    // A long horizon is worked out off the page's thread: the last answer
+    // stays until the new one arrives.
+    await vi.waitFor(() => expect(app.recommendationFresh).toBe(true))
+    const expected = coreSays(app)
+    expect(app.recommendation?.arena).toBe(expected.arena)
+    expect(app.recommendation?.kind).toEqual(expected.kind)
+    expect(app.recommendation).toEqual(expected)
+  },
+)
 
-test("a plan's rank is its row's number, counting only the plans with an outcome the first deposit opens", () => {
+test('the lines of the alternatives are plain objects with their kind and name, not maps', () => {
   const app = start()
-  app.setSelected(
-    app.plans.map(({ id }) => id),
-    true,
-  )
-  app.exchange = 'Europe'
-  const all = results(app)
-  const ranked = all.filter(({ outcome, fits }) => outcome && fits)
-  // IBI needs ₪15,000 at first, more than the ₪10,000 deposited.
-  const unopened = all.filter(({ outcome, fits }) => outcome && !fits)
-  expect(ranked.length).toBeLessThan(all.length)
-  expect(unopened.length).toBeGreaterThan(0)
-  expect(ranked.map(({ rank }) => rank)).toEqual(ranked.map((_, index) => index + 1))
-  expect(all.filter((result) => !ranked.includes(result)).every(({ rank }) => rank === undefined)).toBe(true)
-  for (const { plan, rank, outcome } of all)
-    expect(app.rowOf(plan.id)).toEqual(outcome ? { rank } : undefined)
+  const { alternatives } = app.recommendation!
+  expect(alternatives.length).toBeGreaterThan(0)
+  for (const alternative of alternatives) {
+    expect(alternative).not.toBeInstanceOf(Map)
+    expect(alternative.kind).toBeDefined()
+    expect(alternative.name).toBeTruthy()
+  }
+  const lines = core.alternatives(app.guideRequest.answers, app.settings).series
+  for (const line of lines) expect(line.kind).toBeDefined()
 })
 
-test('the share price is asked for only where it matters', () => {
+test('the ladder and the alternatives come from the worker, and keep the last answer until the next', async () => {
   const app = start()
-  expect(app.sharePriceSymbol).toBe('$')
-  app.exchange = 'Europe'
-  expect(app.sharePriceSymbol).toBe('€')
-  app.exchange = 'Tlv'
-  expect(app.sharePriceSymbol).toBeFalsy()
+  await vi.waitFor(() => expect(app.ladderFresh && app.alternativesFresh).toBe(true))
+  expect(app.alternatives).toEqual(core.alternatives(app.guideRequest.answers, app.settings))
+  expect(app.ladder).toEqual(core.ladder(app.guideRequest.answers, app.settings))
+  const before = app.alternatives
+  app.answers.now = (app.answers.now ?? 0) + 1000
+  flushSync()
+  // Between the change and the answer, the last one is still there, not fresh.
+  expect(app.alternativesFresh).toBe(false)
+  expect(app.alternatives).toBe(before)
+  await vi.waitFor(() => expect(app.alternativesFresh).toBe(true))
+  expect(app.alternatives).not.toBe(before)
 })
 
-test('ticked plans all differ in color, and an unticked one frees its color', () => {
+test('the switch changes what is shown and nothing the core is asked', () => {
   const app = start()
-  const tickedColors = () => app.plans.filter(({ id }) => app.selected.has(id)).map(({ color }) => color)
-  expect(new Set(tickedColors()).size).toBe(app.selected.size)
-
-  const [first] = app.selected
-  const freed = app.plansById.get(first)!.color
-  app.setSelected([first], false)
-  const other = app.plans.find(({ id }) => !app.selected.has(id))!
-  app.setSelected([other.id], true)
-  expect(other.color).toBe(freed)
-
-  // Every plan ticked: more plans than colors, so every color is used, and
-  // no color much more than another.
-  app.setSelected(
-    app.plans.map(({ id }) => id),
-    true,
-  )
-  expect(app.plans.length).toBeGreaterThan(PLAN_COLORS.length)
-  const uses: Record<string, number> = {}
-  for (const color of tickedColors()) uses[color] = (uses[color] ?? 0) + 1
-  const counts = Object.values(uses)
-  expect(counts.length).toBe(PLAN_COLORS.length)
-  expect(Math.max(...counts) - Math.min(...counts)).toBeLessThanOrEqual(1)
-  app.setSelected([other.id], false)
-  expect(other.color).toBe('#8e95a5')
+  const request = $state.snapshot(app.guideRequest)
+  const recommendation = app.recommendation
+  app.expert = true
+  flushSync()
+  expect($state.snapshot(app.guideRequest)).toEqual(request)
+  expect(app.recommendation).toEqual(recommendation)
+  app.expert = false
+  flushSync()
+  expect(app.recommendation).toEqual(recommendation)
 })
 
-test('unticking a plan unpins it; showing its fees pins it last and opens the breakdown', () => {
+test('the switch is remembered, and a chip for experts turns it on', () => {
   const app = start()
-  const [first, second] = app.selected
-  app.togglePin(first)
-  app.togglePin(second)
-  app.showFees(first)
-  expect([...app.pinned]).toEqual([second, first])
-  expect(app.chartView).toBe('breakdown')
-  app.setSelected([first], false)
-  expect(app.pinned.has(first)).toBe(false)
-  app.togglePin(second)
-  expect(app.pinned.size).toBe(0)
+  app.expert = true
+  flushSync()
+  expect(localStorage.getItem('expert-v2')).toBe('true')
+  expect(start().expert).toBe(true)
+  localStorage.clear()
+  const other = start()
+  expect(other.expert).toBe(false)
+  const workbench = other.situations.find(({ workbench }) => workbench)
+  if (!workbench) throw new Error('no situation opens the workbench')
+  other.setSituation(workbench.id)
+  expect(other.expert).toBe(true)
 })
 
-test('a new plan of your own takes the next free name, and is ticked when added', () => {
+test('a kind chosen over the guide is what the recommendation then is, until cleared', () => {
+  const app = start()
+  const first = app.recommendation!
+  const other = first.alternatives.find(({ kind }) => kind !== first.kind.kind && kind !== 'CurrentAccount')
+  if (!other) throw new Error('no other kind to choose')
+  app.chooseKind(other.kind)
+  flushSync()
+  expect(app.overridden).toBe(true)
+  expect(app.recommendation?.kind.kind).toEqual(other.kind)
+  expect(app.recommendation).toEqual(coreSays(app))
+  app.clearOverrides()
+  flushSync()
+  expect(app.overridden).toBe(false)
+  expect(app.recommendation?.kind.kind).toEqual(first.kind.kind)
+  // A new situation starts over, too.
+  app.chooseKind(other.kind)
+  app.setSituation('goal')
+  expect(app.overridden).toBe(false)
+})
+
+test('answers that can’t be compared keep the last recommendation, with the core’s reason', () => {
+  const app = start()
+  const last = app.recommendation
+  app.answers.horizon = { Months: 0 }
+  flushSync()
+  // The core says why, or (if zero months is an answer) there's no error and
+  // the recommendation is simply the core's.
+  if (app.inputError !== undefined) {
+    expect(app.stale).toBe(true)
+    expect(app.recommendation).toEqual(last)
+  } else {
+    expect(app.recommendation).toEqual(coreSays(app))
+  }
+  app.answers.horizon = { Months: 60 }
+  app.answers.now = null
+  app.answers.monthly = null
+  flushSync()
+  expect(app.recommendation).toBeDefined()
+})
+
+test('the workbench follows the recommendation until the user chooses another thing', () => {
+  const app = start()
+  const kind = app.recommendation!.kind.kind
+  const followed =
+    typeof kind === 'object' && 'Way' in kind ? 'sp500' : typeof kind === 'object' ? 'bonds' : 'short'
+  expect(app.thing).toBe(followed)
+  app.chooseThing('other')
+  expect(app.thing).toBe('other')
+  flushSync()
+  expect(app.comparison && 'results' in app.comparison).toBe(true)
+  app.clearOverrides()
+  expect(app.thing).toBe(followed)
+})
+
+test('the ways: all but the ones asked for are ticked at first, and the last one can’t be unticked', () => {
+  const app = start()
+  const first = app.selectedWays
+  expect(first.length).toBeGreaterThan(0)
+  for (const way of first.slice(1)) app.toggleWay(way)
+  expect(app.selectedWays).toHaveLength(1)
+  app.toggleWay(app.selectedWays[0])
+  expect(app.selectedWays).toHaveLength(1)
+})
+
+test('a link carries the answers, the switch and the overrides back into a new page', () => {
+  const app = start()
+  app.setSituation('retirement')
+  app.expert = true
+  app.chooseKind({ GovernmentBond: { linked: false } })
+  app.answers.now = 12_345
+  flushSync()
+  const link = app.shareLink()
+  const hash = link.slice(link.indexOf('#') + 1)
+  const again = start(decode(hash))
+  expect(again.answers).toEqual($state.snapshot(app.answers))
+  expect(again.situationId).toBe('retirement')
+  expect(again.expert).toBe(true)
+  expect(again.overrides).toEqual($state.snapshot(app.overrides))
+  expect([...again.selected].sort()).toEqual([...app.selected].sort())
+})
+
+test('a link without v=2 opens the page as usual', () => {
+  const app = start(decode('s=Etf&d=99999&m=1&y=7'))
+  expect(app.answers.now).not.toBe(99_999)
+  expect(encode({})).toBe('v=2')
+})
+
+test('your plans are kept in this browser, ticked when added, and leave with their tick', () => {
   const app = start()
   app.draftNewPlan()
   const draft = draftOf(app.details)
-  expect(core.planInfo(draft.plan).name).toBe('המסלול שלכם')
   app.addYourPlan(draft)
-  expect(app.selected.has(planId({ kind: 'yours', id: draft.id }))).toBe(true)
-  app.draftNewPlan()
-  expect(core.planInfo(draftOf(app.details).plan).name).toBe('המסלול שלכם 2')
-})
-
-test('deleting a plan of your own unticks it, unpins it and stops hovering it', () => {
-  const app = start()
-  app.draftNewPlan()
-  const draft = draftOf(app.details)
-  app.addYourPlan(draft)
+  flushSync()
   const id = planId({ kind: 'yours', id: draft.id })
-  app.togglePin(id)
-  app.hovered = id
+  expect(app.selected.has(id)).toBe(true)
+  expect(JSON.parse(localStorage.getItem('your-plans-v1')!)).toHaveLength(1)
+  expect(app.settings.yourPlans).toHaveLength(1)
   app.deleteYourPlan(draft.id)
+  flushSync()
   expect(app.selected.has(id)).toBe(false)
-  expect(app.pinned.has(id)).toBe(false)
-  expect(app.hovered).toBeNull()
-  expect(app.yourPlans).toEqual([])
+  expect(JSON.parse(localStorage.getItem('your-plans-v1')!)).toHaveLength(0)
 })
 
-test('your plans are kept for the next visit, and ones the core cannot read are dropped', () => {
+test('learn cards stack, go back, and close', () => {
   const app = start()
-  app.draftNewPlan()
-  const draft = draftOf(app.details)
-  app.addYourPlan(draft)
-  app.editorView = 'full'
-  flushSync()
-  const saved = JSON.parse(localStorage.getItem('your-plans-v1')!) as unknown[]
-  expect(saved).toHaveLength(1)
-
-  const junk = { id: 'junk', plan: { nonsense: true }, brokerName: null, basedOn: null }
-  localStorage.setItem('your-plans-v1', JSON.stringify([...saved, junk]))
-  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-  const again = start()
-  expect(again.yourPlans.map(({ id }) => id)).toEqual([draft.id])
-  expect(again.editorView).toBe('full')
-  expect(warn).toHaveBeenCalledOnce()
-})
-
-test('saved plans with an id twice keep the first of each, as a keyed list needs', () => {
-  const app = start()
-  app.draftNewPlan()
-  const draft = draftOf(app.details)
-  app.addYourPlan(draft)
-  flushSync()
-  const renamed = { ...draft, plan: core.rename(draft.plan, 'Second') }
-  localStorage.setItem('your-plans-v1', JSON.stringify([draft, renamed]))
-  const again = start()
-  expect(again.yourPlans).toHaveLength(1)
-  expect(core.planInfo(again.yourPlans[0].plan).name).toBe(core.planInfo(draft.plan).name)
-})
-
-test('a copy knows its original by name, shares its color, and charges the same until changed', () => {
-  const app = start()
-  const original = app.listedPlans.find(({ id }) => app.selected.has(id))!
-  app.draftCopyOf(original)
-  const draft = draftOf(app.details)
-  // By English names, the same in every language.
-  expect(draft.basedOn).toEqual({
-    broker: original.broker!.englishName,
-    plan: original.info.englishName,
-    track: original.info.tariff.tracks[app.trackOf(original) ?? 0]?.englishName,
-  })
-  app.addYourPlan(draft)
-  const copy = app.plans.find(({ yours }) => yours?.id === draft.id)!
-  expect(copy.original).toBe(original)
-  expect(copy.color).toBe(original.color)
-  expect(copy.subtitle).toBe(`העסקה שלכם\u00a0· ${original.subtitle}`)
-  expect(copy.label).toBe(original.label.replace(original.info.name, `${original.info.name}, העסקה שלכם`))
-  const leftAfterSelling = (id: string) =>
-    results(app).find(({ plan }) => plan.id === id)!.outcome!.afterSelling
-  expect(leftAfterSelling(copy.id)).toBe(leftAfterSelling(original.id))
-  // The fees shown for it are its own claim: no caveats.
-  expect(app.feesFor(copy).caveats).toEqual([])
-})
-
-test('off, the expert inputs are not sent; on, they are, and keeping the holdings drops the sale', () => {
-  const app = start()
-  expect(app.moreOptions).toBe(false)
-  app.depositGrowthPercent = 5
-  app.buyEveryMonths = 3
-  app.atEnd = 'hold'
-  app.inflationPercent = 3
-  app.todaysMoney = true
-  expect(app.usualInflation).toBe(2)
-  expect(app.inputs).toMatchObject({
-    depositGrowthPercent: 0,
-    buyEveryMonths: 1,
-    inflationPercent: 2,
-    inTodaysMoney: false,
-    sellAtEnd: true,
-  })
-  expect(app.inTodaysMoney).toBe(false)
-  const plain = results(app)[0].outcome!
-
-  app.moreOptions = true
-  expect(app.inputs).toMatchObject({
-    depositGrowthPercent: 5,
-    buyEveryMonths: 3,
-    inflationPercent: 3,
-    inTodaysMoney: true,
-    sellAtEnd: false,
-  })
-  expect(app.sellAtEnd).toBe(false)
-  expect(app.inTodaysMoney).toBe(true)
-  // The inflation alone lowers the tax; the amounts are as they will be.
-  app.todaysMoney = false
-  expect(app.inputs).toMatchObject({ inflationPercent: 3, inTodaysMoney: false })
-  expect(app.inTodaysMoney).toBe(false)
-  const kept = results(app).find(({ plan }) => plan.id === results(app)[0].plan.id)!.outcome!
-  expect(kept.fees.selling).toBe(0)
-  expect(kept.afterSelling).toBe(kept.held)
-  expect(kept.yearlyCostPercent).not.toBe(plain.yearlyCostPercent)
-  flushSync()
-  expect(localStorage.getItem('more-options')).toBe('true')
-})
-
-test('an example fills every basic input, how the money is taken out too, and leaves the expert ones', () => {
-  const app = start()
-  app.moreOptions = true
-  app.inflationPercent = 3
-  app.buyEveryMonths = 3
-  // Saving for retirement, taken as a pension from the provident fund,
-  // ticked at first.
-  const example = app.examples.find(({ asPension }) => asPension)!
-  app.applyExample(example)
-  expect(app.inputs).toMatchObject({
-    security: example.security,
-    exchange: example.exchange,
-    firstDeposit: example.firstDeposit,
-    monthlyDeposit: example.monthlyDeposit,
-    yearlyReturnPercent: example.yearlyReturnPercent,
-    years: example.years,
-    asPension: true,
-    age: example.age,
-    inflationPercent: 3,
-    buyEveryMonths: 3,
-  })
-  app.applyExample(app.examples.find(({ asPension }) => !asPension)!)
-  expect(app.inputs.asPension).toBe(false)
-  expect(app.examples.map(({ name }) => name)).toEqual(core.examples().map(({ name }) => name))
-})
-
-test('the sweep varies the monthly deposit while there is one, else the one-time deposit, and follows the table', () => {
-  const app = start()
-  expect(app.swept).toBe('Monthly')
-  answerSweep(app)
-  const sweep = app.sweep!
-  expect(sweep.swept).toBe('Monthly')
-  expect(sweep.plans.map(({ key }) => planId(key))).toEqual([...app.selected])
-  // At each amount, the cost is the table's for that deposit.
-  const [first] = sweep.plans
-  const amount = sweep.amounts[3]
-  app.monthlyDeposit = amount
-  const row = results(app).find(({ plan }) => plan.id === planId(first.key))!
-  expect(first.costs![3]).toBe(row.outcome!.yearlyCostPercent)
-  expect(app.sweepAnswer!.request).toBe(app.sweepRequest)
-
-  app.monthlyDeposit = 0
-  expect(app.swept).toBe('OneTime')
-  answerSweep(app)
-  expect(app.sweep!.swept).toBe('OneTime')
-  // The swept deposit's own field may be empty: it isn't used. Another empty field stops the sweep.
-  app.firstDeposit = null
-  answerSweep(app)
-  expect(app.sweep).toBeDefined()
-  app.yearlyReturnPercent = null
-  answerSweep(app)
-  expect(app.sweep).toBeUndefined()
-})
-
-test('a link carries the comparison: opened from one, the page shows the same, your plans included', () => {
-  const app = start()
-  app.draftNewPlan()
-  const draft = draftOf(app.details)
-  app.addYourPlan(draft)
-  app.security = 'Bond'
-  app.exchange = 'Tlv'
-  app.monthlyDeposit = 3_000
-  app.years = 7
-  app.moreOptions = true
-  app.inflationPercent = 3
-  app.todaysMoney = true
-  app.wayOut = 'pension'
-  app.age = 52
-  const [firstListed] = app.listedPlans
-  app.setSelected([firstListed.id], true)
-  const link = app.shareLink()
-  expect(link).toMatch(/^http:\/\/localhost:3000\/#s=Bond&x=Tlv/)
-
-  localStorage.clear()
-  const opened = start_from(link)
-  expect(opened.security).toBe('Bond')
-  expect(opened.exchange).toBe('Tlv')
-  expect(opened.monthlyDeposit).toBe(3_000)
-  expect(opened.years).toBe(7)
-  expect(opened.moreOptions).toBe(true)
-  expect(opened.inflationPercent).toBe(3)
-  expect(opened.inTodaysMoney).toBe(true)
-  expect(opened.inputs).toMatchObject({ asPension: true, age: 52 })
-  expect(opened.yourPlans.map(({ id }) => id)).toEqual([draft.id])
-  expect([...opened.selected].toSorted()).toEqual([...app.selected].toSorted())
-  expect(results(opened).map(({ plan, outcome }) => [plan.id, outcome?.afterSelling])).toEqual(
-    results(app).map(({ plan, outcome }) => [plan.id, outcome?.afterSelling]),
-  )
-})
-
-test('a link says how often to buy only with More options, and only when not every month', () => {
-  const app = start()
-  app.buyEveryMonths = 3
-  expect(decode(new URL(app.shareLink()).hash).buyEveryMonths).toBeUndefined()
-  app.moreOptions = true
-  const link = app.shareLink()
-  flushSync()
-  localStorage.clear()
-  const opened = start_from(link)
-  expect(opened.moreOptions).toBe(true)
-  expect(opened.inputs.buyEveryMonths).toBe(3)
-  // Older links say every month too, which opens nothing.
-  flushSync()
-  localStorage.clear()
-  const older = start_from(`http://localhost:3000/#${encode({ buyEveryMonths: 1 })}`)
-  expect(older.moreOptions).toBe(false)
-  expect(older.inputs.buyEveryMonths).toBe(1)
-})
-
-test("a short-term link's inflation opens More options, so it counts", () => {
-  const app = start()
-  app.family = 'short'
-  app.moreOptions = true
-  app.short.inflationPercent = 4
-  const link = app.shareLink()
-  flushSync()
-  localStorage.clear()
-  const opened = start_from(link)
-  expect(opened.family).toBe('short')
-  expect(opened.moreOptions).toBe(true)
-  expect(opened.short.inputs.inflationPercent).toBe(4)
-})
-
-test('a link without plans keeps what is ticked; one with plans replaces it, and yours joins by id', () => {
-  const first = start()
-  first.draftNewPlan()
-  const mine = draftOf(first.details)
-  first.addYourPlan(mine)
-  flushSync()
-  const ticked = [...first.selected]
-
-  // Only inputs: the ticks stay, your plan included.
-  const inputsOnly = start_from(`http://localhost:3000/#${encode({ years: 3 })}`)
-  expect(inputsOnly.years).toBe(3)
-  expect([...inputsOnly.selected]).toEqual(ticked)
-
-  // A newer version of your own plan, and one listed plan: exactly those are ticked.
-  const newer = { ...mine, plan: core.rename(mine.plan, 'Renamed') }
-  const withPlans = start_from(
-    `http://localhost:3000/#${encode({ plans: [first.listedPlans[0].englishLabel], yours: [newer] })}`,
-  )
-  expect(withPlans.yourPlans).toHaveLength(1)
-  expect(core.planInfo(withPlans.yourPlans[0].plan).name).toBe('Renamed')
-  expect([...withPlans.selected].toSorted()).toEqual(
-    [first.listedPlans[0].id, planId({ kind: 'yours', id: mine.id })].toSorted(),
-  )
-})
-
-/** An app opened from `link`, as App.svelte opens one from the address. */
-function start_from(link: string): AppState {
-  let app!: AppState
-  $effect.root(() => {
-    app = new AppState(decode(new URL(link).hash))
-  })
-  return app
-}
-
-test('the chart starts on what was lost to fees; the one by deposit is shown only with More options', () => {
-  const app = start()
-  expect(app.chartView).toBe('lost')
-  app.moreOptions = true
-  app.chartView = 'crossover'
-  expect(app.chartView).toBe('crossover')
-  app.moreOptions = false
-  expect(app.chartView).toBe('lost')
-  app.moreOptions = true
-  expect(app.chartView).toBe('crossover')
-})
-
-test('a kind of fund is one plan in the list, with its companies and maximum beside it; old links tick its average', () => {
-  const app = start()
-  const gemel = app.brokers.findIndex(({ kind }) => kind === 'Funds')
-  const beside = app.brokers[gemel].shownBeside
-  expect(beside.length).toBeGreaterThan(0)
-  const inList = app.listedPlans.filter(({ key }) => key.kind === 'listed' && key.broker === gemel)
-  expect(inList.map(({ key }) => key.kind === 'listed' && key.plan)).toEqual([
-    app.brokers[gemel].newCustomerPlan,
-  ])
-  const average = results(app).find(({ plan }) => plan.id === inList[0].id)!
-  expect(average.spread?.cheapest?.left).toBeGreaterThan(average.outcome!.afterTax)
-  expect(average.spread?.mostAllowed?.left).toBeLessThan(average.outcome!.afterTax)
-
-  const { englishShortName, plans } = app.brokers[gemel]
-  const cheapest = `${englishShortName} · ${plans[beside[0]].englishName}`
-  localStorage.clear()
-  const opened = start_from(`http://localhost:3000/#${encode({ plans: [cheapest] })}`)
-  expect([...opened.selected]).toEqual([inList[0].id])
-})
-
-test('with nothing at first, the plans that need a first deposit come after the rest, and none is the best', () => {
-  const app = start()
-  app.firstDeposit = 0
-  const rows = results(app).filter(({ outcome }) => outcome)
-  const unfit = rows.filter(({ fits }) => !fits)
-  expect(unfit.length).toBeGreaterThan(0)
-  expect(unfit.every(({ warning }) => warning)).toBe(true)
-  expect(rows.map(({ fits }) => fits)).toEqual(rows.map((_, index) => index < rows.length - unfit.length))
-  expect(app.best?.fits).toBe(true)
-  expect(app.best).toBe(rows[0])
-})
-
-test("the best plan's line keeps its words until the sweep answers, shown while they're about the best", () => {
-  const app = start()
-  const answer = () => answerSweep(app)
-  // Before the first answer: words that hold the line's place, hidden.
-  expect(app.aroundLine.shown).toBe(false)
-  answer()
-  const first = app.aroundLine
-  expect(first).toEqual({ text: expect.stringMatching(/^הזול ביותר בעמלות בכל הפקדה חודשית/), shown: true })
-  const asked = app.sweepRequest
-  app.monthlyDeposit = 2500
-  expect(app.sweepRequest).toBe(asked)
-  expect(app.aroundLine.shown).toBe(true)
-  // Other inputs do. Until the answer, the words stay while the best plan
-  // is the same, and hide when another plan is best.
-  const best = app.best!.plan.id
-  app.years = 25
-  expect(app.sweepRequest).not.toBe(asked)
-  expect(app.best!.plan.id).toBe(best)
-  expect(app.aroundLine).toEqual({ ...first, shown: true })
-  app.exchange = 'Tlv'
-  expect(app.best!.plan.id).not.toBe(best)
-  expect(app.aroundLine).toEqual({ text: first.text, shown: false })
-  answer()
-  expect(app.aroundLine.shown).toBe(true)
-  // An answer to an older request isn't used, and one the core can't use hides the line.
-  app.sweepAnswer = { request: asked, sweep: app.sweep }
-  expect(app.around).toBeUndefined()
-  app.sweepAnswer = { request: app.sweepRequest, sweep: undefined }
-  expect(app.aroundLine.shown).toBe(false)
+  expect(app.cardTerm).toBeUndefined()
+  app.openCard('etf')
+  app.openCard('indexFund')
+  expect(app.cardTerm).toBe('indexFund')
+  expect(app.cardFor('etf').term).toBe('etf')
+  app.cardBack()
+  expect(app.cardTerm).toBe('etf')
+  app.closeCard()
+  expect(app.cardTerm).toBeUndefined()
+  expect(app.glossary.length).toBeGreaterThan(0)
 })

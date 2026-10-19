@@ -1,56 +1,61 @@
-// A comparison as a link: the inputs and the ticked plans in the URL's hash,
-// so that a comparison can be sent to someone, who then sees the same
-// table. Your own ticked plans travel with it, as data, and become the
-// recipient's. Nothing is sent anywhere: the link is the state.
+// A page as a link: the answers, the switch and, when they matter, the
+// workbench's inputs and the ticked plans, in the URL's hash ("#v=2&..."), so
+// what one person sees can be sent to another. Your own ticked plans travel
+// with it, as data, and become the recipient's. Nothing is sent anywhere:
+// the link is the state. A link without `v=2` (the first page's, or an
+// edited one) is not read: the page opens as usual.
 
-import type { Family, YourPlan } from './app.svelte'
+import type { YourPlan } from './app.svelte'
 import * as core from './core/core'
-import type { Exchange, Security } from './core/core'
+import type { Arena, Bank, CushionInput, Exchange, Flexibility, Horizon, Security } from './core/core'
 import { firstOfEachId } from './saved'
-import { looksLikeYourDeposit, type YourDeposit } from './short-term.svelte'
+import { kindByKey, wayByKey } from './kinds'
 
-/** What a link carries. Every field is optional: a link from another
- * version of the app, or one edited by hand, may lack some, and the rest
- * still apply. */
+export const LINK_VERSION = '2'
+
+/** What the workbench is looking at. */
+export type Thing = 'sp500' | 'other' | 'bonds' | 'short'
+const THINGS: Thing[] = ['sp500', 'other', 'bonds', 'short']
+
+/** What a link carries. Every field is optional: a link edited by hand may
+ * lack some, and the rest still apply. */
 export interface Shared {
-  /** Which calculator: the long term's, unless it says otherwise. */
-  family?: Family
-  /** The short-term calculator's inputs, when it's the one. */
-  short?: SharedShort
+  /** The situation chip's id, and the bank the existing-portfolio one asked. */
+  situation?: string
+  bank?: Bank
+  now?: number
+  monthly?: number
+  horizon?: Horizon
+  flexibility?: Flexibility
+  cushion?: CushionInput
+  needsAnyDay?: boolean
+  /** The switch. The inputs below are in a link only when it is on, or an
+   * override is. */
+  expert?: boolean
+  thing?: Thing
+  /** The ticked ways, as `wayKey`s. */
+  ways?: string[]
   security?: Security
   exchange?: Exchange
-  firstDeposit?: number
-  monthlyDeposit?: number
   yearlyReturnPercent?: number
-  years?: number
+  inflationPercent?: number
+  boiRatePercent?: number
+  depositGrowthPercent?: number
   buyEveryMonths?: number
   sharePrice?: number
-  depositGrowthPercent?: number
-  inflationPercent?: number
-  /** Whether amounts are shown in today's money, at that inflation. */
-  inTodaysMoney?: boolean
+  /** False when amounts are shown as they will be rather than in today's money. */
+  todaysMoney?: boolean
   sellAtEnd?: boolean
-  /** Whether the money is taken as a pension, and the saver's age today. */
   asPension?: boolean
   age?: number
+  /** What the user chose over the guide: an arena, and a kind as `kindKey`. */
+  overrideArena?: Arena
+  overrideKind?: string
   /** The ticked listed plans, by label: "Leumi · Pepper". Names, not
    * positions, which shift when brokers are added. */
   plans?: string[]
   /** Your own ticked plans, whole. */
   yours?: YourPlan[]
-}
-
-/** What a link to the short-term calculator carries. */
-export interface SharedShort {
-  firstDeposit?: number
-  monthlyDeposit?: number
-  months?: number
-  ratePercent?: number
-  inflationPercent?: number
-  /** The ticked listed places, by label: "Fixed-rate deposit · Bank Leumi". */
-  places?: string[]
-  /** Your own ticked deposits, whole. */
-  yours?: YourDeposit[]
 }
 
 /** How often one can buy, in months: the "Buy every" dropdown. */
@@ -63,67 +68,71 @@ export const BUYING_INTERVALS = [
 ]
 
 // Short keys: a link is read by people too, in a chat.
-const KEYS = {
-  security: 's',
-  exchange: 'x',
-  firstDeposit: 'd',
-  monthlyDeposit: 'm',
+const NUMBERS = {
+  now: 'n',
+  monthly: 'm',
   yearlyReturnPercent: 'r',
-  years: 'y',
+  inflationPercent: 'f',
+  boiRatePercent: 'br',
+  depositGrowthPercent: 'g',
   buyEveryMonths: 'b',
   sharePrice: 'p',
-  depositGrowthPercent: 'g',
   age: 'a',
 } as const
-// Inflation with the amounts in today's money, as every link with an
-// inflation meant before the two were told apart; and inflation alone.
-const TODAYS_MONEY_AT = 'i'
-const INFLATION = 'f'
-const HOLD = 'h'
+const VERSION = 'v'
+const HORIZON = 'h'
+const SITUATION = 'si'
+const BANK = 'bk'
+const FLEXIBILITY = 'fx'
+const CUSHION = 'cu'
+const ANY_DAY = 'ad'
+const EXPERT = 'x'
+const THING = 'th'
+const WAY = 'way'
+const SECURITY = 's'
+const EXCHANGE = 'e'
+const NOT_TODAYS_MONEY = 'nom'
+const HOLD = 'keep'
 const PENSION = 'k'
+const OVERRIDE_ARENA = 'oa'
+const OVERRIDE_KIND = 'ok'
 const PLAN = 'plan'
 const YOURS = 'yours'
-// The short-term calculator's link says so, and its months; the amounts and
-// the rate reuse the long term's keys, as a link holds one calculator.
-const CALCULATOR = 'c'
-const SHORT = 's'
-const MONTHS = 'n'
-const PLACE = 'place'
-const DEPOSITS = 'deposits'
 
 /** The hash (without its #) that `decode` reads back as `shared`. */
 export function encode(shared: Shared): string {
-  if (shared.family === 'short') return encodeShort(shared.short ?? {})
-  const params = new URLSearchParams()
-  for (const [field, key] of Object.entries(KEYS)) {
-    const value = shared[field as keyof typeof KEYS]
+  const params = new URLSearchParams({ [VERSION]: LINK_VERSION })
+  const set = (key: string, value: string | number | undefined) => {
     if (value !== undefined) params.set(key, String(value))
   }
-  if (shared.inflationPercent !== undefined) {
-    params.set(shared.inTodaysMoney ? TODAYS_MONEY_AT : INFLATION, String(shared.inflationPercent))
+  set(SITUATION, shared.situation)
+  set(BANK, shared.bank)
+  for (const [field, key] of Object.entries(NUMBERS)) {
+    set(key, shared[field as keyof typeof NUMBERS])
   }
-  if (shared.sellAtEnd === false) params.set(HOLD, '1')
-  if (shared.asPension) params.set(PENSION, '1')
+  const { horizon } = shared
+  if (horizon === 'Unknown') set(HORIZON, 'u')
+  else if (horizon && 'Months' in horizon) set(HORIZON, horizon.Months)
+  else if (horizon) set(HORIZON, `r:${horizon.Retirement.age}:${horizon.Retirement.retire_at}`)
+  if (shared.flexibility) set(FLEXIBILITY, shared.flexibility === 'Fixed' ? 'fixed' : 'wait')
+  const { cushion } = shared
+  if (cushion?.kind === 'has') set(CUSHION, 'has')
+  else if (cushion) {
+    set(CUSHION, cushion.monthlyExpenses === null ? 'n' : `n:${cushion.monthlyExpenses}`)
+  }
+  if (shared.needsAnyDay) set(ANY_DAY, 1)
+  if (shared.expert) set(EXPERT, 1)
+  set(THING, shared.thing)
+  for (const way of shared.ways ?? []) params.append(WAY, way)
+  set(SECURITY, shared.security)
+  set(EXCHANGE, shared.exchange)
+  if (shared.todaysMoney === false) set(NOT_TODAYS_MONEY, 1)
+  if (shared.sellAtEnd === false) set(HOLD, 1)
+  if (shared.asPension) set(PENSION, 1)
+  set(OVERRIDE_ARENA, shared.overrideArena)
+  set(OVERRIDE_KIND, shared.overrideKind)
   for (const plan of shared.plans ?? []) params.append(PLAN, plan)
   if (shared.yours?.length) params.set(YOURS, toBase64Url(JSON.stringify(shared.yours)))
-  return params.toString()
-}
-
-function encodeShort(shared: SharedShort): string {
-  const params = new URLSearchParams({ [CALCULATOR]: SHORT })
-  const keys = {
-    firstDeposit: KEYS.firstDeposit,
-    monthlyDeposit: KEYS.monthlyDeposit,
-    months: MONTHS,
-    ratePercent: KEYS.yearlyReturnPercent,
-    inflationPercent: INFLATION,
-  } as const
-  for (const [field, key] of Object.entries(keys)) {
-    const value = shared[field as keyof typeof keys]
-    if (value !== undefined) params.set(key, String(value))
-  }
-  for (const place of shared.places ?? []) params.append(PLACE, place)
-  if (shared.yours?.length) params.set(DEPOSITS, toBase64Url(JSON.stringify(shared.yours)))
   return params.toString()
 }
 
@@ -132,10 +141,100 @@ const numberIn =
   (params: URLSearchParams) =>
   (key: string, check: (value: number) => boolean = () => true): number | undefined => {
     const text = params.get(key)
-    if (text === null) return undefined
+    if (text === null || text.trim() === '') return undefined
     const value = Number(text)
     return Number.isFinite(value) && check(value) ? value : undefined
   }
+
+const defined = <T extends object>(shared: T): T =>
+  Object.fromEntries(Object.entries(shared).filter(([, value]) => value !== undefined)) as T
+
+const nonNegative = (value: number) => value >= 0
+
+/** What the page's address says: the hash, or the query string where the link
+ * was typed or built with `?v=2&...`. */
+export function decodeLocation(where: { hash: string; search: string }): Shared {
+  const fromHash = decode(where.hash)
+  return Object.keys(fromHash).length > 0 ? fromHash : decode(where.search)
+}
+
+/** What a link's hash says, keeping only what makes sense: a number that
+ * isn't one, or a security the core doesn't know, is left out. The core
+ * checks the plans' data when they're loaded. Nothing is read without `v=2`. */
+export function decode(hash: string): Shared {
+  const params = new URLSearchParams(hash.replace(/^[#?]/, ''))
+  if (params.get(VERSION) !== LINK_VERSION) return {}
+  const number = numberIn(params)
+  const among = <T extends string>(key: string, values: readonly T[]) => {
+    const text = params.get(key)
+    return values.find((value) => value === text)
+  }
+  const shared: Shared = {}
+  const situationId = params.get(SITUATION)
+  if (situationId !== null && core.situations().some(({ id }) => id === situationId)) {
+    shared.situation = situationId
+  }
+  shared.bank = among(
+    BANK,
+    core.banks().map(({ bank }) => bank),
+  )
+  shared.now = number(NUMBERS.now, nonNegative)
+  shared.monthly = number(NUMBERS.monthly, nonNegative)
+  shared.horizon = horizonIn(params.get(HORIZON))
+  const flexibility = among(FLEXIBILITY, ['fixed', 'wait'])
+  if (flexibility) shared.flexibility = flexibility === 'fixed' ? 'Fixed' : 'CanWait'
+  shared.cushion = cushionIn(params.get(CUSHION))
+  if (params.get(ANY_DAY) === '1') shared.needsAnyDay = true
+  if (params.get(EXPERT) === '1') shared.expert = true
+  shared.thing = among(THING, THINGS)
+  const ways = params.getAll(WAY).filter((key) => wayByKey(key))
+  if (ways.length > 0) shared.ways = ways
+  shared.security = among(
+    SECURITY,
+    core.securities().map(({ value }) => value),
+  )
+  shared.exchange = among(
+    EXCHANGE,
+    core.exchanges().map(({ value }) => value),
+  )
+  shared.yearlyReturnPercent = number(NUMBERS.yearlyReturnPercent)
+  shared.inflationPercent = number(NUMBERS.inflationPercent)
+  shared.boiRatePercent = number(NUMBERS.boiRatePercent)
+  shared.depositGrowthPercent = number(NUMBERS.depositGrowthPercent)
+  shared.buyEveryMonths = number(NUMBERS.buyEveryMonths, (value) =>
+    BUYING_INTERVALS.some(({ months }) => months === value),
+  )
+  shared.sharePrice = number(NUMBERS.sharePrice, (value) => value > 0)
+  if (params.get(NOT_TODAYS_MONEY) === '1') shared.todaysMoney = false
+  if (params.get(HOLD) === '1') shared.sellAtEnd = false
+  if (params.get(PENSION) === '1') shared.asPension = true
+  shared.age = number(NUMBERS.age, (value) => value >= 0 && value <= 120)
+  shared.overrideArena = among(OVERRIDE_ARENA, ['Safe', 'Index'])
+  const kind = params.get(OVERRIDE_KIND)
+  if (kind !== null && kindByKey(kind)) shared.overrideKind = kind
+  const plans = params.getAll(PLAN)
+  if (plans.length > 0) shared.plans = plans
+  shared.yours = listIn(params, YOURS, looksLikeYourPlan)
+  return defined(shared)
+}
+
+/** `h=60` months, `h=u` not known, `h=r:45:65` retiring at 65 at 45. */
+function horizonIn(text: string | null): Horizon | undefined {
+  if (text === null) return undefined
+  if (text === 'u') return 'Unknown'
+  const retirement = /^r:(\d{1,3}):(\d{1,3})$/.exec(text)
+  if (retirement) return { Retirement: { age: Number(retirement[1]), retire_at: Number(retirement[2]) } }
+  const months = Number(text)
+  return Number.isInteger(months) && months >= 1 && months <= 1200 ? { Months: months } : undefined
+}
+
+/** `cu=has`, `cu=n` (none, expenses unsaid), `cu=n:5000`. */
+function cushionIn(text: string | null): CushionInput | undefined {
+  if (text === 'has') return { kind: 'has' }
+  if (text === 'n') return { kind: 'hasNot', monthlyExpenses: null }
+  const expenses = /^n:(\d+(?:\.\d+)?)$/.exec(text ?? '')
+  return expenses ? { kind: 'hasNot', monthlyExpenses: Number(expenses[1]) } : undefined
+}
 
 /** A link's list, from base64 JSON, keeping only the items `looksRight`
  * accepts, and the first of each id. */
@@ -153,66 +252,6 @@ function listIn<T extends { id: string }>(
     // Not a list: left out.
     return undefined
   }
-}
-
-const defined = <T extends object>(shared: T): T =>
-  Object.fromEntries(Object.entries(shared).filter(([, value]) => value !== undefined)) as T
-
-/** What a link's hash says, keeping only what makes sense: a number that
- * isn't one, or a security the core doesn't know, is left out. The core
- * checks the plans' data when they're loaded. */
-export function decode(hash: string): Shared {
-  const params = new URLSearchParams(hash.replace(/^#/, ''))
-  if (params.get(CALCULATOR) === SHORT) return { family: 'short', short: decodeShort(params) }
-  const shared: Shared = {}
-  const number = numberIn(params)
-  const among = <T extends string>(key: string, values: T[]) => {
-    const text = params.get(key)
-    return values.find((value) => value === text)
-  }
-  shared.security = among(
-    KEYS.security,
-    core.securities().map(({ value }) => value),
-  )
-  shared.exchange = among(
-    KEYS.exchange,
-    core.exchanges().map(({ value }) => value),
-  )
-  shared.firstDeposit = number(KEYS.firstDeposit, (value) => value >= 0)
-  shared.monthlyDeposit = number(KEYS.monthlyDeposit, (value) => value >= 0)
-  shared.yearlyReturnPercent = number(KEYS.yearlyReturnPercent)
-  shared.years = number(KEYS.years, (value) => Number.isInteger(value) && value >= 1 && value <= 50)
-  shared.buyEveryMonths = number(KEYS.buyEveryMonths, (value) =>
-    BUYING_INTERVALS.some(({ months }) => months === value),
-  )
-  shared.sharePrice = number(KEYS.sharePrice, (value) => value > 0)
-  shared.depositGrowthPercent = number(KEYS.depositGrowthPercent)
-  shared.inflationPercent = number(TODAYS_MONEY_AT) ?? number(INFLATION)
-  if (number(TODAYS_MONEY_AT) !== undefined) shared.inTodaysMoney = true
-  if (params.get(HOLD) === '1') shared.sellAtEnd = false
-  if (params.get(PENSION) === '1') shared.asPension = true
-  shared.age = number(KEYS.age, (value) => value >= 0 && value <= 120)
-  const plans = params.getAll(PLAN)
-  if (plans.length > 0) shared.plans = plans
-  shared.yours = listIn(params, YOURS, looksLikeYourPlan)
-  return defined(shared)
-}
-
-function decodeShort(params: URLSearchParams): SharedShort {
-  const number = numberIn(params)
-  const places = params.getAll(PLACE)
-  return defined({
-    firstDeposit: number(KEYS.firstDeposit, (value) => value >= 0),
-    monthlyDeposit: number(KEYS.monthlyDeposit, (value) => value >= 0),
-    months: number(
-      MONTHS,
-      (value) => Number.isInteger(value) && value >= 1 && value <= core.shortTermLongest(),
-    ),
-    ratePercent: number(KEYS.yearlyReturnPercent),
-    inflationPercent: number(INFLATION),
-    places: places.length > 0 ? places : undefined,
-    yours: listIn(params, DEPOSITS, looksLikeYourDeposit),
-  })
 }
 
 /** The shape of one of your plans, as far as the web side knows it; the

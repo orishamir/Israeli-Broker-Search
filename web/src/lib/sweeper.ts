@@ -1,44 +1,82 @@
-// The sweep behind the chart by deposit and the best plan's line about
-// other deposits runs every ticked plan at a range of deposits: a
-// comparison's work 10 to 15 times over, a tenth to half a second on a
-// phone, too long for the page's own thread at every change. A worker does
-// it, one request at a time: only the latest request waiting is sent, and
-// only the answer to the latest request is passed on.
+// The heavy jobs run off the page's thread: the sweep (a comparison's work 16
+// to 23 times over, behind the chart by deposit and the line about other
+// deposits), and the guide's ladder, alternatives and, for long horizons,
+// recommendation (see `recommendOnPage`). One worker does them one at a time.
+// Each kind of job keeps only its latest request waiting, and only the answer
+// to its latest request is passed on. Where there is no Worker (the unit
+// tests), the same functions run on the page's thread a moment later.
 
-import type { Inputs, SweepData, Swept } from './core/core'
-import type { SweepAnswer, SweepMessage } from './sweep.worker'
+import type { JobName, Jobs, Worked } from './work'
+import { run } from './work'
+import type { WorkerAnswer, WorkerMessage } from './sweep.worker'
+import type { SweepData } from './core/core'
 
-/** The inputs without the deposit the sweep varies, and which one that is. */
-export interface SweepRequest {
-  swept: Swept
-  inputs: Inputs
+export type { GuideRequest, SweepRequest } from './work'
+import type { SweepRequest } from './work'
+
+type Answer<J extends JobName> = (worked: Worked<Jobs[J]['value']>) => void
+type Waiting = { [J in JobName]?: { id: number; request: Jobs[J]['request']; answer: Answer<J> } }
+
+// The order they're sent in when several wait: what the answer on screen
+// needs first, the chart by deposit last.
+const ORDER: JobName[] = ['recommend', 'alternatives', 'ladder', 'sweep']
+
+let worker: Worker | undefined
+/** Made when first asked, so a page that never asks, and the tests, have none. */
+function theWorker(): Worker | undefined {
+  if (typeof Worker === 'undefined') return undefined
+  worker ??= (() => {
+    const made = new Worker(new URL('./sweep.worker.ts', import.meta.url), { type: 'module' })
+    made.onmessage = ({ data }: MessageEvent<WorkerAnswer>) => {
+      const done = working
+      working = undefined
+      // Passed on only if no newer request of its kind is waiting.
+      if (done?.id === data.id && !waiting[data.job]) (done.answer as Answer<JobName>)(data.worked)
+      send()
+    }
+    return made
+  })()
+  return worker
 }
 
-type Answer = (sweep: SweepData | undefined) => void
-
-// Made as soon as the page loads, so it loads its core while the page does.
-const worker = new Worker(new URL('./sweep.worker.ts', import.meta.url), { type: 'module' })
 let asked = 0
-let waiting: { id: number; request: SweepRequest; answer: Answer } | undefined
-let working: { id: number; answer: Answer } | undefined
+const waiting: Waiting = {}
+let working: { id: number; answer: Answer<JobName> } | undefined
 
-worker.onmessage = ({ data }: MessageEvent<SweepAnswer>) => {
-  const done = working
-  working = undefined
-  if (done?.id === data.id && !waiting) done.answer(data.sweep)
-  send()
+/** Starts the worker (and its core) early, while the page loads. */
+export function warmUp() {
+  theWorker()
 }
 
-/** Asks for a sweep; `answer` gets it, unless another request comes first. */
-export function askSweep(request: SweepRequest, answer: Answer) {
-  waiting = { id: ++asked, request, answer }
+/** Asks for a job; `answer` gets it, unless a newer request of its kind
+ * comes first. */
+export function ask<J extends JobName>(job: J, request: Jobs[J]['request'], answer: Answer<J>) {
+  const id = ++asked
+  if (!theWorker()) {
+    // No worker: on this thread, a moment later, still dropping what's superseded.
+    waiting[job] = { id, request, answer } as Waiting[J]
+    queueMicrotask(() => {
+      const mine = waiting[job]
+      if (mine?.id !== id) return
+      delete waiting[job]
+      ;(mine.answer as Answer<J>)(run(job, request))
+    })
+    return
+  }
+  waiting[job] = { id, request, answer } as Waiting[J]
   if (!working) send()
 }
 
+/** Asks for a sweep; `answer` gets it, or `undefined` for inputs it can't run. */
+export function askSweep(request: SweepRequest, answer: (sweep: SweepData | undefined) => void) {
+  ask('sweep', request, ({ value }) => answer(value))
+}
+
 function send() {
-  if (!waiting) return
-  const { id, request, answer } = waiting
-  waiting = undefined
-  working = { id, answer }
-  worker.postMessage({ id, ...request } satisfies SweepMessage)
+  const job = ORDER.find((name) => waiting[name])
+  if (!job) return
+  const next = waiting[job]!
+  delete waiting[job]
+  working = { id: next.id, answer: next.answer as Answer<JobName> }
+  worker!.postMessage({ id: next.id, job, request: next.request } satisfies WorkerMessage)
 }

@@ -6,11 +6,14 @@ import App from './App.svelte'
 import init, { setLang } from './lib/core/core'
 import { reducedMotion } from './lib/motion'
 import { todaysRates } from './lib/rates'
+import { warmUp } from './lib/sweeper'
 import { t } from './lib/text'
 
 // Asked for now, so the answer comes while the core downloads; the app
 // handles a failure when it looks.
 todaysRates().catch(() => undefined)
+// The worker loads its own copy of the core while the page loads.
+warmUp()
 
 // Loads and compiles the Rust core (WebAssembly) once; every call after
 // that is synchronous.

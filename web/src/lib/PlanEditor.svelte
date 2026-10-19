@@ -26,13 +26,21 @@
   } = $props()
 
   const views: Choice<EditorView>[] = [
-    { value: 'simple', name: t.simple, englishName: en.simple, explanation: t.simpleTip, hebrewNames: [] },
+    {
+      value: 'simple',
+      name: t.simple,
+      englishName: en.simple,
+      explanation: t.simpleTip,
+      hebrewNames: [],
+      card: undefined,
+    },
     {
       value: 'full',
       name: t.fullPriceList,
       englishName: en.fullPriceList,
       explanation: t.fullPriceListTip,
       hebrewNames: [],
+      card: undefined,
     },
   ]
 
