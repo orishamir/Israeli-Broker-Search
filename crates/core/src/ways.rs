@@ -104,49 +104,50 @@ impl Way {
         }
     }
 
-    /// Its name as the guide says it: the kind of thing, in the words of
-    /// the bank's app, with no index or fund named. The workbench's
-    /// [`Way::name`] may give a ticker as an example; the guide never
-    /// suggests one.
+    /// Its name as the guide says it: what the product is, then the index it
+    /// follows, the S&P 500 (REDESIGN.md §2.8). A fund's ticker is never part
+    /// of the name: it's an example to search for, said in "how to do it".
     #[must_use]
     pub fn kind_name(self, lang: Lang) -> &'static str {
         match (self.product, self.vehicle) {
             (Product::IsraeliIndexFund, _) => lang.pick(
-                "Index fund (קרן מחקה) on a broad stock index",
-                "קרן מחקה מדד מניות רחב",
+                "Index fund (קרן מחקה) on the S&P 500",
+                "קרן מחקה על מדד S&P\u{a0}500",
             ),
             (Product::IsraeliEtf, _) => lang.pick(
-                "ETF (קרן סל) on a broad stock index",
-                "קרן סל על מדד מניות רחב",
+                "ETF (קרן סל) on the S&P 500, in Tel Aviv",
+                "קרן סל על מדד S&P\u{a0}500, בתל אביב",
             ),
             (Product::ForeignEtfInTelAviv, _) => lang.pick(
-                "Irish ETF (קרן סל) on a broad stock index, bought in Tel Aviv",
-                "קרן סל אירית על מדד מניות רחב, בתל אביב",
+                "Irish ETF (קרן סל) on the S&P 500, bought in Tel Aviv",
+                "קרן סל אירית על מדד S&P\u{a0}500, בתל אביב",
             ),
             (Product::UsFund, _) => lang.pick(
-                "US ETF (קרן סל) on a broad stock index",
-                "קרן סל אמריקאית על מדד מניות רחב",
+                "ETF (קרן סל) on the S&P 500, in the US",
+                "קרן סל על מדד S&P\u{a0}500, בארה״ב",
             ),
             (Product::IrishFund, _) => lang.pick(
-                "Irish ETF (קרן סל) on a broad stock index, bought in Europe",
-                "קרן סל אירית על מדד מניות רחב, באירופה",
+                "Irish ETF (קרן סל) on the S&P 500, bought in Europe",
+                "קרן סל אירית על מדד S&P\u{a0}500, באירופה",
             ),
             (_, Vehicle::InvestmentGemel) => lang.pick(
-                "Provident fund for investment (קופת גמל להשקעה), index track",
-                "קופת גמל להשקעה, מסלול עוקב מדד מניות רחב",
+                "Provident fund for investment (קופת גמל להשקעה), S&P 500 track",
+                "קופת גמל להשקעה, מסלול מדד S&P\u{a0}500",
             ),
             (_, Vehicle::StudyFund) => lang.pick(
-                "Study fund (קרן השתלמות), index track",
-                "קרן השתלמות, מסלול עוקב מדד מניות רחב",
+                "Study fund (קרן השתלמות), S&P 500 track",
+                "קרן השתלמות, מסלול מדד S&P\u{a0}500",
             ),
             (_, Vehicle::SavingsPolicy | Vehicle::Brokerage) => lang.pick(
-                "Savings policy (פוליסת חיסכון), index track",
-                "פוליסת חיסכון, מסלול עוקב מדד מניות רחב",
+                "Savings policy (פוליסת חיסכון), S&P 500 track",
+                "פוליסת חיסכון, מסלול מדד S&P\u{a0}500",
             ),
         }
     }
 
-    /// Its name, in the terms people meet in their bank's app.
+    /// Its name in the workbench, where the ways are compared side by side:
+    /// where it's bought, and for a fund abroad an example ticker, marked as
+    /// an example (principle 17).
     #[must_use]
     pub fn name(self, lang: Lang) -> &'static str {
         match (self.product, self.vehicle) {
@@ -158,24 +159,24 @@ impl Way {
                 lang.pick("ETF (קרן סל) in Tel Aviv", "קרן סל ישראלית בבורסה בתל אביב")
             }
             (Product::UsFund, _) => lang.pick(
-                "ETF (קרן סל) in the US, like VOO",
-                "קרן סל אמריקאית, כמו VOO, בבורסה בארה״ב",
+                "ETF (קרן סל) in the US, for example VOO",
+                "קרן סל אמריקאית בבורסה בארה״ב, למשל VOO",
             ),
             (Product::IrishFund, _) => lang.pick(
-                "ETF (קרן סל) in Europe, like CSPX",
-                "קרן סל אירית, כמו CSPX, בבורסה באירופה",
+                "ETF (קרן סל) in Europe, for example CSPX",
+                "קרן סל אירית בבורסה באירופה, למשל CSPX",
             ),
             (_, Vehicle::InvestmentGemel) => lang.pick(
                 "Provident fund for investment (קופת גמל להשקעה), S&P 500 track",
-                "קופת גמל להשקעה, מסלול עוקב מדד S&P\u{a0}500",
+                "קופת גמל להשקעה, מסלול מדד S&P\u{a0}500",
             ),
             (_, Vehicle::StudyFund) => lang.pick(
                 "Study fund (קרן השתלמות), S&P 500 track",
-                "קרן השתלמות, מסלול עוקב מדד S&P\u{a0}500",
+                "קרן השתלמות, מסלול מדד S&P\u{a0}500",
             ),
             (_, Vehicle::SavingsPolicy | Vehicle::Brokerage) => lang.pick(
                 "Savings policy (פוליסת חיסכון), S&P 500 track",
-                "פוליסת חיסכון, מסלול עוקב מדד S&P\u{a0}500",
+                "פוליסת חיסכון, מסלול מדד S&P\u{a0}500",
             ),
         }
     }

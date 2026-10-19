@@ -136,7 +136,7 @@ fn bank_name(situation: Option<Situation>, lang: Lang) -> String {
 
 // ─────────────────────────── The history ───────────────────────────
 
-/// What a broad stock index did over stretches as long as the saver's horizon, in
+/// What the S&P 500 index did over stretches as long as the saver's horizon, in
 /// one sentence: "in 52 of 1,086 stretches of 5 years since 1926 it ended
 /// lower". The numbers are the band's.
 #[must_use]
@@ -147,25 +147,25 @@ pub fn history_sentence(band: &Band, lang: Lang) -> String {
     let lower = grouped(band.lower);
     match (band.lower, lang) {
         (0, Lang::En) => format!(
-            "In none of {windows} stretches of {years} since {since} did a broad stock index end lower \
+            "In none of {windows} stretches of {years} since {since} did the S&P 500 index end lower \
              (in dollars, before fees and tax)."
         ),
         (0, Lang::He) => format!(
-            "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} מדד מניות רחב לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} מדד S&P\u{a0}500 לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
         ),
         (1, Lang::En) => format!(
-            "In 1 of {windows} stretches of {years} since {since}, a broad stock index ended lower (in \
+            "In 1 of {windows} stretches of {years} since {since}, the S&P 500 index ended lower (in \
              dollars, before fees and tax)."
         ),
         (1, Lang::He) => format!(
-            "בתקופה אחת מתוך {windows} תקופות של {years} מאז {since}, מדד מניות רחב נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            "בתקופה אחת מתוך {windows} תקופות של {years} מאז {since}, מדד S&P\u{a0}500 נגמר בהפסד (בדולרים, לפני עמלות ומס)."
         ),
         (_, Lang::En) => format!(
-            "In {lower} of {windows} stretches of {years} since {since}, a broad stock index ended lower \
+            "In {lower} of {windows} stretches of {years} since {since}, the S&P 500 index ended lower \
              (in dollars, before fees and tax)."
         ),
         (_, Lang::He) => format!(
-            "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since}, מדד מניות רחב נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since}, מדד S&P\u{a0}500 נגמר בהפסד (בדולרים, לפני עמלות ומס)."
         ),
     }
 }
@@ -176,8 +176,8 @@ pub fn history_sentence(band: &Band, lang: Lang) -> String {
 #[must_use]
 pub fn basis_sentence(lang: Lang) -> &'static str {
     lang.pick(
-        "For illustration, the history and the costs are measured on the S&P 500 index.",
-        "להדגמה, ההיסטוריה והעלויות נמדדות על מדד S&P\u{a0}500.",
+        "The history and the costs are the S&P 500 index's.",
+        "ההיסטוריה והעלויות הן של מדד S&P\u{a0}500.",
     )
 }
 
@@ -261,7 +261,7 @@ pub fn what_safety_costs(safe: Amount, index: Amount, months: u32, lang: Lang) -
                  assumption and the safe kind's is not."
             ),
             format!(
-                "ב\u{2011}{years} המקום הבטוח משאיר {safe_text}, לא פחות מ\u{2011}{index_text} של המדד: כאן הביטחון לא עולה כלום, אבל הסכום של המדד הוא הנחה והסכום של המקום הבטוח לא."
+                "ב\u{2011}{years} המקום הבטוח משאיר {safe_text}, לא פחות מ\u{2011}{index_text} של מדד S&P\u{a0}500: כאן הביטחון לא עולה כלום, אבל הסכום של מדד S&P\u{a0}500 הוא הנחה והסכום של המקום הבטוח לא."
             ),
         );
     }
@@ -294,7 +294,7 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
         Circumstance::ShortHorizon { months } if *months > SAFE_ONLY_UP_TO_MONTHS => both(
             "No way of investing in the index can be opened with this first deposit, so the \
              money is shown where it can be reached at any time.",
-            "אף דרך להשקיע במדד לא נפתחת עם ההפקדה הראשונה הזאת, ולכן הכסף מוצג במקום שאפשר להגיע אליו בכל עת.",
+            "אף דרך להשקיע במדד S&P\u{a0}500 לא נפתחת עם ההפקדה הראשונה הזאת, ולכן הכסף מוצג במקום שאפשר להגיע אליו בכל עת.",
         ),
         Circumstance::ShortHorizon { months } => say(
             lang,
@@ -377,7 +377,7 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                 span(*months, lang)
             ),
             format!(
-                "הדרכים שעוקבות אחרי המדד מחושבות ל\u{2011}{}. הבורסה עדיין יכולה להיות בירידה ביום הנכון, וההיסטוריה למטה מראה כמה.",
+                "הדרכים שעוקבות אחרי מדד S&P\u{a0}500 מחושבות ל\u{2011}{}. הבורסה עדיין יכולה להיות בירידה ביום הנכון, וההיסטוריה למטה מראה כמה.",
                 span(*months, lang)
             ),
         ),
@@ -533,7 +533,7 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                 span(ctx.months, lang)
             ),
             format!(
-                "מקומות בטוחים מרוויחים בערך את ריבית בנק ישראל ({}); המדד מחושב כמרוויח {} בשנה. ב\u{2011}{} הפער הזה מצטבר: המקומות הבטוחים למטה מראים אותו בשקלים.",
+                "מקומות בטוחים מרוויחים בערך את ריבית בנק ישראל ({}); מדד S&P\u{a0}500 מחושב כמרוויח {} בשנה. ב\u{2011}{} הפער הזה מצטבר: המקומות הבטוחים למטה מראים אותו בשקלים.",
                 ctx.rate,
                 ctx.index_return,
                 span(ctx.months, lang)
@@ -881,7 +881,7 @@ pub fn why_not(
                 ),
                 Kind::GovernmentBond { linked: true } => both(
                     "Its sum in shekels follows the index.",
-                    "הסכום שלה בשקלים עוקב אחרי המדד.",
+                    "הסכום שלה בשקלים עוקב אחרי מדד המחירים לצרכן.",
                 ),
                 _ => both(
                     "Its sum is known in advance.",

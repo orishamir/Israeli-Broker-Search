@@ -402,15 +402,17 @@ impl Named for Kind {
                 "Fixed-rate deposit (פיקדון בריבית קבועה)",
                 "פיקדון בריבית קבועה",
             ),
-            Kind::LinkedDeposit => {
-                lang.pick("CPI-linked deposit (פיקדון צמוד מדד)", "פיקדון צמוד מדד")
-            }
-            Kind::GovernmentBond { linked: false } => {
-                lang.pick("Government bond (אג״ח ממשלתי שקלי)", "אג״ח ממשלתי שקלי")
-            }
+            Kind::LinkedDeposit => lang.pick(
+                "Deposit linked to the consumer price index (פיקדון צמוד מדד)",
+                "פיקדון צמוד למדד המחירים לצרכן",
+            ),
+            Kind::GovernmentBond { linked: false } => lang.pick(
+                "Israeli government bond in shekels (אג״ח שקלית של מדינת ישראל)",
+                "אג״ח שקלית של מדינת ישראל",
+            ),
             Kind::GovernmentBond { linked: true } => lang.pick(
-                "CPI-linked government bond (אג״ח ממשלתי צמוד מדד)",
-                "אג״ח ממשלתי צמוד מדד",
+                "Israeli government bond linked to the CPI (אג״ח צמודה של מדינת ישראל)",
+                "אג״ח צמודה של מדינת ישראל",
             ),
             Kind::Way(way) => way.kind_name(lang),
             Kind::CurrentAccount => lang.pick("Current account (עו״ש)", "עו״ש, בלי להשקיע"),
