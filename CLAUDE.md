@@ -32,6 +32,8 @@ How the guide answers, in the owner's words (2026-10-19), after reviewing the re
 14. **Make the last step concrete:** what to search for in the app. Never "מדד" alone, and say what a product is before its trade name.
 15. **Compare from the visitor's own bank.**
 16. **Be honest with data:** no invented numbers, marked placeholders, and the past said to be the past.
+17. **Rank only what earns the same;** the rest is drawn beside, and which indexes to hold is the visitor's call. A fund's name is an example, never a pick.
+18. **When a principle strains, question the principle:** propose a fix to the owner rather than bending the page to fit.
 
 Before calling a visible change done, run `REDESIGN.md`'s review checklist.
 

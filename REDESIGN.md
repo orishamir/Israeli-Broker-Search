@@ -144,6 +144,26 @@ The owner's own words, which the first principles follow from:
 - Every number shown comes from the calculation engine, not from copy.
 - Words about the past say they're the past ("ב‑N מתוך M תקופות…"), and are never rounded to "never".
 
+### From the owner, after the plan (2026-10-19)
+
+**17. Rank only what earns the same; the rest is drawn beside, and what to hold is the visitor's call.**
+- **Ranked against each other:** different products that hold the same thing, by what each leaves after fees and tax. For example, a fund in Tel Aviv, a US ETF and a study fund's track on the S&P 500; or a money‑market fund, a deposit and a bond held to maturity.
+- **Drawn beside, not ranked:** what earns differently (the index against the safe kinds), with its risk.
+- **Not compared at all:** which indexes to hold and how to spread money between them. That's the visitor's call, and the site doesn't model it.
+- **A fund's name** is an example to search for ("דוגמה, לא המלצה"), never a pick between funds.
+- **The case:** the owner, on letting the visitor set the yearly return: one would presumably want to diversify, so the site mustn't recommend one ETF over another.
+
+**18. When a principle starts to strain, question the principle.**
+- **The rule:** follow the principles and the design. But if keeping a principle starts to need a stretch, stop and ask whether the principle itself is wrong, incomplete or missing a case. A stretch looks like:
+  - a reading of its words that the visitor wouldn't recognise;
+  - an awkward screen or an empty question;
+  - a workaround that exists only to satisfy the letter of a rule.
+
+  Then propose fixing, changing or adding a principle, rather than bending the page to fit.
+- **Who decides:** a change to a principle is the owner's call. Propose it with the case that strained it, keep following the current principle meanwhile, and record the change here with its case, as principle 17 was.
+- **The case:** principle 17 came from exactly this. Keeping "ask only what only the visitor can know" (6) would have removed the visitor's control over the yearly return. The fix was to say what the site does and doesn't compare, not to argue the control away.
+- **The check:** for every choice justified by a principle, would the visitor, reading the result, agree it serves them? If the honest answer is "only by a technicality", raise it.
+
 ### Review checklist: run it on every screen and every example
 
 - [ ] **Questions:** list every question the page asks the visitor. For each one:
@@ -167,6 +187,7 @@ The owner's own words, which the first principles follow from:
   - is it comparable with the numbers next to it (12)?
   - does it come from the engine (16)?
 - [ ] **Last step:** can a beginner type what to buy, and where (14)?
+- [ ] **Ranking:** is anything ranked against what earns differently, or a fund named as a pick rather than an example (17)?
 - [ ] **Quick fixes:** was any problem solved with a tooltip, note or extra option where a structural fix exists (9)?
 
 ---
@@ -468,6 +489,7 @@ Adjust them to the code's real structure.
 - its workstream's sections of Part 2, and the acceptance checks below;
 - "If a design question isn't answered here, apply Part 1. If it's still open, return the question to the orchestrator instead of guessing." The orchestrator takes open questions to the owner.
 - "Don't fix a design problem with a tooltip, a note or an extra option until you've looked for the structural fix (principle 9)."
+- "If applying Part 1 needs a stretch, return the strain and a proposed principle instead of stretching (principle 18)."
 - the files it owns, and what to check before handing back: that its own part compiles and its own new tests pass, as far as the rest of the tree allows. The whole tree may be broken between stages.
 
 ### Acceptance
