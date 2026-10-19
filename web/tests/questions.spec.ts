@@ -106,10 +106,10 @@ test('the horizon is a number and a unit, and the unit can be changed', async ({
   await expect(unit).toHaveValue('years')
 })
 
-test('"don\'t know yet" empties the horizon and asks about a cushion', async ({ page }) => {
+test('an emptied date field is not known yet and the horizon and asks about a cushion', async ({ page }) => {
   const salary = situations().find(({ id }) => id === 'salary')!.answers
   await chip(page, situations().find(({ id }) => id === 'salary')!.name).click()
-  await page.locator('.money').getByRole('button', { name: t.dontKnowYet }).click()
+  await page.locator('#horizon').fill('')
   await expect(page.locator('#horizon')).toHaveValue('')
   const unknown = { ...salary, horizon: 'Unknown' as const }
   await expectFollowUps(page, unknown)

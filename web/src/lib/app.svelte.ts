@@ -13,7 +13,7 @@
 //                                    `opensDialog` one opens the portfolio dialog
 //   app.knowsWhatToBuy()             the "אני יודע / יודעת מה אני רוצה לקנות" link: switch on
 //   app.followUps: FollowUp[]        the cards the answers still need
-//   app.setHorizonMonths(m) / setHorizonUnknown() / setHorizonRetirement(age, retireAt)
+//   app.setHorizonMonths(m) / setHorizonRetirement(age, retireAt)
 //   app.horizonMonths: number | undefined
 //   app.banks: BankChoice[]; app.setBank(bank | undefined)   the existing-portfolio chips
 //
@@ -852,7 +852,7 @@ export class AppState {
 
   /** The years field. For a retirement the ages stay and the years are the
    * gap between them, so typing years moves the age of retiring; an empty
-   * field changes nothing. */
+   * field changes nothing. Otherwise an empty field is a date not known yet. */
   setHorizonMonths(months: number | null) {
     const { horizon } = this.answers
     if (typeof horizon === 'object' && 'Retirement' in horizon) {
@@ -861,10 +861,7 @@ export class AppState {
       this.answers.horizon = { Retirement: { age, retire_at: age + Math.round(months / 12) } }
       return
     }
-    this.answers.horizon = { Months: months ?? 0 }
-  }
-  setHorizonUnknown() {
-    this.answers.horizon = 'Unknown'
+    this.answers.horizon = months === null ? 'Unknown' : { Months: months }
   }
   setHorizonRetirement(age: number, retireAt: number) {
     this.answers.horizon = { Retirement: { age, retire_at: retireAt } }

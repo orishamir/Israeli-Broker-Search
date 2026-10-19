@@ -394,7 +394,6 @@ export const en = {
   timeUnit: 'Unit of time',
   monthsUnit: 'months',
   yearsUnit: 'years',
-  dontKnowYet: "Don't know yet",
   iAmAge: 'I am',
   retireAtAge: "and I'll retire at",
   answerUpdatesBelow: '↓ The answer updates below',

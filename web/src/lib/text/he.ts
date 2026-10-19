@@ -391,7 +391,6 @@ export const he: Text = {
   timeUnit: 'יחידת זמן',
   monthsUnit: 'חודשים',
   yearsUnit: 'שנים',
-  dontKnowYet: 'עוד לא יודעים',
   iAmAge: 'אני בן / בת',
   retireAtAge: 'ואפרוש בגיל',
   answerUpdatesBelow: '↓ התשובה מתעדכנת למטה',

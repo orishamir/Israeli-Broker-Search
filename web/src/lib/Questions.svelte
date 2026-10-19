@@ -87,16 +87,6 @@
   </section>
 
   <section class="card money">
-    <div class="top">
-      <button
-        class="chip"
-        class:chosen={horizon === 'Unknown'}
-        aria-pressed={horizon === 'Unknown'}
-        onclick={() => app.setHorizonUnknown()}
-      >
-        {t.dontKnowYet}
-      </button>
-    </div>
     <div class="field-row">
       <label for="now" class="label">{t.iHaveNow}</label>
       <div class="control"><NumberField id="now" bind:value={app.answers.now} prefix="₪" /></div>
@@ -236,16 +226,12 @@
     font-size: 0.9rem;
   }
   .chips,
-  .answers,
-  .top {
+  .answers {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
   }
   .chips {
-    margin-bottom: 12px;
-  }
-  .top {
     margin-bottom: 12px;
   }
   .chip {

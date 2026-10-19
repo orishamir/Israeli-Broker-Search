@@ -240,7 +240,7 @@ export async function enter(page: Page, entered: Entered): Promise<AnswersInput>
     await page.locator('#retire-at').fill(String(horizon.retireAt))
     answers = { ...answers, horizon: { Retirement: { age: horizon.age, retire_at: horizon.retireAt } } }
   } else if (horizon === 'unknown') {
-    await page.locator('.money').getByRole('button', { name: t.dontKnowYet }).click()
+    await page.locator('#horizon').fill('')
   } else {
     await fillField(page, 'horizon', String(horizon))
     answers = { ...answers, horizon: { Months: horizon * 12 } }
