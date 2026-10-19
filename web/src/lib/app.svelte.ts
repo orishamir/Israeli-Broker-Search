@@ -20,7 +20,7 @@
 //   app.choices: Choices             the visitor's choices on the answer (not facts)
 //   app.answer: AnswerData | undefined   chip, lines, decisions, plan, outcome chart,
 //        how, gain; without the horizons. Up to 5 years worked out on the page's
-//        thread, beyond that by the worker; the last one stays while the next is
+//        thread, beyond that (or with no date) by the worker; the last one stays while the next is
 //        worked out (`answerFresh` false). undefined only before the first.
 //   app.answerFresh: boolean
 //   app.horizons: HorizonRowData[] | undefined, app.horizonsFresh
@@ -38,7 +38,7 @@
 //   app.expert: boolean              persisted ('expert-v2'), in links (x=1)
 //   app.thing: Thing                 'sp500' | 'other' | 'bonds' | 'short'; the
 //        answer's unless `app.chooseThing(thing)` chose another
-//   app.recommendation: RecommendationData | undefined   with the switch on only: the
+//   app.recommendation: RecommendationData | undefined   with the switch on, when needed: the
 //        places that hold what the workbench looks at (`Within`), held to it by
 //        `app.overrides` (from the thing chosen, else the answer's focus)
 //   app.wayChoices: WayChoice[]; app.selectedWays: Way[]; app.toggleWay(way)
@@ -244,12 +244,20 @@ export function monthsOf(horizon: Horizon): number | undefined {
   return Math.max(0, horizon.Retirement.retire_at - horizon.Retirement.age) * 12
 }
 
-/** Up to this horizon the recommendation is worked out on the page's thread
- * (measured in Node on the real core: 0.4 to 8 ms for 6 months to 5 years or
- * an unknown horizon, where the safe kinds win; 10 to 50 ms for 15 to 30
- * years, where the index arena is run). Beyond it the worker does it, and
- * the answer on screen is the last one until the new one arrives. */
+/** Up to this horizon the answer (and the workbench's guide) is worked out
+ * on the page's thread (measured in Node on the real core, 2026-10-20: 2 to
+ * 24 ms for 6 months to 5 years; 40 to 60 ms for 10 to 25 years or a date
+ * not known, where the index arena is run too, which a phone 4× slower
+ * felt). Beyond it, and for a date not known, the worker does it, and the
+ * answer on screen is the last one until the new one arrives. */
 export const RECOMMEND_ON_PAGE_UP_TO_MONTHS = 60
+
+/** What the workbench looks at for a kind: the S&P 500's ways for an index
+ * kind, the bonds for a bond, the short term's places for the rest. */
+function thingOf(kind: Kind): Thing {
+  if (typeof kind === 'object' && 'Way' in kind) return 'sp500'
+  return typeof kind === 'object' ? 'bonds' : 'short'
+}
 
 /** Where the guide opens: the situation of a dated goal in about five years. */
 const FIRST_SITUATION = 'goal'
@@ -706,7 +714,7 @@ export class AppState {
   /** Whether the answer is worked out on the page's thread. */
   private get onThePage(): boolean {
     const months = this.horizonMonths
-    return months === undefined || months <= RECOMMEND_ON_PAGE_UP_TO_MONTHS
+    return months !== undefined && months <= RECOMMEND_ON_PAGE_UP_TO_MONTHS
   }
 
   // ── The answer ──
@@ -811,10 +819,22 @@ export class AppState {
 
   private lastRecommendation: RecommendationData | undefined = undefined
 
-  /** The workbench's guide as worked out here: only with the switch on, for
-   * a short horizon, or a long one the first time. */
+  /** Whether the workbench needs its guide: with the switch on, for the safe
+   * kinds' table, to know what it looks at when the answer has no focus, or
+   * the years when the date isn't known. Not for plans on one exchange or
+   * the S&P 500's ways, which it compares itself. */
+  private needsGuide: boolean = $derived.by(() => {
+    if (!this.expert) return false
+    if (this.horizonMonths === undefined) return true
+    const kind = this.overrides.kind
+    const thing = this.chosenThing ?? (kind === undefined ? undefined : thingOf(kind))
+    return thing === undefined || thing === 'bonds' || thing === 'short'
+  })
+
+  /** The workbench's guide as worked out here: only when it's needed, for a
+   * short horizon, or a long one the first time. */
   private onPage = $derived.by((): Worked<RecommendationData> | undefined =>
-    this.expert && (this.onThePage || !this.lastRecommendation)
+    this.needsGuide && (this.onThePage || !this.lastRecommendation)
       ? run('recommend', this.guideRequest)
       : undefined,
   )
@@ -830,7 +850,7 @@ export class AppState {
    * (`Within`), with the switch on: the old guide's ranking, which the
    * workbench keeps for the safe kinds. The last one stays meanwhile. */
   recommendation: RecommendationData | undefined = $derived(
-    this.expert ? (this.recommended?.value ?? this.lastRecommendation) : undefined,
+    this.needsGuide ? (this.recommended?.value ?? this.lastRecommendation) : undefined,
   )
 
   /** The years the comparison runs, from the horizon, or from what the
@@ -844,8 +864,7 @@ export class AppState {
   thing: Thing = $derived.by(() => {
     if (this.chosenThing) return this.chosenThing
     const kind = this.overrides.kind ?? this.recommendation?.kind.kind
-    if (kind === undefined || (typeof kind === 'object' && 'Way' in kind)) return 'sp500'
-    return typeof kind === 'object' ? 'bonds' : 'short'
+    return kind === undefined ? 'sp500' : thingOf(kind)
   })
 
   chooseThing(thing: Thing) {
@@ -1373,7 +1392,7 @@ export class AppState {
       ask('horizons', request, (worked) => (this.horizonsAnswer = { request, ...worked }))
     })
     $effect(() => {
-      if (!this.expert || this.onPage) return
+      if (!this.needsGuide || this.onPage) return
       const request = this.guideRequest
       ask('recommend', request, (worked) => (this.recommendAnswer = { request, ...worked }))
     })
