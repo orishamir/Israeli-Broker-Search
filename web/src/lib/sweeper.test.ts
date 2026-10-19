@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import * as core from './core/core'
 import { ask } from './sweeper'
+import type { AnswerRequest } from './core/core'
 import type { GuideRequest } from './work'
 
 const settings = {
@@ -32,12 +33,31 @@ test('only the answer to the latest request of a kind is passed on, and it is th
   expect(got).toEqual(core.recommend(latest.answers, latest.settings))
 })
 
+/** The answer's request for a situation, without its horizons. */
+const answerRequest = (id: string): AnswerRequest => ({ ...request(id), choices: {}, horizons: false })
+
 test('kinds of job do not supersede each other', async () => {
   const answers: string[] = []
-  ask('ladder', request('goal'), () => answers.push('ladder'))
-  ask('alternatives', request('goal'), () => answers.push('alternatives'))
-  await new Promise((done) => setTimeout(done, 20))
-  expect(answers.sort()).toEqual(['alternatives', 'ladder'])
+  ask('answer', answerRequest('goal'), () => answers.push('answer'))
+  ask('horizons', answerRequest('goal'), () => answers.push('horizons'))
+  await new Promise((done) => setTimeout(done, 50))
+  expect(answers.sort()).toEqual(['answer', 'horizons'])
+})
+
+test('the answer comes without its horizons, and the horizons are a job of their own', async () => {
+  const asked = answerRequest('bonus')
+  let answer: core.AnswerData | undefined
+  let horizons: core.HorizonRowData[] | undefined
+  ask('answer', asked, (worked) => (answer = worked.value))
+  // A horizons request superseded by a newer one is never answered.
+  ask('horizons', answerRequest('salary'), () => {
+    throw new Error('superseded')
+  })
+  ask('horizons', asked, (worked) => (horizons = worked.value))
+  await new Promise((done) => setTimeout(done, 100))
+  expect(answer?.horizons).toEqual([])
+  expect(horizons).toEqual(core.answer({ ...asked, horizons: true }).horizons)
+  expect(horizons?.length).toBeGreaterThan(0)
 })
 
 test('a request the core refuses is answered with its words', async () => {

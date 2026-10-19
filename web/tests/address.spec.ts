@@ -3,8 +3,8 @@ import { t } from '../src/lib/text'
 import { chip, expect, expertSwitch, fillField, setExpert, situationName, test, workbench } from './fixtures'
 
 // The page's address follows the saver (a refresh restores, Back steps
-// through goals and routes), and the assumptions can be changed from the
-// guide as well as in the workbench.
+// through goals and routes), and the yearly return set in the guide's chart
+// is the workbench's too.
 
 const hash = (page: Page) => page.evaluate(() => location.hash)
 
@@ -39,15 +39,14 @@ test('Back steps through the goals and the route, and back to the example', asyn
 })
 
 test(
-  'an assumption changed in the guide shows in the workbench, and in the address',
+  'the yearly return set on the chart shows in the workbench, and in the address',
   { tag: '@phone' },
   async ({ page }) => {
-    await page.locator('section.answer').getByRole('button', { name: t.assumptionsTitle }).click()
-    const sheet = page.getByRole('dialog', { name: t.assumptionsTitle })
-    await sheet.locator('#assume-return').fill('7')
+    await chip(page, situationName('salary')).click()
+    await page.locator('#outcome-return').fill('7')
     await expect.poll(() => hash(page)).toContain('r=7')
-    await sheet.getByRole('button', { name: t.done }).click()
-    await expect(page.locator('section.answer .assume')).toContainText('7%')
+    await page.reload()
+    await expect(page.locator('#outcome-return')).toHaveValue('7')
     await workbench(page)
     // The index kinds' levers open behind the workbench's "change".
     await page.locator('section.workbench').getByRole('button', { name: t.changeAssumptions }).click()

@@ -8,6 +8,4 @@ test('one and two years and months have words of their own', () => {
   expect(he.after(1, 0)).toBe('אחרי שנה')
   expect(he.after(2, 1)).toBe('אחרי שנתיים וחודש')
   expect(he.after(15, 5)).toBe('אחרי 15 שנה ו\u20115 חודשים')
-  expect(he.monthsCount(2)).toBe('חודשיים')
-  expect(he.forMonths(1)).toBe('לחודש אחד')
 })

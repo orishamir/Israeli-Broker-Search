@@ -121,9 +121,9 @@ test('another index on one exchange: rows and chart entries for the plans compar
   ])
 })
 
-test('the guide’s list has only the columns it has amounts for, and the top rows come first', () => {
+test('the workbench’s list for short-term money has only the columns it has amounts for', () => {
   const app = scenarioB()
-  app.expert = false
+  app.expert = true
   app.chooseThing('short')
   flushSync()
   const recommendation = app.recommendation!

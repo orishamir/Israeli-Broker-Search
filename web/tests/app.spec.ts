@@ -1,12 +1,20 @@
 import { test as baseTest } from '@playwright/test'
-import { expectedRows, inputsOnPage, listed, RATES, rowsOnPage, securityName, usualPlans } from './core'
+import {
+  banks,
+  expectedRows,
+  inputsOnPage,
+  listed,
+  RATES,
+  rowsOnPage,
+  securityName,
+  situationAnswers,
+  usualPlans,
+} from './core'
 import { dateText } from '../src/lib/format'
-import { arenaOf } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
 import {
-  answerCard,
   choice,
-  enter,
+  decide,
   expect,
   expectAnswerFor,
   expertSwitch,
@@ -59,17 +67,20 @@ test(
   },
 )
 
-test("Share copies a link that opens the same answer, over the guide's own choice", async ({
+test('Share copies a link that opens the same answer: its choices and the bank', async ({
   page,
   context,
 }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
-  const answers = await enter(page, { now: 50_000, monthly: 0, horizon: 5, flexibility: 'CanWait' })
-  const guide = await expectAnswerFor(page, answers)
-  // Continuing with another kind is part of the link too.
-  const other = guide.ranked.find(({ kind }) => JSON.stringify(kind) !== JSON.stringify(guide.kind.kind))!
-  await answerCard(page).getByRole('button', { name: t.changeKind }).click()
-  await answerCard(page).locator('.picker li').nth(guide.ranked.indexOf(other)).getByRole('button').click()
+  const answers = situationAnswers('goal')
+  await expectAnswerFor(page, answers)
+  await decide(page, answers, {}, 'SafeWay', { SafeWay: 'Bond' })
+  // The bank, asked where to buy, where it changes what is shown.
+  const bank = banks()[0]
+  const where = page.locator('section.how .where')
+  await where.getByRole('button', { name: bank.name, exact: true }).click()
+  const chosen = { ...answers, bank: bank.bank }
+  await expectAnswerFor(page, chosen, { safeWay: 'Bond' })
 
   await page.getByRole('button', { name: t.share, exact: true }).click()
   await expect(page.getByText(t.linkCopied)).toBeVisible()
@@ -77,10 +88,11 @@ test("Share copies a link that opens the same answer, over the guide's own choic
   expect(link).toContain('v=2')
 
   await page.goto(link)
-  await expect(page.locator('#now')).toHaveValue('50,000')
-  await expect(page.locator('#horizon')).toHaveValue('5')
-  await expect(page.getByRole('button', { name: t.backToRecommendation })).toBeVisible()
-  await expectAnswerFor(page, answers, { arena: arenaOf(other.kind), kind: other.kind })
+  await expectAnswerFor(page, chosen, { safeWay: 'Bond' })
+  await expect(where.getByRole('button', { name: bank.name, exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
   // And a link edited into nonsense still opens the page.
   await page.goto('/#v=2&n=abc&h=zz')
   await expect(page.locator('#now')).toBeVisible()

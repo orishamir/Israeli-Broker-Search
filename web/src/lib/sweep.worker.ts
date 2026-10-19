@@ -1,6 +1,5 @@
-// Works out the page's heavy jobs (see sweeper.ts): the sweep, and the
-// guide's recommendation for long horizons, its ladder and its alternatives'
-// lines. It has its own copy of the core, so the page's own thread stays
+// Works out the page's heavy jobs (see sweeper.ts): the sweep, the answer
+// for long horizons and its horizon section, and the workbench's guide. It has its own copy of the core, so the page's own thread stays
 // free while it does.
 
 import init, { setLang } from './core/core'

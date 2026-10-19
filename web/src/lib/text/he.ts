@@ -47,23 +47,17 @@ export const he: Text = {
     'הסכום שנשאר לכם בסוף, ולפיו הטבלה מדורגת: כמה שקלים תקבלו כשתמכרו הכול, אחרי עמלת המכירה, ההמרה חזרה לשקלים ומס רווחי הון.',
   underAHundredth: 'פחות מ\u20110.01%',
   yearlyCost: 'עמלות, כאחוז בשנה',
-  yearlyCostTip:
-    'כל העמלות של המסלול, כאחוז שנתי מהתיק, כמו דמי ניהול של קרן: אילו במקום העמלות הייתם משלמים את האחוז הזה מהתיק כל שנה, הייתם נשארים עם אותו סכום (לפני מס). כך אפשר להשוות מסלול לדמי הניהול של קרן, או לאותו מסלול בהפקדה אחרת. לא כולל את דמי הניהול של קרן הסל או הקרן המחקה עצמה, ובקופה, את ההוצאות הישירות שלה (עמלות מסחר ודמי ניהול לגופים חיצוניים). 100% פירושו שהעמלות אכלו הכול.',
   spreadBetween: (low, lowName, high, highName) => `בין ${low} (${lowName}) ל\u2011${high} (${highName})`,
   spreadAtMost: (name, amount) => `ב${name}: ${amount}`,
   ratesOf: (date) => `שערי החליפין מ\u2011${date}`,
   reportAMistake: 'דיווח על טעות (GitHub)',
   accessibilityStatement: 'הצהרת נגישות',
   needBiggerFirstDeposit: 'דורשים הפקדה חד\u2011פעמית גדולה יותר',
-  lostToFees: 'אבד לעמלות',
-  lostToFeesTip: (selling) =>
-    `כמה פחות יש לכם בסוף${selling ? ' (אחרי המכירה, לפני מס)' : ''}, לעומת אותן הפקדות בלי עמלות ובקנייה כל חודש. זה כולל את העמלות עצמן, את הרווח שהכסף הזה היה מניב, ואת הרווח שהפסיד כסף שחיכה לקנייה. למשל, ₪10 בחודש בעמלות במשך 20 שנה הם ₪2,400 ששילמתם, אבל בתשואה של 10% בשנה הם כ\u2011₪7,000 שהפסדתם.`,
   tax: 'מס',
   feesShort: 'עמלות',
   taxTip: (inflation, surtax, threshold) =>
     `מס רווחי הון: 25% מהרווח. בנייר ערך בשקלים, ובקופה או בפוליסה, את מה ששילמתם בקנייה מתרגמים קודם לערך הכסף ביום המכירה, לפי האינפלציה (${inflation} בשנה), כך שרווח שרק שומר על ערך הכסף לא ממוסה. בחשבון מסחר, בנייר ערך בדולרים או באירו מתרגמים לפי שער החליפין, שבמחשבון נשאר כמו היום, ולכן כל הרווח ממוסה. רווח גדול בשנה אחת מחייב גם מס יסף: ${surtax} על מה שמעבר ל\u2011${threshold} (הסכום עולה עם האינפלציה מ\u20112028); המחשבון מניח שאין לכם הכנסה אחרת באותה שנה, ומשכורת מוסיפה עליו. מכירה על פני כמה שנים יכולה לחסוך אותו. באג״ח שקלית לא צמודה המס הוא 15% מכל הרווח, והמחשבון לא מבחין בה. עמלות הקנייה והמכירה נחשבות חלק מהעלות, ולכן מקטינות את המס; מדמי המשמרת והטיפול מקזזים רק את מה ששולם בשנת המכירה. לכן, בין שני מסלולים שמשאירים בערך אותו סכום, זה שגובה על קנייה ומכירה משלם פחות מס. קופת גמל להשקעה שנמשכת כקצבה מגיל 60 פטורה ממס.`,
   noTax: 'אין',
-  feesPaid: 'עמלות ששולמו',
   feesPaidTip: (selling, buying) => {
     const all = `סך כל העמלות ששילמתם: על קניות, על המרות, דמי משמרת וטיפול או דמי הניהול של קופה${selling ? ', ועל המכירה בסוף' : ''}.`
     if (!buying) return all
@@ -72,8 +66,6 @@ export const he: Text = {
     const often = everyMonths === 1 ? 'כל חודש' : `כל ${monthsText(everyMonths)}`
     return `${all} בקנייה ${often} במשך ${yearsText(years)} אלה עד ${count} קניות${abroad ? `, ובחו״ל גם עד ${count} המרות` : ''}.`
   },
-  valueHeld: 'שווי התיק',
-  valueHeldTip: 'כמה התיק שווה בסוף, בלי למכור.',
   inTodaysMoneyNote: ' בכסף של היום: מתורגם לערך הכסף היום, לפי האינפלציה.',
   feesLink: (label, amount) => `העמלות של ${label}: ${amount}, ועל מה שולמו`,
   notOfferedFor: (purchase) => `לא מוצע ל${purchase}`,
@@ -162,7 +154,6 @@ export const he: Text = {
   ratesSource:
     'שערי הבנק המרכזי האירופי, ששונים מהשער היציג של בנק ישראל בשבריר אחוז לכל היותר. אפשר לשנות אותם כדי לנסות שערים אחרים.',
   deposits: 'הפקדות',
-  everyMonth: 'כל חודש',
   buyEvery: 'קנייה כל',
   buyEveryTip:
     'ההפקדות מחכות כמזומן עד הקנייה הבאה. קנייה פחות תכופה חוסכת עמלות מינימום, אבל הכסף שמחכה לא מרוויח בינתיים. למשל, בהפקדה של ₪2,000 בחודש ועמלת מינימום של ₪5: קנייה כל חודש עולה ₪60 בשנה, וקנייה כל 3 חודשים עולה ₪20, אבל אז עד ₪4,000 מחכים בלי תשואה, עד חודשיים בכל פעם.',
@@ -356,22 +347,15 @@ export const he: Text = {
   // The two calculators
 
   // The short term's inputs
-  monthsCount: monthsText,
   boiRate: 'ריבית בנק ישראל, בממוצע',
   boiRateTip:
     'הריבית שבנק ישראל קובע, ושלפיה זזות הריביות על חיסכון בכל המשק. הוא מחליט עליה שמונה פעמים בשנה. כאן מקלידים את הריבית שאתם מצפים לה, בממוצע על פני התקופה: קרן כספית תרוויח בערך אותה, פחות דמי הניהול. פיקדון בריבית קבועה לא מושפע ממנה אחרי שנפתח, ולכן ככל שתצפו לריבית נמוכה יותר, הפיקדונות ייצאו טובים יותר מול הקרנות.',
-  boiRateNote: (today) =>
-    `היום היא ${today}. פיקדון בריבית קבועה נועל את הריבית ביום שבו פותחים אותו; קרן כספית משתנה יחד עם ריבית בנק ישראל.`,
 
   // The places to compare
   caveats: 'הסתייגויות',
 
   // The short term's results
-  forMonths: (months) => (months === 1 ? 'לחודש אחד' : months === 2 ? 'לחודשיים' : `ל\u2011${months} חודשים`),
   aboveTheRate: (rate) => `${rate} מעל הריבית`,
-  yoursPart: 'נשאר לכם',
-  keptPart: 'נשאר אצל הקרן או הבנק',
-  taxPart: 'מס',
   monthsAxis: 'חודשים',
   afterMonths: (months) =>
     months === 1 ? 'אחרי חודש' : months === 2 ? 'אחרי חודשיים' : `אחרי ${months} חודשים`,
@@ -395,57 +379,13 @@ export const he: Text = {
   iAmAge: 'אני בן / בת',
   retireAtAge: 'ואפרוש בגיל',
   answerUpdatesBelow: '↓ התשובה מתעדכנת למטה',
-  whichBank: 'באיזה בנק התיק?',
   otherBank: 'בנק אחר',
-  answerTitle: 'מה שמתאים לכסף כזה',
-  whatIsIt: 'מה זה? ›',
-  changeKind: 'לשנות ›',
-  backToRecommendation: 'חזרה להמלצה ›',
-  alternativesTitle: 'לעומת האפשרויות האחרות',
   withinTitle: 'איפה הכי זול לקנות אותה',
-  allPlans: (count: number) => `כל ${count} המסלולים ›`,
-  stepsTitle: 'איך עושים את זה',
-  donutTitle: 'לאן הולך כל שקל בסוף',
-  ladderTitle: 'ואם תצטרכו את הכסף מוקדם או מאוחר יותר?',
-  // Package J: alternatives, donut, ladder
-  alternativesLead:
-    'כל קו הוא מה שאותו כסף היה מגיע אליו בסוג כזה של מקום, לפי ההנחה שלו: בכסף של היום, אחרי מס.',
-  alternativesTip:
-    'כל הקווים יוצאים מאותן הפקדות ומסתיימים במה שנשאר אחרי עמלות ומס, בכסף של היום. הטווח המוצלל מאחורי קרן המניות הוא מה שקרה למדד S&P\u00a0500 בכל תקופה באורך כזה מאז 1926, כאילו גדל בכל אחת בקצב קבוע: התקופה הגרועה ביותר למטה והטובה ביותר למעלה. בפועל המסלול מתנדנד יותר. כשהמקרה הטוב רחוק הרבה מעל הקווים, הטווח נחתך בראש הגרף.',
-  bandName: 'מה שעשה מדד S&P\u00a0500 בעבר',
-  bandCaption: 'הטווח המוצלל',
-  endRecommended: 'מומלץ',
-  endStock: 'מניות',
-  endCash: 'עו״ש',
-  rowRecommended: 'מה שמתאים',
-  safetyTipAbout: 'התווית',
-  continueHint: 'כדי להמשיך בכל זאת עם אחת האחרות, הקישו על השורה שלה.',
-  continueWith: (name: string) => `להמשיך עם ${name}`,
-  chartYears: 'שנים',
-  chartMonths: 'חודשים',
+  // The workbench's charts and its funds
   afterSaleAndTax: 'אחרי מכירה ומס',
-  lastPointAfterTax: 'הנקודה האחרונה: אחרי מכירה ומס, לכן נמוכה מזו שלפניה',
-  rangeInTooltip: 'היסטוריה של מדד S&P\u00a0500',
-  donutDeposit: 'הפקדה',
-  donutGain: 'רווח',
   whichFund: 'איזו קרן מחזיקה את זה?',
   whichFundTip:
     'את אותו מדד S&P\u00a0500 אפשר לקנות בתל אביב דרך קרן סל ישראלית או דרך קרן זרה שנסחרת גם שם. העלות השנתית שלהן שונה, והמחשבון מחשב כל אחת לחוד.',
-  donutFees: 'עמלות',
-  donutProduct: 'הקרן עצמה',
-  donutTax: 'מס',
-  donutKept: 'נשאר אצל האפיק',
-  donutTiny: (parts: string) => `פחות מ־0.5%: ${parts}`,
-  donutTip:
-    'כל שקל שהכסף הגיע אליו לפני עמלות ומס, לפי מי שמקבל אותו: ההפקדות שלכם, הרווח שנשאר לכם, העמלות, המס, ומה שהמקום שומר מתוך הריבית שהוא מרוויח.',
-  ladderLead: (monthly: string) => `${monthly} בחודש, בכסף של היום`,
-  ladderWhen: 'בעוד',
-  ladderMost: 'הכי הרבה יישאר ב...',
-  ladderTap: 'הקישו על שורה כדי להמשיך איתה.',
-  ladderRung: (months: number) => (months % 12 === 0 ? yearsText(months / 12) : monthsText(months)),
-  ladderRungAnyDay: 'בכל יום',
-  ladderRungLabel: (when: string, what: string, amount: string) =>
-    `${when}: ${what}, ${amount}. להמשיך עם האופק הזה`,
   learnMore: 'עוד על זה ›',
   back: 'חזרה',
   glossaryHint: 'כל המונחים שהמחשבון משתמש בהם, כמו שהם נקראים באפליקציה של הבנק ובפרסומות.',
@@ -455,8 +395,7 @@ export const he: Text = {
   thingBonds: 'אג״ח',
   thingShort: 'כסף לטווח קצר',
   waysTitle: 'באילו דרכים להשוות?',
-  waysBest: 'הדרכים, מהטובה לפחות טובה',
-  // Package L: the learn card, the glossary, the best bar
+  // The learn card and the glossary
   cardWhat: 'מה זה',
   cardGoodFor: 'למה זה טוב',
   cardDownside: 'החיסרון',
@@ -468,17 +407,9 @@ export const he: Text = {
   cardVersus: (name: string) => `לעומת ${name} ›`,
   allTerms: 'כל המונחים ›',
   cardBack: '‹ חזרה',
-  bestBarToday: 'בכסף של היום',
-  bestBarJump: 'לתשובה',
 
-  // Package I: the questions, the answer, the steps and the portfolio dialog
-  situationTip: (name: string) => `על המצב ״${name}״`,
+  // The questions
   horizonUnknownPlaceholder: '?',
-  horizonAmount: 'כמה זמן',
-  whyThis: 'למה דווקא זה',
-  chooseKindTitle: 'במה להמשיך?',
-  portfolioHelp: 'את העמלות של התיק אפשר למצוא באפליקציה של הבנק, או לבקש מהבנקאי מחירון.',
-  newOwnPlan: '+ מסלול משלכם',
 
   // ── Package K: the workbench, the full list, the charts ──
   workbenchSummary: (returnPercent, inflationPercent, selling, plans) =>
@@ -487,9 +418,6 @@ export const he: Text = {
   changeAssumptions: 'לשנות ›',
   hideAssumptions: 'לסגור ›',
   exampleTag: 'דוגמה',
-  assumptionsTitle: 'ההנחות שמאחורי המספרים',
-  assumptionsLine: (returnPercent, inflationPercent, boiPercent) =>
-    `בהנחה של ${returnPercent} בשנה, אינפלציה ${inflationPercent}, ריבית בנק ישראל ${boiPercent}`,
   thingTip: {
     sp500:
       'מדד S&P\u00a0500: 500 החברות הגדולות בארה״ב. אפשר לקנות אותו בכמה דרכים, וההשוואה מראה כמה יישאר בכל אחת.',
@@ -512,8 +440,6 @@ export const he: Text = {
     'מה שהקרן שמחזיקה את מדד S&P\u00a0500 לוקחת לעצמה, בלי קשר לבנק: דמי הניהול שלה, המס על הדיבידנדים שהיא מקבלת והפער בינה ובינו.',
   showWayPlans: (count) => `כל ${count} המסלולים של הדרך ›`,
   hideWayPlans: 'להסתיר ›',
-  allWays: (count) => `כל ${count} הדרכים ›`,
-  fullTableHint: 'הטבלה המלאה, פירוט העמלות והגרף לפי הפקדה נפתחים עם ״כל האפשרויות״',
   noPlansTicked: 'לא סומן מסלול להשוואה: הוסיפו אחד ב״מה משווים״.',
   inTodaysMoneyAxis: 'בכסף של היום',
   waysChartsNote: 'כל דרך מצוירת במסלול הזול ביותר שלה.',
@@ -551,7 +477,6 @@ export const he: Text = {
   yourBankRow: (name: string) => `הבנק שלכם: ${name}`,
   throughABank: 'דרך בנק',
   askBank: 'מה הבנק שלכם? אז כל מקום יראה כמה יותר או פחות הוא משאיר לעומתו.',
-  yourBankGroup: 'הבנק שלכם',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'כמה מהרווח נשאר אצלכם',
   gainKept: 'נשאר לכם',

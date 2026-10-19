@@ -1,7 +1,9 @@
 <script lang="ts">
   // "ואם התאריך יזוז?" (REDESIGN.md §2.9): the same deposits at 1, 3, 5, 10
   // and 20 years, each row what the answer would be with the date there
-  // (`app.answer.horizons`, from the core). Where the visitor hasn't said
+  // (`app.horizons`, from the core: the worker's job after the answer's, so
+  // the card above never waits for it; until the first rows come, the
+  // section holds their place, empty and marked busy). Where the visitor hasn't said
   // whether the date can move and that decides the place, a row for each
   // answer, with the answer in words. A row's click moves the date there,
   // and gives that answer about the date if the row is for one, so the
@@ -15,8 +17,10 @@
   let { app }: { app: AppState } = $props()
 
   let section: HTMLElement | null = $state(null)
-  const held = new HeldWhileTyping(() => app.answer?.horizons)
+  const held = new HeldWhileTyping(() => app.horizons)
   const rows = $derived(held.current ?? [])
+  /** Before the first rows: the five dates' places, empty. */
+  const pending = $derived(held.current === undefined)
   /** One sum put in once is the same at every date: said once, above the rows. */
   const sharedDeposits = $derived(
     rows.length > 0 && rows.every((row) => row.deposits === rows[0].deposits) ? rows[0].deposits : undefined,
@@ -27,7 +31,7 @@
 
   function open(row: HorizonRowData) {
     app.setHorizonMonths(row.years * 12)
-    if (row.flexibility !== undefined) app.choose('PlaceType', { Flexibility: row.flexibility })
+    if (row.flexibility !== undefined) app.choose({ Flexibility: row.flexibility })
     // The answer is above the section: bring it into view.
     const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
     section
@@ -36,17 +40,23 @@
   }
 </script>
 
-{#if rows.length > 0}
+{#if app.answer && (pending || rows.length > 0)}
   <section
     class="card horizons"
-    class:waiting={!app.answerFresh}
+    class:waiting={!app.horizonsFresh}
     aria-labelledby="horizons-title"
+    aria-busy={!app.horizonsFresh}
     bind:this={section}
     {@attach glideHeight()}
   >
     <div>
       <h2 id="horizons-title">{t.horizonsTitle}</h2>
       <p class="lead">{sharedDeposits ? `${t.horizonsLead} ${sharedDeposits}.` : t.horizonsLead}</p>
+      {#if pending}
+        <ul class="rows" aria-hidden="true">
+          {#each [1, 3, 5, 10, 20] as years (years)}<li class="placeholder"></li>{/each}
+        </ul>
+      {/if}
       <ul class="rows">
         {#each rows as row, at (`${row.years}-${row.flexibility ?? ''}`)}
           {@const again = at > 0 && rows[at - 1].years === row.years}
@@ -116,6 +126,11 @@
   }
 
   /* The second answer of the same date reads as part of the first. */
+  /* A row's height, while the rows are being worked out. */
+  li.placeholder {
+    block-size: 4.2rem;
+  }
+
   li.again {
     border-block-start: 1px dashed var(--border);
   }

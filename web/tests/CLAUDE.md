@@ -11,12 +11,17 @@ catch the bug:
    the TypeScript side, with the real core loaded from the built
    WebAssembly by `src/test-setup.ts`. What the app's state does
    (`app.test.svelte.ts` and `workbench.test.svelte.ts`: a test of a module
-   with runes is itself a `.svelte.ts` module; answers to recommendation, the
-   switch changes only the view, overrides), what the charts' options say
-   (`growth-chart.ts`, `fee-breakdown.ts`, `alternatives-chart.ts` and
-   `donut.ts` are pure functions the components hand to ECharts), the links
-   (`link.test.ts`: every field round-trips), the glossary lookup, the
-   worker's request matching (`sweeper.test.ts`), number formatting. Milliseconds each.
+   with runes is itself a `.svelte.ts` module; the answer and its horizons
+   are the core's, the switch changes only the view, the workbench follows
+   the answer), the answer card on the real core (`answer-card.test.svelte.ts`),
+   where the outcome chart's marks go (`outcome.test.svelte.ts`), the gain
+   bars (`gain.test.ts`), how-to and where to buy (`how.test.svelte.ts`),
+   what the workbench's charts' options say (`growth-chart.ts`,
+   `fee-breakdown.ts` and `crossover-chart.ts` are pure functions the
+   components hand to ECharts), the links (`link.test.ts`: every field
+   round-trips), the glossary lookup, the worker's request matching
+   (`sweeper.test.ts`: the answer and its horizons are two jobs), number
+   formatting. Milliseconds each.
 3. **Playwright** (`npm run test:browser`, `tests/*.spec.ts`): only what
    needs a browser: clicks, taps, hovers, keys and scrolling, and the
    layout. Not what the page says: those words are the core's or `t`'s, and
@@ -26,29 +31,30 @@ catch the bug:
 
 - A spec per part of the app, so a change runs its own spec first:
 
-  | Changed                                                                         | Spec           |
-  | ------------------------------------------------------------------------------- | -------------- |
-  | Questions, BankChips, NumberField, horizon.ts, the situations                   | `questions`    |
-  | Answer, Steps, PortfolioDialog, the unlock line and the cushion's two parts     | `answer`       |
-  | Alternatives, alternatives-chart.ts, Donut, Ladder, linked.svelte.ts            | `alternatives` |
-  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign | `workbench`    |
-  | LearnCard, Glossary, Tip's "עוד על זה", the about page                          | `learn`        |
-  | the situations, end to end (`REDESIGN.md` §2.5)                                 | `acceptance`   |
-  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                          | `chart`        |
-  | FeeBreakdown                                                                    | `breakdown`    |
-  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                 | `details`      |
-  | Tip, tip.ts, HebrewNames                                                        | `tips`         |
-  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved             | `editor`       |
-  | app.css, anything about size or position (every screen has a `@phone` state)    | `layout`       |
-  | address.svelte.ts (refresh, Back), the example label, AssumptionsSheet          | `address`      |
-  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)    | `app`          |
-  | text.ts, text/\*.ts, index.html's language, anything right-to-left              | `hebrew`       |
+  | Changed                                                                         | Spec         |
+  | ------------------------------------------------------------------------------- | ------------ |
+  | Questions, NumberField, horizon.ts, the situations                              | `questions`  |
+  | AnswerCard, AnswerLine, Decision, the plan, the cushion's expenses field        | `answer`     |
+  | OutcomeChart, outcome.ts, HowTo, WhereToBuy, how.ts, the return field           | `outcome`    |
+  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign | `workbench`  |
+  | LearnCard, Glossary, Tip's "עוד על זה", the about page                          | `learn`      |
+  | the situations, end to end (`REDESIGN.md` §2.5)                                 | `acceptance` |
+  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                          | `chart`      |
+  | FeeBreakdown                                                                    | `breakdown`  |
+  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                 | `details`    |
+  | Tip, tip.ts, HebrewNames                                                        | `tips`       |
+  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved             | `editor`     |
+  | app.css, anything about size or position (every screen has a `@phone` state)    | `layout`     |
+  | address.svelte.ts (refresh, Back), the example label                            | `address`    |
+  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)    | `app`        |
+  | text.ts, text/\*.ts, index.html's language, anything right-to-left              | `hebrew`     |
 
-  The specs for the redesign's screens (`questions`, `answer`,
-  `alternatives`, `workbench`, `learn`, `acceptance`) replace `inputs`,
-  `results` and `short-term`, which went with the two calculators, the
-  More options switch and the examples. `FamilySwitch`, `InputsPanel`,
-  `ResultsTable`, `ShortTermInputs` and `Place*` no longer exist.
+  GainSplit and HorizonSection have no spec of their own: their states are
+  in `layout`, their numbers unit-tested, a horizon row's click measured in
+  the performance suite. The previous plan's guide (`Answer`, `Steps`,
+  `Alternatives`, `Donut`, `Ladder`, `PortfolioDialog`, `AssumptionsSheet`,
+  `BankChips`, the best bar on phones) went with REDESIGN.md §2.13, and
+  `alternatives.spec.ts` with it.
 
   `npx playwright test --project=desktop tests/editor.spec.ts`. The `=`
   matters: `--project desktop tests/x.spec.ts` reads the path as a second
@@ -56,12 +62,15 @@ catch the bug:
 
 - **Expectations come from the core, not from the test.** `tests/core.ts`
   loads the WebAssembly in Node. For the guide, a spec says what it typed
-  (`enter` in `fixtures.ts` types it and returns the `AnswersInput`) and
-  asks the core what that means: `recommendation`, `ladderFor` and
-  `alternativesFor` (with `guideSettings`, the page's own at its start, and
-  `NO_OVERRIDES` or the kind chosen over the guide), `situations`,
-  `learnCard`, `glossary`, `followUps`. `expectAnswerFor` is the common
-  check: the sentence the core makes and, for one sum, its amount. For the
+  (`enter` in `fixtures.ts` types it, answers in the card the decisions it
+  names, and returns the `AnswersInput`) and asks the core what that means:
+  `answerFor` (the answer for the answers and the choices, under
+  `guideSettings`, the page's own at its start; a settings patch for the
+  return field), `decisionsOf` (its decisions, line by line), `situations`,
+  `learnCard`, `glossary`; `recommendation` is the workbench's own guide.
+  `expectAnswerFor` is the common check: the core's chip, title and as many
+  decision groups as it asks. `decide` chooses an option by the button the
+  core words for it. For the
   workbench, `inputsOnPage` reads its fields and ticks back as `Inputs`
   (with plans on one exchange chosen), `expectedRows` is the table the core
   gives for them, and `feesFor`, `compare`, `compareWays` and `about` give
@@ -74,6 +83,9 @@ catch the bug:
   Hebrew one the page shows. The page's own words come from `t`
   (`src/lib/text.ts`), a security's or exchange's name from
   `securityName`/`exchangeName`, a broker's from `brokerName`.
+- **Ports.** `PORT` sets the dev server's (5173 by default) and the
+  preview's (4173): Playwright reuses a server already on the port, which
+  may be another worktree's. `PORT=5180 npx playwright test …`.
 - **Tags decide the devices** (`playwright.config.ts`): every test runs on
   the desktop; `@phone` also on the Galaxy and the iPhone (WebKit);
   `@touch` only on those two (tapping, the zoom slider, real swipes), with
@@ -85,7 +97,8 @@ catch the bug:
   switch on (by its label: the input is hidden behind the track, `setExpert`)
   and chooses "another index or a stock" (or the `thing` you pass), then
   waits for the exchange rates. The kept specs (`chart`, `breakdown`,
-  `editor`, `tips`, `layout`) start there. **Plans are ticked in the list
+  `editor`, `tips`, `layout`) start there. Its table (`section.within`) is
+  shown only with the switch on: the guide's where-to-buy is `WhereToBuy`. **Plans are ticked in the list
   of plans**, a dialog over the inputs (`PlanSheet.svelte`), each broker
   folded to one line. `fixtures.ts` opens it (and the workbench) and
   unfolds for you: `tickBrokers`, `tickPlan`, `planInList` (a plan's
@@ -101,7 +114,9 @@ catch the bug:
   every device and state: no sideways scroll, nothing sticking out of a
   card or dialog, no text drawn over other text, no text cut off inside its
   own box, fields ≥16px, choices on one row, dropdowns not cut off, an open
-  tip on the screen, no card flush against the one above it. A test plants
+  tip on the screen, no card flush against the one above it, the answer's
+  targets (a decision's options, the chart's rows, the horizon rows) at
+  least 44 px tall. A test plants
   each of those bugs and checks the rules notice, so a rule that never
   fires can't pass for a clean page. A new view, dialog or choice gets a
   state there; a new class of layout bug gets a rule, not a screenshot.
@@ -154,23 +169,22 @@ catch the bug:
   (`answerSweep`).
 - The charts of the workbench (`#chart`: growth, breakdown, by deposit) are
   offered only with the switch on, and the chart by deposit only for plans
-  on one exchange. The guide has its own chart (`.alternatives .chart`) and
-  the donut (`section.donut .chart`): a spec says which with its class.
-- **Acceptance follows the data.** `acceptance.spec.ts` asserts what the
-  core's `recommend` says for the inputs a person types, never a kind the
-  plan expected: where the previous plan's table (§8 of
-  `git show d14e955:REDESIGN.md`) and the data differ, the test follows the
-  data and says so in a comment. With the redesign it checks the worked
-  examples of `REDESIGN.md` §2.5 by their structure (which questions
-  appear, on which line, the options, the confidence state), never by their
-  amounts.
+  on one exchange. The guide's outcome chart (`section.outcome`) is HTML,
+  not a canvas: its rows are buttons (`button.press`).
+- **Acceptance follows the data.** `acceptance.spec.ts` checks the worked
+  examples of `REDESIGN.md` §2.5 by their structure (which decisions
+  appear, on which line, their options, the order of those that depend on
+  others, the confidence state), as rules the core must keep and the page
+  must show, never by amounts or a winner. Where §2.5 and the data differ
+  (the bonus's growth: where is an account decision, not stated), the test
+  follows the data and says so in a comment.
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.
 - In CI (`.github/workflows/deploy.yml`) only the desktop project runs.
   Phones and the performance suite are run here.
-- A full run takes about 1.5 minutes (235 tests on 4 devices), the desktop
-  alone (about 85) 25 s; the first run after `npm run wasm` can take a few
+- A full run takes about 1.5 minutes (254 tests on 4 devices), the desktop
+  alone (about 100) 50 s; the first run after `npm run wasm` can take a few
   minutes more, while Vite starts cold. Run it twice after timing-related
   changes.
 
@@ -182,43 +196,53 @@ time, and the phone's CPU throttled 4×. It measures each interaction's time
 to the next paint (the Event Timing API, as Chrome's INP), the longest gap
 between frames while the rows reorder and the chart zooms, and how much the
 heap grows over 30 rounds of changes. First the guide (typing the money,
-the situation chips, a long horizon that the worker answers, a ladder rung,
-"continue anyway", the cards, the switch), then the workbench with plans on
-one exchange (the old page's measures); prints a table; and fails on the
-budgets at the top of the spec. Run it on a quiet machine; the build takes
-about a minute. What it gave on 2026-10-19 (a production build, this
-machine; the budgets in the spec are about twice these):
+the situation chips, a long horizon that the worker answers, choosing an
+option in a decision, focusing a chart row, choosing a bank where to buy,
+typing the yearly return, a horizon row, the glossary, the switch), then
+the workbench with plans on one exchange (the old page's measures); prints
+a table; and fails on the budgets at the top of the spec. Run it on a quiet
+machine; the build takes about a minute. What it gave on 2026-10-20 (a
+production build, this machine, a dev server idle beside it; the budgets in
+the spec are about twice these):
 
-| Measure                                           | phone (4×) | desktop |
-| ------------------------------------------------- | ---------: | ------: |
-| load, to the first chart (ms)                     |        811 |     286 |
-| guide: typing the money now (ms)                  |         56 |      48 |
-| guide: typing the monthly amount (ms)             |         32 |      16 |
-| guide: switching the situation (ms)               |         72 |      24 |
-| guide: typing a long horizon (worker) (ms)        |         56 |      24 |
-| guide: tapping a ladder rung (ms)                 |         48 |      16 |
-| guide: "continue anyway" and back (ms)            |         40 |      24 |
-| guide: opening the kind's card, the glossary (ms) |         24 |      16 |
-| guide: the switch on and off (ms)                 |         40 |      16 |
-| guide: frame gap while the money changes (ms)     |         17 |      17 |
-| workbench: typing a deposit (ms)                  |         80 |      32 |
-| workbench: typing the one-time deposit (ms)       |         72 |      24 |
-| workbench: switching what to buy (ms)             |        120 |      32 |
-| workbench: switching the security, exchange (ms)  |      72–80 |      24 |
-| workbench: ticking a broker's plans (ms)          |        104 |      24 |
-| workbench: switching the chart view, by deposit   |         32 |      24 |
-| workbench: opening a plan's details (ms)          |         40 |      48 |
-| workbench: frame gap, rows reorder, by deposit    |         50 |      17 |
-| zoom: slider drag, or six wheel notches (ms)      |         40 |      16 |
-| heap growth over 30 rounds, workbench / guide     |      1 / 0 |   1 / 0 |
+| Measure                                            | phone (4×) | desktop |
+| -------------------------------------------------- | ---------: | ------: |
+| load, to the first answer (ms)                     |        670 |     234 |
+| guide: typing the money now (ms)                   |         88 |      32 |
+| guide: typing the monthly amount (ms)              |         64 |      24 |
+| guide: switching the situation (ms)                |         72 |      16 |
+| guide: typing a long horizon (worker) (ms)         |         64 |      24 |
+| guide: choosing an option in a decision (ms)       |         80 |      24 |
+| guide: focusing a row of the chart (ms)            |         32 |      24 |
+| guide: choosing a bank where to buy (ms)           |         72 |      16 |
+| guide: typing the yearly return (ms)               |         24 |      16 |
+| guide: a horizon row, and back (ms)                |         88 |      24 |
+| guide: opening the glossary (ms)                   |         24 |      16 |
+| guide: the switch on and off (ms)                  |         72 |      24 |
+| guide: frame gap while the money changes (ms)      |         50 |      17 |
+| workbench: typing a deposit (ms)                   |        112 |      32 |
+| workbench: typing the one-time deposit (ms)        |        136 |      40 |
+| workbench: switching what to buy (ms)              |        104 |      24 |
+| workbench: switching the security, exchange (ms)   |     88–112 |      24 |
+| workbench: ticking a broker's plans (ms)           |        152 |      32 |
+| workbench: switching the chart view, by deposit    |      24–40 |      24 |
+| workbench: opening a plan's details (ms)           |         48 |      72 |
+| workbench: frame gap, rows reorder, by deposit     |      50–83 |      17 |
+| zoom: slider drag, or six wheel notches (ms)       |         40 |      32 |
+| heap growth over 30 rounds, workbench / guide (MB) |      1 / 0 |   1 / 0 |
+
+The workbench's keystrokes cost a phone more than on 2026-10-19 (80 → 112,
+72 → 136 ms): each now works out the guide's answer on the page as well as
+the comparison, and the answer is dearer than the old recommendation (2 to
+24 ms in Node up to 5 years; a date not known goes to the worker for that
+reason). Still within budget, but near it for ticking a broker's plans.
 
 Anything under about 50 ms isn't felt. A frame gap moves by one frame
 (17 ms) from run to run, so compare runs on a quiet machine, not with the
 dev server and a test run going. Two traps in measuring: a toggle measured
 three times ends on the other view, so measure there and back as one
 action; and a key pressed to reset the zoom goes into a field that still
-has focus, so click away first. The redesign's new parts (the decisions,
-the outcome chart) get rows here once built.
+has focus, so click away first.
 
 ## Recipes
 
@@ -271,7 +295,7 @@ await page.route('https://api.frankfurter.dev/**', (route) =>
   }),
 )
 await page.goto('http://localhost:5173/')
-await page.locator('.chart canvas').first().waitFor()
+await page.locator('section.answer #answer-title').waitFor()
 await page.screenshot({ path: 'page.png', fullPage: true })
 await browser.close()
 ```

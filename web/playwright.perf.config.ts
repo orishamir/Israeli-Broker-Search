@@ -5,6 +5,9 @@ import { defineConfig, devices } from '@playwright/test'
 // build, animations on, one test at a time on a quiet machine, and a phone's
 // CPU (throttled in the spec). The numbers are printed as a table; the
 // budgets in tests/perf/speed.spec.ts fail the run when one is missed.
+/** The preview's port: another worktree's run may hold the usual one. */
+const port = Number(process.env.PORT ?? 4173)
+
 export default defineConfig<{ throttle: number }>({
   testDir: 'tests/perf',
   outputDir: 'test-results/perf',
@@ -14,7 +17,7 @@ export default defineConfig<{ throttle: number }>({
   timeout: 180_000,
   reporter: [['list']],
   use: {
-    baseURL: 'http://localhost:4173',
+    baseURL: `http://localhost:${port}`,
     // Animations on: their smoothness is part of what's measured.
     reducedMotion: 'no-preference',
   },
@@ -28,8 +31,8 @@ export default defineConfig<{ throttle: number }>({
   ],
   // The built app, as users get it: the dev server serves modules one by one.
   webServer: {
-    command: 'npm run build && npx vite preview --port 4173 --strictPort',
-    url: 'http://localhost:4173',
+    command: `npm run build && npx vite preview --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: true,
     timeout: 300_000,
   },

@@ -1,27 +1,28 @@
 import {
-  alternativesFor,
   brokerName,
-  chipSituations,
   exchangeName,
   exchanges,
   glossary,
   securities,
   securityName,
+  situationAnswers,
   situations,
 } from './core'
 import {
   aboutPlan,
-  answerCard,
   chip,
   choice,
   closePlans,
   copyPlan,
+  decide,
   details,
   enter,
   expect,
+  expectAnswerFor,
   fillField,
   planInList,
   setExpert,
+  situationName,
   test,
   tickBrokers,
   tickPlan,
@@ -85,8 +86,7 @@ const layoutProblems = (page: Page) =>
 
     // Text drawn over other text: the line boxes of two pieces of text never
     // cross, unless one is part of the other. Not inside a sideways scroller,
-    // where the sticky plan column is meant to cover what scrolls under it,
-    // and not the phone's bar with the best plan, which floats over the page.
+    // where the sticky plan column is meant to cover what scrolls under it.
     const hasText = (element: Element) =>
       [...element.childNodes].some(
         (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim() !== '',
@@ -95,7 +95,7 @@ const layoutProblems = (page: Page) =>
       (element) =>
         hasText(element) &&
         shown(element) &&
-        !element.closest('.visually-hidden, .popover, option, script, style, .best-bar') &&
+        !element.closest('.visually-hidden, .popover, option, script, style') &&
         !scrollsSideways(element, document.body),
     )
     const crosses = (a: DOMRect, b: DOMRect) =>
@@ -127,6 +127,16 @@ const layoutProblems = (page: Page) =>
         if (!sideBySide && bounds.top - above.bottom < 1)
           problems.push(`${name(card).slice(0, 40)} touches ${name(cards[index]).slice(0, 40)}`)
       }
+    }
+
+    // The answer's targets, a finger's size (REDESIGN.md §2.4): a decision's
+    // options, the chart's rows, the horizon rows.
+    for (const target of document.querySelectorAll(
+      '.decision button, .outcome button.press, .horizons button.row',
+    )) {
+      const { height } = target.getBoundingClientRect()
+      if (shown(target) && height < 44)
+        problems.push(`${name(target)} is ${Math.round(height)}px tall, under 44`)
     }
 
     // An open tip stays on the screen.
@@ -193,51 +203,81 @@ test('at the start: the guide answers the first chip', { tag: '@phone' }, async 
 })
 
 test('with every situation chosen', { tag: '@phone' }, async ({ page }) => {
-  // The workbench's and the portfolio's have their own states below.
-  for (const situation of chipSituations()) {
+  for (const situation of situations().filter(({ workbench }) => !workbench)) {
     await chip(page, situation.name).click()
-    await expect(page.locator('section.answer .what')).toBeVisible()
+    await expectAnswerFor(page, situationAnswers(situation.id))
     await checkLayout(page, `situation: ${situation.name}`)
   }
 })
 
 test(
-  'the answer, with the kinds to change to and the cards that ask more',
+  'the answer card with decisions open, chosen, and dependent ones come',
   { tag: '@phone' },
   async ({ page }) => {
-    await enter(page, { now: 0, monthly: 3000, horizon: 'unknown', cushion: 17_000 })
-    await expect(answerCard(page).locator('.what')).toBeVisible()
-    await checkLayout(page, 'two parts, with the cushion asked')
-    await answerCard(page).getByRole('button', { name: t.changeKind }).click()
-    await expect(answerCard(page).locator('.picker')).toBeVisible()
-    await checkLayout(page, 'change the kind')
+    // The apartment: the way's two options, then one chosen.
+    const goal = situationAnswers('goal')
+    await expectAnswerFor(page, goal)
+    await checkLayout(page, 'a decision of two, open')
+    await decide(page, goal, {}, 'SafeWay', { SafeWay: 'Bond' })
+    await expectAnswerFor(page, goal, { safeWay: 'Bond' })
+    await checkLayout(page, 'a decision of two, chosen')
+    // The bonus: safe, and then the three safe ways.
+    await chip(page, situationName('bonus')).click()
+    const bonus = situationAnswers('bonus')
+    await decide(page, bonus, {}, 'PlaceType', { Flexibility: 'Fixed' })
+    await expectAnswerFor(page, { ...bonus, flexibility: 'Fixed' })
+    await checkLayout(page, 'a decision of three, after the one it depends on')
+    // The salary: the cushion's "not yet", with the expenses field.
+    await chip(page, situationName('salary')).click()
+    const salary = situationAnswers('salary')
+    await decide(page, salary, {}, 'Cushion', { Cushion: 'HasNot' })
+    await expect(page.locator('#expenses')).toBeVisible()
+    await checkLayout(page, 'the cushion not yet, with its field')
   },
 )
 
-test('the alternatives, a safety tip, and the donut on every tab', { tag: '@phone' }, async ({ page }) => {
-  const answers = await enter(page, { now: 50_000, monthly: 0, horizon: 5, flexibility: 'CanWait' })
-  await expect(page.locator('.alternatives li.row')).toHaveCount(alternativesFor(answers).series.length)
-  await checkLayout(page, 'alternatives')
-  const tabs = page.locator('section.donut .tabs button')
-  for (const tab of await tabs.all()) {
-    await tab.click()
-    await checkLayout(page, `donut: ${await tab.textContent()}`)
-  }
-  await page.locator('.alternatives li.row').nth(1).locator('.tag-line .tip-button').click()
-  expect(await layoutProblems(page), 'a safety tip').toEqual([])
+test(
+  'the outcome chart with a row tapped, and how to do it with where to buy and the bank',
+  { tag: '@phone' },
+  async ({ page }) => {
+    const goal = situationAnswers('goal')
+    await expectAnswerFor(page, goal)
+    await expect(page.locator('section.how .empty')).toBeVisible()
+    await checkLayout(page, 'how to do it, empty')
+    await decide(page, goal, {}, 'SafeWay', { SafeWay: 'Bond' })
+    const where = page.locator('section.how .where')
+    await expect(where.getByRole('group')).toBeVisible()
+    await checkLayout(page, 'where to buy, asking the bank')
+    await where.getByRole('group').getByRole('button').first().click()
+    await expect(where.locator('.row.yours').first()).toBeVisible()
+    await checkLayout(page, 'where to buy, from the bank')
+    const rows = page.locator('section.outcome .row:not(.axis) button.press')
+    for (const at of [0, (await rows.count()) - 1]) {
+      await rows.nth(at).click()
+      await checkLayout(page, `a chart row tapped (${at})`)
+    }
+  },
+)
+
+test('the gain bars, and the return set on the chart', { tag: '@phone' }, async ({ page }) => {
+  await chip(page, situationName('salary')).click()
+  await expect(page.locator('section.gain .bars li').first()).toBeVisible()
+  await page.locator('#outcome-return').fill('7')
+  await checkLayout(page, 'gain and the return field')
 })
 
-test('the ladder, and a tip open', { tag: '@phone' }, async ({ page }) => {
-  await chip(page, situations().find(({ id }) => id === 'bonus')!.name).click()
-  await expect(page.locator('section.ladder button.rung').first()).toBeVisible()
-  await checkLayout(page, 'ladder')
+test('the horizon rows, waiting and worked out, and one opened', { tag: '@phone' }, async ({ page }) => {
+  await chip(page, situationName('bonus')).click()
+  const rows = page.locator('section.horizons button.row')
+  await expect(rows.first()).toBeVisible()
+  await expect(page.locator('section.horizons')).not.toHaveAttribute('aria-busy', 'true')
+  await checkLayout(page, 'horizons')
+  await rows.nth(1).click()
+  await expect(page.locator('section.horizons')).not.toHaveAttribute('aria-busy', 'true')
+  await checkLayout(page, 'a horizon row opened')
 })
 
 test('a learn card, the glossary, and a card from the glossary', { tag: '@phone' }, async ({ page }) => {
-  await answerCard(page).getByRole('button', { name: t.whatIsIt }).click()
-  await expect(page.locator('dialog[open]')).toBeVisible()
-  await checkLayout(page, 'learn card')
-  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: t.glossary }).click()
   await expect(page.locator('dialog[open] li').first()).toBeVisible()
   await checkLayout(page, 'glossary')
@@ -246,15 +286,8 @@ test('a learn card, the glossary, and a card from the glossary', { tag: '@phone'
     .nth(Math.floor(glossary().length / 2))
     .getByRole('button')
     .click()
+  await expect(page.locator('dialog[open]')).toBeVisible()
   await checkLayout(page, 'a card from the glossary')
-})
-
-test('the portfolio dialog, and its plan of your own', { tag: '@phone' }, async ({ page }) => {
-  await chip(page, situations().find(({ id }) => id === 'existing')!.name).click()
-  await expect(page.getByRole('dialog', { name: t.whichBank })).toBeVisible()
-  await checkLayout(page, 'portfolio dialog')
-  await page.getByRole('dialog', { name: t.whichBank }).getByRole('button', { name: t.newOwnPlan }).click()
-  await checkLayout(page, 'a plan of your own over the portfolio dialog')
 })
 
 test('the workbench, for every thing to buy', { tag: '@phone' }, async ({ page }) => {
@@ -526,29 +559,20 @@ test.describe('plans on one exchange', () => {
   })
 })
 
-// On a 2560 px screen the rows of the alternatives ran 1000 px wide, an
+// On a 2560 px screen the rows of the old alternatives ran 1000 px wide, an
 // amount far from the name it belongs to.
-test('on a very wide screen the page and its rows stop growing', async ({ page }) => {
+test('on a very wide screen the page stops growing', async ({ page }) => {
   await page.setViewportSize({ width: 2560, height: 1300 })
-  const row = page.locator('.alternatives li.row').first()
-  await expect(row).toBeVisible()
-  const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
-  expect((await row.boundingBox())!.width).toBeLessThanOrEqual(40 * rem + 1)
+  await expect(page.locator('section.outcome')).toBeVisible()
   expect((await page.locator('.layout').boundingBox())!.width).toBeLessThanOrEqual(1600)
 })
 
-// The amounts in the answer's list of kinds and in the table of plans sat
-// hundreds of pixels from their names on a wide screen.
+// The amounts in the table of plans sat hundreds of pixels from their names
+// on a wide screen.
 for (const width of [2560, 1440]) {
-  test(`at ${width} px the answer's kinds and the table keep their amounts near their names`, async ({
-    page,
-  }) => {
+  test(`at ${width} px the table keeps its amounts near their names`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1300 })
     const rem = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
-    await page.getByRole('button', { name: t.changeKind }).click()
-    const kinds = page.locator('.picker ul')
-    await expect(kinds).toBeVisible()
-    expect((await kinds.boundingBox())!.width).toBeLessThanOrEqual(40 * rem + 1)
     await workbench(page)
     const scrolls = page.locator('section.within .scrolls')
     await expect(scrolls).toBeVisible()

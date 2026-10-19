@@ -1,9 +1,10 @@
 <script lang="ts">
-  // "איפה הכי זול לקנות אותה": one list for both arenas, its columns named
-  // by the core (`recommendation.columns`, `columnsFor`). The guide shows the
-  // top three with a link to all; the switch on shows the full table: the
-  // plans, or for the S&P 500 the ways, each opening onto the plans that can
-  // hold it. Screens s2, s4, s7. The rows are made in `within.ts`.
+  // The workbench's full table (the switch on): one list for both arenas,
+  // its columns named by the core (`recommendation.columns`, `columnsFor`):
+  // the plans on one exchange, for the S&P 500 the ways, each opening onto
+  // the plans that can hold it, and for the safe kinds the places the
+  // workbench's guide ranks. The rows are made in `within.ts`. The guide's
+  // own where-to-buy is `WhereToBuy`.
   import { tick } from 'svelte'
   import { flip } from 'svelte/animate'
   import { SvelteSet } from 'svelte/reactivity'
@@ -58,13 +59,7 @@
   const toggle = (id: string) => {
     if (!opened.delete(id)) opened.add(id)
   }
-  const shown = $derived(
-    app.expert
-      ? rows.flatMap((row) => [row, ...(opened.has(row.id) ? (row.more ?? []) : [])])
-      : // The first three, and the saver's own (their bank's branch plan, a plan of
-        // their own) wherever it ranks: it is the one they came to compare.
-        rows.filter((row, index) => index < 3 || row.yours),
-  )
+  const shown = $derived(rows.flatMap((row) => [row, ...(opened.has(row.id) ? (row.more ?? []) : [])]))
   const child = (row: Row) => rows.every(({ key }) => key !== row.key)
 
   /** What a column's "?" says, for the inputs as they are. */
@@ -133,7 +128,7 @@
                   animate:flip={{ duration: duration(SETTLE), easing: easeOut }}
                   class:not-offered={!row.cells}
                   class:first-unfit={row.firstUnfit}
-                  class:child={app.expert && child(row)}
+                  class:child={child(row)}
                   class:linked={row.linked}
                   class:highlighted={row.linked && app.highlighted.has(row.id)}
                   class:pinned={row.linked && app.pinned.has(row.id)}
@@ -169,7 +164,7 @@
                             {t.tax}&nbsp;<bdi dir="ltr">{row.cells.Tax ?? '–'}</bdi></span
                           >
                         {/if}
-                        {#if row.more && app.expert}
+                        {#if row.more}
                           <button
                             class="link more"
                             aria-expanded={opened.has(row.id)}
@@ -218,16 +213,10 @@
           </table>
         </div>
       </div>
-      {#if !app.expert && rows.length > 3}
-        <p class="more-line">
-          <button class="link" onclick={() => (app.expert = true)}>{t.allPlans(rows.length)}</button>
-          <span class="hint">{t.fullTableHint}</span>
-        </p>
-      {/if}
     {/if}
     <!-- The same under every broker's plan, so said once. -->
     {#if plans?.usEstateTax}<p class="kind-flag">⚠ {plans.usEstateTax}</p>{/if}
-    {#if app.expert && indexList}<p class="dates">{dates}</p>{/if}
+    {#if indexList}<p class="dates">{dates}</p>{/if}
   </section>
 {/if}
 
@@ -243,17 +232,6 @@
     margin: 0 12px 6px;
     color: var(--weak);
     font-size: 0.8rem;
-  }
-  .more-line {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: baseline;
-    gap: 2px 10px;
-    margin: 6px 12px 10px;
-    font-size: 0.85rem;
-  }
-  .more-line .hint {
-    margin: 0;
   }
   .kind-flag {
     margin: 4px 10px 8px;

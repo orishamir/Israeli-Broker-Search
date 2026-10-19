@@ -11,13 +11,12 @@ import { parseNumber } from '../src/lib/numbers'
 import { t } from '../src/lib/text'
 import {
   aboutAll,
-  alternatives,
+  answer,
   brokers,
   columnsFor,
   compare,
   exchanges,
   initSync,
-  ladder,
   recommend,
   securities,
   setLang,
@@ -26,7 +25,9 @@ import {
   usualInflationPercent,
 } from '../src/lib/core/core'
 import type {
+  AnswerData,
   AnswersInput,
+  Choices,
   Exchange,
   GuideSettings,
   Inputs,
@@ -108,6 +109,7 @@ export const guideSettings = (overrides: Overrides = NO_OVERRIDES): GuideSetting
   yourPlans: [],
   overrides,
   thisYear: new Date().getFullYear(),
+  thisMonth: new Date().getMonth() + 1,
 })
 
 /** Answers with nothing but what the test says: a horizon not known, a sum
@@ -120,6 +122,7 @@ export const answersWith = (some: Partial<AnswersInput>): AnswersInput => ({
   flexibility: undefined,
   cushion: undefined,
   needsAnyDay: false,
+  bank: undefined,
   ...some,
 })
 
@@ -130,18 +133,24 @@ export function situationAnswers(id: string): AnswersInput {
   return found.answers
 }
 
-/** The guide's answer for `answers`, the page's settings, and the kind or
- * arena the user chose over it, if any. */
+/** The answer the page should show for `answers` and the visitor's choices
+ * on it, under the page's settings at its start: without the horizons, as
+ * the card's own job. */
+export const answerFor = (
+  answers: AnswersInput,
+  choices: Choices = {},
+  settings: Partial<GuideSettings> = {},
+) => answer({ answers, choices, settings: { ...guideSettings(), ...settings }, horizons: false })
+
+/** The decisions an answer asks, in the order of its lines, with the line each sits on. */
+export const decisionsOf = (data: AnswerData) =>
+  data.lines.flatMap((line) =>
+    line.state.type === 'decision' ? [{ line: line.kind, decision: line.state.decision }] : [],
+  )
+
+/** The workbench's own guide (the switch on), held to `overrides`. */
 export const recommendation = (answers: AnswersInput, overrides: Overrides = NO_OVERRIDES) =>
   recommend(answers, guideSettings(overrides))
-
-/** The same money at other horizons. */
-export const ladderFor = (answers: AnswersInput, overrides: Overrides = NO_OVERRIDES) =>
-  ladder(answers, guideSettings(overrides))
-
-/** The kinds drawn beside the answer, month by month. */
-export const alternativesFor = (answers: AnswersInput, overrides: Overrides = NO_OVERRIDES) =>
-  alternatives(answers, guideSettings(overrides))
 
 // ─────────────────────────── The workbench ───────────────────────────
 

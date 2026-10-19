@@ -1,21 +1,20 @@
-import { answersWith, chipSituations, followCard, followUps, situations } from './core'
-import type { AnswersInput, FollowUp } from './core'
-import { chip, expect, expectAnswerFor, fillField, test, type Page } from './fixtures'
+import { answerFor, answersWith, chipSituations, decisionsOf, situations } from './core'
+import { chip, decide, expect, expectAnswerFor, fillField, test, type Page } from './fixtures'
 import { shown } from '../src/lib/horizon'
 import { t } from '../src/lib/text'
 
-// The questions: the chips, the fields, the horizon and its unit, and the
-// follow-up cards that come and go with the answers. What the answer is for
-// each is the core's (`recommend`); here, that the page asks the core what
-// the fields say.
+// The questions: the chips, the fields, the horizon and its unit. They ask
+// only the visitor's facts (REDESIGN.md §2.1): what only the visitor can
+// decide is asked in the answer, where it decides, never here as a card.
+// What the answer is for each is the core's (`answer`); here, that the page
+// asks the core what the fields say.
 
-/** The follow-up cards the page shows, against those the core asks for. */
-async function expectFollowUps(page: Page, answers: AnswersInput) {
-  const asked = followUps(answers)
-  for (const each of ['Flexibility', 'AgeAndRetirement', 'Cushion'] as FollowUp[]) {
-    const title = page.getByRole('heading', { name: followCard(each).title, exact: true })
-    await expect(title, each).toHaveCount(asked.includes(each) ? 1 : 0)
-  }
+/** The questions ask nothing but the facts: the chips are their only group,
+ * and no follow-up card is left. */
+async function expectOnlyFacts(page: Page) {
+  const questions = page.locator('.questions-column')
+  await expect(questions.getByRole('group')).toHaveCount(1)
+  await expect(page.locator('section.follow')).toHaveCount(0)
 }
 
 const moneyOnPage = async (page: Page) => ({
@@ -36,7 +35,7 @@ test(
       await expect(page.locator('#monthly')).toHaveValue(
         monthly === null ? '' : monthly.toLocaleString('en-US'),
       )
-      await expectFollowUps(page, situation.answers)
+      await expectOnlyFacts(page)
       await expectAnswerFor(page, situation.answers)
     }
   },
@@ -61,26 +60,25 @@ test(
   },
 )
 
-test('the follow-up cards come and go as the horizon changes', async ({ page }) => {
-  const base = answersWith({ now: 50_000, monthly: 0, flexibility: undefined })
-  await chip(page, situations().find(({ id }) => id === 'goal')!.name).click()
+test('whether the date can move is asked in the answer, only where the core asks it', async ({ page }) => {
+  const base = answersWith({ now: 50_000, monthly: 0 })
   await fillField(page, 'monthly', '0')
   await fillField(page, 'now', '50000')
-  // Under 3 years and past 7: the date doesn't matter; between: it does.
   for (const years of [2, 3, 5, 6, 8, 3]) {
     await fillField(page, 'horizon', String(years))
     await expect(page.locator('#horizon')).toHaveValue(String(years))
-    const answers = { ...base, horizon: { Months: years * 12 } }
-    await expectFollowUps(page, answers)
+    // As many decisions as the core asks for this date, none in the questions.
+    await expectAnswerFor(page, { ...base, horizon: { Months: years * 12 } })
+    await expectOnlyFacts(page)
   }
-  // Answering the card changes the answer.
+  // Where it is asked, answering it changes the answer.
   await fillField(page, 'horizon', '5')
+  const five = { ...base, horizon: { Months: 60 } }
+  const asks = decisionsOf(answerFor(five)).some(({ decision }) => decision.id === 'PlaceType')
+  expect(asks, 'five years with nothing monthly asks whether the date can move').toBe(true)
   for (const flexibility of ['Fixed', 'CanWait'] as const) {
-    const card = page.locator('section.follow').filter({ hasText: followCard('Flexibility').title })
-    await card
-      .getByRole('button', { name: followCard('Flexibility').answers[flexibility === 'Fixed' ? 0 : 1] })
-      .click()
-    await expectAnswerFor(page, { ...base, horizon: { Months: 60 }, flexibility })
+    await decide(page, five, {}, 'PlaceType', { Flexibility: flexibility })
+    await expectAnswerFor(page, { ...five, flexibility })
   }
 })
 
@@ -106,29 +104,23 @@ test('the horizon is a number and a unit, and the unit can be changed', async ({
   await expect(unit).toHaveValue('years')
 })
 
-test('an emptied date field is not known yet and the horizon and asks about a cushion', async ({ page }) => {
+test('an emptied date field is a date not known yet, and typing one answers for it', async ({ page }) => {
   const salary = situations().find(({ id }) => id === 'salary')!.answers
   await chip(page, situations().find(({ id }) => id === 'salary')!.name).click()
   await page.locator('#horizon').fill('')
   await expect(page.locator('#horizon')).toHaveValue('')
   const unknown = { ...salary, horizon: 'Unknown' as const }
-  await expectFollowUps(page, unknown)
-  // The cushion's card asks for the month's expenses when there is none.
-  const card = page.locator('section.follow').filter({ hasText: followCard('Cushion').title })
-  await card.getByRole('button', { name: followCard('Cushion').answers[1] }).click()
-  await page.locator('#expenses').fill('17000')
-  const answers = { ...unknown, cushion: { kind: 'hasNot' as const, monthlyExpenses: 17_000 } }
-  await expectFollowUps(page, answers)
-  await expectAnswerFor(page, answers)
-  // Typing a horizon takes the question back.
+  await expectAnswerFor(page, unknown)
+  await expectOnlyFacts(page)
+  // A horizon: the answer is the core's for it, whatever it asks.
   await fillField(page, 'horizon', '10')
-  await expectFollowUps(page, { ...salary, horizon: { Months: 120 } })
+  await expectAnswerFor(page, { ...unknown, horizon: { Months: 120 } })
 })
 
-test('for retirement the card asks the age and when to retire', async ({ page }) => {
+test('for retirement the questions ask the age and when to retire', async ({ page }) => {
   const retirement = situations().find(({ id }) => id === 'retirement')!
   await chip(page, retirement.name).click()
-  await expectFollowUps(page, retirement.answers)
+  await expectOnlyFacts(page)
   await expect(page.locator('#age')).toHaveValue('45')
   await expect(page.locator('#retire-at')).toHaveValue('65')
   await page.locator('#age').fill('40')
@@ -144,7 +136,6 @@ test('typing years for a retirement keeps the ages and the retirement', async ({
   await expect(page.locator('#age')).toHaveValue('45')
   await expect(page.locator('#retire-at')).toHaveValue('63')
   const answers = { ...retirement.answers, horizon: { Retirement: { age: 45, retire_at: 63 } } }
-  await expectFollowUps(page, answers)
   await expectAnswerFor(page, answers)
 })
 
