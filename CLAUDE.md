@@ -199,9 +199,11 @@ tests, then the browser tests) and `npm run lint` (prettier, eslint,
 stylelint, svelte-check). After a change to how the page behaves when used
 (charts, animations, inputs, loading, the worker's jobs), also
 `npm run test:perf`. After a change to the guide's rules, run
-`cargo mutants -p broker-fees -j 8 --file crates/core/src/guide.rs` (and
-`ways.rs`, `history.rs`) and turn the surviving mutants that matter into
-tests.
+`cargo mutants -p broker-fees -j 8 --timeout 180 --file 'crates/core/src/guide.rs' --file 'crates/core/src/guide/*.rs' --file crates/core/src/ways.rs --file crates/core/src/history.rs`
+(about 15 minutes; `--file` takes globs and repeats) and turn the surviving
+mutants that matter into tests. It copies the tree for each job, so with
+agents' worktrees under `.claude/worktrees` (19 GB) run it from a fresh
+`git clone` with `TMPDIR` on the big disk, or `/tmp` fills up.
 
 **After any Rust change, run `npm run wasm`**, or the dev server and tests
 quietly keep running the old core.
