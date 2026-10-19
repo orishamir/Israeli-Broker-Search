@@ -36,6 +36,7 @@ export const en = {
       ? `Below ${below} a month, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`
       : `For a one-time deposit below ${below}, ${belowPlan} is cheaper; above ${above}, ${abovePlan}`,
   checkInputs: (error: string) => `Check your inputs: ${error}.`,
+  notANumber: 'a field holds text that is not a number',
 
   // The table
   rank: 'Rank',
@@ -441,6 +442,8 @@ export const en = {
   ladderRung: (months: number) =>
     months % 12 === 0 ? `${months / 12} year${months === 12 ? '' : 's'}` : `${months} months`,
   ladderRungAnyDay: 'Any day',
+  ladderRungLabel: (when: string, what: string, amount: string) =>
+    `${when}: ${what}, ${amount}. Go on with this horizon`,
   learnMore: 'More about this ›',
   back: 'Back',
   glossaryHint: "Every term the calculator uses, as it's called in your bank's app and in ads.",

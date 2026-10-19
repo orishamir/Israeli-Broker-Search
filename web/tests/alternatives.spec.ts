@@ -1,4 +1,4 @@
-import { alternativesFor, NO_OVERRIDES, recommendation } from './core'
+import { alternativesFor, ladderFor, NO_OVERRIDES, recommendation } from './core'
 import {
   away,
   canvasPicture,
@@ -109,6 +109,16 @@ test(
     expect(recommendation(answers).kind.kind).toEqual(guide.kind.kind)
   },
 )
+
+test('each rung of the ladder is a button named by its horizon, kind and sum', async ({ page }) => {
+  const answers = await enter(page, { now: 0, monthly: 3000, horizon: 'unknown', cushion: 17_000 })
+  await expectAnswerFor(page, answers)
+  const rungs = page.locator('section.ladder button.rung')
+  await expect(rungs).toHaveCount(ladderFor(answers).length)
+  for (const [index, rung] of ladderFor(answers).entries()) {
+    await expect(rungs.nth(index)).toHaveAttribute('aria-label', new RegExp(rung.kind.name))
+  }
+})
 
 test('the donut has a tab for the answer and each kind drawn beside it', async ({ page }) => {
   const answers = await enter(page, { ...fiveYearsFixed, flexibility: 'CanWait' })

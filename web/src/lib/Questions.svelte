@@ -291,8 +291,10 @@
     gap: 8px;
     width: var(--input-field);
   }
+  /* The number and its unit share the width every field has, so the label
+     keeps the room to read on a phone. */
   .control.horizon {
-    width: min(18rem, 80%);
+    width: var(--input-field);
   }
   .updates {
     margin: 0;

@@ -118,6 +118,7 @@ import { firstOfEachId, load, save } from './saved'
 import { ask, askSweep, type GuideRequest, type SweepRequest } from './sweeper'
 import { run, type Worked } from './work'
 import { t } from './text'
+import { unreadable } from './unreadable.svelte'
 
 /** The calendar year, for the core's "in 2041's shekels" note. */
 const THIS_YEAR = new Date().getFullYear()
@@ -849,7 +850,17 @@ export class AppState {
     if (!this.selected.has(yours.id)) this.selected.add(yours.id)
   }
 
+  /** The years field. For a retirement the ages stay and the years are the
+   * gap between them, so typing years moves the age of retiring; an empty
+   * field changes nothing. */
   setHorizonMonths(months: number | null) {
+    const { horizon } = this.answers
+    if (typeof horizon === 'object' && 'Retirement' in horizon) {
+      if (months === null) return
+      const { age } = horizon.Retirement
+      this.answers.horizon = { Retirement: { age, retire_at: age + Math.round(months / 12) } }
+      return
+    }
     this.answers.horizon = { Months: months ?? 0 }
   }
   setHorizonUnknown() {
@@ -1114,6 +1125,7 @@ export class AppState {
   /** Why the answers or the inputs can't be compared, in the core's words;
    * the last results stay, faded, under it. */
   inputError: string | undefined = $derived.by(() => {
+    if (unreadable.size > 0) return t.notANumber
     if (this.recommended?.error) return this.recommended.error
     if (this.latest && 'error' in this.latest) return this.latest.error
     if (this.latestWays && 'error' in this.latestWays) return this.latestWays.error
