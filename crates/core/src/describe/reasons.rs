@@ -918,17 +918,26 @@ pub fn why_not(
 pub fn unlock_text(unlock: &UnlockLine, lang: Lang) -> String {
     let provider = &unlock.plan.provider[lang];
     let plan = &unlock.plan.plan[lang];
+    let (now_en, now_he) = if unlock.first_deposit_now.is_zero() {
+        ("you have none now".to_owned(), "עכשיו אין לכם".to_owned())
+    } else {
+        (
+            format!("now {}", shekels(unlock.first_deposit_now)),
+            format!("עכשיו {}", shekels(unlock.first_deposit_now)),
+        )
+    };
     say(
         lang,
         format!(
-            "With a first deposit of {} you could open {provider}, {plan}: it would leave {} \
-             against {} here, in today's money.",
+            "With a first deposit of {} ({now_en}) you could open {provider}, {plan}: it would leave {} \
+             against {} for the kind chosen above with the same first deposit, in today's money. \
+             Both include the extra first deposit, so they are higher than the amount above.",
             shekels(unlock.first_deposit),
             shekels(unlock.after_tax.today),
             shekels(unlock.instead_of.today)
         ),
         format!(
-            "עם הפקדה ראשונה של {} אפשר לפתוח את {provider}, {plan}: שם נשאר {} לעומת {} כאן, בכסף של היום.",
+            "עם הפקדה ראשונה של {} ({now_he}) אפשר לפתוח את {provider}, {plan}: שם נשאר {} לעומת {} בסוג שנבחר למעלה עם אותה הפקדה ראשונה, בכסף של היום. שני הסכומים כוללים את ההפקדה הראשונה הנוספת, ולכן הם גבוהים מהסכום למעלה.",
             shekels(unlock.first_deposit),
             shekels(unlock.after_tax.today),
             shekels(unlock.instead_of.today)

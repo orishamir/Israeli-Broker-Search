@@ -550,6 +550,9 @@ pub struct Ranked {
 pub struct UnlockLine {
     /// ₪, the first deposit that opens it.
     pub first_deposit: Decimal,
+    /// ₪, the first deposit the saver has now: both figures below include
+    /// the difference, which the headline's figure doesn't.
+    pub first_deposit_now: Decimal,
     pub plan: Choice,
     pub kind: Kind,
     /// What it leaves at that deposit.

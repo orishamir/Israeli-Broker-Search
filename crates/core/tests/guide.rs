@@ -1858,3 +1858,21 @@ fn the_stock_fund_beside_a_safe_answer_counts_every_month() {
         .unwrap();
     assert!(stock.nominal > dec!(46_000), "{}", stock.nominal);
 }
+
+/// The unlock line's figures are for the bigger first deposit, so the line
+/// says what the first deposit is now and that the figures include the
+/// difference (the review compared them with the headline, which they exceed).
+#[test]
+fn the_unlock_line_says_its_figures_include_the_extra_first_deposit() {
+    let rec = recommended(&answers(dec!(1000), dec!(500), years(30)));
+    let unlock = rec.unlock.as_ref().expect("an unlock line");
+    assert_eq!(unlock.first_deposit_now, dec!(1000));
+    assert!(unlock.instead_of.today > rec.left.today);
+    for lang in [Lang::En, Lang::He] {
+        let text = broker_fees::describe::reasons::unlock_text(unlock, lang);
+        assert!(text.contains("1,000"), "{text}");
+        assert!(text.contains("5,000"), "{text}");
+    }
+    let en = broker_fees::describe::reasons::unlock_text(unlock, Lang::En);
+    assert!(en.contains("higher than the amount above"), "{en}");
+}

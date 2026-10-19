@@ -366,6 +366,7 @@ impl Run<'_> {
                 };
                 UnlockLine {
                     first_deposit: unlock.first_deposit,
+                    first_deposit_now: first,
                     plan: self.choice_of(&opened),
                     kind: Kind::Way(way),
                     after_tax: amount(unlock.after_tax, level),
