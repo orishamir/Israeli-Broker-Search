@@ -27,7 +27,16 @@
           <span>{t.ladderWhen}</span><span>{t.ladderMost}</span>
         </div>
         {#each held.current as rung (`${rung.months}-${rung.anyDay}`)}
-          <button type="button" class="rung" onclick={() => app.setHorizonMonths(rung.months)}>
+          <button
+            type="button"
+            class="rung"
+            aria-label={t.ladderRungLabel(
+              rung.anyDay ? t.ladderRungAnyDay : `${t.ladderWhen} ${t.ladderRung(rung.months)}`,
+              rung.kind.name,
+              shekels(rung.left.today),
+            )}
+            onclick={() => app.setHorizonMonths(rung.months)}
+          >
             <span class="when">{rung.anyDay ? t.ladderRungAnyDay : t.ladderRung(rung.months)}</span>
             <span class="what">
               {rung.kind.name}

@@ -437,6 +437,8 @@ export const he: Text = {
   ladderTap: 'הקישו על שורה כדי להמשיך איתה.',
   ladderRung: (months: number) => (months % 12 === 0 ? yearsText(months / 12) : monthsText(months)),
   ladderRungAnyDay: 'בכל יום',
+  ladderRungLabel: (when: string, what: string, amount: string) =>
+    `${when}: ${what}, ${amount}. להמשיך עם האופק הזה`,
   learnMore: 'עוד על זה ›',
   back: 'חזרה',
   glossaryHint: 'כל המונחים שהמחשבון משתמש בהם, כמו שהם נקראים באפליקציה של הבנק ובפרסומות.',

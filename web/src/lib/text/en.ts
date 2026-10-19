@@ -442,6 +442,8 @@ export const en = {
   ladderRung: (months: number) =>
     months % 12 === 0 ? `${months / 12} year${months === 12 ? '' : 's'}` : `${months} months`,
   ladderRungAnyDay: 'Any day',
+  ladderRungLabel: (when: string, what: string, amount: string) =>
+    `${when}: ${what}, ${amount}. Go on with this horizon`,
   learnMore: 'More about this ›',
   back: 'Back',
   glossaryHint: "Every term the calculator uses, as it's called in your bank's app and in ads.",

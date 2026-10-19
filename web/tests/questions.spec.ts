@@ -148,6 +148,14 @@ test('typing years for a retirement keeps the ages and the retirement', async ({
   await expectAnswerFor(page, answers)
 })
 
+test('the horizon label is not squeezed to a word a line', { tag: '@phone' }, async ({ page }) => {
+  const label = page.locator('label[for="horizon"]')
+  const box = (await label.boundingBox())!
+  const lineHeight = Number.parseFloat(await label.evaluate((el) => getComputedStyle(el).lineHeight))
+  // A label of a few words fits two lines, in the room the field leaves.
+  expect(box.height).toBeLessThanOrEqual(lineHeight * 2.1)
+})
+
 test('text that is not a number is said to be, not silently ignored', async ({ page }) => {
   await fillField(page, 'now', '-5000abc')
   await expect(page.locator('.card.error')).toContainText(t.notANumber)
