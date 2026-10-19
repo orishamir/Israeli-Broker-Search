@@ -584,9 +584,16 @@ fn reasons_for(
             circumstances.push(Circumstance::HistoryOfTheHorizon { years });
         }
     };
-    let cheapest = Circumstance::CheapestAfterTax {
+    // "Leaves the most" is only true of the first that anyone can open: a
+    // kind the saver chose may sit lower in the ranking.
+    let leads = d
+        .ranked
+        .iter()
+        .find(|line| !matches!(line.kind, Kind::Way(way) if !index::open_to_anyone(way)))
+        .is_none_or(|line| line.kind == d.kind);
+    let cheapest = leads.then_some(Circumstance::CheapestAfterTax {
         cost_a_year: d.cost_a_year,
-    };
+    });
     circumstances.push(horizon_circumstance(d.route, answers, d));
     match d.route {
         Route::Short | Route::Forced(Arena::Safe) => {
@@ -599,12 +606,12 @@ fn reasons_for(
         Route::IndexFlexible => {
             circumstances.push(Circumstance::IfItsDownYouWait { months: d.months });
             history(&mut circumstances);
-            circumstances.push(cheapest);
+            circumstances.extend(cheapest);
             circumstances.push(Circumstance::WhatSafetyCosts);
         }
         Route::IndexLong => {
             history(&mut circumstances);
-            circumstances.push(cheapest);
+            circumstances.extend(cheapest);
             circumstances.push(Circumstance::WhatSafetyCosts);
         }
         Route::Retirement => {
@@ -625,7 +632,7 @@ fn reasons_for(
                 circumstances.push(Circumstance::DepositCeiling { ceiling });
             }
             history(&mut circumstances);
-            circumstances.push(cheapest);
+            circumstances.extend(cheapest);
         }
         Route::CushionFirst => {
             if let Some(Cushion::HasNot { monthly_expenses }) = answers.cushion {
@@ -642,7 +649,7 @@ fn reasons_for(
             if answers.cushion == Some(Cushion::Has) {
                 circumstances.push(Circumstance::HasCushion);
             }
-            circumstances.push(cheapest);
+            circumstances.extend(cheapest);
         }
         Route::UnknownSum => {
             circumstances.push(Circumstance::OneSum);
@@ -650,7 +657,7 @@ fn reasons_for(
         }
         Route::Forced(Arena::Index) => {
             history(&mut circumstances);
-            circumstances.push(cheapest);
+            circumstances.extend(cheapest);
         }
     }
     circumstances

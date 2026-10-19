@@ -707,6 +707,33 @@ fn the_ladder_has_five_rungs_and_grows_with_the_horizon() {
     }
 }
 
+/// "Leaves the most after fees and tax" is said of the answer only when it
+/// does: a kind the saver chose from lower in the ranking doesn't claim it.
+#[test]
+fn a_chosen_kind_below_the_top_does_not_claim_to_leave_the_most() {
+    let sum = answers(dec!(15_000), dec!(0), years(20));
+    let top = recommended(&sum);
+    assert!(names(&top, |c| matches!(
+        c,
+        Circumstance::CheapestAfterTax { .. }
+    )));
+    let lower = top
+        .ranked
+        .iter()
+        .map(|line| line.kind)
+        .find(|kind| matches!(kind, Kind::Way(_)) && !is_study_fund(*kind) && *kind != top.kind)
+        .expect("another way is ranked");
+    let mut chosen = settings();
+    chosen.overrides.kind = Some(lower);
+    let rec = recommend(&sum, &chosen, &DATA).unwrap();
+    assert_eq!(rec.kind, lower);
+    assert!(names(&rec, |c| matches!(c, Circumstance::ChosenByYou)));
+    assert!(!names(&rec, |c| matches!(
+        c,
+        Circumstance::CheapestAfterTax { .. }
+    )));
+}
+
 /// A kind the expert chose is a choice about one arena: the ladder draws it
 /// at the rungs of that arena, and at the others what fits that horizon.
 #[test]
