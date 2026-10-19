@@ -1982,3 +1982,47 @@ fn the_money_market_line_starts_from_the_same_deposits_as_the_current_account() 
         }
     }
 }
+
+/// A figure the app worked out is no more exact than its inputs: no reason
+/// says "0.3052%" (four decimals) where a hundredth of a percent is all
+/// there is to say.
+#[test]
+fn reasons_do_not_show_false_precision() {
+    // A number with more than three decimals, followed by a percent sign.
+    fn has_false_precision(text: &str) -> Option<String> {
+        let chars: Vec<char> = text.chars().collect();
+        let mut at = 0;
+        while at < chars.len() {
+            if chars[at].is_ascii_digit() {
+                let start = at;
+                while at < chars.len() && (chars[at].is_ascii_digit() || chars[at] == '.') {
+                    at += 1;
+                }
+                let number: String = chars[start..at].iter().collect();
+                let decimals = number.split_once('.').map_or(0, |(_, after)| after.len());
+                if chars.get(at) == Some(&'%') && decimals > 3 {
+                    return Some(number);
+                }
+            } else {
+                at += 1;
+            }
+        }
+        None
+    }
+    for preset in situations() {
+        let rec = recommended(&preset.answers);
+        for reason in &rec.reasons {
+            for lang in [Lang::En, Lang::He] {
+                assert_eq!(
+                    has_false_precision(&reason.text[lang]),
+                    None,
+                    "{}: {}",
+                    preset.id,
+                    &reason.text[lang]
+                );
+            }
+        }
+    }
+    assert!(has_false_precision("takes about 0.3052% a year").is_some());
+    assert!(has_false_precision("takes about 0.31% a year").is_none());
+}

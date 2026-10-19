@@ -526,7 +526,7 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
             } else {
                 lang.pick("of the ways anyone can open", "מהדרכים שכל אחד יכול לפתוח")
             };
-            match cost_a_year {
+            match cost_a_year.map(crate::Percent::rounded) {
                 Some(cost) => say(
                     lang,
                     format!(
