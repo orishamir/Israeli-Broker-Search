@@ -116,7 +116,8 @@
       <p class="move" transition:reveal>
         {recommendation.movePortfolioText}
         {#each recommendation.movePortfolioSources as source (source.url)}
-          <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>{' '}
+          <a href={source.url} target="_blank" rel="noopener noreferrer">{source.name}</a>
+          &nbsp;
         {/each}
       </p>
     {/if}
