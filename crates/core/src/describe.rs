@@ -993,6 +993,8 @@ pub struct FeeLine {
     pub label: String,
     pub explanation: String,
     pub hebrew_names: Vec<String>,
+    /// Its learn card, if there is one: the tip's "עוד על זה ›".
+    pub card: Option<Term>,
     /// "0.15%, min ₪3.5", or that it's nothing: "not offered", "none".
     pub price: PriceText,
     /// Shown under it, as part of it: a standing order's price under buying,
@@ -1041,6 +1043,7 @@ impl FeeLine {
                 .iter()
                 .map(|&name| name.to_owned())
                 .collect(),
+            card: kind.card(),
             price,
             parts: vec![],
             mark: None,
