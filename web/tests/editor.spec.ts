@@ -192,6 +192,8 @@ test('your plans and the editor view stay after a reload', async ({ page }) => {
   await choice(editor(page), t.view, t.fullPriceList).click()
   await editor(page).getByRole('button', { name: t.done }).click()
 
+  // The address is rewritten after a pause; a reload before it would open the old one.
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain('yours=')
   await page.reload()
   await workbench(page)
   await expect(rows(page).filter({ hasText: name })).toContainText(t.yourDeal(broker.name))
