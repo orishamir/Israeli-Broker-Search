@@ -409,7 +409,10 @@ pub(crate) fn losses_sentence(history: &DepositsBand, monthly: bool, lang: Lang)
                 "הכסף שהופקד נגמר מתחת למה ששמו",
             )
         } else {
-            lang.pick("the S&P 500 index ended at a loss", "מדד S&P\u{a0}500 נגמר בהפסד")
+            lang.pick(
+                "the S&P 500 index ended at a loss",
+                "מדד S&P\u{a0}500 נגמר בהפסד",
+            )
         }
     };
     match (history.lower, lang) {
@@ -526,8 +529,14 @@ pub fn cushion_decision(
             OptWords {
                 title: fixed("I have a cushion", "יש לי כרית"),
                 amount: both(|lang| match lang {
-                    Lang::En => format!("All {} to the S&P 500 index, from this month", shekels(monthly)),
-                    Lang::He => format!("כל ה\u{2011}{} למדד S&P\u{a0}500, מהחודש הזה", shekels(monthly)),
+                    Lang::En => format!(
+                        "All {} to the S&P 500 index, from this month",
+                        shekels(monthly)
+                    ),
+                    Lang::He => format!(
+                        "כל ה\u{2011}{} למדד S&P\u{a0}500, מהחודש הזה",
+                        shekels(monthly)
+                    ),
                 }),
                 facts: vec![fixed(
                     "The cushion stays where it is.",
@@ -572,8 +581,13 @@ pub fn cushion_decision(
                         }
                     }),
                     both(|lang| match lang {
-                        Lang::En => format!("Then the {} goes to the S&P 500 index.", shekels(monthly)),
-                        Lang::He => format!("אחר כך ה\u{2011}{} עוברים למדד S&P\u{a0}500.", shekels(monthly)),
+                        Lang::En => {
+                            format!("Then the {} goes to the S&P 500 index.", shekels(monthly))
+                        }
+                        Lang::He => format!(
+                            "אחר כך ה\u{2011}{} עוברים למדד S&P\u{a0}500.",
+                            shekels(monthly)
+                        ),
                     }),
                 ],
                 fits_if: None,
@@ -739,11 +753,9 @@ pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
                     "צמיחה: קרן על מדד S&P\u{a0}500",
                 ),
                 amount: both(|lang| match f.growth {
-                    Some(growth) => format!(
-                        "{} {}",
-                        shekels(growth),
-                        it_rises(f.index_return, lang)
-                    ),
+                    Some(growth) => {
+                        format!("{} {}", shekels(growth), it_rises(f.index_return, lang))
+                    }
                     None => String::new(),
                 }),
                 facts: growth_facts,
@@ -847,26 +859,24 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
             String::new()
         }
     };
-    let why = both(
-        |lang| match (lang, has_fund && f.flips) {
-            (Lang::En, true) => format!(
-                "{}The difference in money is small, and depends on a rate nobody knows in advance. So it's about what suits you, not about which leaves more.",
-                apart(lang)
-            ),
-            (Lang::He, true) => format!(
-                "{}ההבדל בכסף קטן, ותלוי בריבית שאף אחד לא יודע מראש. לכן זה עניין של מה שנוח לכם, ולא של מה שמשאיר יותר.",
-                apart(lang)
-            ),
-            (Lang::En, false) => format!(
-                "{}What sets them apart is locking against flexibility, and simple against a new account.",
-                apart(lang)
-            ),
-            (Lang::He, false) => format!(
-                "{}מה שמבדיל ביניהן הוא נעילה מול גמישות, ופשטות מול חשבון חדש.",
-                apart(lang)
-            ),
-        },
-    );
+    let why = both(|lang| match (lang, has_fund && f.flips) {
+        (Lang::En, true) => format!(
+            "{}The difference in money is small, and depends on a rate nobody knows in advance. So it's about what suits you, not about which leaves more.",
+            apart(lang)
+        ),
+        (Lang::He, true) => format!(
+            "{}ההבדל בכסף קטן, ותלוי בריבית שאף אחד לא יודע מראש. לכן זה עניין של מה שנוח לכם, ולא של מה שמשאיר יותר.",
+            apart(lang)
+        ),
+        (Lang::En, false) => format!(
+            "{}What sets them apart is locking against flexibility, and simple against a new account.",
+            apart(lang)
+        ),
+        (Lang::He, false) => format!(
+            "{}מה שמבדיל ביניהן הוא נעילה מול גמישות, ופשטות מול חשבון חדש.",
+            apart(lang)
+        ),
+    });
     let options = f
         .options
         .iter()
@@ -1164,10 +1174,7 @@ fn names_after(preposition: char, list: &[Text], lang: Lang) -> String {
 /// A Hebrew name after a one-letter preposition: "באקסלנס", and "בבינלאומי"
 /// for "הבינלאומי", whose ה the preposition takes.
 pub(crate) fn joined_to(preposition: char, name: &str) -> String {
-    format!(
-        "{preposition}{}",
-        name.strip_prefix('ה').unwrap_or(name)
-    )
+    format!("{preposition}{}", name.strip_prefix('ה').unwrap_or(name))
 }
 
 fn cost_fact(cost: Option<Percent>) -> Option<Text> {

@@ -369,13 +369,10 @@ pub fn search(ctx: &Context, cheapest_funds: Option<&FundTie>) -> Option<Slot> {
                 "the S&P 500 track, in your study fund",
                 "מסלול מדד S&P\u{a0}500, בקרן ההשתלמות שלכם",
             ))),
-            (Vehicle::InvestmentGemel | Vehicle::SavingsPolicy, _) => Some(plain(fixed(
-                "the S&P 500 track",
-                "מסלול מדד S&P\u{a0}500",
-            ))),
-            (Vehicle::Brokerage, Product::UsFund | Product::IrishFund) => {
-                examples_of(way, "", "")
+            (Vehicle::InvestmentGemel | Vehicle::SavingsPolicy, _) => {
+                Some(plain(fixed("the S&P 500 track", "מסלול מדד S&P\u{a0}500")))
             }
+            (Vehicle::Brokerage, Product::UsFund | Product::IrishFund) => examples_of(way, "", ""),
             (Vehicle::Brokerage, Product::ForeignEtfInTelAviv) => {
                 examples_of(way, "S&P 500, in Tel Aviv", "S&P\u{a0}500, בתל אביב")
             }
@@ -403,8 +400,18 @@ fn money_market(tie: Option<&FundTie>) -> Slot {
             sources: Vec::new(),
         };
     };
-    let highest = tie.funds.iter().map(|fund| fund.fee).max().unwrap_or_default();
-    let lowest = tie.funds.iter().map(|fund| fund.fee).min().unwrap_or_default();
+    let highest = tie
+        .funds
+        .iter()
+        .map(|fund| fund.fee)
+        .max()
+        .unwrap_or_default();
+    let lowest = tie
+        .funds
+        .iter()
+        .map(|fund| fund.fee)
+        .min()
+        .unwrap_or_default();
     let all = tie.funds.len() == examples::money_market_funds().len();
     let text = both(|lang| {
         let names: Vec<String> = tie

@@ -380,7 +380,10 @@ fn the_check_finds_a_bare_index() {
     assert_eq!(bare_index("מה שאבד לעמלות נמדד לפני מס"), None);
     // Within a unit: a reference back to the one index named before it…
     assert_eq!(
-        bare_index_in_unit(&["צמיחה: קרן על מדד S&P\u{a0}500", "₪19,925 אם המדד יעלה 10% בשנה"]),
+        bare_index_in_unit(&[
+            "צמיחה: קרן על מדד S&P\u{a0}500",
+            "₪19,925 אם המדד יעלה 10% בשנה"
+        ]),
         None
     );
     // …but not before it is named, nor where two indexes are.

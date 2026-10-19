@@ -171,11 +171,8 @@ pub(super) fn order_flips(
     others: &[Decimal],
 ) -> bool {
     standing == Standing::Flips
-        || fund.is_some_and(|(low, high)| {
-            others
-                .iter()
-                .any(|other| low <= *other && *other <= high)
-        })
+        || fund
+            .is_some_and(|(low, high)| others.iter().any(|other| low <= *other && *other <= high))
 }
 
 /// The Bank of Israel's average rate at which `ahead(rate)` (one option less

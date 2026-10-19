@@ -11,9 +11,9 @@ use rust_decimal::Decimal;
 
 use crate::describe::how::FundTie;
 use crate::simulation::{self, Scenario};
-use crate::{examples, short_term};
 use crate::ways::{Way, WayOutcome};
 use crate::{Broker, BrokerKind, ExchangeRates, Percent, Text};
+use crate::{examples, short_term};
 
 use super::index::{Cand, Run};
 use super::robust::{FundFee, Version};
@@ -267,26 +267,23 @@ pub(super) fn safe_places(priced: &Priced, data: &Data, yours: Option<Bank>) -> 
     // by its short name and its plan ("לאומי · אונליין"), a bank's deposit
     // by the bank's short name. The banks' average is no place to buy.
     let named = |name: &Text| -> Option<(Text, Text)> {
-        match priced.kind {
-            Kind::GovernmentBond { .. } => {
-                let provider = provider_of(name);
-                let short = data
-                    .brokers
-                    .iter()
-                    .find(|broker| broker.name.en == provider.en || broker.short_name.en == provider.en)
-                    .map_or(provider, |broker| broker.short_name.clone());
-                let plan = plan_of(name);
-                Some((super::safe::joined(&short, &plan), short))
-            }
-            _ => {
-                let place = data
-                    .safe
-                    .iter()
-                    .flat_map(|kind| &kind.places)
-                    .find(|place| place.name == *name)?;
-                (place.name != short_term::deposits::AVERAGE)
-                    .then(|| (place.short_name.clone(), place.short_name.clone()))
-            }
+        if let Kind::GovernmentBond { .. } = priced.kind {
+            let provider = provider_of(name);
+            let short = data
+                .brokers
+                .iter()
+                .find(|broker| broker.name.en == provider.en || broker.short_name.en == provider.en)
+                .map_or(provider, |broker| broker.short_name.clone());
+            let plan = plan_of(name);
+            Some((super::safe::joined(&short, &plan), short))
+        } else {
+            let place = data
+                .safe
+                .iter()
+                .flat_map(|kind| &kind.places)
+                .find(|place| place.name == *name)?;
+            (place.name != short_term::deposits::AVERAGE)
+                .then(|| (place.short_name.clone(), place.short_name.clone()))
         }
     };
     priced

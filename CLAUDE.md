@@ -426,6 +426,9 @@ by more than a half deserves a look.
 | `ladder` (five rungs, none / ₪3,000 a month)                 |   12 / 19 ms |
 | `compare_ways` (seven ways, each on the plans that hold it)  |        30 ms |
 | `compare` every plan, Tel Aviv / USA                         | 5.8 / 9.6 ms |
+| `answer`, 3 years safe, without / with horizons (2026-10-20) |  9 / 100 ms |
+| `answer`, index, 20 years, without / with horizons           | 31 / 125 ms |
+| `answer`, ₪500 a month for 30 years, without / with horizons | 64 / 154 ms |
 
 `alternatives` is `recommend` plus the lines month by month: count it as the
 dearest `recommend` plus a few ms.

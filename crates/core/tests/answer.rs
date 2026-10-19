@@ -975,10 +975,15 @@ fn the_body_repeats_no_figure_shown_elsewhere() {
             for row in &answer.outcome.rows {
                 shown.push(row.value.today);
             }
-            shown.extend([answer.outcome.deposited.today, answer.outcome.current_account.today]);
+            shown.extend([
+                answer.outcome.deposited.today,
+                answer.outcome.current_account.today,
+            ]);
             for amount in body {
                 assert!(
-                    shown.iter().all(|other| (*other - amount).abs() > amount * dec!(0.01)),
+                    shown
+                        .iter()
+                        .all(|other| (*other - amount).abs() > amount * dec!(0.01)),
                     "the body repeats {amount}: {}",
                     answer.body.he
                 );
@@ -1069,15 +1074,18 @@ fn the_search_slots_come_from_the_data() {
                             numbers.iter().any(|number| he.starts_with(number.as_str())),
                             "{he}"
                         );
-                        assert!(!search.sources.is_empty());
+                        assert_ne!(search.sources, Vec::new());
                     }
                     Kind::MoneyMarketFund => {
                         assert!(he.starts_with("כספית שקלית"), "{he}");
                         assert!(!he.contains("הזול"), "{he}");
                     }
                     Kind::Way(way) if way.vehicle == broker_fees::Vehicle::Brokerage => {
-                        assert!(he.contains(broker_fees::examples::NOT_A_PICK.he.as_ref()), "{he}");
-                        assert!(!search.sources.is_empty());
+                        assert!(
+                            he.contains(broker_fees::examples::NOT_A_PICK.he.as_ref()),
+                            "{he}"
+                        );
+                        assert_ne!(search.sources, Vec::new());
                     }
                     _ => {}
                 }
@@ -1108,7 +1116,9 @@ fn where_to_buy_names_each_provider_one_way() {
         for choices in every_choice() {
             let answer = answered(&start, choices);
             for how in &answer.how {
-                let Some(places) = &how.where_to_buy else { continue };
+                let Some(places) = &how.where_to_buy else {
+                    continue;
+                };
                 for row in &places.rows {
                     let name = row.name.he.as_ref();
                     assert_ne!(name, average);
