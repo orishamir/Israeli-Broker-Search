@@ -5,6 +5,7 @@
 The site compares Israeli banks and investment houses, and the funds beside them, for saving and investing. It shows what money comes to, and how fees and tax eat into compounding, across exchanges and ways of holding the same index. In Israel the difference between a mutual fund (קרן מחקה, a kind of קרן נאמנות) and an ETF (קרן סל) can matter more than the choice of broker, so the ways are compared too.
 
 Two kinds of visitor come:
+
 - newcomers, who don't know the strategies (a money‑market fund, a bond, a stock index fund, a mutual fund, a CPI‑linked deposit) and learn by example: **the guide**;
 - people who know what they want to compare and see: **the workbench**.
 
@@ -42,14 +43,16 @@ Before calling a visible change done, run `REDESIGN.md`'s review checklist.
 One page, Hebrew, right to left, dark, with two routes onto the same engine.
 
 **The guide** (the default):
-- **What it takes:** the visitor's facts: what they have now, what they'll add each month, when they'll need the money, and their bank.
+
+- **What it takes:** the visitor's facts: what they have now, what they'll add each month, and when they'll need the money. Their bank is asked in context, in where to buy, only where it changes what's shown.
 - **How it answers:** on up to four lines:
   - **קודם**, only when a step must come first;
   - **סוג המקום**;
   - **הדרך**;
   - **איפה**.
-  
+
   Each line is either stated by the site, with how sure it is, or a decision only the visitor can make. A decision is shown in place, as options side by side with what each would leave.
+
 - **How sure it is:** a chip over the answer: כאן קשה לטעות / ההבדל קטן / תלוי במה שחשוב לכם.
 - **Below the answer:**
   - one chart of what every option would leave on the visitor's date, after tax and in today's money, beside what they deposited and what the current account would leave;
@@ -59,16 +62,17 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
 
 **The workbench** (the "כל האפשרויות" switch in the header) is for visitors who know what to compare: what to buy, the ways to hold it, every lever, the full table and all the charts. The guide and the workbench are one state: the switch only changes what's shown.
 
-**Where the code stands (2026-10-19):** the guide still shows the previous plan's answer:
-- one pick, under "מה שמתאים לכסף כזה";
-- follow‑up cards;
-- the alternatives line chart with its band;
-- the donut and the ladder;
-- no named index.
+**Where the code stands (2026-10-20):** the redesign (`REDESIGN.md` Part 2) is built:
 
-`REDESIGN.md` is the plan that replaces these; its §2.13 lists every reversal.
+- the answer card with the chip, the four lines and the one decision component;
+- the outcome chart, with the yearly return as a field on the stock row;
+- "איך עושים את זה" with the identity line, real names to search for (`examples.rs`) and where to buy against the visitor's bank, asked there;
+- "כמה מהרווח נשאר אצלכם" and the horizon section.
+
+The guide has no assumptions sheet and no override: inflation and the rate are workbench levers. The old answer, the alternatives chart, the donut, the ladder and the follow‑up cards are gone. `docs/redesign/review-2026-10-20.md` is the review against Part 1.
 
 **The engine.** The fee model is Rust compiled to WebAssembly; the UI is Svelte 5 + ECharts.
+
 - Only what earns the same thing is ranked. The safe kinds (a money‑market fund, a fixed‑rate deposit, a government bond held to maturity) are ranked among themselves. So are the index kinds (a broker's index fund or ETF, a provident fund for investment, a study fund, a savings policy).
 - The other arena is only drawn beside, with its risk (`Safety`).
 - A provident fund for savings, mixes, and personal advice are left out on purpose (`policies/not-modeled.md`).
@@ -118,8 +122,20 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
     what the workbench ranks from); `guide/index.rs` prices the index
     kinds through `ways`, `guide/safe.rs` the safe kinds through
     `short_term`, `guide/columns.rs` names the columns of the table
-    (`columns_for`). The guide invents no figure: it asks the
+    (`columns_for`). The redesigned answer is `guide/answer.rs`
+    (`answer`, `answer_with`: `Answer` with its confidence, lines,
+    `Decision`s and `Opt`s, the plan, the outcome, a `How` per row, the
+    gain, the horizon rows, the annuity; `Choices` and `Pick` are what the
+    visitor chose), `guide/robust.rs` (the versions, the confidence state,
+    the switch points, the two noise margins) and `guide/outcome.rs` (the
+    rows and their marks, the market range for the visitor's deposits,
+    where to buy, the gain split). The guide invents no figure: it asks the
     engines.
+  - `examples.rs` (made by `policies/examples.py`): the government bond
+    series with their numbers and repayment days (`nearest_bond`), example
+    funds on the S&P 500 per way (`for_way`, "דוגמה, לא המלצה"), and the
+    money‑market funds' numbers. `annuity.rs`: published conversion
+    coefficients, and the monthly pension as a range (`monthly`).
   - `situations.rs`: the chips the guide opens with (a reason Israelis save,
     each with the answers it sets and a different lesson); it replaced
     `examples.rs`.
@@ -129,7 +145,11 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
     with their numbers, the history sentence, safety tags, the unlock
     line), `steps.rs` (how to do it, step by step, per kind) and
     `answer.rs` (the what-sentence, the amount's notes, the arenas'
-    names). `yours.rs` holds the user's own plans and the
+    names); the redesigned answer's words are in `card.rs` (the chip,
+    title, body, lines, decisions, plan), `outcome.rs` (rows, tags, notes,
+    the legend), `how.rs` (the identity line, what to search for, the
+    steps, where to buy) and `gain.rs` (the gain split, the horizon rows).
+    `yours.rs` holds the user's own plans and the
     editor's fields.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
   `web/src/lib/core` by `npm run wasm`; `lib.rs` the plans and comparison,
@@ -138,28 +158,28 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
   `learn_card`, `glossary`, `about_all`, `footer`). A struct
   with `#[serde(flatten)]` is written as an object, not a `Map`.
 - `web`: the app. One `AppState` (`src/lib/app.svelte.ts`) holds the guide's
-  `answers`, the `expert` switch (persisted as `expert-v2`, in links as
-  `x=1`), the workbench's inputs and `overrides` (a kind or way the user chose
-  on "לשנות" or by tapping an alternative), the ticked plans and your own,
-  and derives the `recommendation` (`core.recommend`), the `comparison`
+  `answers` (with the visitor's `bank`), the `choices`, the `expert` switch
+  (persisted as `expert-v2`, in links as `x=1`), the workbench's inputs and
+  `overrides` (the workbench's own), the ticked plans and your own, and
+  derives the `answer` (`core.answer`, then its `horizons` from a second
+  job), the focused row (`focusRow`), the workbench's `recommendation`
+  (`core.recommend`, only while the workbench needs it), the `comparison`
   within the arena (`compare` or `compareWays`) and `todaysMoney` (default
   on). `App.svelte` is the header (title, glossary, about, share, the
-  switch), the layout and the footer, and the best bar on phones.
-  - Components: `Questions` (situation chips, the money and horizon fields,
-    follow-up cards), `Answer` (the sentence with "מה זה? ›" and "לשנות ›",
-    the amount, reasons, unlock line, cushion plan), `Alternatives` (+
-    `alternatives-chart.ts`: the lines per kind, the band, rows with the safety
-    tag and "why not"; tap a row to continue with it), `Within` (+ `within.ts`:
-    "איפה הכי זול לקנות": the top three, or in expert mode the full table, one
-    component for both arenas with the columns the core names), `Steps`,
-    `Donut` (+ `donut.ts`: where every shekel goes), `Ladder`, `Workbench`
-    (what to buy, the ways, the levers, "מה משווים" with `PlanSheet` and the
-    editor), `ExpertSwitch`, `Charts` (growth, lost to fees, fee breakdown,
-    by deposit; in the guide only growth and the donut), `LearnCard` and
-    `Glossary` (a `Sheet` with the card; a tip's "עוד על זה ›" opens it),
-    `PortfolioDialog` and `BankChips` (the situation "כבר יש לי תיק בבנק").
-    `Answer`, `Alternatives`, `Donut`, `Ladder`, `Steps` and the follow-up
-    cards are what `REDESIGN.md` replaces (its §2.13).
+  switch), the layout in `REDESIGN.md` §2.1's order, and the footer.
+  - The guide's components: `Questions` (situation chips, the money and
+    horizon fields, the ages for retirement), `AnswerCard` (+ `AnswerLine`,
+    `Decision`: the one decision component), `OutcomeChart` (+ `outcome.ts`:
+    rows as buttons, marks on one ₪ axis, labels placed in lanes, the
+    return field), `HowTo` and `WhereToBuy` (+ `how.ts`: the identity line,
+    what to search for, the steps, places against the visitor's bank, the
+    bank asked there), `GainSplit` (+ `gain.ts`) and `HorizonSection`. The
+    workbench's: `Workbench` (what to buy, the ways, the levers, "מה
+    משווים" with `PlanSheet` and the editor), `Within` (+ `within.ts`: the
+    full table, one component for both arenas with the columns the core
+    names), `ExpertSwitch`, `Charts` (growth, lost to fees, fee breakdown,
+    by deposit), `LearnCard` and `Glossary` (a `Sheet` with the card; a
+    tip's "עוד על זה ›" opens it).
     `kinds.ts` turns the core's kinds and ways into the keys that links and
     series ids use; `colors.ts` is the palette (a color per kind, per fee part,
     per plan); `horizon.ts` is the horizon field's number-and-unit.
@@ -172,8 +192,8 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
     in localStorage (`saved.ts`) as core `Plan`s the web side never looks
     inside (`PlanData`); nothing else is remembered but the switch.
   - The charts' options are pure functions in `growth-chart.ts`,
-    `crossover-chart.ts`, `fee-breakdown.ts`, `alternatives-chart.ts` and
-    `donut.ts`; the components only wire them to ECharts and the state, so
+    `crossover-chart.ts` and `fee-breakdown.ts` (the guide's own are HTML,
+    laid out by `outcome.ts` and `gain.ts`); the components only wire them to ECharts and the state, so
     the options are unit-tested without a browser. `glide.ts` says when a
     chart draws a change and how long it glides, `motion.ts` has the page's
     curves and times. While the inputs can't be compared (a field being
@@ -181,18 +201,20 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
     (`inputError`).
   - Work that costs more than a keystroke goes to a Web Worker with its own
     copy of the core (`sweep.worker.ts`, `sweeper.ts`, jobs named in
-    `work.ts`: `sweep`, `recommend`, `ladder`, `alternatives`; the unit tests
-    run them in-line). Each job keeps only its latest request, and the state
-    matches each answer to the request it answers. The sweep (the ticked
-    plans over a range of deposits, for the chart by deposit and the best
-    plan's line about other deposits) is about fees alone, while the table
-    ranks after tax. The ladder and the alternatives are asked once typing
-    pauses; a short horizon's recommendation (up to 5 years,
-    `RECOMMEND_ON_PAGE_UP_TO_MONTHS`) is worked out on the page's thread, so
-    the first screen doesn't wait for the worker.
+    `work.ts`: `answer`, `horizons`, `recommend`, `sweep`, sent in that
+    order; the unit tests run them in-line). Each job keeps only its latest
+    request, and the state matches each answer to the request it answers.
+    The answer goes without its horizon rows (`horizons: false`), and the
+    rows follow as their own job, so the card never waits for them. The
+    sweep (the ticked plans over a range of deposits, for the chart by
+    deposit and the best plan's line about other deposits) is about fees
+    alone, while the table ranks after tax. A dated horizon up to 5 years
+    (`RECOMMEND_ON_PAGE_UP_TO_MONTHS`) has its answer worked out on the
+    page's thread too, so the first screen doesn't wait for the worker.
   - `link.ts` puts the state into the page's address (the Share button),
     `#v=2&…`: the answers (`n`, `m`, horizon `h` as months, `u` or
-    `r:<age>:<retire>`, flexibility `fx`, cushion `cu`, situation `si`),
+    `r:<age>:<retire>`, flexibility `fx`, cushion `cu`, situation `si`,
+    the bank `bk`, the choices `sw`/`wr`/`ac`/`ho`),
     `x=1` for expert, the workbench's inputs when expert or overridden, the
     ticked plans by English label and your own as data. A link without `v=2`
     opens nothing.
@@ -425,9 +447,9 @@ by more than a half deserves a look.
 | `recommend`, index, no first deposit (tries the unlock line) |        42 ms |
 | `compare_ways` (seven ways, each on the plans that hold it)  |        30 ms |
 | `compare` every plan, Tel Aviv / USA                         | 5.8 / 9.6 ms |
-| `answer`, 3 years safe, without / with horizons (2026-10-20) |  9 / 100 ms |
-| `answer`, index, 20 years, without / with horizons           | 31 / 125 ms |
-| `answer`, ₪500 a month for 30 years, without / with horizons | 64 / 154 ms |
+| `answer`, 3 years safe, without / with horizons (2026-10-20) |   9 / 100 ms |
+| `answer`, index, 20 years, without / with horizons           |  31 / 125 ms |
+| `answer`, ₪500 a month for 30 years, without / with horizons |  64 / 154 ms |
 
 ## Conventions
 
@@ -447,7 +469,7 @@ by more than a half deserves a look.
   siblings), so the Hebrew is written once and both languages are required.
 - Dev-dependencies that only tests use go in `[dev-dependencies]`:
   `proptest` for properties, `divan` for benchmarks (`[[bench]] harness =
-  false`, since it has its own `main`).
+false`, since it has its own `main`).
 
 ## Known traps
 
@@ -462,12 +484,8 @@ by more than a half deserves a look.
   - A tip's words are styled by the component that writes them (the snippet keeps its writer's scope). Give a header's tip content its own classes, and scope cell rules to `td`.
   - The details `<dialog>` is `{#key}`ed per plan and broker, so it scrolls back up. A draft isn't keyed: rebuilding the editor would lose focus.
 - **ECharts:**
-  - **The guide's current charts** (`alternatives-chart.ts`, `donut.ts`) are being replaced (`REDESIGN.md` §2.6, §2.7). Until then:
-    - every series has an `id`, the kind's `kindKey`, never its position;
-    - the history's band is two `stack`ed series (the lower one's line transparent, the upper one's `areaStyle`), never hovered;
-    - names are fitted with `fitName`;
-    - hover and the rows' linking go through `dispatchAction`;
-    - the donut's labels have `overflow: 'none'`, and a slice under 0.5% is listed under the donut.
+  - ECharts draws only the workbench's charts; the guide's outcome chart and gain bars are HTML, so their labels are measured on a canvas and placed by `outcome.ts`/`gain.ts`.
+  - Names are fitted with `fitName`; hover and the rows' linking go through `dispatchAction`.
   - The `chart` attachment draws never before the paint that follows a
     change, so typing shows first, and not at all while its element has no
     size (a hidden view). Both chart views stay mounted; a hidden one keeps its
@@ -583,6 +601,7 @@ by more than a half deserves a look.
   - ties are shown as ties, without ranks.
 
   Groups of inputs go in separate cards.
+
 - **One style:**
   - one tooltip style everywhere;
   - outlined buttons, as tall as a choice (33 px); text fields and menus 37 px; tints of the accent and warning from the tokens on `:root`;
