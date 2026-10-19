@@ -234,10 +234,9 @@ fn safe_pool(route: Route, answers: &Answers) -> Vec<Kind> {
         }
         // Only what has a sum known in advance; the money market fund is an
         // alternative ("the rate changes").
+        // (A linked bond's sum in shekels is not known: it follows the index.)
         Route::FixedDate | Route::FlexibleShort => {
-            let mut pool = vec![Kind::FixedDeposit];
-            pool.extend(bonds);
-            pool
+            vec![Kind::FixedDeposit, Kind::GovernmentBond { linked: false }]
         }
         Route::CushionFirst | Route::UnknownSum => vec![Kind::MoneyMarketFund],
         Route::Forced(_)
@@ -508,6 +507,10 @@ fn safe_kind_circumstances(d: &Decision<'_>, ctx: &Context) -> Vec<Circumstance>
         Kind::FixedDeposit => vec![
             Circumstance::DepositLocked { months: d.months },
             Circumstance::SumKnownInAdvance,
+        ],
+        Kind::GovernmentBond { linked: true } => vec![
+            Circumstance::RealValueKnownInAdvance,
+            Circumstance::BondCanBeSold,
         ],
         _ => vec![Circumstance::SumKnownInAdvance, Circumstance::BondCanBeSold],
     }

@@ -335,10 +335,10 @@ impl Kind {
     pub fn safety(self) -> Safety {
         match self {
             Kind::MoneyMarketFund => Safety::RateChanges,
-            Kind::FixedDeposit
-            | Kind::LinkedDeposit
-            | Kind::GovernmentBond { .. }
-            | Kind::CurrentAccount => Safety::SumKnown,
+            Kind::FixedDeposit | Kind::GovernmentBond { linked: false } | Kind::CurrentAccount => {
+                Safety::SumKnown
+            }
+            Kind::LinkedDeposit | Kind::GovernmentBond { linked: true } => Safety::RealValueKnown,
             Kind::Way(_) => Safety::CanFall,
         }
     }
@@ -383,6 +383,9 @@ pub enum Safety {
     SumKnown,
     /// Safe, but the rate it earns changes with the Bank of Israel's.
     RateChanges,
+    /// Linked to the index: what it buys is known in advance, the sum in
+    /// shekels is not.
+    RealValueKnown,
     /// The market decides, and can be down on the day.
     CanFall,
 }
@@ -426,6 +429,9 @@ pub enum Circumstance {
     DepositLocked { months: u32 },
     /// The end sum is known when the kind is bought.
     SumKnownInAdvance,
+    /// A linked bond or deposit: its real value is known in advance, its
+    /// sum in shekels is not.
+    RealValueKnownInAdvance,
     /// A bond can be sold before it is repaid, at the day's price.
     BondCanBeSold,
     /// The rule for the index arena: if it's down on the day, you wait.

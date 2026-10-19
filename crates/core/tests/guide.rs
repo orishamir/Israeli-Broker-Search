@@ -200,7 +200,13 @@ fn row_3_a_fixed_date_beyond_three_years_takes_a_sum_known_in_advance() {
     assert!(
         rec.ranked
             .iter()
-            .all(|line| line.kind != Kind::MoneyMarketFund)
+            .all(|line| line.kind.safety() == Safety::SumKnown)
+    );
+    assert!(
+        rec.ranked
+            .iter()
+            .all(|line| line.kind != Kind::GovernmentBond { linked: true }),
+        "a linked bond's sum in shekels is not known in advance"
     );
     assert!(names(&rec, |c| matches!(
         c,
@@ -804,7 +810,9 @@ fn the_breakdown_names_where_the_money_went() {
 // ─────────────────────────── §8: the user's questions ───────────────────────────
 
 /// a1: ₪50,000 now, 5 years, fixed: a government bond or the 5-year
-/// deposit, whichever leaves more, with the brokers ranked on bonds.
+/// deposit, whichever leaves more, with the brokers ranked on bonds. With
+/// the data as it is the answer is the unlinked bond or the deposit; the
+/// test states the rule, not which of them the data favours.
 #[test]
 fn a1_fixed_five_years_is_a_bond_or_a_deposit() {
     let rec = recommended(&fixed(answers(dec!(50_000), dec!(0), years(5))));
@@ -1322,12 +1330,12 @@ fn the_breakdown_of_a_safe_answer_is_the_engines_in_todays_money() {
 fn each_bond_is_the_engines_own() {
     use broker_fees::short_term::government_bonds::Linkage;
     use broker_fees::short_term::{self, Pays};
-    let rec = recommended(&fixed(answers(dec!(50_000), dec!(0), years(5))));
+    let rec = recommended(&answers(dec!(50_000), dec!(0), years(3)));
     let kinds = short_term::kinds();
     let scenario = short_term::Scenario {
         first_deposit: dec!(50_000),
         monthly_deposit: dec!(0),
-        months: 60,
+        months: 36,
         rate: short_term::TODAYS_RATE,
         inflation: Percent(dec!(2)),
     };
@@ -1562,7 +1570,14 @@ fn the_unlock_line_is_held_against_the_answer_at_the_same_deposit() {
 /// said to be locked: it is the date that decides.
 #[test]
 fn a_deposit_beside_a_fixed_date_is_not_blamed_for_being_locked() {
-    let rec = recommended(&fixed(answers(dec!(50_000), dec!(0), years(5))));
+    let mut other = settings();
+    other.overrides.kind = Some(Kind::GovernmentBond { linked: false });
+    let rec = recommend(
+        &fixed(answers(dec!(50_000), dec!(0), years(5))),
+        &other,
+        &DATA,
+    )
+    .unwrap();
     let deposit = rec
         .alternatives
         .iter()
@@ -1573,4 +1588,35 @@ fn a_deposit_beside_a_fixed_date_is_not_blamed_for_being_locked() {
         deposit.why_not.from,
         Circumstance::FixedDate { months: 60 }
     ));
+}
+
+/// A CPI-linked bond tells the truth about its safety: its real value is
+/// known, its sum in shekels is not. It is ranked where a known sum is not
+/// required, and drawn beside the answer where it is.
+#[test]
+fn a_linked_bond_is_not_a_sum_known_in_advance() {
+    assert_eq!(
+        Kind::GovernmentBond { linked: true }.safety(),
+        Safety::RealValueKnown
+    );
+    assert_eq!(
+        Kind::GovernmentBond { linked: false }.safety(),
+        Safety::SumKnown
+    );
+    let fixed_date = recommended(&fixed(answers(dec!(50_000), dec!(0), years(5))));
+    assert_ne!(fixed_date.kind, Kind::GovernmentBond { linked: true });
+    assert!(
+        fixed_date
+            .alternatives
+            .iter()
+            .any(|a| a.kind == Kind::GovernmentBond { linked: true }
+                && a.safety == Safety::RealValueKnown)
+    );
+    let known_date = recommended(&answers(dec!(50_000), dec!(0), Horizon::Months(24)));
+    assert!(
+        known_date
+            .ranked
+            .iter()
+            .any(|l| l.kind == Kind::GovernmentBond { linked: true })
+    );
 }

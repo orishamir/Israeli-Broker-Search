@@ -153,6 +153,12 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                 "כמה יהיה בסוף ידוע כבר ביום הקנייה.",
             )
             .to_owned(),
+        Circumstance::RealValueKnownInAdvance => lang
+            .pick(
+                "What it will buy is known in advance, but the sum in shekels follows the index.",
+                "מה שהוא יקנה ידוע מראש, אבל הסכום בשקלים עוקב אחרי המדד.",
+            )
+            .to_owned(),
         Circumstance::BondCanBeSold => lang
             .pick(
                 "A bond can be sold before it is repaid, at the day's price.",
