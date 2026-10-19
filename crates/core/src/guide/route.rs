@@ -830,6 +830,7 @@ pub fn recommend(
         .and_then(|(run, at)| run.unlock(&run.ways[*at], decision.level, &settings.rates));
     let two_parts = cushion_plan(answers, settings, data, &decision);
     let mut recommendation = Recommendation {
+        answers: answers.clone(),
         arena: decision.arena,
         kind: decision.kind,
         choice: decision.choice,

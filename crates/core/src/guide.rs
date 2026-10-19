@@ -616,6 +616,8 @@ pub struct Breakdown {
 /// The answer.
 #[derive(Debug, Clone)]
 pub struct Recommendation {
+    /// What the saver answered: the steps need the monthly amount.
+    pub answers: Answers,
     pub arena: Arena,
     pub kind: Kind,
     /// The cheapest place or plan within the kind.

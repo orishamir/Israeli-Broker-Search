@@ -25,6 +25,7 @@ use crate::{
 };
 
 pub mod reasons;
+mod steps;
 
 /// A price in words, and whether it's nothing, so that every view dims the
 /// same ones.
