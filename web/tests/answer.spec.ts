@@ -1,96 +1,138 @@
-import { alternativesFor, learnCard, NO_OVERRIDES, recommendation } from './core'
-import { answerCard, enter, expect, expectAnswerFor, test } from './fixtures'
-import { arenaOf } from '../src/lib/kinds'
+import { answerFor, decisionsOf, situationAnswers } from './core'
+import type { AnswersInput, Choices, DecisionData, LineData, Pick } from './core'
+import {
+  answerCard,
+  answerLine,
+  chip,
+  decide,
+  decisionGroup,
+  expect,
+  expectAnswerFor,
+  situationName,
+  test,
+  type Locator,
+  type Page,
+} from './fixtures'
 import { t } from '../src/lib/text'
 
-// The answer: what the guide chose, in the words people meet, and what
-// follows from it. The sentences are the core's; here, that the page shows
-// them and that its buttons do what they say.
+// The answer card (REDESIGN.md §2.2–§2.4): the chip, the lines, the one
+// decision component by pointer and by keyboard, and the plan once nothing
+// is left to decide. What it says is the core's; here, that the page shows
+// as many lines and decisions as the core gives, and that choosing does
+// what the core says it does.
 
-const fiveYearsFixed = { now: 50_000, monthly: 0, horizon: 5, flexibility: 'Fixed' } as const
+/** What a pick that isn't a fact about the money puts in the choices. */
+function choicesWith(choices: Choices, pick: Pick): Choices {
+  if ('SafeWay' in pick) return { ...choices, safeWay: pick.SafeWay }
+  if ('Wrapper' in pick) return { ...choices, wrapper: pick.Wrapper }
+  if ('Account' in pick) return { ...choices, account: pick.Account }
+  if ('Holdings' in pick) return { ...choices, holdings: pick.Holdings }
+  return choices
+}
 
-test('the sentence names what fits, its amount and its reasons', { tag: '@phone' }, async ({ page }) => {
-  const answers = await enter(page, fiveYearsFixed)
+/** The first decision the core asks for these answers. */
+function firstDecision(answers: AnswersInput): DecisionData {
+  const first = decisionsOf(answerFor(answers))[0]
+  if (!first) throw new Error('the situation asks nothing')
+  return first.decision
+}
+
+/** The pill a line wears before anything is chosen. */
+const pillOf = ({ state }: LineData) =>
+  state.type === 'stated' ? t.linePill[state.pill] : state.type === 'waiting' ? t.pillWaiting : t.pillYourCall
+
+const options = (page: Page, decision: DecisionData) => decisionGroup(page, decision).getByRole('button')
+
+test('the card shows the core’s lines, each with its pill', { tag: '@phone' }, async ({ page }) => {
+  const answers = situationAnswers('goal')
   const expected = await expectAnswerFor(page, answers)
-  const reasons = answerCard(page).locator('ul.reasons li')
-  await expect(reasons).toHaveCount(expected.reasons.length)
-  await expect(page.locator('section.steps li')).toHaveCount(expected.steps.length)
-  // The same money left in a current account, for comparison.
-  await expect(answerCard(page)).toContainText(expected.currentAccountLine)
+  await expect(answerCard(page).locator('.line')).toHaveCount(expected.lines.length)
+  for (const line of expected.lines)
+    await expect(answerLine(page, line.kind).locator('.pill')).toHaveText(pillOf(line))
 })
 
-test('"what is it" opens the kind\'s card, and it closes', { tag: '@phone' }, async ({ page }) => {
-  const answers = await enter(page, fiveYearsFixed)
-  const { kind } = await expectAnswerFor(page, answers)
-  await answerCard(page).getByRole('button', { name: t.whatIsIt }).click()
-  const card = page.getByRole('dialog', { name: learnCard(kind.card!).name })
-  await expect(card).toBeVisible()
-  await expect(card).toContainText(learnCard(kind.card!).what)
-  await page.keyboard.press('Escape')
-  await expect(card).toBeHidden()
-})
+test(
+  'a decision is chosen by pointer: the chosen option is pressed, the others stay, and it can be changed',
+  { tag: '@phone' },
+  async ({ page }) => {
+    const answers = situationAnswers('goal')
+    await expectAnswerFor(page, answers)
+    const decision = firstDecision(answers)
+    const buttons = options(page, decision)
+    await expect(buttons).toHaveCount(decision.options.length)
+    for (const [at, option] of decision.options.entries()) {
+      await decide(page, answers, {}, decision.id, option.pick)
+      await expectAnswerFor(page, answers, choicesWith({}, option.pick))
+      await expect(buttons.nth(at)).toHaveAttribute('aria-pressed', 'true')
+      // The others are still there, and still choices.
+      await expect(buttons).toHaveCount(decision.options.length)
+      await expect(decisionGroup(page, decision).getByRole('button', { pressed: false })).toHaveCount(
+        decision.options.length - 1,
+      )
+      await expect(answerCard(page).locator('.option.other')).toHaveCount(decision.options.length - 1)
+    }
+  },
+)
 
-test('"change" offers the other kinds, and choosing one goes on with it until sent back', async ({
-  page,
-}) => {
-  const answers = await enter(page, { ...fiveYearsFixed, flexibility: 'CanWait' })
-  const guide = await expectAnswerFor(page, answers)
-  await answerCard(page).getByRole('button', { name: t.changeKind }).click()
-  const picker = answerCard(page).locator('.picker')
-  await expect(picker.locator('li')).toHaveCount(guide.ranked.length)
-  // The first other kind the guide ranks.
-  const other = guide.ranked.find(({ kind }) => JSON.stringify(kind) !== JSON.stringify(guide.kind.kind))!
-  await picker.locator('li').nth(guide.ranked.indexOf(other)).getByRole('button').click()
-  const chosen = { arena: arenaOf(other.kind), kind: other.kind }
-  const changed = await expectAnswerFor(page, answers, chosen)
-  expect(changed.kind.kind).toEqual(other.kind)
-  await expect(answerCard(page).getByRole('button', { name: t.backToRecommendation })).toBeVisible()
-
-  await answerCard(page).getByRole('button', { name: t.backToRecommendation }).click()
-  await expectAnswerFor(page, answers, NO_OVERRIDES)
-  await expect(answerCard(page).getByRole('button', { name: t.backToRecommendation })).toBeHidden()
-})
-
-test('"change" also offers the other arena as a whole', async ({ page }) => {
-  const answers = await enter(page, { ...fiveYearsFixed, flexibility: 'CanWait' })
-  const guide = await expectAnswerFor(page, answers)
-  await answerCard(page).getByRole('button', { name: t.changeKind }).click()
-  const arenas = guide.arenaChoices.filter(({ arena }) => arena !== guide.arena)
-  await answerCard(page).locator('.picker .options').getByRole('button', { name: arenas[0].name }).click()
-  await expectAnswerFor(page, answers, { arena: arenas[0].arena, kind: undefined })
-  await expect(answerCard(page).getByRole('button', { name: t.backToRecommendation })).toBeVisible()
-})
-
-// A first deposit that opens a cheaper plan: the line says which and how much more.
-test('the unlock line says what a bigger first deposit would open', async ({ page }) => {
-  const answers = await enter(page, { now: 0, monthly: 500, horizon: 30 })
-  const expected = await expectAnswerFor(page, answers)
-  expect(expected.unlockText, 'the core has an unlock for this money').toBeDefined()
-  await expect(answerCard(page).locator('.unlock')).toHaveText(expected.unlockText!)
-  // With the deposit, there is nothing left to unlock.
-  const richer = await enter(page, { now: 50_000, monthly: 500, horizon: 30 })
-  await expectAnswerFor(page, richer)
-  expect(recommendation(richer).unlockText).toBeUndefined()
-  await expect(answerCard(page).locator('.unlock')).toHaveCount(0)
-})
-
-test('with no cushion the answer is a plan in two parts', async ({ page }) => {
-  const answers = await enter(page, { now: 0, monthly: 3000, horizon: 'unknown', cushion: 17_000 })
-  const expected = await expectAnswerFor(page, answers)
-  expect(expected.twoParts).toBeDefined()
-  // One plan, not one sum: no single amount in the box.
-  await expect(answerCard(page).locator('.amount-box')).toHaveCount(0)
-  await expect(page.locator('section.steps li')).toHaveCount(expected.steps.length)
-  // With a cushion the plan is one part again.
-  const has = await enter(page, { now: 0, monthly: 3000, horizon: 'unknown', cushion: 'has' })
-  const one = await expectAnswerFor(page, has)
-  expect(one.twoParts).toBeUndefined()
-  await expect(answerCard(page).locator('.amount-box')).toHaveCount(1)
-})
-
-test("the other kinds drawn are the core's, one row each", async ({ page }) => {
-  const answers = await enter(page, fiveYearsFixed)
+test('a decision is chosen by keyboard, and its targets are big enough', async ({ page }) => {
+  const answers = situationAnswers('goal')
   await expectAnswerFor(page, answers)
-  const drawn = alternativesFor(answers).series
-  await expect(page.locator('.alternatives li.row')).toHaveCount(drawn.length)
+  const decision = firstDecision(answers)
+  const second = options(page, decision).nth(1)
+  await second.focus()
+  await page.keyboard.press('Enter')
+  await expect(second).toHaveAttribute('aria-pressed', 'true')
+  await expect(second).toBeFocused()
+  await page.keyboard.press('Shift+Tab')
+  await page.keyboard.press('Space')
+  await expect(options(page, decision).first()).toHaveAttribute('aria-pressed', 'true')
+  for (const button of await options(page, decision).all())
+    expect((await button.boundingBox())!.height).toBeGreaterThanOrEqual(44)
 })
+
+test('"one decision left" until it is made, then the plan', async ({ page }) => {
+  const answers = situationAnswers('goal')
+  const before = await expectAnswerFor(page, answers)
+  expect(before.openDecisions).toBeGreaterThan(0)
+  await expect(answerCard(page).locator('.left')).toHaveText(t.decisionsLeft(before.openDecisions))
+  await expect(answerCard(page).locator('.plan')).toHaveCount(0)
+  const decision = firstDecision(answers)
+  const pick = decision.options[0].pick
+  await decide(page, answers, {}, decision.id, pick)
+  // The apartment has one decision (REDESIGN.md §2.5): made, the plan shows.
+  const after = await expectAnswerFor(page, answers, choicesWith({}, pick))
+  expect(after.openDecisions).toBe(0)
+  await expect(answerCard(page).locator('.plan p')).toHaveText(after.plan!)
+  await expect(answerCard(page).locator('.left')).toHaveCount(0)
+})
+
+test(
+  'the monthly expenses are asked only after "not yet", and open without moving the card more than their height',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await chip(page, situationName('salary')).click()
+    const answers = situationAnswers('salary')
+    await expectAnswerFor(page, answers)
+    const cushion = decisionsOf(answerFor(answers)).find(({ decision }) => decision.id === 'Cushion')
+    expect(cushion, 'the salary asks about a cushion').toBeDefined()
+    await expect(page.locator('#expenses')).toHaveCount(0)
+    // Nothing above the options moves (in the page, whatever the scroll),
+    // and they grow by the field's height, no more.
+    const top = (locator: Locator) =>
+      locator.evaluate((element) => element.getBoundingClientRect().top + scrollY)
+    const height = (locator: Locator) => locator.evaluate((element) => element.getBoundingClientRect().height)
+    const why = decisionGroup(page, cushion!.decision).locator('.why')
+    const options = decisionGroup(page, cushion!.decision).locator('.options')
+    const [whyBefore, before] = [await top(why), await height(options)]
+    await decide(page, answers, {}, 'Cushion', { Cushion: 'HasNot' })
+    const field = page.locator('#expenses')
+    await expect(field).toBeVisible()
+    const box = page.locator('.option .expenses')
+    expect(await top(why)).toBeCloseTo(whyBefore, 0)
+    expect((await height(options)) - before).toBeLessThanOrEqual((await height(box)) + 16)
+    await field.fill('9000')
+    await expectAnswerFor(page, { ...answers, cushion: { kind: 'hasNot', monthlyExpenses: 9000 } })
+    await decide(page, answers, {}, 'Cushion', { Cushion: 'Has' })
+    await expect(page.locator('#expenses')).toHaveCount(0)
+  },
+)

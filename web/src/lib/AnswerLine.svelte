@@ -3,11 +3,12 @@
   // הדרך, איפה), then what the site states with how sure it is, or the
   // question only the visitor can answer with its options, or, while it
   // depends on a decision above, that it waits for it. The cushion's "not
-  // yet" holds the monthly-expenses field: a fact only the visitor knows,
-  // typed where it decides.
+  // yet", once chosen, opens the monthly-expenses field: a fact only the
+  // visitor knows, asked only once it decides something (principle 8).
   import type { AppState } from './app.svelte'
   import type { LineData, OptData } from './core/core'
   import Decision from './Decision.svelte'
+  import { reveal } from './motion'
   import NumberField from './NumberField.svelte'
   import { t } from './text'
 
@@ -34,20 +35,21 @@
           : 'open',
   )
 
-  /** The monthly expenses, read and typed: typing them answers "not yet". */
+  /** The monthly expenses, read and typed; an empty field is not typed yet. */
   const expenses = {
     get: () => (app.answers.cushion?.kind === 'hasNot' ? app.answers.cushion.monthlyExpenses : null),
     set: (value: number | null) => {
-      if (app.answers.cushion?.kind !== 'hasNot') app.choose('Cushion', { Cushion: 'HasNot' })
       app.answers.cushion = { kind: 'hasNot', monthlyExpenses: value }
     },
   }
-  const isNotYet = (option: OptData): boolean => 'Cushion' in option.pick && option.pick.Cushion === 'HasNot'
+  /** "Not yet", chosen: the option that holds the field. */
+  const notYetChosen = (option: OptData): boolean =>
+    'Cushion' in option.pick && option.pick.Cushion === 'HasNot' && app.answers.cushion?.kind === 'hasNot'
 </script>
 
 {#snippet expensesField(option: OptData)}
-  {#if isNotYet(option)}
-    <div class="expenses">
+  {#if notYetChosen(option)}
+    <div class="expenses" transition:reveal>
       <label for="expenses">{t.yourMonthlyExpenses}</label>
       <div class="control">
         <NumberField id="expenses" bind:value={expenses.get, expenses.set} prefix="₪" />
@@ -56,7 +58,7 @@
   {/if}
 {/snippet}
 
-<div class="line" class:asks={state.type === 'decision'}>
+<div class="line" data-line={line.kind} class:asks={state.type === 'decision'}>
   <div class="head">
     <span class="label">{line.label}</span>
     {#if state.type === 'stated'}
@@ -72,7 +74,7 @@
     <Decision
       decision={state.decision}
       labelledby={id}
-      onchoose={(pick) => app.choose(state.decision.id, pick)}
+      onchoose={(pick) => app.choose(pick)}
       extra={state.decision.id === 'Cushion' ? expensesField : undefined}
     />
   {/if}

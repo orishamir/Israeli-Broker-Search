@@ -1,8 +1,8 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
-import { dateText, shekels } from '../src/lib/format'
+import { dateText } from '../src/lib/format'
 import { t } from '../src/lib/text'
-import { answersWith, followCard, listed, RATES, recommendation, situations } from './core'
-import type { AnswersInput, Overrides } from './core'
+import { answerFor, answersWith, decisionsOf, listed, RATES, situations } from './core'
+import type { AnswersInput, Choices, DecisionData, DecisionId, LineKind, Pick } from './core'
 
 export { expect, type Locator, type Page }
 
@@ -20,7 +20,7 @@ export const test = base.extend({
       route.fulfill({ json: { date: RATES.date, rates: { ILS: 3.4594, USD: 1.1403 } } }),
     )
     await page.goto('/')
-    await expect(page.locator('.alternatives .chart canvas')).toBeVisible()
+    await expect(page.locator('section.answer #answer-title')).toBeVisible()
     await use(page)
     expect(errors, 'errors thrown in the page').toEqual([])
   },
@@ -179,38 +179,46 @@ export async function recordDrawnText(page: Page) {
   return () => page.evaluate(() => (window as unknown as { drawn: string[] }).drawn)
 }
 
-/** Drags a real finger (touch events through the debugging protocol, which
- * `tap()` can't do) from a point on `target` by `dx`, `dy` pixels, in ten
- * steps. Chromium only. */
-export async function fingerDrag(page: Page, target: Locator, at: number, dx: number, dy: number) {
-  const box = (await target.boundingBox())!
-  const [x, y] = [box.x + box.width * at, box.y + box.height / 2]
-  const cdp = await page.context().newCDPSession(page)
-  const touch = (type: string, touchPoints: { x: number; y: number }[]) =>
-    cdp.send('Input.dispatchTouchEvent', { type: type as 'touchStart', touchPoints })
-  await touch('touchStart', [{ x, y }])
-  for (let step = 1; step <= 10; step++) {
-    await touch('touchMove', [{ x: x + (dx * step) / 10, y: y + (dy * step) / 10 }])
-  }
-  await touch('touchEnd', [])
-}
-
 // ─────────────────────────── The guide ───────────────────────────
 
 /** The answer card. */
 export const answerCard = (page: Page) => page.locator('section.answer')
 
-/** The page shows what the core recommends for `answers`: the kind named in
- * the sentence and, when it is a single sum, the amount that is left. Waits
- * for the worker's answer on long horizons. */
-export async function expectAnswerFor(page: Page, answers: AnswersInput, overrides?: Overrides) {
-  const expected = recommendation(answers, overrides)
+/** The answer card's line of `kind` ("Before", "PlaceType", "Way", "Where"). */
+export const answerLine = (page: Page, kind: LineKind) =>
+  answerCard(page).locator(`.line[data-line="${kind}"]`)
+
+/** The decision group of `decision`, labelled by its question. */
+export const decisionGroup = (page: Page, decision: DecisionData) =>
+  answerCard(page).getByRole('group', { name: decision.question, exact: true })
+
+/** The page shows the core's answer for `answers` and `choices`: its chip,
+ * its title, and as many decisions as the core asks. Waits for the worker's
+ * answer on long horizons. */
+export async function expectAnswerFor(page: Page, answers: AnswersInput, choices: Choices = {}) {
+  const expected = answerFor(answers, choices)
   const card = answerCard(page)
-  // The sentence names the kind in the bank's words, bold where the core says.
-  const sentence = [...expected.what, ...expected.whatThen].map(({ text }) => text).join('')
-  await expect(card.locator('.what p').first()).toContainText(sentence)
-  if (!expected.twoParts) await expect(card.locator('.big')).toHaveText(shekels(expected.left.today))
+  await expect(card.locator('#answer-title')).toHaveText(expected.title)
+  await expect(card.locator('.confidence .chip')).toHaveText(t.confidenceChip[expected.confidence.state])
+  await expect(card.getByRole('group')).toHaveCount(decisionsOf(expected).length)
   return expected
+}
+
+/** Chooses `pick` in the answer's decision `id`, by its button, as the core
+ * words it for `answers` and `choices`; returns the decision. */
+export async function decide(
+  page: Page,
+  answers: AnswersInput,
+  choices: Choices,
+  id: DecisionId,
+  pick: Pick,
+): Promise<DecisionData> {
+  const found = decisionsOf(answerFor(answers, choices)).find(({ decision }) => decision.id === id)
+  if (!found) throw new Error(`the answer asks no ${id}`)
+  const option = found.decision.options.find((each) => JSON.stringify(each.pick) === JSON.stringify(pick))
+  if (!option) throw new Error(`${id} has no option ${JSON.stringify(pick)}`)
+  await decisionGroup(page, found.decision).getByRole('button', { name: option.button, exact: true }).click()
+  return found.decision
 }
 
 /** What a person types into the questions. */
@@ -219,15 +227,18 @@ export interface Entered {
   monthly: number | null
   /** Whole years; or `'unknown'`, or the ages for retirement. */
   horizon: number | 'unknown' | { age: number; retireAt: number }
+  /** Answered in the answer's decision about the place, where it asks it. */
   flexibility?: 'Fixed' | 'CanWait'
-  /** `'has'`, or the month's expenses of someone who has no cushion. */
+  /** `'has'`, or the month's expenses of someone who has no cushion:
+   * answered in the answer's cushion decision. */
   cushion?: 'has' | number
 }
 
 const fieldText = (value: number | null) => (value === null ? '' : String(value))
 
 /** Types `entered` into the questions, as a person would (from the first
- * chip's page), and returns the answers it stands for, as the core takes them. */
+ * chip's page), and answers the decisions it names in the answer; returns
+ * the answers it stands for, as the core takes them. */
 export async function enter(page: Page, entered: Entered): Promise<AnswersInput> {
   const { horizon } = entered
   const retirement = typeof horizon === 'object'
@@ -245,46 +256,23 @@ export async function enter(page: Page, entered: Entered): Promise<AnswersInput>
     await fillField(page, 'horizon', String(horizon))
     answers = { ...answers, horizon: { Months: horizon * 12 } }
   }
-  if (entered.flexibility) {
-    const card = followCard('Flexibility')
-    await page
-      .locator('section.follow')
-      .filter({ hasText: card.title })
-      .getByRole('button', { name: card.answers[entered.flexibility === 'Fixed' ? 0 : 1] })
-      .click()
-    answers = { ...answers, flexibility: entered.flexibility }
-  }
   if (entered.cushion !== undefined) {
-    const card = followCard('Cushion')
     const has = entered.cushion === 'has'
-    await page
-      .locator('section.follow')
-      .filter({ hasText: card.title })
-      .getByRole('button', { name: card.answers[has ? 0 : 1] })
-      .click()
+    await expectAnswerFor(page, answers)
+    await decide(page, answers, {}, 'Cushion', { Cushion: has ? 'Has' : 'HasNot' })
     if (!has) await page.locator('#expenses').fill(String(entered.cushion))
     answers = {
       ...answers,
       cushion: has ? { kind: 'has' } : { kind: 'hasNot', monthlyExpenses: entered.cushion as number },
     }
   }
+  if (entered.flexibility) {
+    await expectAnswerFor(page, answers)
+    await decide(page, answers, {}, 'PlaceType', { Flexibility: entered.flexibility })
+    answers = { ...answers, flexibility: entered.flexibility }
+  }
   return answers
 }
 
 /** A situation's name by its id, for its chip. */
 export const situationName = (id: string) => situations().find((each) => each.id === id)!.name
-
-/** The chart's picture once it has stopped changing: the lines draw
- * themselves in first, and a picture taken then is not the chart's. */
-export async function settledPicture(chart: Locator) {
-  let last = await canvasPicture(chart)
-  await expect
-    .poll(async () => {
-      const now = await canvasPicture(chart)
-      const same = now === last
-      last = now
-      return same
-    })
-    .toBe(true)
-  return last
-}

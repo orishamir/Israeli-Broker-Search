@@ -36,6 +36,8 @@ test('a tapped ? explains its label until a tap elsewhere', { tag: '@touch' }, a
 })
 
 test('a clicked ? stays open until Esc', async ({ page }) => {
+  // The table's column heads, in the workbench.
+  await workbench(page)
   const button = page.getByRole('button', { name: t.whatMeans(t.leftAfterTax) })
   const tip = page.getByRole('tooltip').filter({ hasText: t.leftAfterTaxTip })
   await button.click()

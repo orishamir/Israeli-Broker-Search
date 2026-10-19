@@ -102,9 +102,3 @@ export function kindColor(kind: Kind): string {
     return KIND_COLORS[kind.GovernmentBond.linked ? 'GovernmentBond:linked' : 'GovernmentBond']
   return KIND_COLORS[kind.Way.product]
 }
-
-/** The parts of a sum's story, one colour each in every chart: what the saver
- * keeps, what the place keeps, and the tax. Checked with the dataviz skill's
- * validator (`--pairs all`): where a place keeps nothing, the saver's part
- * touches the tax. */
-export const PART_COLORS = { yours: '#199e70', kept: '#9b7bf0', tax: '#d95926' }

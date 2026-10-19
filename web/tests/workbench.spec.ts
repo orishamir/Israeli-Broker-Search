@@ -60,15 +60,11 @@ test('the switch is remembered', async ({ page }) => {
   await expect(page.locator('section.workbench')).toBeVisible()
 })
 
-test('without the switch the table shows three rows and a way to all of them', async ({ page }) => {
+test('without the switch there is no table of plans: the guide says where to buy', async ({ page }) => {
   await enter(page, { ...money, horizon: 10 })
-  await expect(page.locator('section.within tbody tr')).toHaveCount(3)
-  await page
-    .locator('section.within')
-    .getByRole('button', { name: /^כל \d+/ })
-    .click()
-  await expect(expertSwitch(page)).toBeChecked()
-  await expect(page.locator('section.within tbody tr').nth(3)).toBeVisible()
+  await expect(page.locator('section.within')).toHaveCount(0)
+  await setExpert(page)
+  await expect(page.locator('section.within tbody tr').first()).toBeVisible()
 })
 
 test('the S&P 500 compares the ways, as the core ranks them', { tag: '@phone' }, async ({ page }) => {

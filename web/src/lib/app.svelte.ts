@@ -8,50 +8,39 @@
 //                                    cushion, needsAnyDay (null amounts = empty field)
 //   app.situationId: string?         the chip chosen (SituationData.id)
 //   app.situations: SituationData[]  the chips, in the core's order
-//   app.setSituation(id)             fills the answers from a chip, clears overrides;
-//                                    a 'workbench' chip turns the switch on, an
-//                                    `opensDialog` one opens the portfolio dialog
+//   app.setSituation(id)             fills the answers from a chip, clears the choices;
+//                                    a 'workbench' chip turns the switch on
 //   app.knowsWhatToBuy()             the "אני יודע / יודעת מה אני רוצה לקנות" link: switch on
-//   app.followUps: FollowUp[]        the cards the answers still need
 //   app.setHorizonMonths(m) / setHorizonRetirement(age, retireAt)
 //   app.horizonMonths: number | undefined
 //   app.banks: BankChoice[]; app.setBank(bank | undefined)   the visitor's bank (optional,
-//                                    asked in context; the existing-portfolio situation's too)
+//                                    asked in context, in where-to-buy)
 //
-// THE REDESIGNED ANSWER (REDESIGN.md Part 2; replaces `recommendation` once W6 is done)
+// THE ANSWER (REDESIGN.md Part 2)
 //   app.choices: Choices             the visitor's choices on the answer (not facts)
 //   app.answer: AnswerData | undefined   chip, lines, decisions, plan, outcome chart,
-//        how, gain, horizons. Up to 5 years worked out on the page's thread first
-//        (without the horizons), then the worker's full answer; the last one stays
-//        while the next is worked out (`answerFresh` false).
+//        how, gain; without the horizons. Up to 5 years worked out on the page's
+//        thread, beyond that by the worker; the last one stays while the next is
+//        worked out (`answerFresh` false). undefined only before the first.
 //   app.answerFresh: boolean
-//   app.choose(decision, pick)       picks an option: a fact goes into the answers
+//   app.horizons: HorizonRowData[] | undefined, app.horizonsFresh
+//        "ואם התאריך יזוז?": the worker's second job, after the answer's
+//   app.choose(pick)                 picks an option: a fact goes into the answers
 //                                    (cushion, flexibility), the rest into `choices`
 //   app.focusedRow: Kind | undefined the row "איך עושים את זה" shows: the one tapped
 //                                    in the chart, else the answer's focus
 //   app.focusRow(kind | undefined)   tap a row (undefined: back to the answer's)
-//
-// THE ANSWER
-//   app.recommendation: RecommendationData | undefined   what fits, why, steps, plans
-//        Computed on the page's thread when it is cheap (horizon <= 5 years or
-//        unknown; <10 ms), in the worker otherwise; until the new one arrives the old
-//        stays (`recommendationFresh` false). undefined only before the first valid one.
-//   app.recommendationFresh: boolean
 //   app.inputError: string | undefined   why the answers/inputs can't be compared; the
 //        last results stay under it, faded (`stale` true)
 //   app.stale: boolean
-//   app.ladder: RungData[] | undefined, app.ladderFresh
-//   app.alternatives: AlternativesData | undefined, app.alternativesFresh
-//        (worker; keep the last answer while the next is being worked out. Wrap in
-//        `HeldWhileTyping` where a chart should wait for the typing to pause.)
-//   app.chooseKind(kind) / app.chooseArena(arena) / app.clearOverrides()
-//        "לשנות" and "continue anyway": the kind or arena the user chose over the guide
-//   app.overrides: Overrides; app.overridden: boolean
 //
 // THE SWITCH AND THE WORKBENCH (`expert`; turning it on changes only what is shown)
 //   app.expert: boolean              persisted ('expert-v2'), in links (x=1)
 //   app.thing: Thing                 'sp500' | 'other' | 'bonds' | 'short'; the
-//        recommendation's unless `app.chooseThing(thing)` chose another
+//        answer's unless `app.chooseThing(thing)` chose another
+//   app.recommendation: RecommendationData | undefined   with the switch on only: the
+//        places that hold what the workbench looks at (`Within`), held to it by
+//        `app.overrides` (from the thing chosen, else the answer's focus)
 //   app.wayChoices: WayChoice[]; app.selectedWays: Way[]; app.toggleWay(way)
 //   app.security / exchange / product, yearlyReturnPercent, inflationPercent,
 //   boiRatePercent, depositGrowthPercent, buyEveryMonths, sharePrice, atEnd, wayOut,
@@ -72,7 +61,6 @@
 //        on the first); app.cardBack(); app.closeCard(); app.cardFor(term): LearnCard
 //   app.glossaryOpen; app.glossary: LearnCard[] (lazy)
 //   app.planSheetOpen: boolean       "מה משווים": the plans' list
-//   app.portfolioDialogOpen: boolean the existing-portfolio situation's dialog
 //   app.details / openAbout(section?)   brokers, plans, the editor, and the about page
 //   app.about: About; app.footer: string[]; app.dataDates: string
 //
@@ -81,11 +69,9 @@
 import { SvelteSet } from 'svelte/reactivity'
 import * as core from './core/core'
 import type {
-  AlternativesData,
   AnswerData,
   AnswerRequest,
   AnswersInput,
-  Arena,
   AroundData,
   Bank,
   BankChoice,
@@ -93,13 +79,11 @@ import type {
   CaveatGroup,
   Choice,
   Choices,
-  DecisionId,
   ComparisonData,
   Exchange,
   FeesFor,
-  FollowCardData,
-  FollowUp,
   GuideSettings,
+  HorizonRowData,
   Horizon,
   Inputs,
   Kind,
@@ -114,7 +98,6 @@ import type {
   Product,
   Purchase,
   RecommendationData,
-  RungData,
   Security,
   SituationData,
   SpreadData,
@@ -127,10 +110,9 @@ import type {
   WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
-import { branchPlans, yoursBranch } from './bank-plan'
 import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
-import { arenaOf, kindByKey, kindKey, wayByKey, wayKey } from './kinds'
+import { arenaOf, wayByKey, wayKey } from './kinds'
 import { encode, type Shared, type Thing } from './link'
 import { DEFAULT_RATES, todaysRates } from './rates'
 import { firstOfEachId, load, save } from './saved'
@@ -350,10 +332,6 @@ export class AppState {
 
   readonly situations: SituationData[] = core.situations()
   readonly banks: BankChoice[] = core.banks()
-  /** What "another bank" is priced as, in the core's words. */
-  /** The label of the month's-expenses field, which the cushion's card holds. */
-  readonly expensesLabel: string = core.followCard('MonthlyExpenses').field ?? ''
-  readonly bankStandIn: string = core.bankStandInNote()
   readonly wayChoices: WayChoice[] = core.ways()
   readonly footer: string[] = core.footer()
   readonly about = core.aboutAll()
@@ -382,9 +360,6 @@ export class AppState {
    * the saver changes anything (or opened a link, which is not an example). */
   exampleShown = $state(false)
   private exampleKey = ''
-  /** What the user chose over the guide ("לשנות", "continue anyway"). */
-  overrides = $state.raw<Overrides>(NO_OVERRIDES)
-  overridden: boolean = $derived(this.overrides.arena !== undefined || this.overrides.kind !== undefined)
 
   /** The switch: the workbench is shown, and every lever. Remembered. Turning
    * it on changes only what is shown. */
@@ -712,6 +687,9 @@ export class AppState {
     this.plans.filter((plan) => this.selected.has(plan.id)).map((plan) => plan.key),
   )
 
+  /** What the answer is worked out under: the page's levers and the ticked
+   * plans. The guide never goes over its own rules (no override); the
+   * workbench's comparison does, to follow what it looks at. */
   settings: GuideSettings = $derived({
     indexReturnPercent: this.yearlyReturnPercent,
     inflationPercent: this.inflationPercent,
@@ -720,84 +698,67 @@ export class AppState {
     ilsPerEur: this.ilsPerEur,
     plans: this.tickedKeys,
     yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
-    overrides: this.overrides,
+    overrides: NO_OVERRIDES,
     thisYear: THIS_YEAR,
     thisMonth: THIS_MONTH,
   })
 
-  /** What the guide is asked: a new object whenever the answers or the
-   * settings change, to match the workers' answers to. */
-  guideRequest: GuideRequest = $derived({
-    answers: $state.snapshot(this.answers) as AnswersInput,
-    settings: this.settings,
-  })
-
-  /** Whether the recommendation is worked out on the page's thread. */
+  /** Whether the answer is worked out on the page's thread. */
   private get onThePage(): boolean {
     const months = this.horizonMonths
     return months === undefined || months <= RECOMMEND_ON_PAGE_UP_TO_MONTHS
   }
 
-  private lastRecommendation: RecommendationData | undefined = undefined
-
-  /** The recommendation as worked out here: always for a short horizon, and
-   * for a long one the first time, when there's nothing to show meanwhile. */
-  private onPage = $derived.by((): Worked<RecommendationData> | undefined =>
-    this.onThePage || !this.lastRecommendation ? run('recommend', this.guideRequest) : undefined,
-  )
-  /** The worker's answer for a long horizon, and the request it answers. */
-  private recommendAnswer = $state.raw<Answered<RecommendationData>>()
-  private recommended: Worked<RecommendationData> | undefined = $derived.by(() => {
-    const worked = this.onPage ?? this.recommendAnswer
-    if (worked?.value) this.lastRecommendation = worked.value
-    return worked
-  })
-
-  /** What fits money like this, and why. While the answers can't be
-   * compared, or the worker is still at it, the last one stays. Missing only
-   * before the first one that could be made. */
-  recommendation: RecommendationData | undefined = $derived(
-    this.recommended?.value ?? this.lastRecommendation,
-  )
-  /** Whether `recommendation` answers the answers as they are now. */
-  recommendationFresh: boolean = $derived(
-    this.onPage
-      ? this.onPage.value !== undefined
-      : this.recommendAnswer?.request === this.guideRequest && this.recommendAnswer.value !== undefined,
-  )
-
-  // ── The redesigned answer ──
+  // ── The answer ──
   /** What the answer is asked: a new object whenever the answers, the
-   * choices or the settings change. */
+   * choices or the settings change. Without the horizon section, which is
+   * most of the time and is asked as its own job (`horizonsRequest`), so the
+   * card never waits for it. */
   answerRequest: AnswerRequest = $derived({
     answers: $state.snapshot(this.answers) as AnswersInput,
     choices: $state.snapshot(this.choices) as Choices,
     settings: this.settings,
-    horizons: true,
+    horizons: false,
   })
-  /** For a short horizon, the answer worked out here at once, without the
-   * horizon section (most of its time); the worker's full one follows. */
-  private answerOnPage = $derived.by((): Worked<AnswerData> | undefined =>
-    this.onThePage ? run('answer', { ...this.answerRequest, horizons: false }) : undefined,
-  )
-  private answerFromWorker = $state.raw<Worked<AnswerData> & { request: AnswerRequest }>()
+  /** The horizon section's: the same request, with the horizons. */
+  horizonsRequest: AnswerRequest = $derived({ ...this.answerRequest, horizons: true })
+
   private lastAnswer: AnswerData | undefined = undefined
-  /** The answer (REDESIGN.md Part 2). While the answers can't be worked on,
-   * or the worker is still at it, the last one stays. */
+  /** The answer worked out here: always for a short horizon, and for a long
+   * one the first time, when there's nothing to show meanwhile. */
+  private answerOnPage = $derived.by((): Worked<AnswerData> | undefined =>
+    this.onThePage || !this.lastAnswer ? run('answer', this.answerRequest) : undefined,
+  )
+  /** The worker's answer for a long horizon, and the request it answers. */
+  private answerFromWorker = $state.raw<Worked<AnswerData> & { request: AnswerRequest }>()
+  /** The answer for the request as it is now, or why there is none. */
+  private answered: Worked<AnswerData> | undefined = $derived(
+    this.answerOnPage ??
+      (this.answerFromWorker?.request === this.answerRequest ? this.answerFromWorker : undefined),
+  )
+  /** The answer (REDESIGN.md Part 2), without its horizons (`horizons`).
+   * While the answers can't be worked on, or the worker is still at it, the
+   * last one stays. Missing only before the first one that could be made. */
   answer: AnswerData | undefined = $derived.by(() => {
-    const fromWorker =
-      this.answerFromWorker?.request === this.answerRequest ? this.answerFromWorker.value : undefined
-    const answer = fromWorker ?? this.answerOnPage?.value
-    // The page's quick answer has no horizons: keep the last ones meanwhile.
-    if (answer && !fromWorker && this.lastAnswer) {
-      this.lastAnswer = { ...answer, horizons: this.lastAnswer.horizons }
-    } else if (answer) this.lastAnswer = answer
+    if (this.answered?.value) this.lastAnswer = this.answered.value
     return this.lastAnswer
   })
-  /** Whether `answer` (its horizons included) answers the answers as they are now. */
-  answerFresh: boolean = $derived(
-    this.answerFromWorker?.request === this.answerRequest && this.answerFromWorker.value !== undefined,
+  /** Whether `answer` answers the answers as they are now. */
+  answerFresh: boolean = $derived(this.answered?.value !== undefined)
+
+  /** "ואם התאריך יזוז?": the worker's, a little behind the answer. */
+  private horizonsAnswer = $state.raw<Worked<HorizonRowData[]> & { request: AnswerRequest }>()
+  private lastHorizons: HorizonRowData[] | undefined = undefined
+  /** The horizon section's rows, as last worked out; missing before the first. */
+  horizons: HorizonRowData[] | undefined = $derived.by(() => {
+    if (this.horizonsAnswer?.value) this.lastHorizons = this.horizonsAnswer.value
+    return this.lastHorizons
+  })
+  /** Whether `horizons` answers the answers as they are now. */
+  horizonsFresh: boolean = $derived(
+    this.horizonsAnswer?.request === this.horizonsRequest && this.horizonsAnswer.value !== undefined,
   )
+
   /** The row "איך עושים את זה" shows. */
   focusedRow: Kind | undefined = $derived(this.tappedRow ?? this.answer?.focus ?? undefined)
 
@@ -809,7 +770,7 @@ export class AppState {
   /** Picks an option of a decision. The facts (the cushion, whether the
    * date can move) go into the answers; the rest into `choices`. The core
    * re-evaluates which dependent decisions appear. */
-  choose(decision: DecisionId, pick: Pick) {
+  choose(pick: Pick) {
     this.tappedRow = undefined
     if ('Cushion' in pick) {
       this.answers.cushion =
@@ -825,79 +786,70 @@ export class AppState {
     else if ('Wrapper' in pick) this.choices.wrapper = pick.Wrapper
     else if ('Account' in pick) this.choices.account = pick.Account
     else if ('Holdings' in pick) this.choices.holdings = pick.Holdings
-    void decision
   }
 
-  /** What the same money does at other horizons, and each kind's money
-   * month by month: from the worker, so a little behind the answers. */
-  private ladderAnswer = $state.raw<Answered<RungData[]>>()
-  private alternativesAnswer = $state.raw<Answered<AlternativesData>>()
-  private lastLadder: RungData[] | undefined
-  private lastAlternatives: AlternativesData | undefined
-  ladder: RungData[] | undefined = $derived.by(() => {
-    if (this.ladderAnswer?.value) this.lastLadder = this.ladderAnswer.value
-    return this.lastLadder
+  // ── The workbench's guide ──
+  /** What the workbench's own guide is held to: the kind its "what to buy"
+   * names, or else the one the answer is about, so the workbench opens on
+   * what the guide shows. */
+  overrides: Overrides = $derived.by(() => {
+    const thing = this.chosenThing
+    if (thing === 'sp500') return { arena: 'Index', kind: undefined }
+    if (thing === 'bonds') return { arena: 'Safe', kind: { GovernmentBond: { linked: false } } }
+    if (thing === 'short') return { arena: 'Safe', kind: 'MoneyMarketFund' }
+    const focus = this.answer?.focus
+    const arena = focus && arenaOf(focus)
+    return arena ? { arena, kind: focus } : NO_OVERRIDES
   })
-  ladderFresh: boolean = $derived(
-    this.ladderAnswer?.request === this.guideRequest && this.ladderAnswer.value !== undefined,
+
+  /** What the workbench's guide is asked: a new object whenever the answers
+   * or the settings change, to match the worker's answers to. */
+  guideRequest: GuideRequest = $derived({
+    answers: $state.snapshot(this.answers) as AnswersInput,
+    settings: { ...this.settings, overrides: this.overrides },
+  })
+
+  private lastRecommendation: RecommendationData | undefined = undefined
+
+  /** The workbench's guide as worked out here: only with the switch on, for
+   * a short horizon, or a long one the first time. */
+  private onPage = $derived.by((): Worked<RecommendationData> | undefined =>
+    this.expert && (this.onThePage || !this.lastRecommendation)
+      ? run('recommend', this.guideRequest)
+      : undefined,
   )
-  alternatives: AlternativesData | undefined = $derived.by(() => {
-    if (this.alternativesAnswer?.value) this.lastAlternatives = this.alternativesAnswer.value
-    return this.lastAlternatives
+  /** The worker's answer for a long horizon, and the request it answers. */
+  private recommendAnswer = $state.raw<Answered<RecommendationData>>()
+  private recommended: Worked<RecommendationData> | undefined = $derived.by(() => {
+    const worked = this.onPage ?? this.recommendAnswer
+    if (worked?.value) this.lastRecommendation = worked.value
+    return worked
   })
-  alternativesFresh: boolean = $derived(
-    this.alternativesAnswer?.request === this.guideRequest && this.alternativesAnswer.value !== undefined,
+
+  /** The places that hold the kind the workbench looks at, for its table
+   * (`Within`), with the switch on: the old guide's ranking, which the
+   * workbench keeps for the safe kinds. The last one stays meanwhile. */
+  recommendation: RecommendationData | undefined = $derived(
+    this.expert ? (this.recommended?.value ?? this.lastRecommendation) : undefined,
   )
 
   /** The years the comparison runs, from the horizon, or from what the
-   * guide worked out when the horizon isn't known. */
+   * workbench's guide worked out when the horizon isn't known. */
   years: number = $derived(
     Math.min(50, Math.max(1, Math.ceil((this.horizonMonths ?? this.recommendation?.months ?? 60) / 12))),
   )
 
-  /** The questions the answers still need. */
-  followUps: FollowUp[] = $derived.by(() => {
-    if (this.recommendation) return this.recommendation.followUps
-    try {
-      return core.followUps($state.snapshot(this.answers) as AnswersInput)
-    } catch {
-      return []
-    }
-  })
-
-  /** The follow-up questions as cards, in the core's words. */
-  followCards: FollowCardData[] = $derived(this.followUps.map((each) => core.followCard(each)))
-
   /** What the workbench looks at: what the user chose there, or what the
-   * recommendation is about. */
+   * guide is about. */
   thing: Thing = $derived.by(() => {
     if (this.chosenThing) return this.chosenThing
-    const kind = this.recommendation?.kind.kind
+    const kind = this.overrides.kind ?? this.recommendation?.kind.kind
     if (kind === undefined || (typeof kind === 'object' && 'Way' in kind)) return 'sp500'
     return typeof kind === 'object' ? 'bonds' : 'short'
   })
 
   chooseThing(thing: Thing) {
     this.chosenThing = thing
-    if (thing === 'sp500') this.overrides = { arena: 'Index', kind: undefined }
-    else if (thing === 'bonds')
-      this.overrides = { arena: 'Safe', kind: { GovernmentBond: { linked: false } } }
-    else if (thing === 'short') this.overrides = { arena: 'Safe', kind: 'MoneyMarketFund' }
-  }
-
-  /** "לשנות" / "continue anyway": the guide goes on with this kind. */
-  chooseKind(kind: Kind) {
-    this.overrides = { arena: arenaOf(kind), kind }
-    this.chosenThing = undefined
-  }
-  chooseArena(arena: Arena) {
-    this.overrides = { arena, kind: undefined }
-    this.chosenThing = undefined
-  }
-  /** Back to what the guide recommends. */
-  clearOverrides() {
-    this.overrides = NO_OVERRIDES
-    this.chosenThing = undefined
   }
 
   toggleWay(way: Way) {
@@ -918,9 +870,8 @@ export class AppState {
     this.answers = { ...($state.snapshot(situation.answers) as AnswersInput), bank }
     this.choices = {}
     this.tappedRow = undefined
-    this.clearOverrides()
+    this.chosenThing = undefined
     if (situation.workbench) this.expert = true
-    if (situation.opensDialog) this.portfolioDialogOpen = true
   }
 
   /** "אני יודע / יודעת מה אני רוצה לקנות ולהשוות": the switch on, the workbench's. */
@@ -937,20 +888,6 @@ export class AppState {
   }
 
   // ── Package I: the bank's branch plan, ticked ──
-  /** Ticks the plan the recommendation marks as the saver's own bank's
-   * branch plan, and unticks the other banks' branch plans that an earlier
-   * choice of bank ticked. Called by the answer while the situation is the
-   * existing portfolio; changes nothing when the recommendation hasn't a
-   * plan of theirs yet. */
-  tickYourBranch() {
-    const yours = yoursBranch(this.plans, this.recommendation)
-    if (!yours) return
-    for (const plan of branchPlans(this.plans)) {
-      if (plan.id !== yours.id && this.selected.has(plan.id)) this.selected.delete(plan.id)
-    }
-    if (!this.selected.has(yours.id)) this.selected.add(yours.id)
-  }
-
   /** The years field. For a retirement the ages stay and the years are the
    * gap between them, so typing years moves the age of retiring; an empty
    * field changes nothing. Otherwise an empty field is a date not known yet. */
@@ -999,8 +936,6 @@ export class AppState {
   }
   /** The list of plans to compare ("מה משווים"). */
   planSheetOpen = $state(false)
-  /** The dialog the existing-portfolio situation opens. */
-  portfolioDialogOpen = $state(false)
 
   openAbout(section?: number) {
     this.details = { kind: 'about', section }
@@ -1224,7 +1159,7 @@ export class AppState {
    * the last results stay, faded, under it. */
   inputError: string | undefined = $derived.by(() => {
     if (unreadable.size > 0) return t.notANumber
-    if (this.recommended?.error) return this.recommended.error
+    if (this.answered?.error) return this.answered.error
     if (this.latest && 'error' in this.latest) return this.latest.error
     if (this.latestWays && 'error' in this.latestWays) return this.latestWays.error
     return undefined
@@ -1311,11 +1246,8 @@ export class AppState {
     if (this.boiRatePercent !== this.usualBoiRate) shared.boiRatePercent = this.boiRatePercent ?? undefined
     if (this.inflationPercent !== this.usualInflation)
       shared.inflationPercent = this.inflationPercent ?? undefined
-    const { overrides } = this
-    if (overrides.arena) shared.overrideArena = overrides.arena
-    if (overrides.kind) shared.overrideKind = kindKey(overrides.kind)
-    // The workbench's inputs, when the user can see them or chose in it.
-    if (this.expert || this.overridden) {
+    // The workbench's inputs, when the user can see them.
+    if (this.expert) {
       shared.thing = this.chosenThing
       if (this.chosenWays) shared.ways = this.chosenWays
       shared.security = this.security
@@ -1342,7 +1274,6 @@ export class AppState {
    * first visit's, with its example. */
   restore(shared: Shared) {
     this.setSituation(shared.situation ?? FIRST_SITUATION)
-    this.portfolioDialogOpen = false
     this.expert = shared.expert === true
     this.chosenThing = undefined
     this.chosenWays = undefined
@@ -1389,12 +1320,6 @@ export class AppState {
     if (shared.sellAtEnd === false) this.atEnd = 'hold'
     if (shared.asPension) this.wayOut = 'pension'
     if (shared.age !== undefined) this.age = shared.age
-    if (shared.overrideArena !== undefined || shared.overrideKind !== undefined) {
-      this.overrides = {
-        arena: shared.overrideArena,
-        kind: shared.overrideKind === undefined ? undefined : kindByKey(shared.overrideKind),
-      }
-    }
     const yours = readable(shared.yours ?? [], 'a plan from the link')
     if (yours.length > 0) {
       // eslint-disable-next-line svelte/prefer-svelte-reactivity -- built once, never changed
@@ -1426,7 +1351,6 @@ export class AppState {
     // The guide opens on its first situation (or the link's); a link's own
     // answers come over it.
     this.setSituation(shared.situation ?? FIRST_SITUATION)
-    this.portfolioDialogOpen = false
     this.applyShared(shared)
     this.exampleShown = Object.keys(shared).length === 0
     this.exampleKey = this.address()
@@ -1438,22 +1362,20 @@ export class AppState {
     $effect(() => save('editor-view-v2', this.editorView))
     $effect(() => save('expert-v2', this.expert))
     // The heavy work runs off the page's thread; its answers come a moment later.
+    // The answer first, then its horizon section: the card never waits.
     $effect(() => {
+      if (this.answerOnPage) return
       const request = this.answerRequest
       ask('answer', request, (worked) => (this.answerFromWorker = { request, ...worked }))
     })
     $effect(() => {
-      if (this.onPage) return
+      const request = this.horizonsRequest
+      ask('horizons', request, (worked) => (this.horizonsAnswer = { request, ...worked }))
+    })
+    $effect(() => {
+      if (!this.expert || this.onPage) return
       const request = this.guideRequest
       ask('recommend', request, (worked) => (this.recommendAnswer = { request, ...worked }))
-    })
-    $effect(() => {
-      const request = this.guideRequest
-      ask('ladder', request, (worked) => (this.ladderAnswer = { request, ...worked }))
-    })
-    $effect(() => {
-      const request = this.guideRequest
-      ask('alternatives', request, (worked) => (this.alternativesAnswer = { request, ...worked }))
     })
     $effect(() => {
       const request = this.sweepRequest

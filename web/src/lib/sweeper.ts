@@ -1,7 +1,8 @@
 // The heavy jobs run off the page's thread: the sweep (a comparison's work 16
 // to 23 times over, behind the chart by deposit and the line about other
-// deposits), and the guide's ladder, alternatives and, for long horizons,
-// recommendation (see `recommendOnPage`). One worker does them one at a time.
+// deposits), the answer for long horizons and its horizon section (asked
+// apart, after it, so the card never waits), and the workbench's guide for
+// long horizons (see `RECOMMEND_ON_PAGE_UP_TO_MONTHS`). One worker does them one at a time.
 // Each kind of job keeps only its latest request waiting, and only the answer
 // to its latest request is passed on. Where there is no Worker (the unit
 // tests), the same functions run on the page's thread a moment later.
@@ -19,7 +20,7 @@ type Waiting = { [J in JobName]?: { id: number; request: Jobs[J]['request']; ans
 
 // The order they're sent in when several wait: what the answer on screen
 // needs first, the chart by deposit last.
-const ORDER: JobName[] = ['answer', 'recommend', 'alternatives', 'ladder', 'sweep']
+const ORDER: JobName[] = ['answer', 'horizons', 'recommend', 'sweep']
 
 let worker: Worker | undefined
 /** Made when first asked, so a page that never asks, and the tests, have none. */

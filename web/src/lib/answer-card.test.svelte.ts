@@ -20,6 +20,18 @@ beforeEach(() => {
       disconnect() {}
     },
   )
+  // jsdom has no Web Animations either: a field that comes and goes
+  // (`transition:reveal`) is done at once.
+  Element.prototype.animate ??= function () {
+    const animation = {
+      cancel() {},
+      currentTime: 0,
+      set onfinish(done: (() => void) | null) {
+        if (done) queueMicrotask(done)
+      },
+    }
+    return animation as unknown as Animation
+  }
   vi.stubGlobal(
     'fetch',
     vi.fn(async () => Response.json({ date: '2026-09-25', rates: { ILS: 3.4594, USD: 1.1403 } })),
@@ -120,13 +132,22 @@ test('the plan shows once every decision is made, and the count until then', asy
   expect(card.querySelector('.left')).toBeNull()
 })
 
-test("typing the monthly expenses in the cushion's “not yet” answers it", async () => {
+test("the monthly expenses are asked only once the cushion's “not yet” is chosen, and typing them answers it", async () => {
   const { app, card } = await start('salary')
+  expect(card.querySelector('#expenses'), 'no field before "not yet" is chosen').toBeNull()
+  app.choose({ Cushion: 'HasNot' })
+  await settle()
   const field = card.querySelector<HTMLInputElement>('#expenses')
   expect(field, 'the field sits in the cushion decision').not.toBeNull()
   expect(field!.closest('[role=group]')).not.toBeNull()
+  // Not typed yet: no amount is assumed.
+  expect(app.answers.cushion).toEqual({ kind: 'hasNot', monthlyExpenses: null })
   field!.value = '10000'
   field!.dispatchEvent(new Event('input', { bubbles: true }))
   await settle()
   expect(app.answers.cushion).toEqual({ kind: 'hasNot', monthlyExpenses: 10000 })
+  // "I have one" takes the field away again.
+  app.choose({ Cushion: 'Has' })
+  await settle()
+  await vi.waitFor(() => expect(card.querySelector('#expenses')).toBeNull())
 })

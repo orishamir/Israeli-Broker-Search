@@ -141,8 +141,12 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const now = page.locator('#now')
   const monthly = page.locator('#monthly')
   const horizon = page.locator('#horizon')
-  const rungs = page.locator('section.ladder button.rung')
-  const rows = page.locator('.alternatives li.row')
+  const horizonRows = page.locator('section.horizons button.row')
+  const horizonRow = (years: number) => horizonRows.filter({ hasText: t.horizonsIn(years) }).first()
+  const chartRows = page.locator('section.outcome .row:not(.axis) button.press')
+  const options = page.locator('section.answer .decision button.choose')
+  const returnField = page.locator('#outcome-return')
+  const banks = page.locator('section.how .where .banks button')
   const expert = page.locator('label.expert-switch')
   // The plans are ticked in a list of their own, over the inputs.
   const list = page.getByRole('dialog', { name: t.whatsCompared })
@@ -222,17 +226,16 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
     for (let round = 0; round < rounds; round++) {
       await chip(round % 2 ? 'goal' : 'salary').click()
       await now.fill(String(10_000 + round * 100))
-      await page.getByRole('button', { name: t.whatIsIt }).click()
-      await page.mouse.move(0, 0)
-      await page.keyboard.press('Escape')
+      await options.first().click()
+      await chartRows.last().click()
     }
   }
 
-  /** A change that sets the guide to the index arena, where the recommendation
-   * is worked out in a worker (a horizon over 5 years). */
+  /** A change that sets the guide to the index arena, where the answer is
+   * worked out in a worker (a horizon over 5 years). */
   const longHorizon = async () => {
     await chip('salary').click()
-    await expect(rungs.first()).toBeVisible()
+    await expect(horizonRows.first()).toBeVisible()
   }
   const thereAndBackWith = (
     there: () => Promise<unknown>,
@@ -250,7 +253,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
 
   const guide: Measure[] = [
     {
-      label: 'load: to the first chart (ms)',
+      label: 'load: to the first answer (ms)',
       budget: budgets.load,
       measure: () => page.evaluate(() => performance.now()),
     },
@@ -282,8 +285,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       ),
     },
     {
-      // The index arena: the recommendation and the alternatives come from
-      // the worker, so the page only shows the last answer meanwhile.
+      // The index arena: the answer and its horizons come from the worker,
+      // so the page only shows the last answer meanwhile.
       label: 'guide: typing a long horizon (ms)',
       budget: budgets.interaction,
       measure: async () => {
@@ -297,41 +300,68 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       },
     },
     {
-      label: 'guide: tapping a ladder rung (ms)',
+      // The apartment's way: one option, then the other, and back.
+      label: 'guide: choosing an option in a decision (ms)',
+      budget: budgets.view,
+      measure: thereAndBackWith(
+        () => options.nth(1).click(),
+        () => options.first().click(),
+      ),
+    },
+    {
+      label: 'guide: focusing a row of the chart (ms)',
+      budget: budgets.view,
+      measure: thereAndBackWith(
+        () => chartRows.last().click(),
+        () => chartRows.first().click(),
+      ),
+    },
+    {
+      label: 'guide: choosing a bank where to buy (ms)',
       budget: budgets.view,
       measure: async () => {
-        await chip('bonus').click()
-        await expect(rungs.first()).toBeVisible()
-        const time = await typical(
+        await options.first().click()
+        await expect(banks.first()).toBeVisible()
+        return typical(
           page,
           thereAndBack(
-            () => rungs.last().click(),
-            () => rungs.first().click(),
+            () => banks.nth(1).click(),
+            () => banks.first().click(),
           ),
         )
+      },
+    },
+    {
+      label: 'guide: typing the yearly return (ms)',
+      budget: budgets.interaction,
+      measure: async () => {
+        await chip('salary').click()
+        await expect(returnField).toBeVisible()
+        const time = await typical(page, async () => {
+          await returnField.fill('')
+          await returnField.pressSequentially('7', { delay: 120 })
+        })
+        await returnField.fill('10')
         await chip('goal').click()
         return time
       },
     },
     {
-      label: 'guide: "continue anyway" and back (ms)',
+      label: 'guide: a horizon row, and back (ms)',
       budget: budgets.view,
-      measure: thereAndBackWith(
-        () => rows.last().locator('.choose').click(),
-        () => page.getByRole('button', { name: t.backToRecommendation }).click(),
-      ),
-    },
-    {
-      label: "guide: opening the kind's card (ms)",
-      budget: budgets.dialog,
-      measure: () =>
-        typical(page, async () => {
-          await page.getByRole('button', { name: t.whatIsIt }).click()
-          await expect(page.locator('dialog[open]')).toBeVisible()
-          await page.mouse.move(0, 0)
-          await page.keyboard.press('Escape')
-          await expect(page.locator('dialog[open]')).toBeHidden()
-        }),
+      measure: async () => {
+        await chip('bonus').click()
+        await expect(horizonRow(1)).toBeVisible()
+        const time = await typical(
+          page,
+          thereAndBack(
+            () => horizonRow(1).click(),
+            () => horizonRow(5).click(),
+          ),
+        )
+        await chip('goal').click()
+        return time
+      },
     },
     {
       label: 'guide: opening the glossary (ms)',
@@ -567,7 +597,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
 test('speed and smoothness', async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof BUDGETS
   await page.goto('/')
-  await expect(page.locator('.alternatives .chart canvas')).toBeVisible()
+  await expect(page.locator('section.answer #answer-title')).toBeVisible()
 
   const rows: string[] = []
   for (const { label, budget, measure } of measures(page, project)) {

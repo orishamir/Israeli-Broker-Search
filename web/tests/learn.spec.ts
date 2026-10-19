@@ -1,36 +1,41 @@
-import { alternativesFor, glossary, learnCard } from './core'
-import { away, enter, expect, expectAnswerFor, test, type Page } from './fixtures'
+import { glossary, learnCard, ways } from './core'
+import { away, expect, test, workbench, type Page } from './fixtures'
 import { t } from '../src/lib/text'
 
-// The learn layer: a term's card from a tip's "more about this" or the
-// answer's "what is it", the glossary that lists them all, and the way back
-// through the cards opened one from another. The cards' sentences are the
-// core's.
+// The learn layer: a term's card from a tip's "more about this", the
+// glossary that lists them all, and the way back through the cards opened
+// one from another. The cards' sentences are the core's.
 
-const fiveYearsFixed = { now: 50_000, monthly: 0, horizon: 5, flexibility: 'Fixed' } as const
 const card = (page: Page, name: string) => page.getByRole('dialog', { name, exact: true })
 
-test('a tip with a card has "more about this", which opens the card', { tag: '@phone' }, async ({ page }) => {
-  const answers = await enter(page, fiveYearsFixed)
-  await expectAnswerFor(page, answers)
-  // The first kind drawn whose safety tag has a card of its own.
-  const series = alternativesFor(answers).series
-  const index = series.findIndex(({ card }) => card)
-  expect(index, 'some kind drawn has a card').toBeGreaterThanOrEqual(0)
-  const row = page.locator('.alternatives li.row').nth(index)
-  const wanted = learnCard(series[index].card!)
-  await row.getByRole('button', { name: t.whatMeans(series[index].safetyTag) }).click()
+/** The first way the workbench lists that has a card, and its card. */
+function wayWithCard() {
+  const way = ways().find(({ card }) => card)
+  if (!way) throw new Error('no way has a card')
+  return { way, learn: learnCard(way.card!) }
+}
+
+/** Opens the card of the first way with one, from its tip in the workbench. */
+async function openWayCard(page: Page) {
+  const { way, learn } = wayWithCard()
+  await workbench(page, t.thingSp500)
+  const item = page
+    .getByRole('list', { name: t.waysTitle })
+    .getByRole('listitem')
+    .filter({ hasText: way.name })
+  await item.getByRole('button', { name: t.whatMeans(way.name) }).click()
   await page.getByRole('tooltip').getByRole('button', { name: t.learnMore }).click()
-  await expect(card(page, wanted.name)).toBeVisible()
-  await expect(card(page, wanted.name)).toContainText(wanted.what)
+  await expect(card(page, learn.name)).toBeVisible()
+  return learn
+}
+
+test('a tip with a card has "more about this", which opens the card', { tag: '@phone' }, async ({ page }) => {
+  const learn = await openWayCard(page)
+  await expect(card(page, learn.name)).toContainText(learn.what)
 })
 
 test('cards open from one another, and the way back leads through them', async ({ page }) => {
-  const answers = await enter(page, fiveYearsFixed)
-  const { kind } = await expectAnswerFor(page, answers)
-  const first = learnCard(kind.card!)
-  await page.getByRole('button', { name: t.whatIsIt }).click()
-  await expect(card(page, first.name)).toBeVisible()
+  const first = await openWayCard(page)
   // No way back from the first card.
   await expect(page.getByRole('button', { name: t.cardBack })).toHaveCount(0)
   const next = learnCard(first.compareWith[0])

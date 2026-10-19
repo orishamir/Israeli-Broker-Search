@@ -7,18 +7,9 @@
 
 import type { YourPlan } from './app.svelte'
 import * as core from './core/core'
-import type {
-  Arena,
-  Bank,
-  Choices,
-  CushionInput,
-  Exchange,
-  Flexibility,
-  Horizon,
-  Security,
-} from './core/core'
+import type { Bank, Choices, CushionInput, Exchange, Flexibility, Horizon, Security } from './core/core'
 import { firstOfEachId } from './saved'
-import { kindByKey, wayByKey } from './kinds'
+import { wayByKey } from './kinds'
 
 export const LINK_VERSION = '2'
 
@@ -42,8 +33,8 @@ export interface Shared {
   flexibility?: Flexibility
   cushion?: CushionInput
   needsAnyDay?: boolean
-  /** The switch. The inputs below are in a link only when it is on, or an
-   * override is. */
+  /** The switch. The inputs below are in a link only when it is on, or the
+   * yearly return isn't the usual. */
   expert?: boolean
   thing?: Thing
   /** The ticked ways, as `wayKey`s. */
@@ -61,9 +52,6 @@ export interface Shared {
   sellAtEnd?: boolean
   asPension?: boolean
   age?: number
-  /** What the user chose over the guide: an arena, and a kind as `kindKey`. */
-  overrideArena?: Arena
-  overrideKind?: string
   /** The ticked listed plans, by label: "Leumi · Pepper". Names, not
    * positions, which shift when brokers are added. */
   plans?: string[]
@@ -111,8 +99,6 @@ const EXCHANGE = 'e'
 const NOT_TODAYS_MONEY = 'nom'
 const HOLD = 'keep'
 const PENSION = 'k'
-const OVERRIDE_ARENA = 'oa'
-const OVERRIDE_KIND = 'ok'
 const PLAN = 'plan'
 const YOURS = 'yours'
 
@@ -167,8 +153,6 @@ export function encode(shared: Shared): string {
   if (shared.todaysMoney === false) set(NOT_TODAYS_MONEY, 1)
   if (shared.sellAtEnd === false) set(HOLD, 1)
   if (shared.asPension) set(PENSION, 1)
-  set(OVERRIDE_ARENA, shared.overrideArena)
-  set(OVERRIDE_KIND, shared.overrideKind)
   for (const plan of shared.plans ?? []) params.append(PLAN, plan)
   if (shared.yours?.length) params.set(YOURS, toBase64Url(JSON.stringify(shared.yours)))
   return params.toString()
@@ -254,9 +238,6 @@ export function decode(hash: string): Shared {
   if (params.get(HOLD) === '1') shared.sellAtEnd = false
   if (params.get(PENSION) === '1') shared.asPension = true
   shared.age = number(NUMBERS.age, (value) => value >= 0 && value <= 120)
-  shared.overrideArena = among(OVERRIDE_ARENA, ['Safe', 'Index'])
-  const kind = params.get(OVERRIDE_KIND)
-  if (kind !== null && kindByKey(kind)) shared.overrideKind = kind
   const plans = params.getAll(PLAN)
   if (plans.length > 0) shared.plans = plans
   shared.yours = listIn(params, YOURS, looksLikeYourPlan)

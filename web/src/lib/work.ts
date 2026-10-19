@@ -3,23 +3,20 @@
 
 import {
   answer,
-  alternatives,
-  ladder,
   recommend,
   sweep,
-  type AlternativesData,
   type AnswerData,
   type AnswerRequest,
   type AnswersInput,
   type GuideSettings,
+  type HorizonRowData,
   type Inputs,
   type RecommendationData,
-  type RungData,
   type SweepData,
   type Swept,
 } from './core/core'
 
-/** The guide's questions with the settings they are asked under. */
+/** The workbench's guide: the questions with the settings they are asked under. */
 export interface GuideRequest {
   answers: AnswersInput
   settings: GuideSettings
@@ -35,10 +32,10 @@ export interface SweepRequest {
 export interface Jobs {
   sweep: { request: SweepRequest; value: SweepData }
   recommend: { request: GuideRequest; value: RecommendationData }
-  ladder: { request: GuideRequest; value: RungData[] }
-  alternatives: { request: GuideRequest; value: AlternativesData }
-  /** The redesigned answer (REDESIGN.md Part 2). */
+  /** The answer (REDESIGN.md Part 2), asked without its horizons. */
   answer: { request: AnswerRequest; value: AnswerData }
+  /** Its horizon section ("ואם התאריך יזוז?"), asked as a job of its own. */
+  horizons: { request: AnswerRequest; value: HorizonRowData[] }
 }
 export type JobName = keyof Jobs
 
@@ -57,12 +54,10 @@ export function run<J extends JobName>(job: J, request: Jobs[J]['request']): Wor
         }
         case 'recommend':
           return recommend((request as GuideRequest).answers, (request as GuideRequest).settings)
-        case 'ladder':
-          return ladder((request as GuideRequest).answers, (request as GuideRequest).settings)
         case 'answer':
           return answer(request as AnswerRequest)
         default:
-          return alternatives((request as GuideRequest).answers, (request as GuideRequest).settings)
+          return answer({ ...(request as AnswerRequest), horizons: true }).horizons
       }
     })()
     return { value: value as Jobs[J]['value'] }

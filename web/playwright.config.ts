@@ -31,6 +31,9 @@ const layoutOnly = [{ name: 'iphone-se', use: devices['iPhone SE (3rd gen)'] }].
   testMatch: 'layout.spec.ts',
 }))
 
+/** The dev server's port: another worktree's tests may hold the usual one. */
+const port = Number(process.env.PORT ?? 5173)
+
 export default defineConfig({
   testDir: 'tests',
   // The performance tests have their own config, playwright.perf.config.ts.
@@ -39,7 +42,7 @@ export default defineConfig({
   outputDir: 'test-results',
   fullyParallel: true,
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: `http://localhost:${port}`,
     // The app then skips its animations, so tests needn't wait for them.
     reducedMotion: 'reduce',
   },
@@ -47,8 +50,8 @@ export default defineConfig({
   // Serves the app while testing; the WebAssembly must already be built
   // (`npm run wasm`).
   webServer: {
-    command: 'npx vite --port 5173 --strictPort',
-    url: 'http://localhost:5173',
+    command: `npx vite --port ${port} --strictPort`,
+    url: `http://localhost:${port}`,
     reuseExistingServer: true,
   },
 })

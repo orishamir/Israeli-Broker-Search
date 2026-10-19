@@ -46,8 +46,6 @@ export const en = {
     'What you end up with, and what the table is ranked by: what selling everything at the end brings in shekels, after the sell fee and converting back, less the tax on the gain.',
   underAHundredth: 'less than 0.01%',
   yearlyCost: 'Fees, as a yearly %',
-  yearlyCostTip:
-    'What the fees come to as a yearly charge on your holdings, the way a fund states its management fee: paying this share of your holdings every year, and nothing else, would leave you the same before tax. Compare it with a fund’s fee, or with the same plan at another deposit. It doesn’t include what the ETF or index fund itself charges, nor, in a fund, its direct expenses (trading commissions and outside managers’ fees). 100% when nothing is left.',
   spreadBetween: (low: string, lowName: string, high: string, highName: string) =>
     `From ${low} (${lowName}) to ${high} (${highName})`,
   spreadAtMost: (name: string, amount: string) => `${name}: ${amount}`,
@@ -55,15 +53,11 @@ export const en = {
   reportAMistake: 'Report a mistake (GitHub)',
   accessibilityStatement: 'Accessibility statement',
   needBiggerFirstDeposit: 'Need a bigger one-time deposit',
-  lostToFees: 'Lost to fees',
-  lostToFeesTip: (selling: boolean) =>
-    `How much less you end up with${selling ? ', after selling and before tax,' : ''} than with no fees and buying every month: the fees, plus the growth they and money waiting for a purchase would have earned. ₪10 a month in fees over 20 years is ₪2,400 paid, but about ₪7,000 lost at 10% a year.`,
   tax: 'Tax',
   feesShort: 'Fees',
   taxTip: (inflation: string, surtax: string, threshold: string) =>
     `A quarter of the real gain: what selling brings, less what the holdings cost, the cost raised with prices (${inflation} a year), in shekels and in a fund or a policy. At a broker, a security in dollars or euros is measured against the exchange rate, which stays as it is here, so its whole gain is taxed. A large gain in one year also pays the surtax: ${surtax} of what's above ${threshold} (raised with prices from 2028), as if you had no other income that year; a salary adds to it, and selling over several years can avoid it. A shekel bond that isn't linked to prices pays 15% of its whole gain, which the app doesn't tell apart. What was paid to buy counts as cost; of what was paid to keep the account, only the year of the sale's comes off, so of two plans that leave about the same, the one charging on trades pays less tax. A provident fund for investment taken as a pension from 60 pays none.`,
   noTax: 'none',
-  feesPaid: 'Fees paid',
   /** `buying`: the monthly purchases, if there are any. */
   feesPaidTip: (selling: boolean, buying?: { years: number; everyMonths: number; abroad: boolean }) => {
     const all = `Every fee charged: purchases, conversions, keeping the account or a fund's management fee${selling ? ', and selling at the end' : ''}.`
@@ -72,8 +66,6 @@ export const en = {
     const count = Math.floor((years * 12) / everyMonths)
     return `${all} Buying every ${everyMonths === 1 ? 'month' : `${everyMonths} months`} for ${years} years, that is up to ${count} purchases${abroad ? ` and up to ${count} conversions` : ''}.`
   },
-  valueHeld: 'Value held',
-  valueHeldTip: 'What the investment is worth at the end, without selling.',
   inTodaysMoneyNote: ' In today’s money: divided by how much prices will have risen by then.',
   feesLink: (label: string, amount: string) => `${label} fees: ${amount}, see what they went to`,
   notOfferedFor: (purchase: string) => `Not offered for ${purchase}`,
@@ -164,7 +156,6 @@ export const en = {
   ratesSource:
     "The European Central Bank's rates, within a fraction of a percent of the Bank of Israel's. You can change them to try other rates.",
   deposits: 'Deposits',
-  everyMonth: 'Every month',
   buyEvery: 'Buy every',
   buyEveryTip:
     "Deposits wait as cash until the next purchase. Buying less often means paying fewer minimum fees, but the cash doesn't grow while it waits. Putting in ₪2,000 a month at a ₪5 minimum fee, buying every month costs ₪60 a year in fees; every 3 months costs ₪20, but up to ₪4,000 sits idle for up to two months at a time.",
@@ -358,23 +349,15 @@ export const en = {
   // The two calculators
 
   // The short term's inputs
-  monthsCount: (months: number) =>
-    months === 1 ? 'a month' : months === 2 ? '2 months' : `${months} months`,
   boiRate: "Bank of Israel's rate, on average",
   boiRateTip:
     "The rate the Bank of Israel sets, which savings rates across the economy follow. It decides it eight times a year. Type the rate you expect, on average over the months: a money market fund will earn about that, less its fee. A fixed-rate deposit isn't affected by it once opened, so the lower the rate you expect, the better the deposits do against the funds.",
-  boiRateNote: (today: string) =>
-    `Today it's ${today}. A fixed-rate deposit locks in its rate on the day it's opened; a money market fund changes with the Bank of Israel's rate.`,
 
   // The places to compare
   caveats: 'Caveats',
 
   // The short term's results
-  forMonths: (months: number) => (months === 1 ? 'for a month' : `for ${months} months`),
   aboveTheRate: (rate: string) => `${rate} above the rate`,
-  yoursPart: 'Yours',
-  keptPart: 'Kept by the fund or the bank',
-  taxPart: 'Tax',
   monthsAxis: 'Months',
   afterMonths: (months: number) => (months === 1 ? 'After a month' : `After ${months} months`),
 
@@ -398,58 +381,13 @@ export const en = {
   iAmAge: 'I am',
   retireAtAge: "and I'll retire at",
   answerUpdatesBelow: '↓ The answer updates below',
-  whichBank: 'Which bank holds the portfolio?',
   otherBank: 'Another bank',
-  answerTitle: 'What fits money like this',
-  whatIsIt: 'What is it? ›',
-  changeKind: 'Change ›',
-  backToRecommendation: 'Back to the recommendation ›',
-  alternativesTitle: 'Compared with the other options',
   withinTitle: "Where it's cheapest to buy",
-  allPlans: (count: number) => `All ${count} plans ›`,
-  stepsTitle: 'How to do it',
-  donutTitle: 'Where every shekel goes at the end',
-  ladderTitle: 'And if you need the money sooner or later?',
-  // Package J: alternatives, donut, ladder
-  alternativesLead:
-    "Each line is what the same money would come to in that kind of place, by its own assumption: in today's money, after tax.",
-  alternativesTip:
-    "Every line starts from the same deposits and ends at what is left after fees and tax, in today's money. The shaded range behind the stock fund is what the S&P 500 index did over every stretch of this length since 1926, as if it had grown at a steady rate in each: the worst stretch at the bottom, the best at the top. Real paths wander more. Where the best case is far above the lines, the range is cut off at the top of the chart.",
-  bandName: 'What the S&P 500 index did before',
-  bandCaption: 'The shaded range',
-  endRecommended: 'Recommended',
-  endStock: 'Stocks',
-  endCash: 'Current account',
-  rowRecommended: 'What fits',
-  safetyTipAbout: 'this tag',
-  continueHint: 'To go on with one of the others anyway, tap its row.',
-  continueWith: (name: string) => `Go on with ${name}`,
-  chartYears: 'years',
-  chartMonths: 'months',
+  // The workbench's charts and its funds
   afterSaleAndTax: 'After selling and tax',
-  lastPointAfterTax: 'The last point is after selling and tax, so it is below the one before it',
-  rangeInTooltip: 'S&P 500 index history',
-  donutDeposit: 'Deposits',
-  donutGain: 'Gain',
   whichFund: 'Which fund holds it?',
   whichFundTip:
     'The same index can be bought in Tel Aviv through an Israeli ETF or through a foreign ETF that is also listed there. Their yearly costs differ, and the calculator works each one out apart.',
-  donutFees: 'Fees',
-  donutProduct: 'The fund itself',
-  donutTax: 'Tax',
-  donutKept: 'Kept by the place',
-  donutTiny: (parts: string) => `Under 0.5%: ${parts}`,
-  donutTip:
-    'Every shekel the money came to before fees and tax, split by who gets it: your deposits, the gain you keep, the fees, the tax, and what the place keeps out of the rate it earns.',
-  ladderLead: (monthly: string) => `${monthly} a month, in today's money`,
-  ladderWhen: 'In',
-  ladderMost: 'Most will be left in...',
-  ladderTap: 'Tap a row to go on with it.',
-  ladderRung: (months: number) =>
-    months % 12 === 0 ? `${months / 12} year${months === 12 ? '' : 's'}` : `${months} months`,
-  ladderRungAnyDay: 'Any day',
-  ladderRungLabel: (when: string, what: string, amount: string) =>
-    `${when}: ${what}, ${amount}. Go on with this horizon`,
   learnMore: 'More about this ›',
   back: 'Back',
   glossaryHint: "Every term the calculator uses, as it's called in your bank's app and in ads.",
@@ -459,8 +397,7 @@ export const en = {
   thingBonds: 'Bonds',
   thingShort: 'Short-term money',
   waysTitle: 'In which ways to compare?',
-  waysBest: 'The ways, best first',
-  // Package L: the learn card, the glossary, the best bar
+  // The learn card and the glossary
   cardWhat: 'What it is',
   cardGoodFor: 'What it is good for',
   cardDownside: 'The downside',
@@ -472,17 +409,9 @@ export const en = {
   cardVersus: (name: string) => `Versus ${name} ›`,
   allTerms: 'All terms ›',
   cardBack: '‹ Back',
-  bestBarToday: "in today's money",
-  bestBarJump: 'To the answer',
 
-  // Package I: the questions, the answer, the steps and the portfolio dialog
-  situationTip: (name: string) => `About the situation "${name}"`,
+  // The questions
   horizonUnknownPlaceholder: '?',
-  horizonAmount: 'How long',
-  whyThis: 'Why this one',
-  chooseKindTitle: 'Continue with what?',
-  portfolioHelp: "A portfolio's fees can be found in the bank's app, or ask the banker for the price list.",
-  newOwnPlan: '+ Your own plan',
 
   // ── Package K: the workbench, the full list, the charts ──
   workbenchSummary: (returnPercent: string, inflationPercent: string, selling: boolean, plans: string) =>
@@ -491,9 +420,6 @@ export const en = {
   changeAssumptions: 'Change ›',
   hideAssumptions: 'Close ›',
   exampleTag: 'Example',
-  assumptionsTitle: 'The assumptions behind the numbers',
-  assumptionsLine: (returnPercent: string, inflationPercent: string, boiPercent: string) =>
-    `Assuming ${returnPercent} a year, inflation ${inflationPercent}, Bank of Israel rate ${boiPercent}`,
   thingTip: {
     sp500:
       'An index of the 500 largest companies in the US. It can be bought in several ways, and the comparison shows what is left in each.',
@@ -518,8 +444,6 @@ export const en = {
     'What the fund that holds the index keeps for itself, whatever the bank charges: its management fee, the tax on the dividends it receives and the gap between it and the index.',
   showWayPlans: (count: number) => `All ${count} plans of the way ›`,
   hideWayPlans: 'Hide ›',
-  allWays: (count: number) => `All ${count} ways ›`,
-  fullTableHint: 'The full table, the fee breakdown and the chart by deposit open with "All options"',
   noPlansTicked: 'No plan is ticked for comparison: add one under "What is compared".',
   inTodaysMoneyAxis: "In today's money",
   waysChartsNote: 'Each way is drawn as its cheapest plan.',
@@ -564,7 +488,6 @@ export const en = {
   yourBankRow: (name: string) => `Your bank: ${name}`,
   throughABank: 'Through a bank',
   askBank: 'Which is your bank? Then each place shows how much more or less it leaves than your bank.',
-  yourBankGroup: 'Your bank',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'How much of the gain stays with you',
   gainKept: 'Stays with you',

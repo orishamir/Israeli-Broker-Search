@@ -38,8 +38,6 @@ const shared: Shared = {
   sellAtEnd: false,
   asPension: true,
   age: 41,
-  overrideArena: 'Safe',
-  overrideKind: kindKey({ GovernmentBond: { linked: true } }),
   plans: ['Leumi · Pepper', 'Meitav · Typical offer'],
   yours: [yours],
 }
@@ -122,9 +120,13 @@ test('a link may be in the query string, the hash first', () => {
 
 test('what makes no sense is left out and the rest still applies', () => {
   const read = decode(
-    'v=2&n=-5&m=abc&h=0&fx=maybe&cu=n:x&s=Crypto&e=Mars&b=5&p=0&a=200&th=moon&way=nothing&oa=Sea&ok=Way:nope&si=nope&bk=Nobody&r=7',
+    'v=2&n=-5&m=abc&h=0&fx=maybe&cu=n:x&s=Crypto&e=Mars&b=5&p=0&a=200&th=moon&way=nothing&si=nope&bk=Nobody&r=7',
   )
   expect(read).toEqual({ yearlyReturnPercent: 7 })
+})
+
+test('a link made while the guide had overrides still opens, without them', () => {
+  expect(decode('v=2&n=5&oa=Safe&ok=MoneyMarketFund')).toEqual({ now: 5 })
 })
 
 test("a plan's id is kept once, and a list that isn't one is left out", () => {
