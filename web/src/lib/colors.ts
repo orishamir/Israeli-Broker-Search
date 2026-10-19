@@ -69,8 +69,9 @@ export const wayColor = (index: number): string => PLAN_COLORS[index % PLAN_COLO
 // five safe kinds, the study fund's track, and one other holding of the
 // S&P 500 (the guide's lead way). Those seven are told apart in every pair
 // (the dataviz skill's validator, `--pairs all`, on the page's surface
-// #151820: normal vision ΔE ≥ 15.1, contrast ≥ 3:1; color-blind ΔE ≥ 7.7,
-// in the band that needs secondary encoding, which every row's name is).
+// #151820: normal vision ΔE ≥ 15.1, contrast ≥ 3:1; color-blind ΔE ≥ 8.4).
+// The money-market fund was a lilac beside the index's magenta, too near
+// in hue (the review of 2026-10-20, X17): it is a light green now.
 // Thirteen kinds can't all be told apart, and the other holdings of the
 // S&P 500 are never drawn beside each other in the guide (the workbench
 // colors its ways by `wayColor`), so they share the index's magenta. The
@@ -80,7 +81,7 @@ export const wayColor = (index: number): string => PLAN_COLORS[index % PLAN_COLO
 const SP500 = '#c547a3'
 
 export const KIND_COLORS: Record<string, string> = {
-  MoneyMarketFund: '#c97dfc',
+  MoneyMarketFund: '#9fe07a',
   FixedDeposit: '#4682cc',
   LinkedDeposit: '#39b7cb',
   'GovernmentBond:linked': '#ca9d33',

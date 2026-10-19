@@ -72,22 +72,35 @@ type Box = { x: number; y: number; width: number; height: number }
 const overlap = (a: Box, b: Box) =>
   a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
 
-/** The goal buttons, by position, that the open tip of button `index` covers. */
+/** The situation chips, by position, that the open tip of chip `index` (its
+ * "?") covers. */
 async function coveredBy(page: Page, index: number) {
-  const buttons = page.getByRole('group', { name: t.whatForTitle }).getByRole('button')
+  const strip = page.getByRole('group', { name: t.whatForTitle })
+  const chips = strip.locator('.chip')
   await away(page)
-  await buttons.nth(index).hover()
+  await strip.locator('.tip-button').nth(index).hover()
   const tip = page.locator('.questions .popover.open')
   await expect(tip).toBeVisible()
   const shown = (await tip.boundingBox())!
-  const boxes = await buttons.evaluateAll((all) => all.map((each) => each.getBoundingClientRect().toJSON()))
+  const boxes = await chips.evaluateAll((all) => all.map((each) => each.getBoundingClientRect().toJSON()))
   return boxes.flatMap((box, other) => (other !== index && overlap(shown, box) ? [other] : []))
 }
 
-// A goal button's description stood over the buttons beside it, so the one
-// to press next was hidden behind the one just touched.
-test('a goal button’s tip covers none of the other goal buttons', { tag: '@phone' }, async ({ page }) => {
-  const count = await page.getByRole('group', { name: t.whatForTitle }).getByRole('button').count()
+// A situation's description stood over the chips beside it, so the one to
+// press next was hidden behind the one just touched.
+test('a situation’s tip covers none of the other chips', { tag: '@phone' }, async ({ page }) => {
+  const count = await page.getByRole('group', { name: t.whatForTitle }).locator('.chip').count()
   expect(count).toBeGreaterThan(3)
   for (let index = 0; index < count; index++) expect(await coveredBy(page, index)).toEqual([])
+})
+
+// A chip's tap chose it and opened its tip, which stayed over the header
+// (the review of 2026-10-20, X11): only its own "?" opens it.
+test('choosing a situation opens no tip', { tag: '@phone' }, async ({ page }) => {
+  const chips = page.getByRole('group', { name: t.whatForTitle }).locator('.chip')
+  for (const at of [1, 2]) {
+    await chips.nth(at).click()
+    await expect(chips.nth(at)).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.locator('.popover.open')).toHaveCount(0)
+  }
 })

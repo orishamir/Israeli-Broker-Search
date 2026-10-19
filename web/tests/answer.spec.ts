@@ -1,5 +1,5 @@
 import { answerFor, decisionsOf, situationAnswers } from './core'
-import type { AnswersInput, Choices, DecisionData, LineData, Pick } from './core'
+import type { AnswerData, AnswersInput, Choices, DecisionData, LineData, Pick } from './core'
 import {
   answerCard,
   answerLine,
@@ -47,6 +47,13 @@ test('the card shows the core’s lines, each with its pill', { tag: '@phone' },
   const answers = situationAnswers('goal')
   const expected = await expectAnswerFor(page, answers)
   await expect(answerCard(page).locator('.line')).toHaveCount(expected.lines.length)
+  // In the core's order: a decision that depends on another comes after it
+  // (principle 8), and the core decides which that is.
+  expect(
+    await answerCard(page)
+      .locator('.line')
+      .evaluateAll((lines) => lines.map((line) => (line as HTMLElement).dataset.line)),
+  ).toEqual(expected.lines.map((line) => line.kind))
   for (const line of expected.lines)
     await expect(answerLine(page, line.kind).locator('.pill')).toHaveText(pillOf(line))
 })
@@ -134,5 +141,60 @@ test(
     await expectAnswerFor(page, { ...answers, cushion: { kind: 'hasNot', monthlyExpenses: 9000 } })
     await decide(page, answers, {}, 'Cushion', { Cushion: 'Has' })
     await expect(page.locator('#expenses')).toHaveCount(0)
+  },
+)
+
+/** The first decision's options that open a decision still to answer, each
+ * with the decisions it opens, as the core says. */
+function opening(answers: AnswersInput, before: AnswerData) {
+  const first = decisionsOf(before)[0]
+  const asked = new Set(decisionsOf(before).map(({ decision }) => decision.id))
+  return first.decision.options.flatMap((option) => {
+    const pick = option.pick
+    const facts: AnswersInput =
+      'Flexibility' in pick
+        ? { ...answers, flexibility: pick.Flexibility }
+        : 'Cushion' in pick
+          ? {
+              ...answers,
+              cushion: pick.Cushion === 'Has' ? { kind: 'has' } : { kind: 'hasNot', monthlyExpenses: null },
+            }
+          : answers
+    // New, and still to answer (an example may have answered one already).
+    const fresh = decisionsOf(answerFor(facts, choicesWith({}, pick))).filter(
+      ({ decision }) => !asked.has(decision.id) && decision.chosen === undefined,
+    )
+    return fresh.length > 0 ? [{ option, fresh }] : []
+  })
+}
+
+// A choice can open a decision that depends on it (the review of 2026-10-20,
+// X7): the chosen option stays on the screen while the card changes around
+// it, and the new question comes into view, on a phone too.
+test(
+  'a choice that opens a decision keeps the chosen option on the screen, and shows the new question',
+  { tag: '@phone' },
+  async ({ page }) => {
+    let opened = 0
+    for (const id of ['bonus', 'child', 'unknown']) {
+      const answers = situationAnswers(id)
+      await chip(page, situationName(id)).click()
+      const before = await expectAnswerFor(page, answers)
+      const first = decisionsOf(before)[0]
+      for (const { option, fresh } of opening(answers, before)) {
+        opened++
+        await decide(page, answers, {}, first.decision.id, option.pick)
+        const pressed = decisionGroup(page, first.decision).getByRole('button', { pressed: true })
+        await expect(pressed).toBeVisible()
+        await expect(decisionGroup(page, fresh[0].decision)).toBeVisible()
+        await expect(pressed).toBeInViewport()
+        await expect(answerLine(page, fresh[0].line).locator('.question')).toBeInViewport({ ratio: 1 })
+        // Back to the first, for the next option.
+        await chip(page, situationName('goal')).click()
+        await chip(page, situationName(id)).click()
+        await expectAnswerFor(page, answers)
+      }
+    }
+    expect(opened, 'some choice opens another decision').toBeGreaterThan(0)
   },
 )

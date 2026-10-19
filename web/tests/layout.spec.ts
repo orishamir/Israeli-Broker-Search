@@ -1,4 +1,5 @@
 import {
+  banks,
   brokerName,
   exchangeName,
   exchanges,
@@ -202,6 +203,19 @@ test('at the start: the guide answers the first chip', { tag: '@phone' }, async 
   await checkLayout(page, 'start')
 })
 
+// On a phone the answer is under the inputs: a chip, which changed it, goes
+// to it, so its chip and title are on the screen without hunting (the review
+// of 2026-10-20, X11). And the chip opens no tip over the page.
+test('on a phone, a chip shows the answer it changed', { tag: '@touch' }, async ({ page }) => {
+  for (const id of ['bonus', 'salary', 'existing', 'goal']) {
+    await chip(page, situationName(id)).click()
+    const card = page.locator('section.answer')
+    await expect(card.locator('.confidence .chip')).toBeInViewport({ ratio: 1 })
+    await expect(card.locator('#answer-title')).toBeInViewport({ ratio: 1 })
+    await expect(page.locator('.popover.open')).toHaveCount(0)
+  }
+})
+
 test('with every situation chosen', { tag: '@phone' }, async ({ page }) => {
   for (const situation of situations().filter(({ workbench }) => !workbench)) {
     await chip(page, situation.name).click()
@@ -246,11 +260,14 @@ test(
     await checkLayout(page, 'how to do it, empty')
     await decide(page, goal, {}, 'SafeWay', { SafeWay: 'Bond' })
     const where = page.locator('section.how .where')
-    await expect(where.getByRole('group')).toBeVisible()
-    await checkLayout(page, 'where to buy, asking the bank')
-    await where.getByRole('group').getByRole('button').first().click()
     await expect(where.locator('.row.yours').first()).toBeVisible()
-    await checkLayout(page, 'where to buy, from the bank')
+    await checkLayout(page, 'where to buy, from the banks’ range')
+    await page.locator('#bank').selectOption(banks()[3].bank)
+    await expect(page.locator('#bank')).toHaveValue(banks()[3].bank)
+    await expect(where.locator('.row.yours').first()).toBeVisible()
+    await checkLayout(page, 'the bank chosen in the facts, and where to buy from it')
+    await page.locator('#bank').selectOption('other')
+    await checkLayout(page, 'another bank')
     const rows = page.locator('section.outcome .row:not(.axis) button.press')
     for (const at of [0, (await rows.count()) - 1]) {
       await rows.nth(at).click()

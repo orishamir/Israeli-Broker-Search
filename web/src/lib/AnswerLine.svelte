@@ -6,9 +6,10 @@
   // yet", once chosen, opens the monthly-expenses field: a fact only the
   // visitor knows, asked only once it decides something (principle 8).
   import type { AppState } from './app.svelte'
-  import type { LineData, OptData } from './core/core'
+  import type { LineData, OptData, Pick } from './core/core'
   import Decision from './Decision.svelte'
   import { reveal } from './motion'
+  import { holdChosen } from './scroll'
   import NumberField from './NumberField.svelte'
   import { t } from './text'
 
@@ -34,6 +35,20 @@
           ? 'chosen'
           : 'open',
   )
+
+  /** Chooses, keeping the chosen option in view while the answer changes. */
+  function choose(pick: Pick) {
+    const key = JSON.stringify(pick)
+    const kind = line.kind
+    holdChosen(
+      () =>
+        [...document.querySelectorAll<HTMLElement>(`section.answer [data-line="${kind}"] .option`)].find(
+          (option) => option.dataset.pick === key,
+        ) ?? null,
+      () => app.answerFresh,
+    )
+    app.choose(pick)
+  }
 
   /** The monthly expenses, read and typed; an empty field is not typed yet. */
   const expenses = {
@@ -74,7 +89,7 @@
     <Decision
       decision={state.decision}
       labelledby={id}
-      onchoose={(pick) => app.choose(pick)}
+      onchoose={choose}
       extra={state.decision.id === 'Cushion' ? expensesField : undefined}
     />
   {/if}

@@ -271,8 +271,12 @@ const formatPercent = (percent: number) =>
 /** What a screen reader says for a row's button: the row's name, its tags,
  * its figure, and for the index the return it assumes and the past's range. */
 export function rowLabel(row: RowData, words: OutcomeWordsData, percent: number): string {
-  const parts = [row.name, ...row.tags, shekels(row.value.today)]
+  const parts = [row.name, ...row.tags]
   const mark = row.mark
+  // An option the rules exclude has no end figure (the review's X12): a
+  // beginner asked which ends highest would point at it. Its reason instead.
+  if (row.excluded) return [...parts, row.excluded].join('. ')
+  parts.push(shekels(row.value.today))
   if (mark.type === 'market' || mark.type === 'expected')
     parts[parts.length - 1] += ` ${words.ifItRises}${formatPercent(percent)}%\u00a0${words.perYear}`
   if (mark.type === 'market') {
@@ -283,7 +287,6 @@ export function rowLabel(row: RowData, words: OutcomeWordsData, percent: number)
       `${words.best}: ${amount(mark.best.today)}`,
     )
   }
-  if (row.excluded) parts.push(row.excluded)
   return parts.join('. ')
 }
 

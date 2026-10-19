@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { AppState } from './app.svelte'
 import * as core from './core/core'
 import type { AnswerOutcomeData } from './core/core'
+import { shekels } from './format'
 import {
   assumedText,
   at,
@@ -159,15 +160,25 @@ test('the past’s losses are said once, and the return is set in one place only
 
 test('a row is read out with its name, figure and, for the index, the return and the past’s range', () => {
   for (const [, outcome] of charts())
-    for (const row of outcome.rows) {
+    for (const row of outcome.rows.filter(({ excluded }) => !excluded)) {
       const label = rowLabel(row, words, 10)
       expect(label).toContain(row.name)
+      expect(label).toContain(shekels(row.value.today))
       if (row.mark.type === 'market') {
         expect(label).toContain(words.worst)
         expect(label).toContain('10%')
       }
-      if (row.excluded) expect(label).toContain(row.excluded)
     }
+})
+
+test('an excluded row is read out with its reason, and no figure', () => {
+  const excluded = [...charts()].flatMap(([, outcome]) => outcome.rows.filter(({ excluded }) => excluded))
+  expect(excluded.length).toBeGreaterThan(0)
+  for (const row of excluded) {
+    const label = rowLabel(row, words, 10)
+    expect(label).toContain(row.excluded)
+    expect(label).not.toContain(shekels(row.value.today))
+  }
 })
 
 test('the legend keys only the marks drawn', () => {

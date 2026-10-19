@@ -59,7 +59,7 @@
         </ol>
       {/if}
       {#if how.whereToBuy && !how.notOffered}
-        <WhereToBuy {app} where={how.whereToBuy} />
+        <WhereToBuy where={how.whereToBuy} />
       {/if}
     {/if}
   </section>

@@ -1,6 +1,8 @@
-import { answerFor, answersWith, chipSituations, decisionsOf, situations } from './core'
+import { answerFor, answersWith, banks, chipSituations, decisionsOf, situations } from './core'
+import type { AnswersInput, Choices } from './core'
 import { chip, decide, expect, expectAnswerFor, fillField, test, type Page } from './fixtures'
 import { shown } from '../src/lib/horizon'
+import { kindKey } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
 
 // The questions: the chips, the fields, the horizon and its unit. They ask
@@ -59,6 +61,48 @@ test(
     await expectAnswerFor(page, { ...goal, now: 30_000, monthly: null })
   },
 )
+
+/** The reference rows' names where to buy, as the core makes them. */
+function referenceRows(answers: AnswersInput, choices: Choices) {
+  const expected = answerFor(answers, choices)
+  const where = expected.how.find((how) => kindKey(how.row) === kindKey(expected.focus!))!.whereToBuy!
+  return [
+    ...where.rows.filter((row) => row.yours).map((row) => t.yourBankRow(row.name)),
+    ...(where.bankRange ? [t.throughABank] : []),
+  ]
+}
+
+// The bank is one of the visitor's facts (REDESIGN.md §2.1; the review of
+// 2026-10-20, X8): optional, asked once, with the others, and where to buy
+// is compared from it. The reference row is whatever the core makes of it.
+test('the bank is asked with the facts, optional, and where to buy follows it', async ({ page }) => {
+  const goal = situations().find(({ id }) => id === 'goal')!.answers
+  const choices: Choices = { safeWay: 'Bond' }
+  const field = page.locator('#bank')
+  await expect(field).toHaveValue('')
+  await decide(page, goal, {}, 'SafeWay', { SafeWay: 'Bond' })
+  const where = page.locator('section.how .where')
+  await expect(where).toBeVisible()
+  // Not asked again where to buy (principle 7).
+  await expect(where.getByRole('button')).toHaveCount(0)
+  for (const bank of banks()) {
+    await field.selectOption(bank.bank)
+    await expectAnswerFor(page, { ...goal, bank: bank.bank }, choices)
+    await expect(where.locator('.row.yours .name')).toHaveText(
+      referenceRows({ ...goal, bank: bank.bank }, choices),
+    )
+  }
+  // Another bank names none, as no answer does, and the menu says what was picked.
+  await field.selectOption('other')
+  await expect(field).toHaveValue('other')
+  await expect(where.locator('.row.yours .name')).toHaveText(
+    referenceRows({ ...goal, bank: undefined }, choices),
+  )
+  // A chip keeps the bank: it is the visitor's, not the example's.
+  await field.selectOption(banks()[1].bank)
+  await chip(page, situations().find(({ id }) => id === 'bonus')!.name).click()
+  await expect(field).toHaveValue(banks()[1].bank)
+})
 
 test('whether the date can move is asked in the answer, only where the core asks it', async ({ page }) => {
   const base = answersWith({ now: 50_000, monthly: 0 })

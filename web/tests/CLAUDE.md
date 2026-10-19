@@ -197,7 +197,7 @@ to the next paint (the Event Timing API, as Chrome's INP), the longest gap
 between frames while the rows reorder and the chart zooms, and how much the
 heap grows over 30 rounds of changes. First the guide (typing the money,
 the situation chips, a long horizon that the worker answers, choosing an
-option in a decision, focusing a chart row, choosing a bank where to buy,
+option in a decision, focusing a chart row, choosing the bank,
 typing the yearly return, a horizon row, the glossary, the switch), then
 the workbench with plans on one exchange (the old page's measures); prints
 a table; and fails on the budgets at the top of the spec. Run it on a quiet
@@ -214,7 +214,7 @@ the spec are about twice these):
 | guide: typing a long horizon (worker) (ms)         |         64 |      24 |
 | guide: choosing an option in a decision (ms)       |         80 |      24 |
 | guide: focusing a row of the chart (ms)            |         32 |      24 |
-| guide: choosing a bank where to buy (ms)           |         72 |      16 |
+| guide: choosing the bank (ms)                      |         72 |      16 |
 | guide: typing the yearly return (ms)               |         24 |      16 |
 | guide: a horizon row, and back (ms)                |         88 |      24 |
 | guide: opening the glossary (ms)                   |         24 |      16 |

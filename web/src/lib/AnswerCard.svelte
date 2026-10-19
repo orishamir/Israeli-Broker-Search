@@ -49,6 +49,8 @@
 <style>
   .answer {
     transition: opacity var(--quick);
+    /* Scrolled to (a chip on a phone): a little room above it. */
+    scroll-margin-top: 12px;
   }
   /* The sure answer alone wears the accent's border. */
   .answer.state-A {
