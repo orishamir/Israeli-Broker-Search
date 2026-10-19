@@ -527,6 +527,26 @@ export const en = {
   // here, in both files. Words about money come from the core. ──
   // W2: the answer card (§2.2–§2.4): pills, "בחרתם", the waiting line, the
   //     plan's heading, "נשארה החלטה אחת / נשארו N החלטות".
+  answerCard: 'The answer',
+  confidenceChip: {
+    A: 'Hard to go wrong here',
+    B: 'The difference is small',
+    C: 'Depends on what matters to you',
+  } as Record<'A' | 'B' | 'C', string>,
+  linePill: { Clear: 'Clear', Tie: 'Tie', Rules: "By the site's rules" } as Record<
+    'Clear' | 'Tie' | 'Rules',
+    string
+  >,
+  pillYourCall: 'Your call',
+  pillChosen: 'You chose',
+  pillWaiting: 'After the choice',
+  lineWaiting: 'Settled by the decision above',
+  thePlan: 'Your plan',
+  decisionsLeft: (count: number) =>
+    count === 1
+      ? 'One decision left. Once you choose, your plan appears here.'
+      : `${count} decisions left. Once you choose, your plan appears here.`,
+  yourMonthlyExpenses: 'Your expenses a month',
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label, the bank's question.

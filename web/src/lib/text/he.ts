@@ -520,6 +520,19 @@ export const he: Text = {
   // here, in both files. Words about money come from the core. ──
   // W2: the answer card (§2.2–§2.4): pills, "בחרתם", the waiting line, the
   //     plan's heading, "נשארה החלטה אחת / נשארו N החלטות".
+  answerCard: 'התשובה',
+  confidenceChip: { A: 'כאן קשה לטעות', B: 'ההבדל קטן', C: 'תלוי במה שחשוב לכם' },
+  linePill: { Clear: 'ברור', Tie: 'תיקו', Rules: 'לפי הכללים' },
+  pillYourCall: 'החלטה שלכם',
+  pillChosen: 'בחרתם',
+  pillWaiting: 'אחרי הבחירה',
+  lineWaiting: 'יתברר אחרי ההחלטה למעלה',
+  thePlan: 'התוכנית שלכם',
+  decisionsLeft: (count: number) =>
+    count === 1
+      ? 'נשארה החלטה אחת. כשתבחרו, התוכנית שלכם תופיע כאן.'
+      : `נשארו ${count} החלטות. כשתבחרו, התוכנית שלכם תופיע כאן.`,
+  yourMonthlyExpenses: 'ההוצאות שלכם בחודש',
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label, the bank's question.

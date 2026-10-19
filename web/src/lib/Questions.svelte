@@ -1,9 +1,10 @@
 <script lang="ts">
-  // Screen s1: the situations strip (chips, each with a tip on hover), the
-  // money fields, the horizon (a number and a unit menu; "don't know yet";
-  // for retirement, age fields), the follow-up cards the answers still need
-  // (they come and go with `transition:reveal`), and the way out to the
-  // workbench. Everything it changes goes through `app`.
+  // The visitor's facts (REDESIGN.md §2.1): the situations strip (chips,
+  // each with a tip on hover), the money fields, the horizon (a number and a
+  // unit menu; "don't know yet"; for retirement, the two ages), and the way
+  // out to the workbench. Nothing else is asked here: what only the visitor
+  // can decide is asked in the answer, where it decides (§2.2). Everything
+  // it changes goes through `app`.
   import type { Attachment } from 'svelte/attachments'
   import type { AppState } from './app.svelte'
   import { defaultUnit, monthsOfTyped, shown, type Unit } from './horizon'
@@ -31,28 +32,11 @@
 
   const popovers = $state<HTMLElement[]>([])
   let chipsBox = $state<HTMLElement>()
-  /** The cards to show: the guide's follow-ups, the expenses field with the
-   * cushion's (or on its own, if the cushion's question isn't asked). */
-  const cards = $derived(app.followCards.filter((each) => each.followUp !== 'MonthlyExpenses'))
-  const expensesAsked = $derived(
-    app.followUps.includes('MonthlyExpenses') ||
-      (app.answers.cushion?.kind === 'hasNot' && cards.some((each) => each.followUp === 'Cushion')),
-  )
 
   /** The tip's placement is for hovering; a tap picks the chip. */
   const hoverOnly = (popover: HTMLElement): Attachment<HTMLElement> =>
     // Over or under the whole row of chips, so it covers none of them.
     tip(popover, { onClick: false, keepClear: chipsBox })
-
-  function setCushion(has: boolean) {
-    app.answers.cushion = has ? { kind: 'has' } : { kind: 'hasNot', monthlyExpenses: null }
-  }
-  const expenses = {
-    get: () => (app.answers.cushion?.kind === 'hasNot' ? app.answers.cushion.monthlyExpenses : null),
-    set: (value: number | null) => {
-      app.answers.cushion = { kind: 'hasNot', monthlyExpenses: value }
-    },
-  }
 </script>
 
 <div class="stack">
@@ -124,82 +108,33 @@
         </select>
       </div>
     </div>
+    {#if retirement}
+      <div class="field-row" transition:reveal>
+        <label for="age" class="label">{t.iAmAge}</label>
+        <div class="control">
+          <NumberField
+            id="age"
+            bind:value={
+              () => retirement?.age ?? null,
+              (value) => app.setHorizonRetirement(value ?? 0, retirement?.retire_at ?? 60)
+            }
+          />
+        </div>
+      </div>
+      <div class="field-row" transition:reveal>
+        <label for="retire-at" class="label">{t.retireAtAge}</label>
+        <div class="control">
+          <NumberField
+            id="retire-at"
+            bind:value={
+              () => retirement?.retire_at ?? null,
+              (value) => app.setHorizonRetirement(retirement?.age ?? 0, value ?? 0)
+            }
+          />
+        </div>
+      </div>
+    {/if}
   </section>
-
-  {#each cards as card (card.followUp)}
-    <section class="card follow" transition:reveal>
-      {#if card.followUp === 'Flexibility'}
-        <h3>{card.title}</h3>
-        <p class="hint">{card.text}</p>
-        <div class="answers">
-          <button
-            class="chip"
-            class:chosen={app.answers.flexibility === 'Fixed'}
-            aria-pressed={app.answers.flexibility === 'Fixed'}
-            onclick={() => (app.answers.flexibility = 'Fixed')}>{card.answers[0]}</button
-          >
-          <button
-            class="chip"
-            class:chosen={app.answers.flexibility === 'CanWait'}
-            aria-pressed={app.answers.flexibility === 'CanWait'}
-            onclick={() => (app.answers.flexibility = 'CanWait')}>{card.answers[1]}</button
-          >
-        </div>
-      {:else if card.followUp === 'AgeAndRetirement'}
-        <h3>{card.title}</h3>
-        <p class="hint">{card.text}</p>
-        <div class="field-row">
-          <label for="age" class="label">{t.iAmAge}</label>
-          <div class="control">
-            <NumberField
-              id="age"
-              bind:value={
-                () => retirement?.age ?? null,
-                (value) => app.setHorizonRetirement(value ?? 0, retirement?.retire_at ?? 60)
-              }
-            />
-          </div>
-        </div>
-        <div class="field-row">
-          <label for="retire-at" class="label">{t.retireAtAge}</label>
-          <div class="control">
-            <NumberField
-              id="retire-at"
-              bind:value={
-                () => retirement?.retire_at ?? null,
-                (value) => app.setHorizonRetirement(retirement?.age ?? 0, value ?? 0)
-              }
-            />
-          </div>
-        </div>
-      {:else if card.followUp === 'Cushion'}
-        <h3>{card.title}</h3>
-        <p class="hint">{card.text}</p>
-        <div class="answers">
-          <button
-            class="chip"
-            class:chosen={app.answers.cushion?.kind === 'has'}
-            aria-pressed={app.answers.cushion?.kind === 'has'}
-            onclick={() => setCushion(true)}>{card.answers[0]}</button
-          >
-          <button
-            class="chip"
-            class:chosen={app.answers.cushion?.kind === 'hasNot'}
-            aria-pressed={app.answers.cushion?.kind === 'hasNot'}
-            onclick={() => setCushion(false)}>{card.answers[1]}</button
-          >
-        </div>
-        {#if expensesAsked}
-          <div class="field-row" transition:reveal>
-            <label for="expenses" class="label">{app.expensesLabel}</label>
-            <div class="control">
-              <NumberField id="expenses" bind:value={expenses.get, expenses.set} prefix="₪" />
-            </div>
-          </div>
-        {/if}
-      {/if}
-    </section>
-  {/each}
 
   <p class="updates">{t.answerUpdatesBelow}</p>
 </div>
@@ -219,27 +154,19 @@
     background: var(--accent-tint);
     font-size: 0.8rem;
   }
-  h2,
-  h3 {
+  h2 {
     margin: 0;
     font-size: 1.05rem;
-  }
-  h3 {
-    font-size: 1rem;
-    line-height: 1.5;
   }
   .hint {
     margin: 6px 0 12px;
     color: var(--weak);
     font-size: 0.9rem;
   }
-  .chips,
-  .answers {
+  .chips {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-  }
-  .chips {
     margin-bottom: 12px;
   }
   .chip {
@@ -261,13 +188,6 @@
   .link:hover {
     background: none;
     text-decoration: underline;
-  }
-  .follow {
-    border-color: color-mix(in srgb, var(--accent) 55%, transparent);
-    background: color-mix(in srgb, var(--accent) 6%, var(--surface));
-  }
-  .follow .answers {
-    margin-bottom: 4px;
   }
   /* Each label beside its field, every field one width, so they line up from
      card to card; the label takes the rest and wraps. */

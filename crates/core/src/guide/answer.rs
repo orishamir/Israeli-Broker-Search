@@ -1036,7 +1036,12 @@ fn cushion_line(f: &Facts<'_>) -> Option<Line> {
         return None;
     }
     let expenses = match f.answers.cushion {
-        Some(Cushion::HasNot { monthly_expenses }) => (monthly_expenses, false),
+        // The page sends an empty field as the stand-in itself, so the
+        // stand-in's figure is still said to be one.
+        Some(Cushion::HasNot { monthly_expenses }) => (
+            monthly_expenses,
+            monthly_expenses == STAND_IN_MONTHLY_EXPENSES,
+        ),
         _ => (STAND_IN_MONTHLY_EXPENSES, true),
     };
     let target = expenses.0 * Decimal::from(CUSHION_MONTHS);
@@ -1220,7 +1225,7 @@ fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen
         return (line(LineKind::Way, LineState::Waiting), None);
     };
     if groups.len() < 2 || safe_standing == Standing::Clear {
-        let text = card::safe_way_stated(first.way, first.lead.kind, f.months);
+        let text = card::safe_way_stated(first.lead.kind, f.months, groups.len() < 2);
         return (
             line(
                 LineKind::Way,
