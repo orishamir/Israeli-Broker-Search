@@ -13,6 +13,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { AlternativesData, KindSeriesData } from './core/core'
 import type { ChartOption } from './echarts.svelte'
+import { BLUR, FADED_LABEL, FADED_LINE } from './end-label'
 import { fitName } from './fee-breakdown'
 import { compactShekels, elapsed, shekels } from './format'
 import { kindKey } from './kinds'
@@ -63,12 +64,21 @@ function endWord(line: KindSeriesData, stock: KindSeriesData | undefined): strin
   return undefined
 }
 
-const points = (values: readonly number[]) => values.map((value, month) => [month / 12, value])
+/** Under this many months the time is drawn in months: a year's axis would
+ * have no tick to read a four-month cushion by. */
+export const MONTHS_BELOW = 24
+
+const points = (values: readonly number[], inMonths: boolean) =>
+  values.map((value, month) => [inMonths ? month : month / 12, value])
+
+/** A time given in months: "אחרי 4 חודשים", "אחרי שנה". */
+const timeText = (months: number) => elapsed(Math.round(months) / 12)
 
 export function alternativesOption(view: AlternativesView): ChartOption {
   const { data, colors, highlighted } = view
   const measure = view.measure ?? ((text: string) => text.length * 7)
   const stock = stockLine(data.series)
+  const inMonths = data.months < MONTHS_BELOW
   const anyPinned = highlighted.size > 0
   const stockColor = stock ? (colors.get(kindKey(stock.kind)) ?? WEAK) : WEAK
 
@@ -82,15 +92,15 @@ export function alternativesOption(view: AlternativesView): ChartOption {
       id,
       name: line.name,
       type: 'line',
-      data: points(line.valueByMonth),
+      data: points(line.valueByMonth, inMonths),
       color,
       showSymbol: false,
       lineStyle: {
         width: pinned ? 3.5 : line.recommended ? 3 : 2,
-        opacity: faded ? 0.4 : 1,
+        opacity: faded ? FADED_LINE : 1,
         type: line.kind === 'CurrentAccount' ? 'dashed' : 'solid',
       },
-      itemStyle: { opacity: faded ? 0.4 : 1 },
+      itemStyle: { opacity: faded ? FADED_LINE : 1 },
       // The recommended line is drawn over the rest.
       z: line.recommended ? 5 : 3,
       endLabel: word
@@ -98,12 +108,14 @@ export function alternativesOption(view: AlternativesView): ChartOption {
             show: true,
             formatter: fitName(word, LABEL_ROOM - 8, measure),
             color,
-            opacity: faded ? 0.6 : 1,
+            opacity: faded ? FADED_LABEL : 1,
+            minMargin: 3,
           }
         : { show: false },
       // Only a few labels, but they are near each other: move them apart.
       labelLayout: { moveOverlap: 'shiftY' },
       emphasis: { focus: 'series' },
+      ...BLUR,
       triggerEvent: 'line',
     }
   })
@@ -115,7 +127,7 @@ export function alternativesOption(view: AlternativesView): ChartOption {
           name: t.bandName,
           type: 'line',
           stack: 'band',
-          data: points(data.band.worst),
+          data: points(data.band.worst, inMonths),
           showSymbol: false,
           // The lower edge is only the floor the upper series stacks on.
           lineStyle: { opacity: 0 },
@@ -128,7 +140,10 @@ export function alternativesOption(view: AlternativesView): ChartOption {
           type: 'line',
           stack: 'band',
           // What the best stretch adds above the worst, so the two stack to the best.
-          data: points(data.band.best.map((best, month) => best - data.band!.worst[month])),
+          data: points(
+            data.band.best.map((best, month) => best - data.band!.worst[month]),
+            inMonths,
+          ),
           showSymbol: false,
           lineStyle: { opacity: 0 },
           areaStyle: { color: stockColor, opacity: 0.14 },
@@ -145,17 +160,17 @@ export function alternativesOption(view: AlternativesView): ChartOption {
     grid: { left: 16, right: LABEL_ROOM, top: 16, bottom: 32 },
     xAxis: {
       type: 'value',
-      name: t.chartYears,
+      name: inMonths ? t.chartMonths : t.chartYears,
       nameLocation: 'middle',
       nameGap: 24,
       min: 0,
-      max: data.months / 12,
+      max: inMonths ? data.months : data.months / 12,
       minInterval: 1,
       axisLabel: { formatter: (time: number) => (Number.isInteger(time) ? String(time) : ''), color: WEAK },
       nameTextStyle: { color: WEAK },
       axisLine: { lineStyle: { color: GRID } },
       splitLine: { show: false },
-      axisPointer: { label: { formatter: ({ value }) => elapsed(Number(value)) } },
+      axisPointer: { label: { formatter: ({ value }) => timeText(Number(value) * (inMonths ? 1 : 12)) } },
     },
     yAxis: {
       type: 'value',
@@ -174,7 +189,7 @@ export function alternativesOption(view: AlternativesView): ChartOption {
           color: string
           value: [number, number]
         }[]
-        const month = Math.round(((rows[0]?.value?.[0] ?? 0) as number) * 12)
+        const month = Math.round(((rows[0]?.value?.[0] ?? 0) as number) * (inMonths ? 1 : 12))
         const at = (values: readonly number[]) => values[Math.min(month, values.length - 1)]
         const dot = (color: string) =>
           `<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${color};margin-inline-end:6px"></span>`
@@ -188,7 +203,10 @@ export function alternativesOption(view: AlternativesView): ChartOption {
           body.push(
             `<div style="color:${WEAK}">${t.rangeInTooltip}: ${shekels(at(data.band.worst))} – ${shekels(at(data.band.best))}</div>`,
           )
-        return `<div>${elapsed(month / 12)}</div>${body.join('')}`
+        // The last month is after selling and tax: a drop that is not the market's.
+        const last = month >= data.months
+        if (last) body.push(`<div style="color:${WEAK}">${t.lastPointAfterTax}</div>`)
+        return `<div>${timeText(month)}</div>${body.join('')}`
       },
     },
     series: [...band, ...lines],

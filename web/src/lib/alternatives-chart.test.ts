@@ -142,7 +142,9 @@ test('pinned kinds are drawn thicker and the others fade only a little', () => {
   const other = series.find(({ id }) => id === kindKey(index))!
   expect(pinned.lineStyle?.width).toBeGreaterThan(other.lineStyle!.width as number)
   expect(pinned.lineStyle?.opacity).toBe(1)
-  expect(other.lineStyle?.opacity).toBeGreaterThanOrEqual(0.4)
+  expect(other.lineStyle?.opacity).toBeGreaterThanOrEqual(0.7)
+  // And while one is hovered: ECharts' own blur is 0.1.
+  expect(other.blur?.lineStyle?.opacity).toBeGreaterThanOrEqual(0.7)
   expect(other.lineStyle?.opacity).toBeLessThan(1)
   // Nothing pinned: nothing fades.
   const lines = seriesOf(data()).filter(({ id }) => !BAND_IDS.includes(id as string))
@@ -166,4 +168,40 @@ test('the chart reaches only a little above the highest line, and cuts the band 
 test('time is in years on a value axis, from the months', () => {
   const first = seriesOf(data())[2].data as number[][]
   expect(first.map(([time]) => time)).toEqual([0, 1 / 12, 2 / 12])
+})
+
+// A four-month cushion on a years axis had one tick (0), and its tooltip
+// read "אחרי 0 שנים ו‑4 חודשים".
+test('a horizon under two years is drawn in months, with ticks to read them by', () => {
+  const option = alternativesOption(view({ ...data(), months: 4 }))
+  const x = option.xAxis as { name: string; max: number; axisLabel: { formatter: (n: number) => string } }
+  expect(x.name).toBe(t.chartMonths)
+  expect(x.max).toBe(4)
+  expect([0, 1, 2, 3, 4].map(x.axisLabel.formatter)).toEqual(['0', '1', '2', '3', '4'])
+  const deposit = (option.series as LineSeriesOption[]).find(({ id }) => id === 'FixedDeposit')!
+  expect((deposit.data as number[][]).map(([time]) => time)).toEqual([0, 1, 2])
+  // Two years and over stay in years.
+  expect((alternativesOption(view(data())).xAxis as { name: string }).name).toBe(t.chartYears)
+})
+
+type Formatter = (rows: unknown) => string
+const tooltipAt = (d: AlternativesData, time: number) => {
+  const option = alternativesOption(view(d))
+  const row = { seriesId: 'FixedDeposit', seriesName: '', color: '#fff', value: [time, 100] }
+  return (option.tooltip as { formatter: Formatter }).formatter([row])
+}
+
+test('the tooltip says the time in months under a year, never "0 years and 4 months"', () => {
+  const text = tooltipAt({ ...data(), months: 4 }, 1)
+  expect(text).toContain(t.after(0, 1))
+  expect(text).not.toContain('0 שנים')
+})
+
+test('the last month’s tooltip says it is after selling and tax; the others do not', () => {
+  const d = { ...data(), months: 4 }
+  expect(tooltipAt(d, 4)).toContain(t.lastPointAfterTax)
+  expect(tooltipAt(d, 3)).not.toContain(t.lastPointAfterTax)
+  // In years: the last month of two.
+  expect(tooltipAt(data(), 2)).toContain(t.lastPointAfterTax)
+  expect(tooltipAt(data(), 1)).not.toContain(t.lastPointAfterTax)
 })

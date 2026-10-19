@@ -133,3 +133,35 @@ test('the donut has a tab for the answer and each kind drawn beside it', async (
   await expect(tabs.nth(1)).toHaveAttribute('aria-pressed', 'true')
   await expect.poll(() => canvasPicture(donut)).not.toBe(first)
 })
+
+// ECharts hides its tooltip when the mouse leaves the chart (its `globalout`),
+// but one that was shown while the lines glided could stay on the page.
+test('the tooltip goes when the mouse leaves the chart', async ({ page }) => {
+  await enterAndWaitForChart(page)
+  await chart(page).scrollIntoViewIfNeeded()
+  const box = (await chart(page).boundingBox())!
+  const tooltip = chart(page).locator('> div').filter({ hasText: t.rangeInTooltip })
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
+  await page.mouse.move(box.x + box.width * 0.31, box.y + box.height * 0.5)
+  await expect(tooltip).toBeVisible()
+  // Out of the chart in one jump, as a fast mouse does, and off the page.
+  await page.mouse.move(box.x + box.width * 0.5, box.y - 300)
+  await expect(tooltip).toBeHidden()
+  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
+  await expect(tooltip).toBeVisible()
+  await page.mouse.move(-5, -5)
+  await expect(tooltip).toBeHidden()
+})
+
+// ECharts hears no "leaving" from a finger: a tap on the chart showed the
+// tooltip, and it stayed until the chart was tapped again.
+test('the tooltip goes when a finger taps outside the chart', { tag: '@touch' }, async ({ page }) => {
+  await enterAndWaitForChart(page)
+  await chart(page).scrollIntoViewIfNeeded()
+  const box = (await chart(page).boundingBox())!
+  const tooltip = chart(page).locator('> div').filter({ hasText: t.rangeInTooltip })
+  await page.touchscreen.tap(box.x + box.width * 0.4, box.y + box.height * 0.5)
+  await expect(tooltip).toBeVisible()
+  await page.touchscreen.tap(box.x + box.width * 0.5, box.y - 12)
+  await expect(tooltip).toBeHidden()
+})

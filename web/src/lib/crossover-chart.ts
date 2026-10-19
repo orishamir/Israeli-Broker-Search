@@ -7,7 +7,7 @@ import type { LineSeriesOption } from 'echarts/charts'
 import type { Swept } from './core/core'
 import type { ChartOption } from './echarts.svelte'
 import { compactPercent, compactShekels, percent, percentApart, readableOn, shekels } from './format'
-import { endLabel, labelLayout } from './end-label'
+import { BLUR, endLabel, FADED_LINE, labelLayout } from './end-label'
 import { t } from './text'
 
 // The page's colors (see app.css).
@@ -73,8 +73,12 @@ function lineSeries(
       return [index === 0 ? { value: point, label: { position: 'right' } } : point]
     }),
     color: line.color,
-    lineStyle: { width: pinned ? 3.5 : 2, opacity: faded ? 0.4 : 1, type: line.dotted ? 'dotted' : 'solid' },
-    itemStyle: { opacity: faded ? 0.4 : 1 },
+    lineStyle: {
+      width: pinned ? 3.5 : 2,
+      opacity: faded ? FADED_LINE : 1,
+      type: line.dotted ? 'dotted' : 'solid',
+    },
+    itemStyle: { opacity: faded ? FADED_LINE : 1 },
     symbol: 'emptyCircle',
     symbolSize: 6,
     showSymbol: pinned,
@@ -91,6 +95,7 @@ function lineSeries(
     endLabel: endLabel(line, faded, endValue),
     labelLayout: labelLayout(true),
     emphasis: { focus: 'series' },
+    ...BLUR,
     // Hovering or clicking the line itself, not only its points.
     triggerEvent: 'line',
   }

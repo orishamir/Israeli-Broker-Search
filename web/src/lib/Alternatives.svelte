@@ -150,6 +150,7 @@
   }
 
   .rows {
+    max-width: var(--rows-max);
     margin: 0;
     padding: 0;
     list-style: none;

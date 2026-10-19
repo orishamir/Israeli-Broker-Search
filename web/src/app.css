@@ -40,6 +40,11 @@
      the labels: the short ones (up to "הפקדה חד-פעמית", 122) stay on one
      line, and only the long two wrap. */
   --input-field: min(12rem, 55%);
+  /* On a wide screen the page stops growing here, centered, and a list of
+     rows (a label and its amount) stops at --rows-max, so an amount stays
+     near the name it belongs to instead of a thousand pixels from it. */
+  --page-max: 1600px;
+  --rows-max: 40rem;
   --radius: 12px;
   --raised-strong: #262b38;
   --shadow: 0 12px 40px rgb(0 0 0 / 0.5);
