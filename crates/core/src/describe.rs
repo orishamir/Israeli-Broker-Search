@@ -4233,10 +4233,10 @@ pub fn about_all(lang: Lang) -> About {
         paragraph("long-term investing", "השקעה לטווח ארוך"),
         paragraph("short-term saving", "חיסכון לטווח קצר"),
     );
-    long_method.id = "method-long".to_owned();
-    short_method.id = "method-short".to_owned();
-    long_left_out.id = "left-out-long".to_owned();
-    short_left_out.id = "left-out-short".to_owned();
+    "method-long".clone_into(&mut long_method.id);
+    "method-short".clone_into(&mut short_method.id);
+    "left-out-long".clone_into(&mut long_left_out.id);
+    "left-out-short".clone_into(&mut short_left_out.id);
     long_method.title = format!("{}: {for_long}", long_method.title);
     short_method.title = format!("{}: {for_short}", short_method.title);
     long_left_out.title = format!("{}: {for_long}", long_left_out.title);
