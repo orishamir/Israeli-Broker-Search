@@ -392,6 +392,12 @@ pub struct RankedData {
     /// Why, in words, where `may_cost_more` is.
     pub may_cost_more_text: Option<String>,
     pub fits: bool,
+    /// Its place, 1 for the best; lines equal to the shekel share one.
+    /// Missing for a line the first deposit can't open while another can.
+    pub rank: Option<u32>,
+    /// Within 1% of the best (or, for the best, of the second): not clearly
+    /// apart.
+    pub near_tie: bool,
     /// The saver's own bank's branch plan.
     pub yours: bool,
     /// Fees paid over the years, where the kind has them.
@@ -400,9 +406,20 @@ pub struct RankedData {
     pub tax: Option<AmountData>,
 }
 
-impl From<&Ranked> for RankedData {
-    fn from(ranked: &Ranked) -> Self {
+/// A ranking's lines, each with its place.
+fn ranked_data(lines: &[Ranked]) -> Vec<RankedData> {
+    lines
+        .iter()
+        .zip(guide::ranked_standings(lines))
+        .map(|(line, standing)| RankedData::of(line, standing))
+        .collect()
+}
+
+impl RankedData {
+    fn of(ranked: &Ranked, standing: Option<simulation::Standing>) -> Self {
         RankedData {
+            rank: standing.and_then(|standing| u32::try_from(standing.rank).ok()),
+            near_tie: standing.is_some_and(|standing| standing.near_tie),
             kind: ranked.kind,
             name: ranked.name[lang()].to_owned(),
             left: ranked.left.into(),
@@ -631,8 +648,8 @@ pub fn recommend_for(
         arena: r.arena,
         kind: r.kind.into(),
         choice: (&r.choice).into(),
-        ranked: r.ranked.iter().map(RankedData::from).collect(),
-        plans: r.plans.iter().map(RankedData::from).collect(),
+        ranked: ranked_data(&r.ranked),
+        plans: ranked_data(&r.plans),
         left: r.left.into(),
         put_in: r.put_in.into(),
         current_account: r.current_account.into(),
@@ -661,7 +678,7 @@ pub fn recommend_for(
             target: number(plan.target),
             months_to_fill: plan.months_to_fill,
             then: plan.then.into(),
-            then_ranked: plan.then_ranked.iter().map(RankedData::from).collect(),
+            then_ranked: ranked_data(&plan.then_ranked),
             then_years: plan.then_years,
         }),
         what,
@@ -859,6 +876,11 @@ pub struct WayData {
     /// 0.4 means 0.4%.
     pub cost_a_year: Option<f64>,
     pub may_cost_more: bool,
+    /// Its place among the ways, 1 for the best; ways equal to the shekel
+    /// share one. Missing for a way no plan the deposits open can hold.
+    pub rank: Option<u32>,
+    /// Within 1% of the best (or, for the best, of the second).
+    pub near_tie: bool,
     /// The fund's own cost over the years, ₪: shown as "הקרן עצמה".
     pub product_cost: Option<f64>,
     /// Every plan that could hold the way, best first (the page shows the
@@ -911,9 +933,15 @@ pub fn compare_ways_for(request: &WaysInputs) -> Result<WaysComparisonData, Inva
         base.deposited()
     };
     let compared = ways::compare_chosen_ways(&chosen, &base, &candidates, &rates);
+    let lefts: Vec<Decimal> = compared
+        .iter()
+        .filter_map(|way| Some(way.best()?.outcome.as_ref().ok()?.after_tax))
+        .collect();
+    let mut standings = simulation::standings(&lefts).into_iter();
     let ways = compared
         .into_iter()
         .map(|compared| {
+            let standing = compared.best().and_then(|_| standings.next());
             let scenario = compared.way.scenario(&base);
             let mut no_fees = simulation::compare(&[], &scenario, &rates).no_fees;
             if todays {
@@ -930,14 +958,15 @@ pub fn compare_ways_for(request: &WaysInputs) -> Result<WaysComparisonData, Inva
             let rows: Vec<PlanOutcomeData> = compared
                 .plans
                 .iter()
-                .map(|row| {
+                .zip(simulation::plan_standings(&compared.plans))
+                .map(|(row, row_standing)| {
                     let mut row = row.clone();
                     if todays {
                         row.outcome = row
                             .outcome
                             .map(|outcome| outcome.in_todays_money(inflation));
                     }
-                    plan_data(&shared, &scenario, &no_fees, &row)
+                    plan_data(&shared, &scenario, &no_fees, &row, row_standing)
                 })
                 .collect();
             let best: Option<&Outcome> =
@@ -960,6 +989,8 @@ pub fn compare_ways_for(request: &WaysInputs) -> Result<WaysComparisonData, Inva
                 after_tax,
                 cost_a_year: compared.cost_a_year.map(|cost| number(cost.0)),
                 may_cost_more: compared.may_cost_more,
+                rank: standing.and_then(|standing| u32::try_from(standing.rank).ok()),
+                near_tie: standing.is_some_and(|standing| standing.near_tie),
                 product_cost,
                 plans: rows,
                 no_fees: OutcomeData::compared_to(&no_fees, &no_fees),

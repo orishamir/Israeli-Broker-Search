@@ -1015,6 +1015,67 @@ pub fn compare_with_broker_caveats(
     Comparison { no_fees, plans }
 }
 
+/// Plans this close to the best (as a share of it) are not clearly apart
+/// from it: the inputs are estimates (the return, the inflation, a
+/// stand-in price), and 1% of the result is within what they can move.
+pub const NEAR_TIE: Decimal = rust_decimal_macros::dec!(0.01);
+
+/// Where a result stands in a ranking that can tie.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Standing {
+    /// 1 for the best. Results equal to the shekel share a rank, and the
+    /// next one skips the places they take (1, 1, 3), as a race is placed.
+    pub rank: usize,
+    /// Within [`NEAR_TIE`] of the best, or, for the best itself, of the
+    /// second: a result that isn't clearly ahead (or behind).
+    pub near_tie: bool,
+}
+
+/// The standing of each of `left`, the results best first (what is left
+/// after tax, in the same terms).
+#[must_use]
+pub fn standings(left: &[Decimal]) -> Vec<Standing> {
+    let shekels = |value: Decimal| value.round_dp(0);
+    let close = |better: Decimal, worse: Decimal| {
+        // A best of nothing or less has no share to be close within.
+        shekels(better) == shekels(worse)
+            || (better > Decimal::ZERO && (better - worse) / better <= NEAR_TIE)
+    };
+    left.iter()
+        .enumerate()
+        .map(|(at, &value)| Standing {
+            rank: 1 + left
+                .iter()
+                .filter(|&&other| shekels(other) > shekels(value))
+                .count(),
+            near_tie: match (at, left.first(), left.get(1)) {
+                (0, Some(&best), Some(&second)) => close(best, second),
+                (_, Some(&best), _) => close(best, value),
+                _ => false,
+            },
+        })
+        .collect()
+}
+
+/// The standing of each of `plans` (best first, as [`compare`] sorts them),
+/// in their order: none for a plan that can't be used, nor for one the first
+/// deposit can't open unless no plan can be opened.
+#[must_use]
+pub fn plan_standings(plans: &[PlanOutcome]) -> Vec<Option<Standing>> {
+    let any_fits = plans.iter().any(|plan| plan.fits && plan.outcome.is_ok());
+    let counted = |plan: &PlanOutcome| plan.outcome.is_ok() && (plan.fits || !any_fits);
+    let left: Vec<Decimal> = plans
+        .iter()
+        .filter(|plan| counted(plan))
+        .filter_map(|plan| plan.outcome.as_ref().ok().map(|o| o.after_tax))
+        .collect();
+    let mut standing = standings(&left).into_iter();
+    plans
+        .iter()
+        .map(|plan| counted(plan).then(|| standing.next()).flatten())
+        .collect()
+}
+
 /// What a bigger first deposit would open: a plan whose minimum the
 /// scenario's first deposit doesn't reach, and that, once it does, leaves
 /// more than the best plan the scenario already fits, with the deposit the

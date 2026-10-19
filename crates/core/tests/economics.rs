@@ -2418,3 +2418,25 @@ mod government_bond_economics {
         }
     }
 }
+
+/// Results equal to the shekel share a rank (1, 1, 3), and results within
+/// 1% of the best are marked as not clearly apart from it, so a lead of
+/// ₪900 on ₪174,000 is not shown as a win.
+#[test]
+fn ties_share_a_rank_and_near_ties_are_marked() {
+    use broker_fees::simulation::standings;
+    let both = standings(&[dec!(693_755.2), dec!(693_754.8), dec!(600_000)]);
+    assert_eq!(both.iter().map(|s| s.rank).collect::<Vec<_>>(), [1, 1, 3]);
+    assert!(both[0].near_tie && both[1].near_tie && !both[2].near_tie);
+
+    let close = standings(&[dec!(174_934), dec!(174_010), dec!(173_728)]);
+    assert_eq!(close.iter().map(|s| s.rank).collect::<Vec<_>>(), [1, 2, 3]);
+    assert!(close.iter().all(|s| s.near_tie));
+
+    let clear = standings(&[dec!(200_000), dec!(150_000)]);
+    assert!(clear.iter().all(|s| !s.near_tie));
+    // The best is near a tie only if the second is close, not the last.
+    let mixed = standings(&[dec!(200_000), dec!(150_000), dec!(149_000)]);
+    assert!(!mixed[0].near_tie && !mixed[1].near_tie && !mixed[2].near_tie);
+    assert!(standings(&[]).is_empty());
+}

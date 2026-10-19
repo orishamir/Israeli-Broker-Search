@@ -75,7 +75,7 @@ export function rankedRows(plans: RankedData[], arena: Arena, todaysMoney: boole
     subtitle: undefined,
     color: undefined,
     yours: plan.yours,
-    rank: plan.fits || !anyFits ? index + 1 : undefined,
+    rank: plan.rank,
     cells: {
       LeftAfterTax: shekels(todaysMoney ? plan.left.today : plan.left.nominal),
       ...(plan.costAYear === undefined ? {} : { CostAYear: cost(plan.costAYear) }),
@@ -156,12 +156,10 @@ export function wayRows(
   plansOf: (way: WayData) => Result[],
   whyNot: WhyNotWords,
 ): Row[] {
-  let rank = 0
   return ways.map((way) => {
     const best = bestPlanOf(way)
     const id = wayKey(way.way)
     const outcome = best?.outcome
-    if (outcome) rank += 1
     const notes: Note[] = []
     if (best?.mayCostMore) notes.push({ kind: 'warning', text: `⚠ ${best.mayCostMore}` })
     if (best?.warning) notes.push({ kind: 'warning', text: `⚠ ${best.warning}` })
@@ -175,7 +173,7 @@ export function wayRows(
       subtitle: best && labelOf(best.key),
       color: colorOf(way.way),
       yours: false,
-      rank: outcome ? rank : undefined,
+      rank: outcome ? way.rank : undefined,
       cells: outcome && {
         ...cellsOf(outcome),
         // The way's own figures, which count the fund's cost too.

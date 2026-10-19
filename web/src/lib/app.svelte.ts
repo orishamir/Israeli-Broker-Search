@@ -1029,33 +1029,29 @@ export class AppState {
     }
   })
 
-  /** The plans' outcomes as table rows, best first, with the row numbers the
-   * charts show: a plan the first deposit can't open isn't ranked, unless
-   * none can be. */
+  /** The plans' outcomes as table rows, best first, with the places the core
+   * gives them (equal results share one) for the charts to show. */
   resultsOf(plans: PlanOutcomeData[]): Result[] {
-    const anyFits = plans.some(({ outcome, fits }) => outcome && fits)
     return plans.map(
-      (
-        {
-          key,
-          outcome,
-          track,
-          warning,
-          fits,
-          mayCostMore,
-          note,
-          whoCanJoin,
-          pensionNote,
-          spread,
-          taxNote,
-          notOffered,
-          whyNot,
-        },
-        index,
-      ) => ({
+      ({
+        key,
+        outcome,
+        track,
+        warning,
+        fits,
+        rank,
+        mayCostMore,
+        note,
+        whoCanJoin,
+        pensionNote,
+        spread,
+        taxNote,
+        notOffered,
+        whyNot,
+      }) => ({
         plan: this.plansById.get(planId(key))!,
         outcome,
-        rank: outcome && (fits || !anyFits) ? index + 1 : undefined,
+        rank,
         track,
         warning,
         fits,

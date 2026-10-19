@@ -883,6 +883,13 @@ pub struct PlanOutcomeData {
     /// Whether the first deposit is enough to open it. One that isn't comes
     /// after every plan that is, and is never the best.
     pub fits: bool,
+    /// Its place, 1 for the best: plans equal to the shekel share one. Missing
+    /// for a plan that can't be used, or that the first deposit can't open
+    /// while another can.
+    pub rank: Option<u32>,
+    /// Within 1% of the best (or, for the best, of the second): not clearly
+    /// apart.
+    pub near_tie: bool,
     /// Why its numbers may be too low, if a caveat says so: "May cost more:
     /// conversion markup not published". The plan stays ranked.
     pub may_cost_more: Option<String>,
@@ -1140,7 +1147,8 @@ pub fn compare_plans(inputs: &Inputs) -> Result<ComparisonData, InvalidInputs> {
         plans: comparison
             .plans
             .iter()
-            .map(|compared| plan_data(&shared, &scenario, no_fees, compared))
+            .zip(simulation::plan_standings(&comparison.plans))
+            .map(|(compared, standing)| plan_data(&shared, &scenario, no_fees, compared, standing))
             .collect(),
     })
 }
@@ -1786,6 +1794,7 @@ fn plan_data(
     scenario: &Scenario,
     no_fees: &Outcome,
     compared: &PlanOutcome,
+    standing: Option<simulation::Standing>,
 ) -> PlanOutcomeData {
     let Shared {
         inputs,
@@ -1835,6 +1844,8 @@ fn plan_data(
             .first_deposit_warning(ils(scenario.first_deposit), lang())
             .or_else(|| fees_warning().map(str::to_owned)),
         fits: compared.fits,
+        rank: standing.and_then(|standing| u32::try_from(standing.rank).ok()),
+        near_tie: standing.is_some_and(|standing| standing.near_tie),
         may_cost_more,
         note: plan
             .track_note(security, exchange, track, lang())

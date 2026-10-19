@@ -545,6 +545,24 @@ pub struct Ranked {
     pub yours: bool,
 }
 
+/// The standing of each line of a ranking, best first: none for a line the
+/// first deposit can't open, unless none can be opened.
+#[must_use]
+pub fn ranked_standings(lines: &[Ranked]) -> Vec<Option<crate::simulation::Standing>> {
+    let any_fits = lines.iter().any(|line| line.fits);
+    let counted = |line: &Ranked| line.fits || !any_fits;
+    let left: Vec<Decimal> = lines
+        .iter()
+        .filter(|line| counted(line))
+        .map(|line| line.left.nominal)
+        .collect();
+    let mut standing = crate::simulation::standings(&left).into_iter();
+    lines
+        .iter()
+        .map(|line| counted(line).then(|| standing.next()).flatten())
+        .collect()
+}
+
 /// What a bigger first deposit would open.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct UnlockLine {
