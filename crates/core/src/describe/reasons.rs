@@ -136,7 +136,7 @@ fn bank_name(situation: Option<Situation>, lang: Lang) -> String {
 
 // ─────────────────────────── The history ───────────────────────────
 
-/// What the S&P 500 did over stretches as long as the saver's horizon, in
+/// What a broad stock index did over stretches as long as the saver's horizon, in
 /// one sentence: "in 52 of 1,086 stretches of 5 years since 1926 it ended
 /// lower". The numbers are the band's.
 #[must_use]
@@ -147,43 +147,55 @@ pub fn history_sentence(band: &Band, lang: Lang) -> String {
     let lower = grouped(band.lower);
     match (band.lower, lang) {
         (0, Lang::En) => format!(
-            "In none of {windows} stretches of {years} since {since} did the S&P 500 end lower \
+            "In none of {windows} stretches of {years} since {since} did a broad stock index end lower \
              (in dollars, before fees and tax)."
         ),
         (0, Lang::He) => format!(
-            "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} ה\u{2011}S&P\u{a0}500 לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} מדד מניות רחב לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
         ),
         (1, Lang::En) => format!(
-            "In 1 of {windows} stretches of {years} since {since}, the S&P 500 ended lower (in \
+            "In 1 of {windows} stretches of {years} since {since}, a broad stock index ended lower (in \
              dollars, before fees and tax)."
         ),
         (1, Lang::He) => format!(
-            "בתקופה אחת מתוך {windows} תקופות של {years} מאז {since}, ה\u{2011}S&P\u{a0}500 נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            "בתקופה אחת מתוך {windows} תקופות של {years} מאז {since}, מדד מניות רחב נגמר בהפסד (בדולרים, לפני עמלות ומס)."
         ),
         (_, Lang::En) => format!(
-            "In {lower} of {windows} stretches of {years} since {since}, the S&P 500 ended lower \
+            "In {lower} of {windows} stretches of {years} since {since}, a broad stock index ended lower \
              (in dollars, before fees and tax)."
         ),
         (_, Lang::He) => format!(
-            "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since}, ה\u{2011}S&P\u{a0}500 נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since}, מדד מניות רחב נגמר בהפסד (בדולרים, לפני עמלות ומס)."
         ),
     }
 }
 
+/// Where the guide's history and costs come from, said once: the guide
+/// names no index, so this is the one place that says which one was
+/// measured, as the example the numbers rest on.
+#[must_use]
+pub fn basis_sentence(lang: Lang) -> &'static str {
+    lang.pick(
+        "For illustration, the history and the costs are measured on the S&P 500 index.",
+        "להדגמה, ההיסטוריה והעלויות נמדדות על מדד S&P\u{a0}500.",
+    )
+}
+
 /// What the history sentence doesn't say by itself: the stretches overlap,
-/// and the data ends on a date.
+/// and the data ends on a date. It ends with [`basis_sentence`].
 #[must_use]
 pub fn history_caveat(band: &Band, lang: Lang) -> String {
     let until = month_year(band.to, lang);
+    let basis = basis_sentence(lang);
     say(
         lang,
         format!(
             "The stretches overlap (each starts a month after the last), so they are far fewer \
              separate experiences than their number. The data runs to {until}, and the past is \
-             not a promise. A fund in shekels also moves with the dollar's exchange rate, which the band leaves out."
+             not a promise. A fund in shekels also moves with the dollar's exchange rate, which the band leaves out. {basis}"
         ),
         format!(
-            "התקופות חופפות (כל אחת מתחילה חודש אחרי קודמתה), ולכן הן הרבה פחות ניסיונות נפרדים ממספרן. הנתונים מגיעים עד {until}, והעבר הוא לא הבטחה. קרן בשקלים זזה גם עם שער הדולר, שהטווח לא כולל."
+            "התקופות חופפות (כל אחת מתחילה חודש אחרי קודמתה), ולכן הן הרבה פחות ניסיונות נפרדים ממספרן. הנתונים מגיעים עד {until}, והעבר הוא לא הבטחה. קרן בשקלים זזה גם עם שער הדולר, שהטווח לא כולל. {basis}"
         ),
     )
 }

@@ -334,49 +334,49 @@ pub fn investment_gemel() -> Broker {
     let average = managed(
         t("Average fee", "דמי ניהול ממוצעים"),
         t(
-            "What savers in a provident fund for investment's S&P 500 track pay on average, \
+            "What savers in a provident fund for investment's stock index track pay on average, \
              in the eleven companies anyone can join, each track counted by the money it \
              holds. Your own fee is what you agree with the company, which may give a \
              discount: to compare with yours, change a copy of this one.",
-            "מה שחוסכים במסלול S&P\u{a0}500 של קופת גמל להשקעה משלמים בממוצע, ב\u{2011}11 החברות שכל אחד יכול להצטרף אליהן, כשכל מסלול משפיע על הממוצע לפי כמות הכסף שבו. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
+            "מה שחוסכים במסלול מדד מניות של קופת גמל להשקעה משלמים בממוצע, ב\u{2011}11 החברות שכל אחד יכול להצטרף אליהן, כשכל מסלול משפיע על הממוצע לפי כמות הכסף שבו. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::InvestmentGemel,
         fee(dec!(0.58), dec!(0)),
         from_the_reports(
-            "What savers in the S&P 500 tracks paid on average, as each fund reports it to \
+            "What savers in the stock index tracks paid on average, as each fund reports it to \
              the Capital Market Authority (data of August 2026). The figure is for a whole \
              year, and last changed in January 2026.",
-            "מה שהחוסכים במסלולי S&P\u{a0}500 שילמו בממוצע, כפי שכל קופה מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
+            "מה שהחוסכים במסלולי מדד מניות שילמו בממוצע, כפי שכל קופה מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
         ),
     );
     let cheapest = managed(
         t("Cheapest company", "החברה הזולה"),
         t(
-            "The company whose savers in its S&P 500 track pay the least on average: Menora \
+            "The company whose savers in its stock index track pay the least on average: Menora \
              Mivtachim, in the data of August 2026.",
-            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי מעט בממוצע: מנורה מבטחים, לפי נתוני אוגוסט 2026.",
+            "החברה שהחוסכים במסלול מדד המניות שלה משלמים הכי מעט בממוצע: מנורה מבטחים, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::InvestmentGemel,
         fee(dec!(0.52), dec!(0)),
         from_the_reports(
-            "What Menora Mivtachim's savers in its S&P 500 track paid on average, as it \
+            "What Menora Mivtachim's savers in its stock index track paid on average, as it \
              reports to the Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של מנורה מבטחים שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "מה שהחוסכים במסלול מדד המניות של מנורה מבטחים שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let dearest = managed(
         t("Dearest company", "החברה היקרה"),
         t(
-            "The company whose savers in its S&P 500 track pay the most on average: Mor, in \
+            "The company whose savers in its stock index track pay the most on average: Mor, in \
              the data of August 2026.",
-            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
+            "החברה שהחוסכים במסלול מדד המניות שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::InvestmentGemel,
         fee(dec!(0.71), dec!(0)),
         from_the_reports(
-            "What Mor's savers in its S&P 500 track paid on average, as it reports to the \
+            "What Mor's savers in its stock index track paid on average, as it reports to the \
              Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של מור שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "מה שהחוסכים במסלול מדד המניות של מור שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let legal_maximum = managed(
@@ -500,49 +500,49 @@ pub fn study_fund() -> Broker {
     let average = managed(
         t("Average fee", "דמי ניהול ממוצעים"),
         t(
-            "What savers in a study fund's S&P 500 track pay on average, in the eleven \
+            "What savers in a study fund's stock index track pay on average, in the eleven \
              companies anyone can join, each track counted by the money it holds. Your own fee \
              is what you agree with the company, which may give a discount: to compare with \
              yours, change a copy of this one.",
-            "מה שחוסכים במסלול S&P\u{a0}500 של קרן השתלמות משלמים בממוצע, ב\u{2011}11 החברות שכל אחד יכול להצטרף אליהן, כשכל מסלול משפיע על הממוצע לפי כמות הכסף שבו. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
+            "מה שחוסכים במסלול מדד מניות של קרן השתלמות משלמים בממוצע, ב\u{2011}11 החברות שכל אחד יכול להצטרף אליהן, כשכל מסלול משפיע על הממוצע לפי כמות הכסף שבו. דמי הניהול שלכם הם מה שתסכמו עם החברה, והיא יכולה לתת הנחה: כדי להשוות לדמי הניהול שלכם, שנו עותק של השורה הזאת.",
         ),
         Vehicle::StudyFund,
         fee(dec!(0.54), dec!(0)),
         from_the_reports(
-            "What savers in the S&P 500 tracks paid on average, as each fund reports it to \
+            "What savers in the stock index tracks paid on average, as each fund reports it to \
              the Capital Market Authority (data of August 2026). The figure is for a whole \
              year, and last changed in January 2026.",
-            "מה שהחוסכים במסלולי S&P\u{a0}500 שילמו בממוצע, כפי שכל קרן מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
+            "מה שהחוסכים במסלולי מדד מניות שילמו בממוצע, כפי שכל קרן מדווחת לרשות שוק ההון (נתוני אוגוסט 2026). הנתון הוא לשנה שלמה, והשתנה לאחרונה בינואר 2026.",
         ),
     );
     let cheapest = managed(
         t("Cheapest company", "החברה הזולה"),
         t(
-            "The company whose savers in its S&P 500 track pay the least on average: Clal, in \
+            "The company whose savers in its stock index track pay the least on average: Clal, in \
              the data of August 2026.",
-            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי מעט בממוצע: כלל, לפי נתוני אוגוסט 2026.",
+            "החברה שהחוסכים במסלול מדד המניות שלה משלמים הכי מעט בממוצע: כלל, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::StudyFund,
         fee(dec!(0.48), dec!(0)),
         from_the_reports(
-            "What Clal's savers in its S&P 500 track paid on average, as it reports to the \
+            "What Clal's savers in its stock index track paid on average, as it reports to the \
              Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של כלל שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "מה שהחוסכים במסלול מדד המניות של כלל שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let dearest = managed(
         t("Dearest company", "החברה היקרה"),
         t(
-            "The company whose savers in its S&P 500 track pay the most on average: Mor, in \
+            "The company whose savers in its stock index track pay the most on average: Mor, in \
              the data of August 2026.",
-            "החברה שהחוסכים במסלול ה-S&P\u{a0}500 שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
+            "החברה שהחוסכים במסלול מדד המניות שלה משלמים הכי הרבה בממוצע: מור, לפי נתוני אוגוסט 2026.",
         ),
         Vehicle::StudyFund,
         fee(dec!(0.70), dec!(0)),
         from_the_reports(
-            "What Mor's savers in its S&P 500 track paid on average, as it reports to the \
+            "What Mor's savers in its stock index track paid on average, as it reports to the \
              Capital Market Authority (data of August 2026).",
-            "מה שהחוסכים במסלול ה-S&P\u{a0}500 של מור שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
+            "מה שהחוסכים במסלול מדד המניות של מור שילמו בממוצע, כפי שהיא מדווחת לרשות שוק ההון (נתוני אוגוסט 2026).",
         ),
     );
     let legal_maximum = managed(
@@ -633,21 +633,21 @@ pub fn savings_policy() -> Broker {
     let average = managed(
         t("Average fee", "דמי ניהול ממוצעים"),
         t(
-            "What the insurers' S&P 500 tracks take on average. Savings policies aren't \
+            "What the insurers' stock index tracks take on average. Savings policies aren't \
              reported apart from the insurers' other policies, so this is the nearest \
              published figure: see the note beside the fee.",
-            "מה שמסלולי S&P\u{a0}500 של חברות הביטוח גובים בממוצע. פוליסות חיסכון לא מדווחות בנפרד משאר הפוליסות של חברות הביטוח, ולכן זה הנתון הקרוב ביותר שמתפרסם: ראו את ההערה ליד דמי הניהול.",
+            "מה שמסלולי מדד מניות של חברות הביטוח גובים בממוצע. פוליסות חיסכון לא מדווחות בנפרד משאר הפוליסות של חברות הביטוח, ולכן זה הנתון הקרוב ביותר שמתפרסם: ראו את ההערה ליד דמי הניהול.",
         ),
         Vehicle::SavingsPolicy,
         fee(dec!(0.77), dec!(0)),
         vec![
             Caveat::reading(
                 t(
-                    "The average of the insurers' S&P 500 tracks in the policies sold since \
+                    "The average of the insurers' stock index tracks in the policies sold since \
                      2004, by the Capital Market Authority's data of August 2026. They include \
                      managers' insurance (ביטוח\u{a0}מנהלים), a pension product, and savings \
                      policies aren't reported apart.",
-                    "הממוצע של מסלולי S&P\u{a0}500 של חברות הביטוח, בפוליסות שנמכרו מאז 2004, לפי נתוני רשות שוק ההון לאוגוסט 2026. הן כוללות ביטוח מנהלים, שהוא מוצר פנסיוני, ופוליסות חיסכון לא מדווחות בנפרד.",
+                    "הממוצע של מסלולי מדד מניות של חברות הביטוח, בפוליסות שנמכרו מאז 2004, לפי נתוני רשות שוק ההון לאוגוסט 2026. הן כוללות ביטוח מנהלים, שהוא מוצר פנסיוני, ופוליסות חיסכון לא מדווחות בנפרד.",
                 ),
                 t(
                     "a savings policy is invested in the same tracks, and no figure of its \

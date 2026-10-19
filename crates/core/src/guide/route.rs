@@ -11,6 +11,7 @@ use std::cmp::Reverse;
 
 use rust_decimal::Decimal;
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal_macros::dec;
 
 use crate::describe::reasons;
 use crate::history;
@@ -25,8 +26,8 @@ use super::series::{self, Alternatives, BandSeries, KindSeries};
 use super::{
     Alternative, Amount, Answers, Arena, AssumedBecause, Breakdown, CUSHION_MONTHS, Choice,
     Circumstance, Context, Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility,
-    Horizon, INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, Overrides,
-    REFERENCE_YEARS, Ranked, Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS,
+    Horizon, INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, MovePortfolio,
+    Overrides, REFERENCE_YEARS, Ranked, Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS,
     SHORT_GOAL_UP_TO_MONTHS, Settings, Situation, StepText, check, follow_ups,
 };
 
@@ -1027,6 +1028,11 @@ pub fn recommend(
         .run
         .as_ref()
         .and_then(|(run, at)| run.unlock(&run.ways[*at], decision.level, &settings.rates));
+    let also_possible = decision
+        .run
+        .as_ref()
+        .and_then(|(run, at)| run.also_possible(&run.ways[*at], decision.level, &settings.rates));
+    let move_portfolio = move_portfolio(answers, &decision);
     let two_parts = cushion_plan(answers, settings, data, &decision);
     let mut recommendation = Recommendation {
         answers: answers.clone(),
@@ -1044,6 +1050,8 @@ pub fn recommend(
         alternatives,
         band: ctx.band,
         unlock,
+        also_possible,
+        move_portfolio,
         steps: Vec::new(),
         follow_ups: follow_ups(answers),
         two_parts,
@@ -1061,6 +1069,42 @@ pub fn recommend(
             .collect()
     };
     Ok(recommendation)
+}
+
+/// The base rate of tax on a sale's real gain (`vehicles.rs`): the most a
+/// sale of the portfolio could pay without the surtax, since the gain is no
+/// more than the whole value.
+const SALE_TAX_AT_MOST: Decimal = dec!(0.25);
+
+/// What moving the portfolio the saver has at a bank to the plan chosen
+/// saves: the two plans are in the chosen kind's list, both run on the same
+/// money. Nothing when the bank's plan is the one chosen, or leaves as much.
+fn move_portfolio(answers: &Answers, d: &Decision<'_>) -> Option<MovePortfolio> {
+    if !matches!(answers.situation, Some(Situation::ExistingPortfolio { .. })) {
+        return None;
+    }
+    let (run, at) = d.run.as_ref()?;
+    let way = &run.ways[*at];
+    let yours = d.plans.iter().find(|line| line.yours && line.fits)?;
+    let chosen = d.plans.first().filter(|line| !line.yours)?;
+    let saves = chosen.left.today - yours.left.today;
+    if saves <= Decimal::ZERO {
+        return None;
+    }
+    let from = run.cands.iter().find(|cand| cand.yours)?;
+    Some(MovePortfolio {
+        from: Choice {
+            provider: from.broker.short_name.clone(),
+            plan: from.candidate.plan.name.clone(),
+        },
+        to: run.choice(way)?,
+        saves: Amount {
+            today: saves,
+            nominal: chosen.left.nominal - yours.left.nominal,
+        },
+        value: answers.now,
+        sale_tax_at_most: answers.now * SALE_TAX_AT_MOST,
+    })
 }
 
 /// The second part of a cushion-first answer: where the monthly money goes

@@ -606,6 +606,11 @@ pub struct RecommendationData {
     pub left_note: LeftNoteData,
     pub current_account_line: String,
     pub unlock_text: Option<String>,
+    /// A plan that leaves more but may cost more, with its caveat in words.
+    pub also_possible_text: Option<String>,
+    /// What moving the portfolio from the bank saves, with the pages it rests on.
+    pub move_portfolio_text: Option<String>,
+    pub move_portfolio_sources: Vec<describe::Source>,
     pub arena_choices: Vec<ArenaChoice>,
     /// The columns of the list of `plans`.
     pub columns: Vec<ColumnData>,
@@ -705,6 +710,22 @@ pub fn recommend_for(
             .unlock
             .as_ref()
             .map(|unlock| describe::reasons::unlock_text(unlock, lang())),
+        also_possible_text: r
+            .also_possible
+            .as_ref()
+            .map(|also| describe::answer::also_possible_line(also, lang())),
+        move_portfolio_text: r
+            .move_portfolio
+            .as_ref()
+            .map(|m| describe::answer::move_portfolio_line(m, r.months, lang())),
+        move_portfolio_sources: if r.move_portfolio.is_some() {
+            describe::answer::move_portfolio_sources()
+                .iter()
+                .map(|page| describe::Source::new(page, lang()))
+                .collect()
+        } else {
+            Vec::new()
+        },
         arena_choices: [Arena::Safe, Arena::Index]
             .into_iter()
             .map(|arena| ArenaChoice {

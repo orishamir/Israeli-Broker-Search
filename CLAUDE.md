@@ -33,6 +33,12 @@ month, I don't know what for"; "₪1,500 a month for retirement"; "15–20
 years from now". The page built on this is one page with two routes: the guide and the
 workbench (`REDESIGN.md` is its plan of record).
 
+**No named index (2026-10-19):** the site never suggests a specific index,
+fund or ETF; the guide's stock kind is "קרן מחקה מדד מניות רחב". The S&P 500
+is only an example in explanations and the basis the history and the costs
+are measured on, said once (`basis_sentence`); the question "I want the
+S&P 500, which way?" is answered by the workbench's ways, not by a pick.
+
 ## The page
 
 One page, Hebrew, right to left, dark, with two routes onto the same

@@ -6,8 +6,8 @@ use std::sync::LazyLock;
 
 use broker_fees::describe::answer::{current_account_line, follow_card, left_note, what};
 use broker_fees::describe::reasons::{
-    cushion_text, history_caveat, history_sentence, safety_note, safety_tag, steps_for,
-    unlock_text, what_safety_costs,
+    basis_sentence, cushion_text, history_caveat, history_sentence, safety_note, safety_tag,
+    steps_for, unlock_text, what_safety_costs,
 };
 use broker_fees::guide::*;
 use broker_fees::ways::Way;
@@ -209,4 +209,89 @@ fn every_safety_has_a_tag_and_a_note() {
             );
         }
     }
+}
+
+/// The site names no index, fund or ticker as a pick (CLAUDE.md, "What
+/// this site is for"): what the guide says about its choice, the kinds it
+/// didn't choose, the steps and the chips never mention one. The S&P 500
+/// appears once, as the basis of the history and the costs
+/// (`basis_sentence`, in the history's caveat).
+#[test]
+fn the_guide_names_no_index_fund_or_ticker() {
+    const NAMED: [&str; 7] = [
+        "S&P", "VOO", "CSPX", "VTI", "Vanguard", "iShares", "Invesco",
+    ];
+    let named = |text: &str, what: &str| {
+        for word in NAMED {
+            assert!(!text.contains(word), "{what} names {word}: {text}");
+        }
+    };
+    for answers in many_answers() {
+        let rec = recommend(&answers, &settings(), &DATA).unwrap();
+        for lang in [Lang::En, Lang::He] {
+            for reason in &rec.reasons {
+                named(&reason.text[lang], "a reason");
+            }
+            for alternative in &rec.alternatives {
+                named(&alternative.why_not.text[lang], "a why-not");
+                named(&alternative.kind.text()[lang], "a kind's name");
+            }
+            for step in steps_for(&rec, lang) {
+                named(&step.title, "a step's title");
+                named(&step.text, "a step");
+            }
+            named(&rec.kind.text()[lang], "the chosen kind");
+            for part in what(rec.kind, &rec.choice, rec.months, &answers.horizon, lang) {
+                named(&part.text, "the what-sentence");
+            }
+            if let Some(band) = &rec.band {
+                named(&history_sentence(band, lang), "the history sentence");
+                // The basis is said here, and once.
+                let caveat = history_caveat(band, lang);
+                assert_eq!(caveat.matches("S&P").count(), 1, "{caveat}");
+                assert!(caveat.contains(basis_sentence(lang)));
+            }
+        }
+    }
+    for kind in Way::for_index().into_iter().map(Kind::Way) {
+        for lang in [Lang::En, Lang::He] {
+            named(&kind.text()[lang], "a way's guide name");
+        }
+    }
+    for preset in broker_fees::situations::situations() {
+        for lang in [Lang::En, Lang::He] {
+            named(&preset.name[lang], "a chip");
+            named(&preset.explanation[lang], "a chip's tip");
+            named(&preset.lesson[lang], "a chip's lesson");
+        }
+    }
+}
+
+/// The sentence about moving a portfolio has both languages, no placeholder,
+/// names the sale's tax as an upper bound, and rests on linked pages.
+#[test]
+fn the_move_sentence_says_the_saving_the_transfer_and_the_sale() {
+    use broker_fees::describe::answer::{move_portfolio_line, move_portfolio_sources};
+    let rec = recommend(
+        &Answers {
+            situation: Some(Situation::ExistingPortfolio {
+                bank: Some(Bank::Leumi),
+            }),
+            ..answers(dec!(200_000), dec!(0), Horizon::Months(240))
+        },
+        &settings(),
+        &DATA,
+    )
+    .unwrap();
+    let moved = rec.move_portfolio.unwrap();
+    for lang in [Lang::En, Lang::He] {
+        let line = move_portfolio_line(&moved, rec.months, lang);
+        clean(&line, "the move sentence");
+        assert!(line.contains("ניוד"), "{line}");
+        assert!(line.contains("25%"), "{line}");
+        assert!(!line.contains("S&P"), "{line}");
+    }
+    let sources = move_portfolio_sources();
+    assert!(sources.len() >= 2);
+    assert!(sources.iter().all(|page| page.url.starts_with("https://")));
 }

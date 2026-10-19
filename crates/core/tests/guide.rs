@@ -2126,3 +2126,119 @@ fn the_portfolio_reason_reads_right_in_hebrew() {
         assert!(reason.text[Lang::He].contains("תיק בבנק") || bank.is_some());
     }
 }
+// ─────────────────────────── A plan that may cost more ───────────────────────────
+
+/// The answer names the best plan whose price can't be too low. A plan that
+/// leaves more but carries a may-cost-more caveat is "also possible": said
+/// beside the answer with its caveat, and in the steps.
+#[test]
+fn the_plan_named_is_the_best_without_a_may_cost_more_caveat() {
+    let rec = recommended(&answers(dec!(10_000), dec!(2_000), years(20)));
+    let also = rec
+        .also_possible
+        .as_ref()
+        .expect("a plan ahead of the answer carries a may-cost-more caveat in the listed data");
+    assert!(!rec.plans[0].may_cost_more, "the answer is flagged");
+    assert_eq!(rec.plans[0].left, rec.left);
+    assert_eq!(
+        rec.choice.provider.en,
+        rec.plans[0].name.en.split(" · ").next().unwrap()
+    );
+    // The plan beside it leaves more, by what the line says, and is the
+    // flagged one.
+    let flagged = &rec.plans[1];
+    assert!(flagged.may_cost_more);
+    assert_eq!(flagged.left, also.left);
+    assert!(also.left.today > rec.left.today);
+    assert_eq!(
+        also.ahead_by.today.round_dp(6),
+        (also.left.today - rec.left.today).round_dp(6)
+    );
+    assert!(
+        also.warning.en.starts_with("May cost more: "),
+        "{:?}",
+        also.warning
+    );
+    assert!(
+        also.warning.he.starts_with("עשוי לעלות יותר: "),
+        "{:?}",
+        also.warning
+    );
+    // No other plan that is ranked higher without a caveat was passed over.
+    assert!(
+        rec.plans
+            .iter()
+            .skip(2)
+            .all(|plan| plan.may_cost_more || plan.left.today <= rec.left.today || !plan.fits)
+    );
+}
+
+#[test]
+fn the_flagged_plan_is_said_in_the_line_and_in_the_steps_with_its_own_caveat() {
+    use broker_fees::describe::answer::also_possible_line;
+    let rec = recommended(&answers(dec!(10_000), dec!(2_000), years(20)));
+    let also = rec.also_possible.as_ref().unwrap();
+    for lang in [Lang::En, Lang::He] {
+        let line = also_possible_line(also, lang);
+        // It names the plan and the caveat's own summary, and marks it.
+        assert!(line.contains(&also.choice.provider[lang]), "{line}");
+        let summary = also.warning[lang]
+            .split_once(": ")
+            .map(|(_, summary)| summary.to_owned())
+            .unwrap();
+        assert!(line.contains(&summary), "{line}");
+        assert!(line.contains('\u{26a0}'), "{line}");
+        let steps = broker_fees::describe::reasons::steps_for(&rec, lang);
+        assert!(
+            steps.iter().any(|step| step.text.contains(&summary)),
+            "the steps leave out the caveat"
+        );
+    }
+}
+
+/// With no flagged plan ahead, nothing is added and the answer is the best.
+#[test]
+fn nothing_is_said_when_the_best_plan_has_no_caveat() {
+    let rec = recommended(&answers(dec!(50_000), dec!(0), years(10)));
+    assert!(rec.also_possible.is_none());
+    assert!(!rec.plans[0].may_cost_more);
+}
+
+// ─────────────────────────── Moving a portfolio ───────────────────────────
+
+/// A saver with a portfolio at a bank is told what moving it saves: the
+/// bank's branch plan against the plan named, on the same money, and what a
+/// sale first would pay at most.
+#[test]
+fn moving_a_portfolio_saves_what_the_bank_plan_leaves_less() {
+    let mut portfolio = answers(dec!(200_000), dec!(0), years(20));
+    portfolio.situation = Some(Situation::ExistingPortfolio {
+        bank: Some(Bank::Leumi),
+    });
+    let rec = recommended(&portfolio);
+    let moved = rec
+        .move_portfolio
+        .as_ref()
+        .expect("a bank's plan costs more");
+    let yours = rec.plans.iter().find(|line| line.yours).unwrap();
+    assert_eq!(moved.saves.today, rec.left.today - yours.left.today);
+    assert!(moved.saves.today > Decimal::ZERO);
+    assert_eq!(moved.from.provider.en, "Leumi");
+    assert_eq!(moved.to, rec.choice);
+    // A sale pays a quarter of the gain, and the gain is at most the value.
+    assert_eq!(moved.value, dec!(200_000));
+    assert_eq!(moved.sale_tax_at_most, dec!(50_000));
+}
+
+#[test]
+fn nothing_is_said_about_moving_without_a_portfolio_at_a_bank() {
+    assert!(
+        recommended(&answers(dec!(200_000), dec!(0), years(20)))
+            .move_portfolio
+            .is_none()
+    );
+    // Nor when the money goes to a safe kind, which has no plans to move to.
+    let mut short = answers(dec!(200_000), dec!(0), years(1));
+    short.situation = Some(Situation::ExistingPortfolio { bank: None });
+    assert!(recommended(&short).move_portfolio.is_none());
+}

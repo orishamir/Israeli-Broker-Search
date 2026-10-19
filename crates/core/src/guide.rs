@@ -389,7 +389,7 @@ impl Named for Kind {
                 "CPI-linked government bond (אג״ח ממשלתי צמוד מדד)",
                 "אג״ח ממשלתי צמוד מדד",
             ),
-            Kind::Way(way) => way.name(lang),
+            Kind::Way(way) => way.kind_name(lang),
             Kind::CurrentAccount => lang.pick("Current account (עו״ש)", "עו״ש, בלי להשקיע"),
         }
     }
@@ -621,6 +621,38 @@ pub struct UnlockLine {
     pub instead_of: Amount,
 }
 
+/// A plan of the chosen kind that leaves more but whose price may be too low
+/// (a caveat of the cheap side, as a waiver that needs frequent trading): the
+/// answer is the best plan without such a caveat, and this one is said
+/// beside it, with the caveat in its own words.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct AlsoPossible {
+    pub choice: Choice,
+    /// What it leaves at the end.
+    pub left: Amount,
+    /// How much more than the plan chosen.
+    pub ahead_by: Amount,
+    /// "May cost more: ...", the caveat's own summary.
+    pub warning: Text,
+}
+
+/// What moving a portfolio the saver already has at a bank to the place the
+/// answer names is worth, over the horizon: the same money in the bank's
+/// branch plan and in the chosen plan, both run by the engines.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct MovePortfolio {
+    /// The saver's bank, and its branch plan.
+    pub from: Choice,
+    pub to: Choice,
+    /// What the chosen plan leaves more than the bank's, at the end.
+    pub saves: Amount,
+    /// The portfolio's value now: what a sale would be taxed on, at most.
+    pub value: Decimal,
+    /// The tax on selling first if all of `value` were gain, which is the
+    /// most it could be (the base rate; the surtax can add to it).
+    pub sale_tax_at_most: Decimal,
+}
+
 /// A kind the saver could have chosen and wasn't offered, drawn beside the
 /// answer.
 #[derive(Debug, Clone, PartialEq)]
@@ -723,6 +755,10 @@ pub struct Recommendation {
     /// What the index did over stretches as long as the horizon.
     pub band: Option<Band>,
     pub unlock: Option<UnlockLine>,
+    /// A plan of the kind that leaves more but may cost more.
+    pub also_possible: Option<AlsoPossible>,
+    /// For a saver with a portfolio at a bank: what moving it saves.
+    pub move_portfolio: Option<MovePortfolio>,
     pub steps: Vec<StepText>,
     pub follow_ups: Vec<FollowUp>,
     pub two_parts: Option<CushionPlan>,
