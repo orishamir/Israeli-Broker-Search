@@ -782,24 +782,138 @@ fn alternatives_for(
 }
 
 /// The index fund in Tel Aviv, the stock fund the safe arena's answer is
-/// drawn against, over the same years.
+/// drawn against, over the same months.
 fn stock_fund(
     answers: &Answers,
     settings: &Settings,
     data: &Data,
     months: u32,
 ) -> Option<(Way, Amount, Option<Breakdown>)> {
-    let years = index::years_for(months);
-    let level = price_level(settings.inflation, years * 12);
+    let way = Way::for_index()[0];
+    let held = way_held(way, answers, settings, data, months)?;
+    Some((way, held.left, held.breakdown))
+}
+
+/// An index way's best plan over some months: what it leaves, where the
+/// money went, and its line.
+struct Held {
+    left: Amount,
+    breakdown: Option<Breakdown>,
+    /// Month by month in today's shekels, `months + 1` long.
+    line: Vec<Decimal>,
+}
+
+/// One engine run of a way, over whole years.
+struct YearsRun {
+    after_tax: Decimal,
+    today: Decimal,
+    breakdown: Option<Breakdown>,
+    value_by_month: Vec<Decimal>,
+}
+
+fn way_years(
+    way: Way,
+    answers: &Answers,
+    settings: &Settings,
+    data: &Data,
+    years: u32,
+) -> Option<YearsRun> {
     let base = index::base_scenario(answers, settings, years);
     let cands = index::candidates(answers, settings, data, &base);
-    let way = Way::for_index()[0];
     let run = index::run(&[way], base, cands, &settings.rates);
-    let left = run.ranked(level).into_iter().next()?.left;
-    let breakdown = run.ways.first().and_then(|outcome| {
-        way_breakdown(outcome, settings.inflation, run.base.deposited() / level)
-    });
-    Some((way, left, breakdown))
+    let level = price_level(settings.inflation, years * 12);
+    let outcome = run.ways.first()?.best()?.outcome.as_ref().ok()?;
+    Some(YearsRun {
+        after_tax: outcome.after_tax,
+        today: outcome.after_tax / level,
+        breakdown: way_breakdown(
+            &run.ways[0],
+            settings.inflation,
+            run.base.deposited() / level,
+        ),
+        value_by_month: outcome.value_by_month.clone(),
+    })
+}
+
+/// The share of the way from `from` to `to`.
+fn lerp(from: Decimal, to: Decimal, share: Decimal) -> Decimal {
+    from + (to - from) * share
+}
+
+fn lerp_breakdown(from: &Breakdown, to: &Breakdown, share: Decimal) -> Breakdown {
+    Breakdown {
+        put_in: lerp(from.put_in, to.put_in, share),
+        fees: lerp(from.fees, to.fees, share),
+        product: lerp(from.product, to.product, share),
+        kept_by_the_place: lerp(from.kept_by_the_place, to.kept_by_the_place, share),
+        tax: lerp(from.tax, to.tax, share),
+        left: lerp(from.left, to.left, share),
+    }
+}
+
+/// The way over exactly `months`. The simulation counts whole years, so a
+/// stretch in between is worked out from the two whole years around it, the
+/// share of the way between them (and, under a year, from the sum before
+/// anything is invested): the deposits are then exactly the saver's, where
+/// rounding to the nearest year counted 12 months of deposits for 17.
+fn way_held(
+    way: Way,
+    answers: &Answers,
+    settings: &Settings,
+    data: &Data,
+    months: u32,
+) -> Option<Held> {
+    let whole = months / 12;
+    let to = way_years(
+        way,
+        answers,
+        settings,
+        data,
+        whole + u32::from(months % 12 > 0),
+    )?;
+    let (nominal, today, breakdown) = if months % 12 == 0 {
+        (to.after_tax, to.today, to.breakdown.clone())
+    } else {
+        let share = Decimal::from(months % 12) / Decimal::from(12);
+        let from = if whole == 0 {
+            YearsRun {
+                after_tax: answers.now,
+                today: answers.now,
+                breakdown: Some(Breakdown {
+                    put_in: answers.now,
+                    fees: Decimal::ZERO,
+                    product: Decimal::ZERO,
+                    kept_by_the_place: Decimal::ZERO,
+                    tax: Decimal::ZERO,
+                    left: answers.now,
+                }),
+                value_by_month: Vec::new(),
+            }
+        } else {
+            way_years(way, answers, settings, data, whole)?
+        };
+        (
+            lerp(from.after_tax, to.after_tax, share),
+            lerp(from.today, to.today, share),
+            from.breakdown
+                .as_ref()
+                .zip(to.breakdown.as_ref())
+                .map(|(from, to)| lerp_breakdown(from, to, share)),
+        )
+    };
+    let left = Amount { today, nominal };
+    let kept = to.value_by_month.len().min(months as usize + 1);
+    let line = series::deflated(
+        &to.value_by_month[..kept],
+        settings.inflation,
+        left.today,
+        Decimal::ZERO,
+    );
+    Some(Held {
+        left,
+        breakdown,
+        line,
+    })
 }
 
 /// What is shown beside the fund of an index answer: the study fund, with
@@ -1031,13 +1145,6 @@ pub fn alternatives(
     );
     let scenario = safe_scenario(answers, settings, months);
     let level = decision.level;
-    // The index kinds are worked out for whole years: the answer's own when
-    // it is an index one, rounded otherwise.
-    let years = if decision.arena == Arena::Index {
-        months / 12
-    } else {
-        index::years_for(months)
-    };
     let series = kinds
         .into_iter()
         .filter_map(|(kind, recommended)| {
@@ -1051,7 +1158,7 @@ pub fn alternatives(
                     ),
                     decision.current_account,
                 ),
-                Kind::Way(way) => way_line(way, answers, settings, data, years)?,
+                Kind::Way(way) => way_line(way, answers, settings, data, months)?,
                 _ => {
                     let priced = safe::price(kind, data, &scenario, level)?;
                     // Only the money market fund's engine counts the next
@@ -1111,23 +1218,8 @@ fn way_line(
     answers: &Answers,
     settings: &Settings,
     data: &Data,
-    years: u32,
+    months: u32,
 ) -> Option<(Vec<Decimal>, Amount)> {
-    let base = index::base_scenario(answers, settings, years);
-    let cands = index::candidates(answers, settings, data, &base);
-    let run = index::run(&[way], base, cands, &settings.rates);
-    let outcome = run.ways.first()?.best()?.outcome.as_ref().ok()?;
-    let left = amount(
-        outcome.after_tax,
-        price_level(settings.inflation, years * 12),
-    );
-    Some((
-        series::deflated(
-            &outcome.value_by_month,
-            settings.inflation,
-            left.today,
-            Decimal::ZERO,
-        ),
-        left,
-    ))
+    let held = way_held(way, answers, settings, data, months)?;
+    Some((held.line, held.left))
 }

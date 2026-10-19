@@ -1809,3 +1809,52 @@ fn only_the_ticked_brokers_are_compared() {
     let rec = recommend(&sum, &one, &DATA).unwrap();
     assert_eq!(rec.plans.len(), 1, "{:?}", rec.plans);
 }
+
+// ───────────────────── Review of 2026-10-19: the numbers ─────────────────────
+
+/// The stock fund drawn beside a safe answer is worked out for the months
+/// asked about, not for the whole years nearest to them: 17 months of ₪3,000
+/// is ₪51,000, and the fund drawn beside it comes to about that, not to the
+/// 12 months' ₪36,000.
+#[test]
+fn the_stock_fund_beside_a_safe_answer_counts_every_month() {
+    for months in [4_u32, 17, 30] {
+        let mut unknown = answers(dec!(0), dec!(3000), Horizon::Months(months));
+        unknown.situation = None;
+        let rec = recommended(&unknown);
+        assert_eq!(rec.arena, Arena::Safe, "{months} months");
+        let deposited = dec!(3000) * Decimal::from(months);
+        let stock = rec
+            .alternatives
+            .iter()
+            .find(|a| matches!(a.kind, Kind::Way(_)))
+            .and_then(|a| a.left)
+            .expect("the stock fund is drawn");
+        assert!(
+            stock.nominal > deposited * dec!(0.9) && stock.nominal < deposited * dec!(1.2),
+            "{months} months: {} of {deposited}",
+            stock.nominal
+        );
+        let lines = alternatives(&unknown, &settings(), &DATA).unwrap();
+        for series in &lines.series {
+            assert_eq!(
+                series.value_by_month.len(),
+                months as usize + 1,
+                "{:?}",
+                series.kind
+            );
+        }
+    }
+    let mut cushion = answers(dec!(0), dec!(3000), Horizon::Unknown);
+    cushion.cushion = Some(Cushion::HasNot {
+        monthly_expenses: dec!(17_000),
+    });
+    let rec = recommended(&cushion);
+    let stock = rec
+        .alternatives
+        .iter()
+        .find(|a| matches!(a.kind, Kind::Way(_)))
+        .and_then(|a| a.left)
+        .unwrap();
+    assert!(stock.nominal > dec!(46_000), "{}", stock.nominal);
+}
