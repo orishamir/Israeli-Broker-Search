@@ -298,7 +298,7 @@ pub fn kind() -> Kind {
                 "The interest is taxed at 15%, all of it, as interest on anything not linked to \
                  the price index: the bank withholds the tax when it pays (the Income Tax \
                  Ordinance, section 125ג(ג)(1)).",
-                "על הריבית משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד: הבנק מנכה את המס כשהוא משלם (פקודת מס הכנסה, סעיף 125ג(ג)(1)).",
+                "על הריבית משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד המחירים לצרכן: הבנק מנכה את המס כשהוא משלם (פקודת מס הכנסה, סעיף 125ג(ג)(1)).",
             ))
             .source(&section_125c()),
         ],

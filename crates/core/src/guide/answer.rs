@@ -1307,7 +1307,15 @@ fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen
         rate: f.settings.rate,
         switch,
         bond_at_your_bank,
-        flips: robust::order_flips(safe_standing, switch, f.settings.rate),
+        flips: robust::order_flips(
+            safe_standing,
+            rate_range.map(|(low, high)| (low.today, high.today)),
+            &shown
+                .iter()
+                .filter(|group| group.way != SafeWay::MoneyMarketFund)
+                .map(|group| group.lead.left.today)
+                .collect::<Vec<_>>(),
+        ),
     });
     let picks: Vec<(Pick, Vec<RowId>, Option<Amount>)> = shown
         .iter()

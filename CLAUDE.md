@@ -676,7 +676,7 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   קצבה; taking it all at once → משיכה בבת אחת; the deposit ceiling → תקרת
   הפקדה; a fund's track on the S&P 500 → מסלול מדד S&P 500 (not a bare
   מסלול עוקב מדד).
-- the two arenas → סכום בטוח יותר, מדד לטווח ארוך (`arena_name`); a money
+- the two arenas → סכום בטוח יותר, מדד S&P 500, לטווח ארוך (`arena_name`); a money
   market fund → קרן כספית; a fixed-rate deposit → פיקדון בריבית קבועה (a
   bank's monthly savings plan is a תוכנית חיסכון, not a פיקדון); a place to
   keep the money, in the table of the safe kinds → אפיק; the Bank of
@@ -690,8 +690,11 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   day → כסף שאולי תצטרכו בכל יום; today's money → כסף של היום; compound
   interest → ריבית דריבית; the S&P 500 index → מדד S&P 500; a bank's branch
   price list → תעריף סניף (the plan "Branch or through a banker").
-- never a bare "מדד": say which (מדד המחירים לצרכן, מדד S&P 500); say what
-  a product is before its trade name (`REDESIGN.md` §2.8).
+- never a bare "מדד": say which (מדד המחירים לצרכן, מדד S&P 500). Within one
+  unit (an option card, a stated line, a chart row with its label, an
+  identity line) "המדד" may refer back to the one index named earlier in it,
+  never where two are named; say what a product is before its trade name
+  (`REDESIGN.md` §2.8; `guide_words.rs`, `bare_index_in_unit`).
 - the answer's words (`REDESIGN.md` §2.2–2.4): the chips → כאן קשה לטעות /
   ההבדל קטן / תלוי במה שחשוב לכם; a line's pill → ברור / תיקו / לפי
   הכללים / החלטה שלכם / בחרתם; the plan → התוכנית שלכם; when it fits →

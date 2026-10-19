@@ -469,13 +469,13 @@ pub fn place_index(f: &PlaceIndexFigures) -> Text {
             out.push(' ');
             out.push_str(&match lang {
                 Lang::En => format!(
-                    "Even in the worst stretch of {when} since {since}, a fund on the S&P 500 index would have left about {}, more than {} in {} (after fees and tax, in today's money).",
+                    "Even in the worst stretch of {when} since {since}, the index would have left about {}, more than {} in {} (after fees and tax, in today's money).",
                     about(worst),
                     about(safe),
                     name.en.to_lowercase()
                 ),
                 Lang::He => format!(
-                    "גם בתקופה הגרועה ביותר של {when} מאז {since}, קרן על מדד S&P\u{a0}500 הייתה משאירה בערך {}, יותר מ\u{2011}{} ב{} (אחרי עמלות ומס, בכסף של היום).",
+                    "גם בתקופה הגרועה ביותר של {when} מאז {since}, המדד היה משאיר בערך {}, יותר מ\u{2011}{} ב{} (אחרי עמלות ומס, בכסף של היום).",
                     about(worst),
                     about(safe),
                     name.he
@@ -624,6 +624,15 @@ fn if_index_rises(rate: Percent, lang: Lang) -> String {
     }
 }
 
+/// The same, inside an option whose title already names the S&P 500: "המדד"
+/// refers back to it (§2.8, amended 2026-10-20).
+fn it_rises(rate: Percent, lang: Lang) -> String {
+    match lang {
+        Lang::En => format!("if the index rises {rate} a year"),
+        Lang::He => format!("אם המדד יעלה {rate} בשנה"),
+    }
+}
+
 #[must_use]
 pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
     let question = if f.no_date {
@@ -733,7 +742,7 @@ pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
                     Some(growth) => format!(
                         "{} {}",
                         shekels(growth),
-                        if_index_rises(f.index_return, lang)
+                        it_rises(f.index_return, lang)
                     ),
                     None => String::new(),
                 }),
@@ -1023,7 +1032,7 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
     let lead_name = super::outcome::name(Kind::Way(f.lead));
     let amount = |left: Option<Decimal>| {
         both(move |lang| match left {
-            Some(left) => format!("{} {}", shekels(left), if_index_rises(f.index_return, lang)),
+            Some(left) => format!("{} {}", shekels(left), it_rises(f.index_return, lang)),
             None => String::new(),
         })
     };

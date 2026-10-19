@@ -159,13 +159,23 @@ pub(super) fn standing(pairs: &[(Decimal, Decimal)], margin: Decimal) -> Standin
     }
 }
 
-/// Whether the order of two options changes within the versions: it does
-/// across them (`Flips`), or the rate at which they trade places lies within
-/// the rates tried. A tie as things are can flip too: being within the
-/// margin says nothing about which side of the switch point the rate is.
-pub(super) fn order_flips(standing: Standing, switch: Option<Percent>, rate: Percent) -> bool {
-    let (low, high) = ((rate.0 - RATE_STEP).max(Decimal::ZERO), rate.0 + RATE_STEP);
-    standing == Standing::Flips || switch.is_some_and(|at| low <= at.0 && at.0 <= high)
+/// Whether the order of the safe options changes within the versions: it
+/// does across them (`Flips`), or another option's figure lies within what
+/// the money market fund leaves at the rates tried (`fund`, low and high),
+/// so the rate at which they trade places lies within those rates. A tie as
+/// things are can flip too: being within the margin says nothing about which
+/// side of the switch point the rate is.
+pub(super) fn order_flips(
+    standing: Standing,
+    fund: Option<(Decimal, Decimal)>,
+    others: &[Decimal],
+) -> bool {
+    standing == Standing::Flips
+        || fund.is_some_and(|(low, high)| {
+            others
+                .iter()
+                .any(|other| low <= *other && *other <= high)
+        })
 }
 
 /// The Bank of Israel's average rate at which `ahead(rate)` (one option less
@@ -222,15 +232,15 @@ mod tests {
 
     #[test]
     fn a_switch_point_within_the_rates_tried_flips_the_order() {
-        let rate = Percent(dec!(3.25));
-        let at = |switch| Some(Percent(switch));
-        // The apartment's: a tie as things are, the switch inside the span.
-        assert!(order_flips(Standing::Tie, at(dec!(3.6)), rate));
-        assert!(order_flips(Standing::Clear, at(dec!(2.75)), rate));
-        assert!(order_flips(Standing::Tie, at(dec!(3.75)), rate));
-        assert!(!order_flips(Standing::Tie, at(dec!(3.8)), rate));
-        assert!(!order_flips(Standing::Tie, None, rate));
-        assert!(order_flips(Standing::Flips, None, rate));
+        // The fund leaves 100 to 120 at the rates tried.
+        let fund = Some((dec!(100), dec!(120)));
+        // The apartment's: a tie as things are, the bond inside the bar.
+        assert!(order_flips(Standing::Tie, fund, &[dec!(110)]));
+        assert!(order_flips(Standing::Clear, fund, &[dec!(130), dec!(100)]));
+        assert!(order_flips(Standing::Tie, fund, &[dec!(120)]));
+        assert!(!order_flips(Standing::Tie, fund, &[dec!(121), dec!(99)]));
+        assert!(!order_flips(Standing::Tie, None, &[dec!(110)]));
+        assert!(order_flips(Standing::Flips, None, &[]));
     }
 
     #[test]
