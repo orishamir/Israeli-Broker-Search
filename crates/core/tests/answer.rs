@@ -647,3 +647,141 @@ fn the_margins_are_the_owners() {
     assert_eq!(provider_margin(dec!(50_000)), dec!(200));
     assert_eq!(provider_margin(dec!(400_000)), dec!(1000));
 }
+
+/// The date `years` away as the page's years field sets it.
+fn moved(answers: &Answers, row: &HorizonRow) -> Answers {
+    Answers {
+        horizon: match answers.horizon {
+            Horizon::Retirement { age, .. } => Horizon::Retirement {
+                age,
+                retire_at: age + row.years,
+            },
+            Horizon::Months(_) | Horizon::Unknown => Horizon::Months(row.years * 12),
+        },
+        flexibility: row.flexibility.or(answers.flexibility),
+        ..answers.clone()
+    }
+}
+
+/// The lower and upper ends a row of the outcome chart draws.
+fn ends(row: &Row) -> (Amount, Amount) {
+    match &row.mark {
+        Mark::Known | Mark::Expected => (row.value, row.value),
+        Mark::RateRange { low, high } => (*low, *high),
+        Mark::Market { worst, median, .. } => (*worst, *median),
+    }
+}
+
+/// §2.9's check: a horizon row is exactly what the answer shows once the
+/// date moves there (and, for a row of one answer about the date, once
+/// that answer is given): the way it settles on, or one it leaves to the
+/// visitor, and figures its chart draws.
+#[test]
+fn a_horizon_row_opens_exactly_what_it_showed() {
+    for situation in situations() {
+        let answers = Answers {
+            bank: Some(Bank::Hapoalim),
+            ..situation.answers.clone()
+        };
+        let full = answer(&answers, &Choices::default(), &settings(), &DATA).unwrap();
+        assert!(!full.horizons.is_empty(), "{}", situation.id);
+        for row in &full.horizons {
+            let label = format!("{} at {} years", situation.id, row.years);
+            assert_eq!(
+                row.current,
+                moved(&answers, row).horizon == answers.horizon,
+                "{label}"
+            );
+            assert!(row.low.today <= row.high.today, "{label}");
+            assert_eq!(
+                row.condition.is_some(),
+                row.flexibility.is_some(),
+                "{label}"
+            );
+            let opened = answered(&moved(&answers, row), Choices::default());
+            match opened.focus {
+                Some(focus) => assert_eq!(row.kind, focus, "{label}"),
+                None => assert!(
+                    opened
+                        .outcome
+                        .rows
+                        .iter()
+                        .any(|shown| shown.kind == row.kind && shown.active),
+                    "{label}: {:?}",
+                    row.kind
+                ),
+            }
+            let drawn: Vec<(Amount, Amount)> = opened.outcome.rows.iter().map(ends).collect();
+            assert!(drawn.iter().any(|(low, _)| *low == row.low), "{label}: low");
+            assert!(
+                drawn.iter().any(|(_, high)| *high == row.high),
+                "{label}: high"
+            );
+        }
+    }
+}
+
+/// Where the visitor hasn't said whether the date can move, a date where it
+/// decides the place has a row for each answer; once said, one row a date.
+#[test]
+fn a_date_where_flexibility_decides_has_both_rows_until_answered() {
+    let full =
+        |answers: &Answers| answer(answers, &Choices::default(), &settings(), &DATA).unwrap();
+    let open = full(&bonus());
+    for years in LADDER_YEARS {
+        let rows = open
+            .horizons
+            .iter()
+            .filter(|row| row.years == years)
+            .count();
+        let at = answered(
+            &Answers {
+                horizon: Horizon::Months(years * 12),
+                ..bonus()
+            },
+            Choices::default(),
+        );
+        let decides = decision(&at, LineKind::PlaceType).is_some();
+        assert_eq!(rows, if decides { 2 } else { 1 }, "{years} years");
+    }
+    let can_wait = full(&Answers {
+        flexibility: Some(Flexibility::CanWait),
+        ..bonus()
+    });
+    assert_eq!(can_wait.horizons.len(), LADDER_YEARS.len());
+    assert!(
+        can_wait
+            .horizons
+            .iter()
+            .all(|row| row.flexibility.is_none())
+    );
+}
+
+/// The takeaway names the part that makes most of the difference, as the
+/// bars' own figures say: here fees for the account, tax for the study fund.
+#[test]
+fn the_gain_takeaway_names_the_bigger_part() {
+    let etf = Choices {
+        wrapper: Some(Wrapper::Anyone),
+        ..Choices::default()
+    };
+    for choices in [Choices::default(), etf] {
+        let gain = answer(&salary(), &choices, &settings(), &DATA)
+            .unwrap()
+            .gain
+            .expect("fees or tax decide something");
+        let [first, second] = gain.rows.as_slice() else {
+            panic!("two bars");
+        };
+        let (better, worse) = if first.kept.today >= second.kept.today {
+            (first, second)
+        } else {
+            (second, first)
+        };
+        let fees = |row: &GainRow| row.fees.today + row.product.today;
+        let by_fees = fees(worse) - fees(better) >= worse.tax.today - better.tax.today;
+        let says = &gain.takeaway[Lang::En];
+        assert_eq!(says.contains("from fees"), by_fees, "{says}");
+        assert_eq!(says.contains("from tax"), !by_fees, "{says}");
+    }
+}

@@ -537,4 +537,15 @@ export const he: Text = {
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label, the bank's question.
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
+  gainTitle: 'כמה מהרווח נשאר אצלכם',
+  gainKept: 'נשאר לכם',
+  gainTax: 'מס',
+  gainFees: 'עמלות ודמי ניהול',
+  gainProduct: 'העלות של הקרן עצמה',
+  gainBarLabel: (name, parts) => `${name}: ${parts}`,
+  horizonsTitle: 'ואם התאריך יזוז?',
+  horizonsLead: 'אותן הפקדות לתאריך אחר: מה הייתה התשובה למעלה אז. הכול בכסף של היום.',
+  horizonsIn: (years) => `בעוד ${yearsText(years)}`,
+  horizonsYours: 'התאריך שלכם',
+  horizonsOpen: (when) => `${when}: להציג את התשובה לתאריך הזה`,
 }

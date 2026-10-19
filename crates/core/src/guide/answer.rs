@@ -354,20 +354,38 @@ pub struct GainRow {
     pub product: Amount,
 }
 
-/// One row of "ואם התאריך יזוז?" (§2.9).
+/// One row of "ואם התאריך יזוז?" (§2.9): what the answer would show if the
+/// date were `years` away, so that moving the date there opens exactly it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct HorizonRow {
     pub years: u32,
     /// Which answer about the date this row is for, while the visitor
-    /// hasn't given one and the two differ; `None` when it doesn't matter.
+    /// hasn't given one and the two lead to different places; `None` when
+    /// it doesn't matter there. Opening the row gives that answer.
     pub flexibility: Option<Flexibility>,
+    /// [`Self::flexibility`] in words: "אם תצטרכו את הכסף בדיוק אז".
+    pub condition: Option<Text>,
+    /// The row is the visitor's own date.
+    pub current: bool,
     pub deposited: Amount,
+    /// [`Self::deposited`] in words: "תפקידו ₪28,600".
+    pub deposits: Text,
+    /// The way the answer would settle on, or the first of those it would
+    /// leave to the visitor.
     pub kind: Kind,
+    /// That way, or "X, Y או Z" where the answer would leave the way to the
+    /// visitor.
     pub name: Text,
     pub low: Amount,
     pub high: Amount,
+    /// The range in words, rounded to how sure it is.
+    pub range: Text,
+    /// What the range is made of: "ידוע כבר היום", the past's stretches...
+    pub range_note: Text,
     /// On every ₪1 put in: low and high.
     pub per_shekel: (Decimal, Decimal),
+    /// "על כל ₪1 שתפקידו: …".
+    pub per_shekel_text: Text,
 }
 
 /// The answer.
@@ -2068,7 +2086,8 @@ fn gain(
     };
     let base = &f.versions[0];
     let rates = &f.settings.rates;
-    let mut rows: Vec<(Text, Split)> = Vec::new();
+    // Each row: its label, the name a sentence uses, and its split.
+    let mut rows: Vec<(Text, Text, Split)> = Vec::new();
     if decided(DecisionId::Account) || decided(DecisionId::Holdings) {
         let info = info.filter(|info| info.decided)?;
         let Some(Chosen::Index(at)) = chosen else {
@@ -2084,26 +2103,38 @@ fn gain(
                 // Until the bank is named: the best bank's.
                 info.places.places.iter().find(|place| place.bank.is_some())
             })?;
+        if best.cand == reference.cand {
+            return None;
+        }
         for place in [best, reference] {
             let cand = &index.run.cands[place.cand?];
             let outcome = plan_outcome(cand, way.way, &index.run.base, base, rates)?;
-            rows.push((place.provider.clone(), split(&outcome, f.deposited.today)));
+            let label = if place.yours {
+                gain_words::your_bank(&place.provider)
+            } else {
+                place.provider.clone()
+            };
+            rows.push((
+                label,
+                place.provider.clone(),
+                split(&outcome, f.deposited.today),
+            ));
         }
     } else if decided(DecisionId::Wrapper) {
         for at in [Some(index.lead), index.study] {
             let at = at?;
-            rows.push((
-                row_words::name(Kind::Way(index.way(at).way)),
-                best_split(f, index, at)?,
-            ));
+            let name = row_words::name(Kind::Way(index.way(at).way));
+            rows.push((name.clone(), name, best_split(f, index, at)?));
         }
     } else {
         return None;
     }
-    let amount = |today: Decimal| at_end(today, f.months, f.settings.inflation);
+    // Worked out at the expected return: rounded as the headline amounts are.
+    let amount =
+        |today: Decimal| at_end(gain_words::rounded(today), f.months, f.settings.inflation);
     let gain_rows: Vec<GainRow> = rows
         .iter()
-        .map(|(name, split)| GainRow {
+        .map(|(name, _, split)| GainRow {
             name: name.clone(),
             kept: amount(split.kept),
             tax: amount(split.tax),
@@ -2111,12 +2142,12 @@ fn gain(
             product: amount(split.product),
         })
         .collect();
-    let [(better_name, better), (worse_name, worse)] = rows.as_slice() else {
+    let [(_, first_name, first), (_, second_name, second)] = rows.as_slice() else {
         return None;
     };
     Some(Gain {
-        lead: gain_words::lead(f.deposited.today),
-        takeaway: gain_words::takeaway(better_name, part(better), worse_name, part(worse)),
+        lead: gain_words::lead(f.deposited),
+        takeaway: gain_words::takeaway(first_name, part(first), second_name, part(second)),
         rows: gain_rows,
     })
 }
@@ -2131,96 +2162,150 @@ fn part(split: &Split) -> gain_words::Part {
 
 // ─────────────────────────── The horizons ───────────────────────────
 
-/// "What if the date moves?": the same money at 1, 3, 5, 10 and 20 years,
-/// under the visitor's answer about the date, or both while it's unanswered
-/// and the two differ.
+/// "What if the date moves?": the same money at 1, 3, 5, 10 and 20 years.
+/// Each row is what the answer itself would show with the date there and
+/// everything else as it is, so that moving the date opens exactly the row
+/// (§2.9). Where the visitor hasn't said whether the date can move and that
+/// decides the place there, a row for each answer.
 fn horizons(f: &Facts<'_>) -> Vec<HorizonRow> {
-    let flexibilities: Vec<Option<Flexibility>> = match f.answers.flexibility {
-        Some(flexibility) => vec![Some(flexibility)],
-        None => vec![Some(Flexibility::Fixed), Some(Flexibility::CanWait)],
-    };
     let mut rows = Vec::new();
     for years in LADDER_YEARS {
-        let months = years * 12;
-        let mut seen: Vec<(Option<Flexibility>, Arena)> = Vec::new();
-        for flexibility in &flexibilities {
-            let answers = Answers {
-                situation: None,
-                horizon: Horizon::Months(months),
-                flexibility: *flexibility,
-                needs_any_day: false,
-                cushion: Some(Cushion::Has),
-                ..f.answers.clone()
-            };
-            let arena = route::natural_route(&answers).arena();
-            if seen.iter().any(|(_, seen)| *seen == arena) {
-                continue;
-            }
-            seen.push((*flexibility, arena));
-            if let Some(row) = horizon_row(f, &answers, years, *flexibility) {
-                rows.push(row);
-            }
+        let horizon = moved_horizon(f.answers.horizon, years);
+        let at = Answers {
+            horizon,
+            ..f.answers.clone()
+        };
+        let current = f.answers.horizon == horizon;
+        let answered = |flexibility| Answers {
+            flexibility: Some(flexibility),
+            ..at.clone()
+        };
+        let (fixed, can_wait) = (answered(Flexibility::Fixed), answered(Flexibility::CanWait));
+        let mut facts_at = facts(&at, f.choices, f.settings, f.data);
+        if facts_at.arena.is_some() {
+            rows.extend(horizon_row(&facts_at, years, None, current));
+            continue;
         }
-        // One answer is enough where both lead to the same place.
-        if seen.len() == 1
-            && f.answers.flexibility.is_none()
-            && let Some(last) = rows.last_mut()
-        {
-            last.flexibility = None;
+        // The two answers' facts differ only in the arena where both arenas
+        // run the same months: no need to work the engines out again.
+        let same_months = facts_at
+            .index
+            .as_ref()
+            .is_none_or(|index| index.months == facts_at.months);
+        for (flexibility, answers) in [
+            (Flexibility::Fixed, &fixed),
+            (Flexibility::CanWait, &can_wait),
+        ] {
+            if same_months {
+                facts_at.answers = answers;
+                facts_at.arena = match facts_at.place.arena(Some(flexibility)) {
+                    Some(Arena::Index) if facts_at.index.is_none() => Some(Arena::Safe),
+                    arena => arena,
+                };
+                rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
+            } else {
+                let facts_at = facts(answers, f.choices, f.settings, f.data);
+                rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
+            }
         }
     }
     rows
 }
 
+/// The date `years` away, as the page's years field sets it: a retirement
+/// keeps the age and moves the age of retiring.
+fn moved_horizon(horizon: Horizon, years: u32) -> Horizon {
+    match horizon {
+        Horizon::Retirement { age, .. } => Horizon::Retirement {
+            age,
+            retire_at: age.saturating_add(years),
+        },
+        Horizon::Months(_) | Horizon::Unknown => Horizon::Months(years * 12),
+    }
+}
+
+/// One row, from the answer at that date: the way it settles on, or the
+/// ways it leaves to the visitor (for the index, the one anyone can open:
+/// a study fund is only for those who have one), and the range their marks
+/// span.
 fn horizon_row(
     f: &Facts<'_>,
-    answers: &Answers,
     years: u32,
     flexibility: Option<Flexibility>,
+    current: bool,
 ) -> Option<HorizonRow> {
-    let decided = route::decide_choosing(answers, f.settings, Overrides::default(), f.data);
-    let months = decided.months;
-    let (deposited, _) = yardsticks(answers, months, f.settings.inflation);
-    let base = f.versions[0];
-    let (low, high) = match decided.kind {
-        Kind::MoneyMarketFund => {
-            let at = |rate: Decimal| {
-                let version = Version {
-                    rate: crate::Percent(rate.max(Decimal::ZERO)),
-                    ..base
-                };
-                safe_value(Kind::MoneyMarketFund, answers, months, &version, f.data)
-                    .map(|today| at_end(today, months, base.inflation))
-            };
+    let answer = build(f, false);
+    let rows = &answer.outcome.rows;
+    let open_way = answer.lines.iter().find_map(|line| match &line.state {
+        LineState::Decision(decision)
+            if line.kind == LineKind::Way && decision.chosen.is_none() =>
+        {
+            Some(decision)
+        }
+        _ => None,
+    });
+    let row_of = |id: &RowId| rows.iter().find(|row| row.id == *id);
+    // The rows the row stands for, and the ones it names (an option's first).
+    let (shown, named): (Vec<&Row>, Vec<&Row>) = match (answer.focus, open_way) {
+        (Some(focus), _) => {
+            let row = row_of(&focus)?;
+            (vec![row], vec![row])
+        }
+        (None, Some(decision)) => {
+            let options: Vec<&Opt> = decision
+                .options
+                .iter()
+                .filter(|option| option.pick != Pick::Wrapper(Wrapper::StudyFund))
+                .collect();
             (
-                at(base.rate.0 - robust::RATE_STEP).unwrap_or(decided.left),
-                at(base.rate.0 + robust::RATE_STEP).unwrap_or(decided.left),
+                options
+                    .iter()
+                    .flat_map(|option| option.rows.iter().filter_map(row_of))
+                    .collect(),
+                options
+                    .iter()
+                    .filter_map(|option| option.rows.first().and_then(row_of))
+                    .collect(),
             )
         }
-        Kind::Way(_) => {
-            let (run, at) = decided.run.as_ref()?;
-            match history::deposits_band(answers.now, answers.monthly, months) {
-                Some(history) => {
-                    let value = |rate| {
-                        way_value(
-                            run,
-                            &run.ways[*at],
-                            &Version {
-                                varies: Varies::History,
-                                index_return: rate,
-                                ..base
-                            },
-                            &f.settings.rates,
-                        )
-                        .map(|today| at_end(today, months, base.inflation))
-                    };
-                    (value(history.worst)?, value(history.median)?)
-                }
-                None => (decided.left, decided.left),
-            }
+        (None, None) => {
+            let active: Vec<&Row> = rows
+                .iter()
+                .filter(|row| row.active && row.excluded.is_none())
+                .filter(|row| row.kind.arena() == f.arena)
+                .collect();
+            let first = *active.first()?;
+            (active, vec![first])
         }
-        _ => (decided.left, decided.left),
     };
+    let first = *named.first()?;
+    let ends = |row: &Row| match &row.mark {
+        Mark::Known | Mark::Expected => (row.value, row.value),
+        Mark::RateRange { low, high } => (*low, *high),
+        Mark::Market { worst, median, .. } => (*worst, *median),
+    };
+    let low = shown
+        .iter()
+        .map(|row| ends(row).0)
+        .min_by(|a, b| a.today.cmp(&b.today))?;
+    let high = shown
+        .iter()
+        .map(|row| ends(row).1)
+        .max_by(|a, b| a.today.cmp(&b.today))?;
+    let rate = shown
+        .iter()
+        .any(|row| matches!(row.mark, Mark::RateRange { .. }));
+    let range_of = if shown.len() > 1 && f.arena == Some(Arena::Safe) {
+        gain_words::RangeOf::Ways { rate }
+    } else {
+        match first.mark {
+            Mark::Known => gain_words::RangeOf::Known,
+            Mark::RateRange { .. } => gain_words::RangeOf::Rate,
+            Mark::Market { .. } => gain_words::RangeOf::Past,
+            Mark::Expected => gain_words::RangeOf::Expected(f.settings.index_return),
+        }
+    };
+    let deposited = f.deposited;
     let per = |amount: Amount| {
         if deposited.today.is_zero() {
             Decimal::ZERO
@@ -2228,14 +2313,21 @@ fn horizon_row(
             (amount.today / deposited.today).round_dp(2)
         }
     };
+    let titles: Vec<Text> = named.iter().map(|row| row.name.clone()).collect();
     Some(HorizonRow {
         years,
         flexibility,
+        condition: flexibility.map(gain_words::condition),
+        current,
         deposited,
-        kind: decided.kind,
-        name: row_words::name(decided.kind),
+        deposits: gain_words::deposits(deposited),
+        kind: first.kind,
+        name: gain_words::either(&titles),
         low,
         high,
+        range: gain_words::range(low, high),
+        range_note: gain_words::range_note(range_of),
         per_shekel: (per(low), per(high)),
+        per_shekel_text: gain_words::per_shekel(per(low), per(high)),
     })
 }
