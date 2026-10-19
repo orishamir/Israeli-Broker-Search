@@ -426,4 +426,37 @@ export const he: Text = {
   cardBack: '‹ חזרה',
   bestBarToday: 'בכסף של היום',
   bestBarJump: 'לתשובה',
+
+  // Package I: the questions, the answer, the steps and the portfolio dialog
+  situationTip: (name: string) => `על המצב ״${name}״`,
+  horizonUnknownPlaceholder: '?',
+  horizonAmount: 'כמה זמן',
+  followFlexTitle: 'אם הבורסה תהיה בירידה בדיוק אז, תוכלו לחכות עוד שנה-שנתיים?',
+  followFlexText:
+    'כשצריך את הכסף בתאריך קבוע, כמו תשלום על דירה, ירידה של 20% בבורסה באותה שנה היא בעיה. כשאפשר לחכות, היא בדרך כלל חולפת.',
+  followFlexFixed: 'לא, צריך בדיוק אז',
+  followFlexWait: 'כן, אפשר לחכות',
+  followCushionTitle: 'יש לכם כבר כסף בצד ל־3–6 חודשי הוצאות?',
+  followCushionText:
+    'כרית ביטחון היא הדבר הראשון: כסף זמין למקרה של פיטורים או הוצאה פתאומית, כדי שלא תצטרכו למכור השקעה בזמן ירידות.',
+  followCushionYes: 'כן',
+  followCushionNo: 'עוד לא',
+  monthlyExpenses: 'ההוצאות שלי בחודש, בערך',
+  followAgeTitle: 'לפרישה: בני כמה אתם?',
+  followAgeText: 'הגיל קובע מתי אפשר למשוך את הכסף כקצבה חודשית, ולכן כמה שנים הוא יכול לצמוח.',
+  whyThis: 'למה דווקא זה',
+  inTodaysMoney: 'יישארו לכם בכסף של היום, אחרי מס',
+  inNominalMoney: (amount: string, year: number) => `${amount} בשקלים של ${year}`,
+  currentAccountLine: (amount: string) => `אם הכסף יישב בעו״ש: ${amount} בכסף של היום`,
+  cushionFirst: (monthly: string, kind: string) => `קודם כרית ביטחון ב${kind}: ${monthly} בחודש`,
+  cushionUntil: (target: string, months: number) => `עד שיצטברו כ־${target}, בערך ${months} חודשים.`,
+  cushionThen: (kind: string) => `אחר כך, ${kind}, לטווח ארוך.`,
+  unlockLine: (deposit: string, plan: string, after: string, instead: string) =>
+    `עם ${deposit} בהפקדה הראשונה אפשר להצטרף ל${plan}: ${after} במקום ${instead}.`,
+  chooseKindTitle: 'במה להמשיך?',
+  bankStandIn: 'לבנק אחר מוצג מחירון הסניף היקר שמצאנו, כדי לא להציג פחות ממה שתשלמו.',
+  portfolioHelp: 'את העמלות של התיק אפשר למצוא באפליקציה של הבנק, או לבקש מהבנקאי מחירון.',
+  newOwnPlan: '+ מסלול משלכם',
+  arenaSafe: 'סכום בטוח יותר',
+  arenaIndex: 'מדד, לטווח ארוך',
 }
