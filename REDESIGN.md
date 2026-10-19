@@ -438,6 +438,15 @@ Ask the owner when you reach any of these. Don't settle them yourself.
 - The previous plan (`git show d14e955:REDESIGN.md`) is context only.
 - Look at the live site, or the dev server, on the three worked examples, to see today's behaviour.
 
+### How to run it
+
+- **Speed over a working `main`** (the owner's choice, 2026-10-19).
+  - Work in the main tree, without git worktrees.
+  - Between stages, the build, the tests and the commits may all be broken.
+  - Commit at milestones. Run `CLAUDE.md`'s "Done means" in full once, at the end, and fix what it finds then.
+- **Subagents running in parallel own different files**, so two never edit the same one. If two workstreams need the same file, run them one after the other.
+- **Never push** until the owner says so. A push to `main` deploys, and the deploy's tests would fail on a broken tree.
+
 ### Suggested workstreams
 Adjust them to the code's real structure.
 
@@ -456,7 +465,7 @@ Adjust them to the code's real structure.
 - its workstream's sections of Part 2, and the acceptance checks below;
 - "If a design question isn't answered here, apply Part 1. If it's still open, return the question to the orchestrator instead of guessing." The orchestrator takes open questions to the owner.
 - "Don't fix a design problem with a tooltip, a note or an extra option until you've looked for the structural fix (principle 9)."
-- `CLAUDE.md`'s "Done means" for the layers the workstream touches.
+- the files it owns, and what to check before handing back: that its own part compiles and its own new tests pass, as far as the rest of the tree allows. The whole tree may be broken between stages.
 
 ### Acceptance
 - **Structure.** The three worked examples (§2.5) reproduce the structure exactly:
@@ -471,7 +480,7 @@ Adjust them to the code's real structure.
 - **Consistency.** Every decision uses the one decision component.
 - **Charts.** They need no "?" to be read. Every mark that matters is labelled. Every value is after tax, in today's money.
 - **Where it runs.** It works by keyboard, at phone width (the Samsung and the narrowest iPhone), in the dark theme, and in right‑to‑left layout.
-- **Verification.** Check on the running dev server in a real browser, not only in unit tests. Run `CLAUDE.md`'s "Done means" in full.
+- **Verification.** Check on the running dev server in a real browser, not only in unit tests. Run `CLAUDE.md`'s "Done means" in full, at the end.
 
 ---
 
