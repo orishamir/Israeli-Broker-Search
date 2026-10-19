@@ -273,3 +273,18 @@ export async function enter(page: Page, entered: Entered): Promise<AnswersInput>
 
 /** A situation's name by its id, for its chip. */
 export const situationName = (id: string) => situations().find((each) => each.id === id)!.name
+
+/** The chart's picture once it has stopped changing: the lines draw
+ * themselves in first, and a picture taken then is not the chart's. */
+export async function settledPicture(chart: Locator) {
+  let last = await canvasPicture(chart)
+  await expect
+    .poll(async () => {
+      const now = await canvasPicture(chart)
+      const same = now === last
+      last = now
+      return same
+    })
+    .toBe(true)
+  return last
+}

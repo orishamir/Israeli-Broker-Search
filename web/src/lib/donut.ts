@@ -129,8 +129,14 @@ export function donutOption({ breakdown }: DonutView): ChartOption {
   return {
     tooltip: {
       trigger: 'item',
-      formatter: ({ name, value, percent }) =>
-        `${name}: <b>${shekels(value as number)}</b> (${sharePercent((percent ?? 0) / 100)})`,
+      formatter: (params) => {
+        const { name, value, percent } = params as unknown as {
+          name: string
+          value: number
+          percent?: number
+        }
+        return `${name}: <b>${shekels(value)}</b> (${sharePercent((percent ?? 0) / 100)})`
+      },
     },
     series: [series],
   }

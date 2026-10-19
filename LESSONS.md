@@ -105,7 +105,7 @@ all. Read those three first.
   Bank of Israel's rate.** Yahoo's `^SP500TR` (and `^GSPC` for the
   dividends) answers a plain request for daily closes; the Bank of Israel's
   rates come from `edge.boi.org.il/FusionEdgeServer/sdmx/v2/data/dataflow/
-  BOI.STATISTICS/EXR/1.0/RER_USD_ILS?format=csv`, which answers `curl`
+BOI.STATISTICS/EXR/1.0/RER_USD_ILS?format=csv`, which answers `curl`
   where boi.org.il doesn't. Against the net (30%) index every fund that
   swaps looks better than the index.
 - **Maya's fund history** is a POST to
@@ -172,7 +172,7 @@ all. Read those three first.
   (checked with `svelte/compiler`'s `compile` in Node). Playwright reuses
   a server on 5173, so it would have tested the stale styles too. Restart
   it: `fuser -k 5173/tcp`, then `npx vite --host 0.0.0.0 --port 5173`.
-- Vitest runs the `.svelte.ts` modules against Svelte's *server* build
+- Vitest runs the `.svelte.ts` modules against Svelte's _server_ build
   unless `resolve.conditions: ['browser']` is set (`vitest.config.ts`):
   effects then never run and deriveds don't track, and only tests that
   read state after changing it notice. A probe that adds to a `SvelteSet`
@@ -570,6 +570,17 @@ all. Read those three first.
 
 ## Playwright
 
+- 2026-10-19, the redesign's specs: the guide is tested by what a person
+  types (`enter`) and what the core says for it (`expectAnswerFor`), never
+  by a kind or an amount written into the test; REDESIGN §8's expectations
+  that the data contradicts (the study fund and the savings policy are not
+  among the retirement answer's alternatives, because only the plans ticked
+  at first are compared; T2 is a US ETF, T3 a government bond) are listed in
+  `acceptance.spec.ts`'s comments, not asserted. The expert switch's input
+  is hidden behind its track: click its label (`setExpert`). A reload loses
+  the workbench's thing chosen (it follows the recommendation): `workbench`
+  again. Two buttons may share a name across cards ("לשנות ›" in the
+  answer and in the assumptions): scope by card.
 - `getByText` for a chart view's name can also match the text of its
   hidden tip: click a choice through `choice(page, group, name)`.
 - Screenshots were the suite's biggest coupling: 208 baselines on 9
@@ -651,33 +662,45 @@ Screenshots of the app outside the tests. Start
 
 ```js
 // node shots.mjs
-import { chromium, devices } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+import {
+  chromium,
+  devices,
+} from "/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs";
 
-const browser = await chromium.launch()
-const context = await browser.newContext({ ...devices['Galaxy S24'], reducedMotion: 'reduce' })
-const page = await context.newPage()
+const browser = await chromium.launch();
+const context = await browser.newContext({
+  ...devices["Galaxy S24"],
+  reducedMotion: "reduce",
+});
+const page = await context.newPage();
 // Fixed rates, as tests/fixtures.ts has.
-await page.route('https://api.frankfurter.dev/**', (route) =>
-  route.fulfill({ json: { date: '2026-09-25', rates: { ILS: 3.4594, USD: 1.1403 } } }),
-)
-await page.goto('http://localhost:5173/')
-await page.locator('.chart canvas').first().waitFor()
-await page.screenshot({ path: 'page.png', fullPage: true })
-await browser.close()
+await page.route("https://api.frankfurter.dev/**", (route) =>
+  route.fulfill({
+    json: { date: "2026-09-25", rates: { ILS: 3.4594, USD: 1.1403 } },
+  }),
+);
+await page.goto("http://localhost:5173/");
+await page.locator(".chart canvas").first().waitFor();
+await page.screenshot({ path: "page.png", fullPage: true });
+await browser.close();
 ```
 
 The text of a page drawn by JavaScript (IBI's fund page):
 
 ```js
 // node text.mjs https://…  > page.txt
-import { chromium } from '/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs'
+import { chromium } from "/home/ori/dev/broker-search/web/node_modules/@playwright/test/index.mjs";
 
-const browser = await chromium.launch()
-const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36', locale: 'he-IL' })
-const page = await context.newPage()
-await page.goto(process.argv[2], { waitUntil: 'networkidle', timeout: 60000 })
-process.stdout.write(await page.evaluate(() => document.body.innerText))
-await browser.close()
+const browser = await chromium.launch();
+const context = await browser.newContext({
+  userAgent:
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+  locale: "he-IL",
+});
+const page = await context.newPage();
+await page.goto(process.argv[2], { waitUntil: "networkidle", timeout: 60000 });
+process.stdout.write(await page.evaluate(() => document.body.innerText));
+await browser.close();
 ```
 
 How long the page takes to respond, by interaction: `npm run test:perf`
@@ -688,17 +711,18 @@ what could move, every frame, in the page, around the action, and print
 only the changes (`chart.spec.ts`, "a first tap", does it as a test):
 
 ```js
-const chart = document.querySelector('.chart')
-const log = []
-const t0 = performance.now()
-let last = ''
+const chart = document.querySelector(".chart");
+const log = [];
+const t0 = performance.now();
+let last = "";
 const step = () => {
-  const state = `${innerWidth}×${innerHeight} ${scrollX},${scrollY} ${chart.getBoundingClientRect().top}`
-  if (state !== last) log.push(`${Math.round(performance.now() - t0)}ms ${state}`)
-  last = state
-  if (performance.now() - t0 < 1500) requestAnimationFrame(step)
-}
-step()
+  const state = `${innerWidth}×${innerHeight} ${scrollX},${scrollY} ${chart.getBoundingClientRect().top}`;
+  if (state !== last)
+    log.push(`${Math.round(performance.now() - t0)}ms ${state}`);
+  last = state;
+  if (performance.now() - t0 < 1500) requestAnimationFrame(step);
+};
+step();
 ```
 
 On a phone, `innerWidth` growing past the screen's width means the page
@@ -771,26 +795,25 @@ Speed budgets, release build, `cargo bench -p broker-fees` on this machine
 the worker, never on a keystroke in the main thread; a change that moves one
 by more than a half deserves a look.
 
-| Call                                                          |     Median |
-| ------------------------------------------------------------- | ---------: |
-| `guide_data` (the tariffs and rates the page builds once)     |      24 µs |
-| `recommend`, safe (a date in 5 years: deposit, fund, bond)    |     2.5 ms |
-| `recommend`, a cushion first, then an index kind              |     5.7 ms |
-| `recommend`, index, 20 years (every way, the safe kinds)      |      19 ms |
-| `recommend`, index, no first deposit (tries the unlock line)  |      42 ms |
-| `ladder` (five rungs, none / ₪3,000 a month)                  | 12 / 19 ms |
-| `compare_ways` (seven ways, each on the plans that hold it)   |      30 ms |
-| `compare` every plan, Tel Aviv / USA                          | 5.8 / 9.6 ms |
+| Call                                                         |       Median |
+| ------------------------------------------------------------ | -----------: |
+| `guide_data` (the tariffs and rates the page builds once)    |        24 µs |
+| `recommend`, safe (a date in 5 years: deposit, fund, bond)   |       2.5 ms |
+| `recommend`, a cushion first, then an index kind             |       5.7 ms |
+| `recommend`, index, 20 years (every way, the safe kinds)     |        19 ms |
+| `recommend`, index, no first deposit (tries the unlock line) |        42 ms |
+| `ladder` (five rungs, none / ₪3,000 a month)                 |   12 / 19 ms |
+| `compare_ways` (seven ways, each on the plans that hold it)  |        30 ms |
+| `compare` every plan, Tel Aviv / USA                         | 5.8 / 9.6 ms |
 
 Budget for the page: `alternatives` is `recommend` plus the lines month by
 month, so count it as the dearest `recommend` plus a few ms.
 
 ## Speed
 
-The numbers below are from before the redesign (2026-10-01); the guide's
-interactions (typing an answer, tapping a ladder rung, the alternatives
-chart) have no row yet, and `test:perf` still has to be extended and
-re-measured for them: the core's own times are in "The guide" above.
+The guide's rows are measured (2026-10-19, after the redesign; first table
+below). The older table is from 2026-10-01, before it, and its rows now have
+a "workbench:" twin in the spec.
 
 `npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-10-01, on this
 machine, a production build, animations on. The phone project throttles
@@ -844,6 +867,40 @@ the other numbers stayed where they were.
 The sweep moved to a worker the same day: the chart by deposit's frame gap
 went from 150 ms to 33 on the phone, and typing the one-time deposit (a
 new sweep per keystroke) costs what typing the monthly one does.
+
+**The redesign, 2026-10-19** (`npm run test:perf`, a production build, this
+machine; budgets in the spec; every row within budget):
+
+| Measure                                           | phone (4×) | desktop |
+| ------------------------------------------------- | ---------: | ------: |
+| load, to the first chart (ms)                     |        811 |     286 |
+| guide: typing the money now (ms)                  |         56 |      48 |
+| guide: typing the monthly amount (ms)             |         32 |      16 |
+| guide: switching the situation (ms)               |         72 |      24 |
+| guide: typing a long horizon (worker) (ms)        |         56 |      24 |
+| guide: tapping a ladder rung (ms)                 |         48 |      16 |
+| guide: "continue anyway" and back (ms)            |         40 |      24 |
+| guide: opening the kind's card, the glossary (ms) |         24 |      16 |
+| guide: the switch on and off (ms)                 |         40 |      16 |
+| guide: frame gap while the money changes (ms)     |         17 |      17 |
+| workbench: typing a deposit (ms)                  |         80 |      32 |
+| workbench: typing the one-time deposit (ms)       |         72 |      24 |
+| workbench: switching what to buy (ms)             |        120 |      32 |
+| workbench: switching the security, exchange (ms)  |      72–80 |      24 |
+| workbench: ticking a broker's plans (ms)          |        104 |      24 |
+| workbench: switching the chart view, by deposit   |         32 |      24 |
+| workbench: opening a plan's details (ms)          |         40 |      48 |
+| workbench: frame gap, rows reorder, by deposit    |         50 |      17 |
+| zoom: slider drag, or six wheel notches (ms)      |         40 |      16 |
+| heap growth over 30 rounds, workbench / guide     |      1 / 0 |   1 / 0 |
+
+The guide costs less than the old page did, since a short horizon is answered
+on the page's thread in under 10 ms and a long one (the index arena) by the
+worker, so typing a horizon of 25 years is 56 ms on the phone. The
+workbench's rows are the old page's within a frame or two; "switching what to
+buy" (120 ms on the phone) makes the whole table and the charts again.
+Measure it from the guide with the switch on: the guide's and the workbench's
+numbers are not comparable with the old page's by name.
 
 The budgets in the spec are about twice these. Two traps in measuring: a
 toggle measured three times ends on the other view, so measure there and

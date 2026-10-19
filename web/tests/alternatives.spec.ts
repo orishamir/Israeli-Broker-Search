@@ -1,5 +1,14 @@
 import { alternativesFor, NO_OVERRIDES, recommendation } from './core'
-import { away, canvasPicture, enter, expect, expectAnswerFor, test, type Page } from './fixtures'
+import {
+  away,
+  canvasPicture,
+  enter,
+  expect,
+  expectAnswerFor,
+  settledPicture,
+  test,
+  type Page,
+} from './fixtures'
 import { arenaOf } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
 
@@ -11,6 +20,15 @@ const fiveYearsFixed = { now: 50_000, monthly: 0, horizon: 5, flexibility: 'Fixe
 
 const chart = (page: Page) => page.locator('.alternatives .chart')
 const rowsOf = (page: Page) => page.locator('.alternatives li.row')
+
+/** Enters the five fixed years and waits until the chart shows them: it holds
+ * the last answer while a number is typed, and for the worker's. */
+async function enterAndWaitForChart(page: Page, flexibility?: 'CanWait') {
+  const answers = await enter(page, { ...fiveYearsFixed, ...(flexibility && { flexibility }) })
+  const { band } = alternativesFor(answers)
+  await expect(page.locator('.alternatives .caption')).toContainText(band!.sentence)
+  return answers
+}
 
 /** Moves the mouse up the chart at its right side until it is on a line
  * (some row is then hovered); false if none was found. */
@@ -42,10 +60,9 @@ test(
 )
 
 test('hovering a row redraws the chart, and leaving it restores the chart', async ({ page }) => {
-  await enter(page, fiveYearsFixed)
+  await enterAndWaitForChart(page)
   await expect(rowsOf(page).nth(1)).toBeVisible()
-  await expect.poll(() => canvasPicture(chart(page))).toBeTruthy()
-  const plain = await canvasPicture(chart(page))
+  const plain = await settledPicture(chart(page))
   const row = rowsOf(page).nth(1)
   await row.hover()
   await expect(row).toHaveClass(/hovered/)
@@ -56,9 +73,9 @@ test('hovering a row redraws the chart, and leaving it restores the chart', asyn
 })
 
 test('hovering a line lights its row, and clicking it pins the row', async ({ page }) => {
-  await enter(page, fiveYearsFixed)
+  await enterAndWaitForChart(page)
   await expect(chart(page).locator('canvas')).toBeVisible()
-  const plain = await canvasPicture(chart(page))
+  const plain = await settledPicture(chart(page))
   const hovered = await moveOntoALine(page)
   await expect(hovered).toHaveCount(1)
   await page.mouse.down()

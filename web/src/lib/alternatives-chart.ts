@@ -168,7 +168,7 @@ export function alternativesOption(view: AlternativesView): ChartOption {
       trigger: 'axis',
       // Best first; the band's two series are one row of their own.
       formatter: (params) => {
-        const rows = (Array.isArray(params) ? params : [params]) as {
+        const rows = (Array.isArray(params) ? params : [params]) as unknown as {
           seriesId: string
           seriesName: string
           color: string

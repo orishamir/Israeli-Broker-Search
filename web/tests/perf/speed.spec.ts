@@ -1,7 +1,7 @@
 import { expect, test as base, type Page } from '@playwright/test'
 import { dateText } from '../../src/lib/format'
 import { t } from '../../src/lib/text'
-import { brokerName, exchangeName, listed, RATES, securityName } from '../core'
+import { brokerName, exchangeName, listed, RATES, securityName, situations } from '../core'
 
 // What the page costs to use, measured as a person feels it:
 // - Each interaction's time to the next paint, from the browser's Event
@@ -128,15 +128,22 @@ interface Measure {
   measure: () => Promise<number>
 }
 
-/** Everything measured on `project`, in order: loading first, the leak check last. */
+/** Everything measured on `project`, in order: loading first, the guide's
+ * interactions, then the workbench's (the switch on), the leak check last. */
 function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const budgets = BUDGETS[project]
   const choice = (group: string, name: string) =>
     page.getByRole('radiogroup', { name: group }).getByText(name, { exact: true })
-  const monthly = page.getByLabel(t.everyMonth)
-  const first = page.getByLabel(t.oneTimeDeposit)
-  // The chart by deposit is an expert's: offered with More options only.
-  const moreOptions = page.getByLabel(t.moreOptions, { exact: true })
+  const chip = (id: string) =>
+    page
+      .getByRole('group', { name: t.whatForTitle })
+      .getByRole('button', { name: situations().find((each) => each.id === id)!.name, exact: true })
+  const now = page.locator('#now')
+  const monthly = page.locator('#monthly')
+  const horizon = page.locator('#horizon')
+  const rungs = page.locator('section.ladder button.rung')
+  const rows = page.locator('.alternatives li.row')
+  const expert = page.locator('label.expert-switch')
   // The plans are ticked in a list of their own, over the inputs.
   const list = page.getByRole('dialog', { name: t.whatsCompared })
   const openList = async () => {
@@ -161,7 +168,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const online = list
     .getByRole('list', { name: brokerName('Bank Leumi') })
     .getByRole('checkbox', { name: listed('Leumi · Online').plan.name, exact: true })
-  const chart = page.locator('.chart')
+  const chart = page.locator('#chart .chart')
   const chartBox = async () => {
     await chart.scrollIntoViewIfNeeded()
     return (await chart.boundingBox())!
@@ -211,79 +218,211 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       })
     }
   }
+  const guideChurn = async (rounds: number) => {
+    for (let round = 0; round < rounds; round++) {
+      await chip(round % 2 ? 'goal' : 'salary').click()
+      await now.fill(String(10_000 + round * 100))
+      await page.getByRole('button', { name: t.whatIsIt }).click()
+      await page.mouse.move(0, 0)
+      await page.keyboard.press('Escape')
+    }
+  }
 
-  const common: Measure[] = [
+  /** A change that sets the guide to the index arena, where the recommendation
+   * is worked out in a worker (a horizon over 5 years). */
+  const longHorizon = async () => {
+    await chip('salary').click()
+    await expect(rungs.first()).toBeVisible()
+  }
+  const thereAndBackWith = (
+    there: () => Promise<unknown>,
+    back: () => Promise<unknown>,
+  ): (() => Promise<number>) => {
+    return () =>
+      typical(
+        page,
+        thereAndBack(
+          async () => void (await there()),
+          async () => void (await back()),
+        ),
+      )
+  }
+
+  const guide: Measure[] = [
     {
       label: 'load: to the first chart (ms)',
       budget: budgets.load,
       measure: () => page.evaluate(() => performance.now()),
     },
     {
-      label: 'typing a deposit (ms)',
+      // A short horizon: the answer is worked out on the page's thread.
+      label: 'guide: typing the money now (ms)',
+      budget: budgets.interaction,
+      measure: () =>
+        typical(page, async () => {
+          await now.fill('')
+          await now.pressSequentially('25000', { delay: 120 })
+        }),
+    },
+    {
+      label: 'guide: typing the monthly amount (ms)',
       budget: budgets.interaction,
       measure: () =>
         typical(page, async () => {
           await monthly.fill('')
-          await monthly.pressSequentially('2500', { delay: 120 })
+          await monthly.pressSequentially('1500', { delay: 120 })
         }),
+    },
+    {
+      label: 'guide: switching the situation (ms)',
+      budget: budgets.view,
+      measure: thereAndBackWith(
+        () => chip('salary').click(),
+        () => chip('goal').click(),
+      ),
+    },
+    {
+      // The index arena: the recommendation and the alternatives come from
+      // the worker, so the page only shows the last answer meanwhile.
+      label: 'guide: typing a long horizon (ms)',
+      budget: budgets.interaction,
+      measure: async () => {
+        await longHorizon()
+        const time = await typical(page, async () => {
+          await horizon.fill('')
+          await horizon.pressSequentially('25', { delay: 120 })
+        })
+        await chip('goal').click()
+        return time
+      },
+    },
+    {
+      label: 'guide: tapping a ladder rung (ms)',
+      budget: budgets.view,
+      measure: async () => {
+        await chip('bonus').click()
+        await expect(rungs.first()).toBeVisible()
+        const time = await typical(
+          page,
+          thereAndBack(
+            () => rungs.last().click(),
+            () => rungs.first().click(),
+          ),
+        )
+        await chip('goal').click()
+        return time
+      },
+    },
+    {
+      label: 'guide: "continue anyway" and back (ms)',
+      budget: budgets.view,
+      measure: thereAndBackWith(
+        () => rows.last().locator('.choose').click(),
+        () => page.getByRole('button', { name: t.backToRecommendation }).click(),
+      ),
+    },
+    {
+      label: "guide: opening the kind's card (ms)",
+      budget: budgets.dialog,
+      measure: () =>
+        typical(page, async () => {
+          await page.getByRole('button', { name: t.whatIsIt }).click()
+          await expect(page.locator('dialog[open]')).toBeVisible()
+          await page.mouse.move(0, 0)
+          await page.keyboard.press('Escape')
+          await expect(page.locator('dialog[open]')).toBeHidden()
+        }),
+    },
+    {
+      label: 'guide: opening the glossary (ms)',
+      budget: budgets.dialog,
+      measure: () =>
+        typical(page, async () => {
+          await page.getByRole('button', { name: t.glossary }).click()
+          await expect(page.locator('dialog[open]')).toBeVisible()
+          await page.mouse.move(0, 0)
+          await page.keyboard.press('Escape')
+          await expect(page.locator('dialog[open]')).toBeHidden()
+        }),
+    },
+    {
+      label: 'guide: the switch on and off (ms)',
+      budget: budgets.view,
+      measure: thereAndBackWith(
+        () => expert.click(),
+        () => expert.click(),
+      ),
+    },
+    {
+      // The rows and the lines are linked: a hover dispatches a highlight.
+      label: 'guide: longest frame gap while the money changes (ms)',
+      budget: budgets.frameGap,
+      measure: async () => {
+        const gap = await longestFrameGap(page, () => now.fill('500000'))
+        await now.fill('25000')
+        return gap
+      },
+    },
+  ]
+
+  /** The workbench, plans on one exchange: the old page's measures. */
+  const workbench: Measure[] = [
+    {
+      label: 'workbench: typing a deposit (ms)',
+      budget: budgets.interaction,
+      measure: async () => {
+        await expert.click()
+        await choice(t.whatToBuy, t.thingOther).click()
+        await expect(page.locator('section.within .dates')).toContainText(dateText(RATES.date))
+        return typical(page, async () => {
+          await monthly.fill('')
+          await monthly.pressSequentially('2500', { delay: 120 })
+        })
+      },
     },
     {
       // Every keystroke asks for a new sweep (the monthly deposit's don't:
       // the sweep varies that one), worked out in a worker off the page's
       // thread, which only sends the request.
-      label: 'typing the one-time deposit (ms)',
+      label: 'workbench: typing the one-time deposit (ms)',
       budget: budgets.interaction,
       measure: () =>
         typical(page, async () => {
-          await first.fill('')
-          await first.pressSequentially('10000', { delay: 120 })
+          await now.fill('')
+          await now.pressSequentially('10000', { delay: 120 })
         }),
     },
     {
-      label: 'switching the security (ms)',
-      budget: budgets.interaction,
-      measure: () =>
-        typical(
-          page,
-          thereAndBack(
-            () => choice(t.security, securityName('Bond')).click(),
-            () => choice(t.security, securityName('Etf')).click(),
-          ),
-        ),
-    },
-    {
-      label: 'switching the exchange (ms)',
-      budget: budgets.interaction,
-      measure: () =>
-        typical(
-          page,
-          thereAndBack(
-            () => choice(t.exchange, exchangeName('Tlv')).click(),
-            () => choice(t.exchange, exchangeName('Usa')).click(),
-          ),
-        ),
-    },
-    {
-      // Only the chosen calculator is on the page: its whole column and
-      // results are made again, the short term's charts included.
-      label: 'switching calculators (ms)',
+      label: 'workbench: switching what to buy (ms)',
       budget: budgets.view,
-      measure: () =>
-        typical(
-          page,
-          thereAndBack(
-            () => page.getByText(t.shortTerm, { exact: true }).click(),
-            () => page.getByText(t.longTerm, { exact: true }).click(),
-          ),
-        ),
+      measure: thereAndBackWith(
+        () => choice(t.whatToBuy, t.thingSp500).click(),
+        () => choice(t.whatToBuy, t.thingOther).click(),
+      ),
     },
     {
-      label: 'opening the list of plans (ms)',
+      label: 'workbench: switching the security (ms)',
+      budget: budgets.interaction,
+      measure: thereAndBackWith(
+        () => choice(t.security, securityName('Bond')).click(),
+        () => choice(t.security, securityName('Etf')).click(),
+      ),
+    },
+    {
+      label: 'workbench: switching the exchange (ms)',
+      budget: budgets.interaction,
+      measure: thereAndBackWith(
+        () => choice(t.exchange, exchangeName('Tlv')).click(),
+        () => choice(t.exchange, exchangeName('Usa')).click(),
+      ),
+    },
+    {
+      label: 'workbench: opening the list of plans (ms)',
       budget: budgets.dialog,
       measure: () => typical(page, thereAndBack(openList, closeList)),
     },
     {
-      label: "ticking a broker's plans (ms)",
+      label: "workbench: ticking a broker's plans (ms)",
       budget: budgets.interaction,
       measure: () =>
         inTheList(() =>
@@ -300,70 +439,58 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
         ),
     },
     {
-      label: 'switching the chart view (ms)',
+      label: 'workbench: switching the chart view (ms)',
       budget: budgets.view,
-      measure: () =>
-        typical(
-          page,
-          thereAndBack(
-            () => choice(t.chart, t.breakdownView).click(),
-            () => choice(t.chart, t.lostView).click(),
-          ),
-        ),
+      measure: thereAndBackWith(
+        () => choice(t.chart, t.breakdownView).click(),
+        () => choice(t.chart, t.lostView).click(),
+      ),
     },
     {
       // Its sweep, every plan over a range of deposits, is worked out in a
       // worker as the inputs change, so the switch only shows and draws it.
-      label: 'switching to the chart by deposit (ms)',
+      label: 'workbench: switching to the chart by deposit (ms)',
       budget: budgets.view,
-      measure: async () => {
-        await moreOptions.check()
-        const time = await typical(
-          page,
-          thereAndBack(
-            () => choice(t.chart, t.byDepositView).click(),
-            () => choice(t.chart, t.lostView).click(),
-          ),
-        )
-        await moreOptions.uncheck()
-        return time
-      },
+      measure: thereAndBackWith(
+        () => choice(t.chart, t.byDepositView).click(),
+        () => choice(t.chart, t.lostView).click(),
+      ),
     },
     {
-      label: "opening a plan's details (ms)",
+      label: "workbench: opening a plan's details (ms)",
       budget: budgets.dialog,
       measure: () => inTheList(() => typical(page, openDetails)),
     },
     {
-      label: 'opening a tip (ms)',
+      label: 'workbench: opening a tip (ms)',
       budget: budgets.tip,
-      measure: () =>
-        typical(page, async () => {
+      measure: async () => {
+        await page.locator('section.workbench').getByRole('button', { name: t.changeAssumptions }).click()
+        return typical(page, async () => {
           await page.getByRole('button', { name: t.whatMeans(t.yearlyReturn) }).click()
           await expect(page.getByRole('tooltip').filter({ hasText: 'S&P 500' })).toBeVisible()
           await page.keyboard.press('Escape')
-        }),
+        })
+      },
     },
     {
       // The rows glide to their new order when the ranking changes.
-      label: 'longest frame gap while rows reorder (ms)',
+      label: 'workbench: longest frame gap while rows reorder (ms)',
       budget: budgets.frameGap,
       measure: async () => {
-        const gap = await longestFrameGap(page, () => first.fill('500000'))
-        await first.fill('10000')
+        const gap = await longestFrameGap(page, () => now.fill('500000'))
+        await now.fill('10000')
         return gap
       },
     },
     {
       // The chart by deposit draws a frame after the switch shows; its sweep
       // was worked out in a worker, so the gap is the drawing.
-      label: 'longest frame gap while the chart by deposit draws (ms)',
+      label: 'workbench: longest frame gap while the chart by deposit draws (ms)',
       budget: budgets.frameGap,
       measure: async () => {
-        await moreOptions.check()
         const gap = await longestFrameGap(page, () => choice(t.chart, t.byDepositView).click())
         await choice(t.chart, t.lostView).click()
-        await moreOptions.uncheck()
         return gap
       },
     },
@@ -390,7 +517,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
             },
           },
           {
-            label: 'hovering across the rows (ms)',
+            label: "hovering across the table's rows (ms)",
             budget: budgets.interaction,
             measure: () =>
               typical(page, async () => {
@@ -411,24 +538,36 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
               }),
           },
         ]
-  const leaks: Measure = {
-    label: 'heap growth over 30 rounds (MB)',
-    budget: budgets.heapGrowth,
-    measure: async () => {
-      await churn(5)
-      const before = await heapMb(page)
-      await churn(30)
-      return (await heapMb(page)) - before
+  const leaks: Measure[] = [
+    {
+      label: 'heap growth over 30 rounds, the workbench (MB)',
+      budget: budgets.heapGrowth,
+      measure: async () => {
+        await churn(5)
+        const before = await heapMb(page)
+        await churn(30)
+        return (await heapMb(page)) - before
+      },
     },
-  }
-  return [...common, ...zooming, leaks]
+    {
+      label: 'heap growth over 30 rounds, the guide (MB)',
+      budget: budgets.heapGrowth,
+      measure: async () => {
+        await expert.click()
+        await guideChurn(5)
+        const before = await heapMb(page)
+        await guideChurn(30)
+        return (await heapMb(page)) - before
+      },
+    },
+  ]
+  return [...guide, ...workbench, ...zooming, ...leaks]
 }
 
 test('speed and smoothness', async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof BUDGETS
   await page.goto('/')
-  await expect(page.locator('.chart canvas')).toBeVisible()
-  await expect(page.getByText(`· ${dateText(RATES.date)}`)).toBeVisible()
+  await expect(page.locator('.alternatives .chart canvas')).toBeVisible()
 
   const rows: string[] = []
   for (const { label, budget, measure } of measures(page, project)) {

@@ -26,22 +26,22 @@ catch the bug:
 
 - A spec per part of the app, so a change runs its own spec first:
 
-  | Changed                                                                              | Spec           |
-  | ------------------------------------------------------------------------------------ | -------------- |
-  | Questions, BankChips, NumberField, horizon.ts, the situations                        | `questions`    |
-  | Answer, Steps, PortfolioDialog, the unlock line and the cushion's two parts          | `answer`       |
-  | Alternatives, alternatives-chart.ts, Donut, Ladder, linked.svelte.ts                 | `alternatives` |
-  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign      | `workbench`    |
-  | LearnCard, Glossary, Tip's "עוד על זה", the about page                               | `learn`        |
-  | the user's five questions and the audit's tasks (REDESIGN.md §8), end to end         | `acceptance`   |
-  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                               | `chart`        |
-  | FeeBreakdown                                                                         | `breakdown`    |
-  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                      | `details`      |
-  | Tip, tip.ts, HebrewNames                                                             | `tips`         |
-  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved                  | `editor`       |
-  | app.css, anything about size or position (every screen has a `@phone` state)         | `layout`       |
-  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)         | `app`          |
-  | text.ts, text/\*.ts, index.html's language, anything right-to-left                   | `hebrew`       |
+  | Changed                                                                         | Spec           |
+  | ------------------------------------------------------------------------------- | -------------- |
+  | Questions, BankChips, NumberField, horizon.ts, the situations                   | `questions`    |
+  | Answer, Steps, PortfolioDialog, the unlock line and the cushion's two parts     | `answer`       |
+  | Alternatives, alternatives-chart.ts, Donut, Ladder, linked.svelte.ts            | `alternatives` |
+  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign | `workbench`    |
+  | LearnCard, Glossary, Tip's "עוד על זה", the about page                          | `learn`        |
+  | the user's five questions and the audit's tasks (REDESIGN.md §8), end to end    | `acceptance`   |
+  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                          | `chart`        |
+  | FeeBreakdown                                                                    | `breakdown`    |
+  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                 | `details`      |
+  | Tip, tip.ts, HebrewNames                                                        | `tips`         |
+  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved             | `editor`       |
+  | app.css, anything about size or position (every screen has a `@phone` state)    | `layout`       |
+  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)    | `app`          |
+  | text.ts, text/\*.ts, index.html's language, anything right-to-left              | `hebrew`       |
 
   The specs for the redesign's screens (`questions`, `answer`,
   `alternatives`, `workbench`, `learn`, `acceptance`) replace `inputs`,
@@ -54,11 +54,19 @@ catch the bug:
   project name.
 
 - **Expectations come from the core, not from the test.** `tests/core.ts`
-  loads the WebAssembly in Node: `inputsOnPage` reads the page's fields and
-  ticks back as `Inputs`, `expectedRows` is the table the core gives for
-  them, and `feesFor`, `compare` and `about` give the words a dialog should
-  show. A tariff change then changes no browser test; the numbers
-  themselves are checked in Rust (`real_tariffs.rs`, `economics.rs`).
+  loads the WebAssembly in Node. For the guide, a spec says what it typed
+  (`enter` in `fixtures.ts` types it and returns the `AnswersInput`) and
+  asks the core what that means: `recommendation`, `ladderFor` and
+  `alternativesFor` (with `guideSettings`, the page's own at its start, and
+  `NO_OVERRIDES` or the kind chosen over the guide), `situations`,
+  `learnCard`, `glossary`, `followUps`. `expectAnswerFor` is the common
+  check: the sentence the core makes and, for one sum, its amount. For the
+  workbench, `inputsOnPage` reads its fields and ticks back as `Inputs`
+  (with plans on one exchange chosen), `expectedRows` is the table the core
+  gives for them, and `feesFor`, `compare`, `compareWays` and `about` give
+  the words a dialog should show. A tariff change then changes no browser
+  test; the numbers themselves are checked in Rust (`real_tariffs.rs`,
+  `economics.rs`, `guide.rs`).
   The page is in Hebrew, and so is the core there; tests name plans by
   their English label, "Leumi · Pepper" (`listed`, `rowOf`), as links do,
   since plan names repeat across brokers, and `listed(...).label` is the
@@ -72,9 +80,14 @@ catch the bug:
   Split a test by device rather than branching on `isMobile` inside it.
   `layout.spec.ts` also runs on the narrowest iPhone; to cover another
   screen, add it to `layoutOnly`.
-- **Plans are ticked in the list of plans**, a dialog over the inputs
-  (`PlanSheet.svelte`), each broker folded to one line. `fixtures.ts` opens
-  it and unfolds for you: `tickBrokers`, `tickPlan`, `planInList` (a plan's
+- **The workbench is where plans are compared**: `workbench(page)` turns the
+  switch on (by its label: the input is hidden behind the track, `setExpert`)
+  and chooses "another index or a stock" (or the `thing` you pass), then
+  waits for the exchange rates. The kept specs (`chart`, `breakdown`,
+  `editor`, `tips`, `layout`) start there. **Plans are ticked in the list
+  of plans**, a dialog over the inputs (`PlanSheet.svelte`), each broker
+  folded to one line. `fixtures.ts` opens it (and the workbench) and
+  unfolds for you: `tickBrokers`, `tickPlan`, `planInList` (a plan's
   row, with its tick, ✎ and ℹ), `aboutPlan`, `copyPlan`. A plan's details or
   the editor open over the list, which stays open under them: name the
   dialog you mean (`details`, `plansList`), and `closePlans` before using
@@ -92,8 +105,8 @@ catch the bug:
   fires can't pass for a clean page. A new view, dialog or choice gets a
   state there; a new class of layout bug gets a rule, not a screenshot.
   Two tests check what changing the inputs does: over every security and
-  exchange, the table's columns and the summary's height stay put; and, with
-  motion on, no box but the page scrolls up and down while the rows slide.
+  exchange, the workbench table's columns stay put; and, with motion on, no
+  box but the page scrolls up and down while the rows slide.
   `breakdown.spec.ts` records what the chart draws (`fillText`) and checks
   that every plan's name is drawn whole, on one line: none cut to fit the
   screen.
@@ -121,16 +134,21 @@ catch the bug:
   that (`expect.poll` for a canvas picture). They cover the sweep too, which a worker answers a
   moment after the inputs change; a unit test answers it itself
   (`answerSweep`).
-- The chart by deposit is offered only in the workbench (the expert
-  switch): turn it on first. In the guide only the growth chart and the
-  donut are offered.
+- The charts of the workbench (`#chart`: growth, breakdown, by deposit) are
+  offered only with the switch on, and the chart by deposit only for plans
+  on one exchange. The guide has its own chart (`.alternatives .chart`) and
+  the donut (`section.donut .chart`): a spec says which with its class.
+- **Acceptance follows the data.** `acceptance.spec.ts` asserts what the
+  core's `recommend` says for the inputs a person types, never a kind the
+  plan expected: where REDESIGN.md §8 and the data differ, the test follows
+  the data and says so in a comment.
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.
 - In CI (`.github/workflows/deploy.yml`) only the desktop project runs.
   Phones and the performance suite are run here.
-- A full run takes about a minute (182 tests on 4 devices), the desktop
-  alone (74 of them) 20 s; the first run after `npm run wasm` can take a few
+- A full run takes about 1.5 minutes (235 tests on 4 devices), the desktop
+  alone (about 85) 25 s; the first run after `npm run wasm` can take a few
   minutes more, while Vite starts cold. Run it twice after timing-related
   changes.
 
@@ -141,6 +159,9 @@ a production build served by `vite preview`, animations on, one test at a
 time, and the phone's CPU throttled 4×. It measures each interaction's time
 to the next paint (the Event Timing API, as Chrome's INP), the longest gap
 between frames while the rows reorder and the chart zooms, and how much the
-heap grows over 30 rounds of changes; prints a table; and fails on the
+heap grows over 30 rounds of changes. First the guide (typing the money,
+the situation chips, a long horizon that the worker answers, a ladder rung,
+"continue anyway", the cards, the switch), then the workbench with plans on
+one exchange (the old page's measures); prints a table; and fails on the
 budgets at the top of the spec. Run it on a quiet machine: the numbers it
 should give are in LESSONS.md ("Speed"). The build takes about a minute.

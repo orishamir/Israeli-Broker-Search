@@ -1,4 +1,4 @@
-import { answersWith, followCard, followUps, situations } from './core'
+import { answersWith, chipSituations, followCard, followUps, situations } from './core'
 import type { AnswersInput, FollowUp } from './core'
 import { chip, expect, expectAnswerFor, fillField, test, type Page } from './fixtures'
 import { shown } from '../src/lib/horizon'
@@ -27,9 +27,8 @@ test(
   'every chip fills the fields with its situation and the answer follows',
   { tag: '@phone' },
   async ({ page }) => {
-    for (const situation of situations()) {
-      // These two open the workbench and the portfolio dialog, tested apart.
-      if (situation.workbench || situation.opensDialog) continue
+    // The workbench's and the portfolio's open other things, tested apart.
+    for (const situation of chipSituations()) {
       await chip(page, situation.name).click()
       await expect(chip(page, situation.name)).toHaveAttribute('aria-pressed', 'true')
       const { now, monthly } = situation.answers
@@ -70,6 +69,7 @@ test('the follow-up cards come and go as the horizon changes', async ({ page }) 
   // Under 3 years and past 7: the date doesn't matter; between: it does.
   for (const years of [2, 3, 5, 6, 8, 3]) {
     await fillField(page, 'horizon', String(years))
+    await expect(page.locator('#horizon')).toHaveValue(String(years))
     const answers = { ...base, horizon: { Months: years * 12 } }
     await expectFollowUps(page, answers)
   }

@@ -1,6 +1,7 @@
 import {
   alternativesFor,
   brokerName,
+  chipSituations,
   exchangeName,
   exchanges,
   glossary,
@@ -192,9 +193,8 @@ test('at the start: the guide answers the first chip', { tag: '@phone' }, async 
 })
 
 test('with every situation chosen', { tag: '@phone' }, async ({ page }) => {
-  for (const situation of situations()) {
-    // The workbench's and the portfolio's have their own states below.
-    if (situation.workbench || situation.opensDialog) continue
+  // The workbench's and the portfolio's have their own states below.
+  for (const situation of chipSituations()) {
     await chip(page, situation.name).click()
     await expect(page.locator('section.answer .what')).toBeVisible()
     await checkLayout(page, `situation: ${situation.name}`)

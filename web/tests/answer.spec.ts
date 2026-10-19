@@ -58,6 +58,7 @@ test('"change" also offers the other arena as a whole', async ({ page }) => {
   const arenas = guide.arenaChoices.filter(({ arena }) => arena !== guide.arena)
   await answerCard(page).locator('.picker .options').getByRole('button', { name: arenas[0].name }).click()
   await expectAnswerFor(page, answers, { arena: arenas[0].arena, kind: undefined })
+  await expect(answerCard(page).getByRole('button', { name: t.backToRecommendation })).toBeVisible()
 })
 
 // A first deposit that opens a cheaper plan: the line says which and how much more.

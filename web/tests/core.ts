@@ -275,3 +275,8 @@ export function trackOnPage(inputs: Inputs, key: PlanKey): number | undefined {
     return undefined
   }
 }
+
+/** The situations that are chips in the strip: the workbench's and the
+ * existing portfolio's open other things, and are tested apart. */
+export const chipSituations = () =>
+  situations().filter(({ workbench, opensDialog }) => !workbench && !opensDialog)

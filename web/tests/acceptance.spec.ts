@@ -163,7 +163,7 @@ test(
     // with no "may cost more" flag); the best one carries the flag if it has it.
     await setExpert(page)
     await expect(rows(page).first()).toContainText(guide.plans[0].name)
-    if (guide.plans[0].mayCostMore) await expect(rows(page).first()).toContainText('⚠')
+    await expect(rows(page).first().getByText('⚠')).toHaveCount(Number(Boolean(guide.plans[0].mayCostMore)))
   },
 )
 

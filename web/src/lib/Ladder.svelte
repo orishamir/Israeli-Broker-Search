@@ -22,17 +22,12 @@
       {#if monthly}
         <p class="lead">{t.ladderLead(shekels(monthly))}</p>
       {/if}
-      <div class="rungs" role="list">
+      <div class="rungs">
         <div class="head" aria-hidden="true">
           <span>{t.ladderWhen}</span><span>{t.ladderMost}</span>
         </div>
         {#each held.current as rung (`${rung.months}-${rung.anyDay}`)}
-          <button
-            type="button"
-            class="rung"
-            role="listitem"
-            onclick={() => app.setHorizonMonths(rung.months)}
-          >
+          <button type="button" class="rung" onclick={() => app.setHorizonMonths(rung.months)}>
             <span class="when">{rung.anyDay ? t.ladderRungAnyDay : t.ladderRung(rung.months)}</span>
             <span class="what">
               {rung.kind.name}

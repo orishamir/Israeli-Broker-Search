@@ -36,20 +36,20 @@ test(
   async ({ page }) => {
     const answers = await enter(page, { ...money, horizon: 5, flexibility: 'CanWait' })
     await expectAnswerFor(page, answers)
-    const before = await answerCard(page).innerText()
+    const before = (await answerCard(page).textContent())!
     await expect(page.locator('section.workbench')).toHaveCount(0)
 
     await setExpert(page)
     await expect(page.locator('section.workbench')).toBeVisible()
     await expect(page.locator('#chart')).toBeVisible()
     await expectAnswerFor(page, answers)
-    expect(await answerCard(page).innerText()).toBe(before)
+    await expect(answerCard(page)).toHaveText(before)
     // The questions are as they were.
     await expect(page.locator('#now')).toHaveValue('10,000')
 
     await setExpert(page, false)
     await expect(page.locator('section.workbench')).toHaveCount(0)
-    expect(await answerCard(page).innerText()).toBe(before)
+    await expect(answerCard(page)).toHaveText(before)
   },
 )
 
