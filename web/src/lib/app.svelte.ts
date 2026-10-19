@@ -107,6 +107,7 @@ import type {
   WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
+import { branchPlans, yoursBranch } from './bank-plan'
 import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
 import { arenaOf, kindByKey, kindKey, wayByKey, wayKey } from './kinds'
@@ -802,6 +803,21 @@ export class AppState {
   /** The bank the existing-portfolio situation asked about. */
   setBank(bank: Bank | undefined) {
     this.answers.situation = { ExistingPortfolio: { bank } }
+  }
+
+  // ── Package I: the bank's branch plan, ticked (REDESIGN 6.8) ──
+  /** Ticks the plan the recommendation marks as the saver's own bank's
+   * branch plan, and unticks the other banks' branch plans that an earlier
+   * choice of bank ticked. Called by the answer while the situation is the
+   * existing portfolio; changes nothing when the recommendation hasn't a
+   * plan of theirs yet. */
+  tickYourBranch() {
+    const yours = yoursBranch(this.plans, this.recommendation)
+    if (!yours) return
+    for (const plan of branchPlans(this.plans)) {
+      if (plan.id !== yours.id && this.selected.has(plan.id)) this.selected.delete(plan.id)
+    }
+    if (!this.selected.has(yours.id)) this.selected.add(yours.id)
   }
 
   setHorizonMonths(months: number | null) {
