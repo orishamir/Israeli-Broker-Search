@@ -394,6 +394,9 @@ pub struct RankedData {
     pub fits: bool,
     /// The saver's own bank's branch plan.
     pub yours: bool,
+    /// For `yours`, the plan as the tariffs name it, which `name` isn't when
+    /// "another bank" was chosen.
+    pub own_plan: Option<String>,
     /// Fees paid over the years, where the kind has them.
     pub fees: Option<AmountData>,
     /// Tax paid on the gain, where the engine states it.
@@ -411,6 +414,7 @@ impl From<&Ranked> for RankedData {
             may_cost_more_text: ranked.warning.as_ref().map(|text| text[lang()].to_owned()),
             fits: ranked.fits,
             yours: ranked.yours,
+            own_plan: ranked.own_plan.as_ref().map(|plan| plan[lang()].to_owned()),
             fees: ranked.fees.map(AmountData::from),
             tax: ranked.tax.map(AmountData::from),
         }
@@ -1091,11 +1095,7 @@ pub fn banks() -> Result<Vec<Ts<BankChoice>>, JsError> {
     let listed = all_brokers();
     Bank::iter()
         .map(|bank| {
-            let short = match bank {
-                Bank::Leumi => "Leumi",
-                Bank::MizrahiTefahot => "Mizrahi",
-                Bank::OtsarHahayal => "Otsar Hahayal",
-            };
+            let short = bank.short_name();
             let name = listed
                 .iter()
                 .find(|broker| broker.short_name.en == short)

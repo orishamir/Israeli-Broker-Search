@@ -95,17 +95,24 @@ pub enum Situation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter)]
 #[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Bank {
+    Hapoalim,
     Leumi,
+    Discount,
     MizrahiTefahot,
+    Beinleumi,
     OtsarHahayal,
 }
 
 impl Bank {
     /// The bank's short name in the tariffs, in English.
-    pub(crate) fn short_name(self) -> &'static str {
+    #[must_use]
+    pub fn short_name(self) -> &'static str {
         match self {
+            Bank::Hapoalim => "Hapoalim",
             Bank::Leumi => "Leumi",
+            Bank::Discount => "Discount",
             Bank::MizrahiTefahot => "Mizrahi",
+            Bank::Beinleumi => "Beinleumi",
             Bank::OtsarHahayal => "Otsar Hahayal",
         }
     }
@@ -543,6 +550,10 @@ pub struct Ranked {
     pub fits: bool,
     /// It is the saver's own bank's branch plan.
     pub yours: bool,
+    /// For `yours`, the plan as the tariffs name it ("Otsar Hahayal · Branch
+    /// or through a banker"), which `name` doesn't say when "another bank"
+    /// was chosen and the branch plan only stands in for it.
+    pub own_plan: Option<Text>,
 }
 
 /// What a bigger first deposit would open.

@@ -142,6 +142,7 @@ pub(super) fn price(
                 tax: Some(amount(outcome.tax, level)),
                 fits: true,
                 yours: false,
+                own_plan: None,
             })
         })
         .collect();
@@ -167,6 +168,7 @@ pub(super) fn price(
                     tax: None,
                     fits: true,
                     yours: false,
+                    own_plan: None,
                 })
                 .collect();
         }

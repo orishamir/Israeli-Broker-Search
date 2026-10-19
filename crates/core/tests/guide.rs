@@ -13,6 +13,7 @@ use broker_fees::{
 };
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
+use strum::IntoEnumIterator;
 
 static DATA: LazyLock<Data> = LazyLock::new(Data::listed);
 
@@ -486,12 +487,32 @@ fn row_10_a_portfolio_at_a_bank_compares_its_branch_plan() {
     assert!(own.name.en.contains("Branch"));
     // Without the saver's bank, the branch plan that leaves the least stands
     // in for it: not cheaper than any bank's could be shown to be.
-    let per_bank: Vec<Decimal> = [Bank::Leumi, Bank::MizrahiTefahot, Bank::OtsarHahayal]
-        .into_iter()
+    let per_bank: Vec<Decimal> = Bank::iter()
         .map(|bank| yours(&recommended(&existing(Some(bank)))).expect("ranked"))
         .collect();
+    assert_eq!(per_bank.len(), 6, "every bank whose price list is modelled");
     let stand_in = yours(&recommended(&existing(None))).expect("ranked");
     assert_eq!(stand_in, per_bank.into_iter().min().unwrap());
+    // Each bank's own plan is named by the bank. "Another bank" is not shown
+    // as the bank whose price list stands in for it, but says which plan it
+    // is, for the page to find it in its list.
+    for bank in Bank::iter() {
+        let rec = recommended(&existing(Some(bank)));
+        let own = rec.plans.iter().find(|plan| plan.yours).expect("ranked");
+        assert!(
+            own.name.en.starts_with(bank.short_name()),
+            "{}",
+            own.name.en
+        );
+        assert_eq!(own.own_plan.as_ref(), Some(&own.name));
+    }
+    let other = recommended(&existing(None));
+    let own = other.plans.iter().find(|plan| plan.yours).expect("ranked");
+    assert_eq!(own.name.en, "Another bank · Branch or through a banker");
+    assert_eq!(own.name.he, "בנק אחר\u{a0}· בסניף או דרך בנקאי");
+    let real = own.own_plan.as_ref().expect("the plan standing in");
+    assert!(real.en.ends_with("Branch or through a banker"));
+    assert!(!real.en.starts_with("Another bank"));
 }
 
 /// Row 11: "I know what I want to buy": the index arena with every way, even

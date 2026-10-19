@@ -227,6 +227,13 @@ pub fn current_account_line(amount: Amount, lang: Lang) -> String {
     }
 }
 
+/// What a branch price list standing in for a bank that isn't modelled is
+/// called in a ranking, instead of the bank it was taken from.
+#[must_use]
+pub fn other_bank() -> crate::Text {
+    crate::Text::new("Another bank", "בנק אחר")
+}
+
 /// What "another bank" is priced as.
 #[must_use]
 pub fn bank_stand_in_note(lang: Lang) -> &'static str {

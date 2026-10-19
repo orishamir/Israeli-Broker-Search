@@ -1,6 +1,7 @@
 use broker_fees::simulation::{NotOffered, Scenario, free_plan, simulate};
 use broker_fees::tariffs::{
-    altshuler, excellence, ibi, interactive, leumi, meitav, mizrahi, otsar_hahayal,
+    altshuler, beinleumi, discount, excellence, hapoalim, ibi, interactive, leumi, meitav, mizrahi,
+    otsar_hahayal,
 };
 use broker_fees::vehicles::{
     GainsTax, LARGEST_GEMEL_FEE, LARGEST_STUDY_FUND_FEE, Pension, SURTAX, SURTAX_THRESHOLD,
@@ -340,7 +341,9 @@ fn every_broker_names_its_new_customer_plan() {
         let plan = &b.plans[b.new_customer_plan];
         let expected = match &*b.short_name.en {
             "Altshuler" => "New customers",
-            "Leumi" | "Mizrahi" | "Otsar Hahayal" => "Online",
+            "Leumi" | "Mizrahi" | "Otsar Hahayal" | "Hapoalim" | "Discount" | "Beinleumi" => {
+                "Online"
+            }
             "Interactive" => "Standard",
             _ => "Typical offer",
         };
@@ -2304,6 +2307,176 @@ fn otsar_branch() {
         ],
         // $1,000: 0.175% is $1.75 → $6.25, plus $9 markup. $10,000: $17.50
         // plus $90.
+        [(dec!(1000), dec!(15.25)), (dec!(10000), dec!(107.5))],
+    );
+}
+
+/// Hapoalim, the tariff of 5 October 2026 and appendix E (direct channels):
+/// Tel Aviv 0.4%, ₪20 to ₪7,000; the US 0.3% and elsewhere abroad 0.5%, both
+/// $20 to $7,000; custody 0.15% a quarter in Tel Aviv and 0.20% abroad;
+/// conversion 0.17%, $5.70 to $2,300, and a markup of 1%.
+#[test]
+fn hapoalim_online() {
+    let p = plan(hapoalim(), "Online");
+    let tel_aviv = |s, v| trade_fee(&p, s, Tlv, dec!(1), ils(v)).unwrap();
+    // ₪1,000 is ₪4 → minimum; ₪100,000 is ₪400; ₪2M is ₪8,000 → maximum.
+    assert_eq!(tel_aviv(Etf, dec!(1000)), ils(dec!(20)));
+    assert_eq!(tel_aviv(Etf, dec!(100000)), ils(dec!(400)));
+    assert_eq!(tel_aviv(Stock, dec!(2000000)), ils(dec!(7000)));
+    // ETFs and index funds are priced as stocks (the row's note 5).
+    assert_eq!(tel_aviv(IndexFund, dec!(100000)), ils(dec!(400)));
+    // The US: $5,000 is $15 → minimum; $20,000 is $60; $3M is $9,000 → maximum.
+    let usa = |v| trade_fee(&p, Etf, Usa, dec!(10), usd(v)).unwrap();
+    assert_eq!(usa(dec!(5000)), usd(dec!(20)));
+    assert_eq!(usa(dec!(20000)), usd(dec!(60)));
+    assert_eq!(usa(dec!(3000000)), usd(dec!(7000)));
+    // Elsewhere abroad is dearer: $20,000 is $100; $1,000 is $5 → minimum.
+    let europe = |v| trade_fee(&p, Etf, Europe, dec!(10), usd(v)).unwrap();
+    assert_eq!(europe(dec!(20000)), usd(dec!(100)));
+    assert_eq!(europe(dec!(1000)), usd(dec!(20)));
+    // Custody: 0.15% a quarter is 0.6% a year, ₪1,200 on ₪200,000; 0.20% a
+    // quarter abroad is 0.8%, $80 on $10,000 (₪296).
+    assert_eq!(
+        custody_year(&p, Etf, Tlv, ils(dec!(200000))),
+        ils(dec!(1200))
+    );
+    assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(296)));
+    // Conversion: 0.17% of $1,000 is $1.70 → $5.70 minimum, plus the 1%
+    // measured markup ($10). $10,000: $17, plus $100. $2M: $3,400 → $2,300
+    // maximum, plus $20,000.
+    assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(15.7)));
+    assert_eq!(p.conversion_fee(usd(dec!(10000)), &rates()), usd(dec!(117)));
+    assert_eq!(
+        p.conversion_fee(usd(dec!(2000000)), &rates()),
+        usd(dec!(22300))
+    );
+}
+
+/// Hapoalim, the tariff's own rows, the clerk's prices: Tel Aviv 0.6%, ₪26
+/// to ₪7,500; abroad 0.9%, $25 to $7,500; conversion 0.19%, $6.70 to $2,700,
+/// and a markup of 1%.
+#[test]
+fn hapoalim_branch() {
+    branch_prices(
+        hapoalim(),
+        // ₪1,000 is ₪6 → minimum; ₪100,000 is ₪600; ₪2M is ₪12,000 → maximum.
+        [
+            (dec!(1000), dec!(26)),
+            (dec!(100000), dec!(600)),
+            (dec!(2000000), dec!(7500)),
+        ],
+        // $1,000 is $9 → minimum; $5,000 is $45; $1M is $9,000 → maximum.
+        [
+            (dec!(1000), dec!(25)),
+            (dec!(5000), dec!(45)),
+            (dec!(1000000), dec!(7500)),
+        ],
+        // $1,000: 0.19% is $1.90 → $6.70, plus $10 markup. $10,000: $19 plus $100.
+        [(dec!(1000), dec!(16.7)), (dec!(10000), dec!(119))],
+    );
+}
+
+/// Discount, the tariff for individuals (part 4, the channels' table; part 5):
+/// by a website, app or trading system, Tel Aviv 0.4%, ₪25 to ₪7,150; abroad
+/// 0.59%, $23.50 to $10,680; custody 0.2% a quarter in Tel Aviv and 0.25%
+/// abroad; conversion 0.17%, $6 to $1,055, and a markup of 1.1%.
+#[test]
+fn discount_online() {
+    let p = plan(discount(), "Online");
+    let tel_aviv = |s, v| trade_fee(&p, s, Tlv, dec!(1), ils(v)).unwrap();
+    // ₪1,000 is ₪4 → minimum; ₪100,000 is ₪400; ₪2M is ₪8,000 → maximum.
+    assert_eq!(tel_aviv(Etf, dec!(1000)), ils(dec!(25)));
+    assert_eq!(tel_aviv(Etf, dec!(100000)), ils(dec!(400)));
+    assert_eq!(tel_aviv(Stock, dec!(2000000)), ils(dec!(7150)));
+    // The row's note 1 counts index funds and listed funds in.
+    assert_eq!(tel_aviv(IndexFund, dec!(100000)), ils(dec!(400)));
+    // Abroad: $1,000 is $5.90 → minimum; $5,000 is $29.50; $2M is $11,800 →
+    // maximum.
+    let usa = |v| trade_fee(&p, Etf, Usa, dec!(10), usd(v)).unwrap();
+    assert_eq!(usa(dec!(1000)), usd(dec!(23.5)));
+    assert_eq!(usa(dec!(5000)), usd(dec!(29.5)));
+    assert_eq!(usa(dec!(2000000)), usd(dec!(10680)));
+    // Custody: 0.2% a quarter is 0.8% a year, ₪1,600 on ₪200,000; 0.25% a
+    // quarter abroad is 1%, $100 on $10,000 (₪370).
+    assert_eq!(
+        custody_year(&p, Etf, Tlv, ils(dec!(200000))),
+        ils(dec!(1600))
+    );
+    assert_eq!(custody_year(&p, Etf, Usa, usd(dec!(10000))), ils(dec!(370)));
+    // Conversion: 0.17% of $1,000 is $1.70 → $6 minimum, plus the 1.1%
+    // measured markup ($11). $10,000: $17 plus $110.
+    assert_eq!(p.conversion_fee(usd(dec!(1000)), &rates()), usd(dec!(17)));
+    assert_eq!(p.conversion_fee(usd(dec!(10000)), &rates()), usd(dec!(127)));
+}
+
+/// Discount, the clerk's prices: Tel Aviv 0.54%, ₪35 to ₪7,300; abroad 0.79%,
+/// $25 to $10,900; conversion 0.19%, $6.80 to $1,075, and a markup of 1.1%.
+#[test]
+fn discount_branch() {
+    branch_prices(
+        discount(),
+        // ₪1,000 is ₪5.40 → minimum; ₪100,000 is ₪540; ₪2M is ₪10,800 → maximum.
+        [
+            (dec!(1000), dec!(35)),
+            (dec!(100000), dec!(540)),
+            (dec!(2000000), dec!(7300)),
+        ],
+        // $1,000 is $7.90 → minimum; $5,000 is $39.50; $2M is $15,800 → maximum.
+        [
+            (dec!(1000), dec!(25)),
+            (dec!(5000), dec!(39.5)),
+            (dec!(2000000), dec!(10900)),
+        ],
+        // $1,000: 0.19% is $1.90 → $6.80, plus $11 markup. $10,000: $19 plus $110.
+        [(dec!(1000), dec!(17.8)), (dec!(10000), dec!(129))],
+    );
+}
+
+/// The First International Bank's tariff for individuals is the one Otsar
+/// Hahayal publishes (the same file), so Beinleumi's Online, standing-order and
+/// branch plans price exactly as Otsar's: Online 0.3%, ₪39 to ₪6,900 in Tel
+/// Aviv; the clerk's 0.64%, ₪40 to ₪7,000.
+#[test]
+fn beinleumi_prices_like_otsar_hahayal() {
+    let b = beinleumi();
+    let otsar = otsar_hahayal();
+    for name in [
+        "Online",
+        "Online, standing order",
+        "Branch or through a banker",
+    ] {
+        // Every price; only the link under the caveats differs (each bank's
+        // own site has the same file).
+        let (ours, theirs) = (plan(b.clone(), name), plan(otsar.clone(), name));
+        assert_eq!(ours.trading, theirs.trading, "{name}");
+        assert_eq!(ours.standing_orders, theirs.standing_orders, "{name}");
+        assert_eq!(ours.custody, theirs.custody, "{name}");
+        assert_eq!(ours.conversion, theirs.conversion, "{name}");
+    }
+    // ₪1,000 is ₪3 online → the ₪39 minimum; ₪100,000 is ₪300.
+    let online = plan(b.clone(), "Online");
+    assert_eq!(
+        trade_fee(&online, Etf, Tlv, dec!(1), ils(dec!(1000))),
+        Some(ils(dec!(39)))
+    );
+    assert_eq!(
+        trade_fee(&online, Etf, Tlv, dec!(1), ils(dec!(100000))),
+        Some(ils(dec!(300)))
+    );
+    // It has neither the club nor Top Trade, which are Otsar Hahayal's own.
+    assert_eq!(b.plans.len(), 3);
+    branch_prices(
+        b,
+        [
+            (dec!(1000), dec!(40)),
+            (dec!(100000), dec!(640)),
+            (dec!(2000000), dec!(7000)),
+        ],
+        [
+            (dec!(1000), dec!(40)),
+            (dec!(5000), dec!(42.5)),
+            (dec!(1000000), dec!(7000)),
+        ],
         [(dec!(1000), dec!(15.25)), (dec!(10000), dec!(107.5))],
     );
 }

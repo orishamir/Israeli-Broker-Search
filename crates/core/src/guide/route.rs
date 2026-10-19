@@ -375,6 +375,7 @@ fn kind_line(priced: &Priced) -> Ranked {
         tax: Some(priced.tax),
         fits: true,
         yours: false,
+        own_plan: None,
     }
 }
 

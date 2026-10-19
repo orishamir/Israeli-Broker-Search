@@ -15,6 +15,7 @@ use super::{
     Answers, BRANCH_PLAN, Choice, Data, Horizon, Kind, PlanRef, Ranked, Settings, Situation,
     USUAL_AGE, USUAL_SHARE_PRICE, UnlockLine,
 };
+use crate::describe::answer::other_bank;
 
 /// The years an index kind is worked out for, from a number of months: the
 /// simulation counts whole years, so 70 months is 6 years.
@@ -57,6 +58,9 @@ pub(super) struct Cand<'a> {
     pub candidate: Candidate<'a>,
     /// The saver's own bank's branch plan.
     pub yours: bool,
+    /// The saver chose "another bank", and this branch plan only stands in
+    /// for it.
+    pub stands_in: bool,
 }
 
 /// Every branch plan of a bank (the plan for an order given to a banker or
@@ -134,7 +138,9 @@ pub(super) fn candidates<'a>(
         }
     }
     let mut yours = None;
+    let mut stands_in = false;
     if let Some(Situation::ExistingPortfolio { bank }) = answers.situation {
+        stands_in = bank.is_none();
         yours = branch_plan(bank, data, base, &settings.rates);
         if let Some(at) = yours
             && !chosen.contains(&at)
@@ -154,6 +160,7 @@ pub(super) fn candidates<'a>(
                     broker_caveats: &broker.caveats,
                 },
                 yours: Some(at) == yours,
+                stands_in: stands_in && Some(at) == yours,
             })
         })
         .collect()
@@ -220,6 +227,7 @@ impl Run<'_> {
                     tax: Some(amount(outcome.tax, level)),
                     fits: true,
                     yours: self.cands[best.index].yours,
+                    own_plan: None,
                 })
             })
             .collect()
@@ -262,7 +270,13 @@ impl Run<'_> {
                 );
                 Some(Ranked {
                     kind: Kind::Way(way.way),
-                    name: joined(&cand.broker.short_name, &cand.candidate.plan.name),
+                    // "Another bank" shows as that, not as the bank whose
+                    // price list only stands in for it.
+                    name: if cand.stands_in {
+                        joined(&other_bank(), &cand.candidate.plan.name)
+                    } else {
+                        joined(&cand.broker.short_name, &cand.candidate.plan.name)
+                    },
                     left: amount(outcome.after_tax, level),
                     cost_a_year: Some(outcome.yearly_cost),
                     may_cost_more,
@@ -271,6 +285,9 @@ impl Run<'_> {
                     tax: Some(amount(outcome.tax, level)),
                     fits: plan.fits,
                     yours: cand.yours,
+                    own_plan: cand
+                        .yours
+                        .then(|| joined(&cand.broker.short_name, &cand.candidate.plan.name)),
                 })
             })
             .collect()
