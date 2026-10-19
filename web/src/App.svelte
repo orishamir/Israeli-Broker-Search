@@ -54,6 +54,14 @@
     placeBar()
     return () => observer.disconnect()
   })
+  // The bar comes back a moment after the field is left: a tap on a button
+  // blurs the field first, and a bar sliding in over that button at once
+  // took the tap's release, so the button never answered.
+  let typingEnds: ReturnType<typeof setTimeout> | undefined
+  const stopTyping = () => {
+    clearTimeout(typingEnds)
+    typingEnds = setTimeout(() => (typing = false), 350)
+  }
   const typingIn = (target: EventTarget | null) =>
     target instanceof HTMLElement &&
     target.matches('input:not([type=checkbox], [type=radio], [type=range]), select')
@@ -82,8 +90,13 @@
      columns, the questions (and the workbench) beside the answer. -->
 <svelte:window
   onscroll={placeBar}
-  onfocusin={(event) => (typing = typingIn(event.target))}
-  onfocusout={() => (typing = false)}
+  onfocusin={(event) => {
+    if (typingIn(event.target)) {
+      clearTimeout(typingEnds)
+      typing = true
+    } else stopTyping()
+  }}
+  onfocusout={stopTyping}
 />
 
 <div class="layout">

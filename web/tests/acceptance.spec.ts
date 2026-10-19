@@ -61,16 +61,20 @@ test(
   },
 )
 
-test('a2: the same money that can wait goes to the cheapest way to hold an index', async ({ page }) => {
-  const answers = await enter(page, { now: 50_000, monthly: 0, horizon: 5, flexibility: 'CanWait' })
-  const guide = await expectAnswerFor(page, answers)
-  expect(guide.arena).toBe('Index')
-  expect(isIndexKind(guide.kind.kind)).toBe(true)
-  // The safe kinds are drawn beside it.
-  expect(kindsDrawn(answers).some((kind) => !isIndexKind(kind))).toBe(true)
-  await expect(page.locator('.alternatives li.row')).toHaveCount(alternativesFor(answers).series.length)
-  expect(guide.band).toBeDefined()
-})
+test(
+  'a2: the same money that can wait goes to the cheapest way to hold an index',
+  { tag: '@phone' },
+  async ({ page }) => {
+    const answers = await enter(page, { now: 50_000, monthly: 0, horizon: 5, flexibility: 'CanWait' })
+    const guide = await expectAnswerFor(page, answers)
+    expect(guide.arena).toBe('Index')
+    expect(isIndexKind(guide.kind.kind)).toBe(true)
+    // The safe kinds are drawn beside it.
+    expect(kindsDrawn(answers).some((kind) => !isIndexKind(kind))).toBe(true)
+    await expect(page.locator('.alternatives li.row')).toHaveCount(alternativesFor(answers).series.length)
+    expect(guide.band).toBeDefined()
+  },
+)
 
 test('b: "I know what to buy": the S&P 500 in all its ways, with the fund\'s own cost and every chart', async ({
   page,
@@ -125,12 +129,16 @@ test('d: retirement: a pension in the provident fund, and the other ways drawn',
   const guide = await expectAnswerFor(page, answers)
   expect(guide.arena).toBe('Index')
   expect(guide.kind.kind).toEqual({ Way: { product: 'InvestmentGemelTrack', vehicle: 'InvestmentGemel' } })
-  // The brokerage account after tax and the current account are drawn
-  // beside it. (REDESIGN.md §8 also lists the study fund and the policy;
-  // the page compares only the plans ticked at first, which leave them out,
-  // so the core doesn't draw them: reported, not asserted.)
+  // The brokerage account after tax, the study fund (with who can open
+  // one), the savings policy and the current account are drawn beside it,
+  // whichever plans the workbench ticks.
   const drawn = guide.alternatives.map(({ kind }) => JSON.stringify(kind))
   expect(drawn).toContain(JSON.stringify('CurrentAccount'))
+  for (const vehicle of ['Brokerage', 'StudyFund', 'SavingsPolicy'])
+    expect(
+      drawn.some((kind) => kind.includes(vehicle)),
+      vehicle,
+    ).toBe(true)
   expect(guide.ranked.some(({ kind }) => JSON.stringify(kind).includes('Brokerage'))).toBe(true)
   await expect(page.locator('.alternatives li.row')).toHaveCount(alternativesFor(answers).series.length)
 })
