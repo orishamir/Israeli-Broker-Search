@@ -5,7 +5,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import type { ChartOption } from './echarts.svelte'
 import { compactShekels, compactShekelsApart, elapsed, readableOn, shekels } from './format'
-import { BLUR, endLabel, FADED_LINE, labelLayout } from './end-label'
+import { BLUR, endLabel, FADED_LINE, labelLayout, lastMonthMarker } from './end-label'
 import { t } from './text'
 
 // The page's colors (see app.css).
@@ -41,6 +41,8 @@ export interface GrowthView {
   noFeesName?: string
   /** The amounts are in today's money: the value axis says so. */
   todaysMoney?: boolean
+  /** A text's width in pixels (see `fitName`); a rough guess without it. */
+  measure?: (text: string) => number
 }
 
 /** [time, value] points, a month apart, from index 0 (the start): time in
@@ -123,6 +125,13 @@ export function growthOption(view: GrowthView): ChartOption {
   const endValue = ({ value }: { value: unknown }) => apart((value as number[])[1])
   const series: LineSeriesOption[] = view.lines.map((line) => lineSeries(line, view, endValue))
   const months = view.months ?? false
+  // Only the lost view steps at the last month (it is after selling there).
+  const count = view.lines[0]?.values.length ?? 0
+  if (view.lost && count > 1) {
+    series.push(
+      lastMonthMarker(months ? count - 1 : (count - 1) / 12, view.measure ?? ((text) => text.length * 7)),
+    )
+  }
   if (view.noFees) {
     series.unshift({
       id: NO_FEES,

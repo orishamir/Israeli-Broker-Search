@@ -425,6 +425,7 @@ export const en = {
   continueWith: (name: string) => `Go on with ${name}`,
   chartYears: 'years',
   chartMonths: 'months',
+  afterSaleAndTax: 'After selling and tax',
   lastPointAfterTax: 'The last point is after selling and tax, so it is below the one before it',
   rangeInTooltip: 'S&P 500 history',
   donutDeposit: 'Deposits',

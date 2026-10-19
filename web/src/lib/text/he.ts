@@ -422,6 +422,7 @@ export const he: Text = {
   continueWith: (name: string) => `להמשיך עם ${name}`,
   chartYears: 'שנים',
   chartMonths: 'חודשים',
+  afterSaleAndTax: 'אחרי מכירה ומס',
   lastPointAfterTax: 'הנקודה האחרונה: אחרי מכירה ומס, לכן נמוכה מזו שלפניה',
   rangeInTooltip: 'היסטוריית ה־S&P\u00a0500',
   donutDeposit: 'הפקדה',

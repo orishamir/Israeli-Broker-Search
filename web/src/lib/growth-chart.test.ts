@@ -1,7 +1,7 @@
 import type { LineSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
 import { growthOption, NO_FEES, type GrowthView, type Line } from './growth-chart'
-import { FADED_LABEL, FADED_LINE } from './end-label'
+import { FADED_LABEL, FADED_LINE, LAST_MONTH } from './end-label'
 import { t } from './text'
 
 const line = (id: string, dotted = false): Line => ({
@@ -42,7 +42,7 @@ test('every line is a series by its id, a month apart in years, with the no-fee 
 
 test('the lost view has no no-fee line and ranks least first', () => {
   const option = growthOption(view({ lost: true, noFees: null }))
-  expect(series(option).map(({ id }) => id)).toEqual(['a', 'b'])
+  expect(series(option).map(({ id }) => id)).toEqual(['a', 'b', LAST_MONTH])
   expect(option.tooltip).toMatchObject({ order: 'valueAsc' })
   expect(growthOption(view()).tooltip).toMatchObject({ order: 'valueDesc' })
 })
@@ -150,4 +150,15 @@ test('the lines that are not pinned or hovered stay easy to see, and their end l
     // Measured by us, never wrapped or cut by ECharts.
     expect(each.endLabel).not.toHaveProperty('overflow')
   }
+})
+
+test('the lost view marks the last month, which is after selling and tax; the value view does not', () => {
+  const lost = series(growthOption(view({ lost: true, noFees: null })))
+  const marker = lost.find((one) => one.id === LAST_MONTH)
+  expect(marker?.silent).toBe(true)
+  expect(marker?.data).toEqual([])
+  const mark = marker?.markLine as { data: { xAxis: number }[]; lineStyle: { type: string } }
+  expect(mark.data).toEqual([{ xAxis: 3 / 12 }])
+  expect(mark.lineStyle.type).toBe('dashed')
+  expect(series(growthOption(view())).some((one) => one.id === LAST_MONTH)).toBe(false)
 })

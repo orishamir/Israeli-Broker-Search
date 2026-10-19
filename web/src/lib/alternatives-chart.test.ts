@@ -1,6 +1,7 @@
 import { expect, test } from 'vitest'
 import type { LineSeriesOption } from 'echarts/charts'
 import { BAND_HIGH, BAND_IDS, BAND_LOW, HEADROOM, alternativesOption, stockLine } from './alternatives-chart'
+import { LAST_MONTH } from './end-label'
 import { kindColor, KIND_COLORS } from './colors'
 import type { AlternativesData, Kind, KindSeriesData } from './core/core'
 import { kindKey } from './kinds'
@@ -63,8 +64,8 @@ test('every series has an id: the kind’s key, and the band’s own two', () =>
 })
 
 test('one series per kind, and two more for the band when there is one', () => {
-  expect(seriesOf(data())).toHaveLength(4 + 2)
-  expect(seriesOf(data({ band: undefined }))).toHaveLength(4)
+  expect(seriesOf(data())).toHaveLength(4 + 2 + 1)
+  expect(seriesOf(data({ band: undefined }))).toHaveLength(4 + 1)
 })
 
 test('the band is two stacked series: the lower line transparent, the upper one with the area', () => {
@@ -147,7 +148,7 @@ test('pinned kinds are drawn thicker and the others fade only a little', () => {
   expect(other.blur?.lineStyle?.opacity).toBeGreaterThanOrEqual(0.7)
   expect(other.lineStyle?.opacity).toBeLessThan(1)
   // Nothing pinned: nothing fades.
-  const lines = seriesOf(data()).filter(({ id }) => !BAND_IDS.includes(id as string))
+  const lines = seriesOf(data()).filter(({ id }) => !BAND_IDS.includes(id as string) && id !== LAST_MONTH)
   expect(lines.every(({ lineStyle }) => lineStyle?.opacity === 1)).toBe(true)
 })
 
@@ -204,4 +205,33 @@ test('the last month’s tooltip says it is after selling and tax; the others do
   // In years: the last month of two.
   expect(tooltipAt(data(), 2)).toContain(t.lastPointAfterTax)
   expect(tooltipAt(data(), 1)).not.toContain(t.lastPointAfterTax)
+})
+
+test('a dashed line at the last month says it is after selling and tax, and is no row', () => {
+  const marker = (
+    alternativesOption({ data: data(), highlighted: new Set(), colors: new Map(), touch: false })
+      .series as LineSeriesOption[]
+  ).find((one) => one.id === LAST_MONTH)
+  const mark = marker?.markLine as {
+    data: { xAxis: number }[]
+    lineStyle: { type: string }
+    label: { formatter: string }
+  }
+  expect(marker?.name).toBe(t.afterSaleAndTax)
+  expect(marker?.data).toEqual([])
+  expect(mark.data).toEqual([{ xAxis: 24 / 12 }])
+  expect(mark.lineStyle.type).toBe('dashed')
+  expect(mark.label.formatter).toBe(t.afterSaleAndTax)
+  // A narrow room shortens the label with an ellipsis instead of ECharts wrapping it.
+  const narrow = alternativesOption({
+    data: data(),
+    highlighted: new Set(),
+    colors: new Map(),
+    touch: false,
+    measure: (text) => text.length * 20,
+  })
+  const cut = (
+    (narrow.series as LineSeriesOption[]).find((one) => one.id === LAST_MONTH)?.markLine as typeof mark
+  ).label.formatter
+  expect(cut.endsWith('…')).toBe(true)
 })

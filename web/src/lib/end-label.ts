@@ -1,7 +1,9 @@
 // The label where a plan's line ends, the same in both line charts.
 
 import type { LineSeriesOption } from 'echarts/charts'
+import { fitName } from './fee-breakdown'
 import { readableOn } from './format'
+import { t } from './text'
 
 /** How much of a line shows when others are pinned or one is hovered: "the
  * other lines fade only a little" (CLAUDE.md). At 0.4 a thin line in a dark
@@ -67,3 +69,38 @@ export const labelLayout =
   (moveEnds: boolean): LineSeriesOption['labelLayout'] =>
   ({ dataIndex }) =>
     moveEnds && dataIndex === undefined ? { moveOverlap: 'shiftY', hideOverlap: true } : { hideOverlap: true }
+
+/** The series id of the last-month marker: not a row, never hovered. */
+export const LAST_MONTH = 'last month'
+
+/** How long the marker's label may be: it runs up along the line. */
+const MARKER_ROOM = 150
+
+/** A dashed vertical line at the last month, labelled "after selling and
+ * tax": the last value is what is left once the money is sold, so a line
+ * that steps there is not the market's doing. A series of its own with no
+ * data (as the crossover chart's "you" line) so it never takes a row's
+ * place, and silent so a hover or a tap goes through it. */
+export function lastMonthMarker(at: number, measure: (text: string) => number): LineSeriesOption {
+  return {
+    id: LAST_MONTH,
+    name: t.afterSaleAndTax,
+    type: 'line',
+    data: [],
+    silent: true,
+    markLine: {
+      silent: true,
+      symbol: 'none',
+      // Glides with the axis, but doesn't draw itself in.
+      animationDuration: 0,
+      data: [{ xAxis: at }],
+      lineStyle: { type: 'dashed', color: '#8e95a5', width: 1, opacity: 0.6 },
+      label: {
+        formatter: fitName(t.afterSaleAndTax, MARKER_ROOM, measure),
+        position: 'insideEndTop',
+        color: '#8e95a5',
+        overflow: 'none',
+      },
+    },
+  }
+}
