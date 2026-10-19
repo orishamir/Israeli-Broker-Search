@@ -10,10 +10,13 @@ catch the bug:
 2. **Unit tests in Node** (`npm run test:unit`, vitest, `src/**/*.test.ts`):
    the TypeScript side, with the real core loaded from the built
    WebAssembly by `src/test-setup.ts`. What the app's state does
-   (`app.test.svelte.ts`: a test of a module with runes is itself a
-   `.svelte.ts` module), what the charts' options say (`growth-chart.ts`
-   and `fee-breakdown.ts` are pure functions the components hand to
-   ECharts), number formatting. Milliseconds each.
+   (`app.test.svelte.ts` and `workbench.test.svelte.ts`: a test of a module
+   with runes is itself a `.svelte.ts` module; answers to recommendation, the
+   switch changes only the view, overrides), what the charts' options say
+   (`growth-chart.ts`, `fee-breakdown.ts`, `alternatives-chart.ts` and
+   `donut.ts` are pure functions the components hand to ECharts), the links
+   (`link.test.ts`: every field round-trips), the glossary lookup, the
+   worker's request matching (`sweeper.test.ts`), number formatting. Milliseconds each.
 3. **Playwright** (`npm run test:browser`, `tests/*.spec.ts`): only what
    needs a browser: clicks, taps, hovers, keys and scrolling, and the
    layout. Not what the page says: those words are the core's or `t`'s, and
@@ -23,19 +26,28 @@ catch the bug:
 
 - A spec per part of the app, so a change runs its own spec first:
 
-  | Changed                                                                        | Spec         |
-  | ------------------------------------------------------------------------------ | ------------ |
-  | InputsPanel, Examples, NumberField, Choices, PlanSheet, BrokerPicker, rates.ts | `inputs`     |
-  | ResultsTable, the stats in App.svelte, WarningSign, PlanPreview                | `results`    |
-  | GrowthChart, CrossoverChart, echarts.svelte.ts                                 | `chart`      |
-  | FeeBreakdown                                                                   | `breakdown`  |
-  | DetailsDialog, FeesForInputs, Caveat\*, Sources, the about page                | `details`    |
-  | Tip, tip.ts, HebrewNames                                                       | `tips`       |
-  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved            | `editor`     |
-  | app.css, anything about size or position                                       | `layout`     |
-  | main.ts, index.html, Share, link.ts                                            | `app`        |
-  | FamilySwitch, the short term (short-term.svelte.ts, ShortTermInputs, Place\*)  | `short-term` |
-  | text.ts, text/\*.ts, index.html's language, anything right-to-left             | `hebrew`     |
+  | Changed                                                                              | Spec           |
+  | ------------------------------------------------------------------------------------ | -------------- |
+  | Questions, BankChips, NumberField, horizon.ts, the situations                        | `questions`    |
+  | Answer, Steps, PortfolioDialog, the unlock line and the cushion's two parts          | `answer`       |
+  | Alternatives, alternatives-chart.ts, Donut, Ladder, linked.svelte.ts                 | `alternatives` |
+  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign      | `workbench`    |
+  | LearnCard, Glossary, Tip's "עוד על זה", the about page                               | `learn`        |
+  | the user's five questions and the audit's tasks (REDESIGN.md §8), end to end         | `acceptance`   |
+  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                               | `chart`        |
+  | FeeBreakdown                                                                         | `breakdown`    |
+  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                      | `details`      |
+  | Tip, tip.ts, HebrewNames                                                             | `tips`         |
+  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved                  | `editor`       |
+  | app.css, anything about size or position (every screen has a `@phone` state)         | `layout`       |
+  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)         | `app`          |
+  | text.ts, text/\*.ts, index.html's language, anything right-to-left                   | `hebrew`       |
+
+  The specs for the redesign's screens (`questions`, `answer`,
+  `alternatives`, `workbench`, `learn`, `acceptance`) replace `inputs`,
+  `results` and `short-term`, which went with the two calculators, the
+  More options switch and the examples. `FamilySwitch`, `InputsPanel`,
+  `ResultsTable`, `ShortTermInputs` and `Place*` no longer exist.
 
   `npx playwright test --project=desktop tests/editor.spec.ts`. The `=`
   matters: `--project desktop tests/x.spec.ts` reads the path as a second
@@ -109,7 +121,9 @@ catch the bug:
   that (`expect.poll` for a canvas picture). They cover the sweep too, which a worker answers a
   moment after the inputs change; a unit test answers it itself
   (`answerSweep`).
-- The chart by deposit is offered only with More options: check it first.
+- The chart by deposit is offered only in the workbench (the expert
+  switch): turn it on first. In the guide only the growth chart and the
+  donut are offered.
 - `eslint-plugin-playwright` runs in `npm run lint`: a missing `await`, an
   `expect` in a condition, a `test.skip`. Keep conditionals in helpers, not
   in test bodies.

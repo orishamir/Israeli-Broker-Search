@@ -30,117 +30,164 @@ against:
 The five questions it must answer: a dated goal in about five years (and
 whether the date is flexible); "I want the S&P 500, which way?"; "₪3,000 a
 month, I don't know what for"; "₪1,500 a month for retirement"; "15–20
-years from now". `REDESIGN.md` is the plan of record for the page built on
-this (one page, two routes: the guide and the workbench), with the screens
-in `docs/redesign/screens/`. The sections below describe the code as it is
-until that plan lands.
+years from now". The page built on this is one page with two routes: the guide and the
+workbench (`REDESIGN.md` is its plan of record).
 
-## The current page
+## The page
 
-Two calculators on one page, switched under the title, since only what
-earns the same thing can be ranked. For the long term: what Israeli brokers
-charge for a given investing pattern (ETFs, index funds, bonds and stocks,
-on Tel Aviv or abroad), and, beside them, what the same deposits come to in
-a provident fund for investment, a study fund or a savings policy, after
-fees and tax. For the short term: what a sum, and perhaps an amount every
-month, comes to in a money market fund or a bank's fixed-rate deposit. A provident fund for savings is
-left out on purpose (`policies/not-modeled.md`). The fee model is Rust compiled to WebAssembly;
-the UI is Svelte 5 + ECharts.
+One page, Hebrew, right to left, dark, with two routes onto the same
+engine. **The guide** (the default) asks a few questions (what for, how
+much now and a month, when, and only when it matters whether the date can
+move or there is a cushion) and answers "מה שמתאים לכסף כזה": what it
+chose, in the words of the bank's app, why (each reason from one of the
+saver's circumstances), how to do it, and, drawn beside it, what the same
+money would have come to in the kinds it didn't choose. **The workbench**
+(the "כל האפשרויות" switch in the header) is for who knows what to
+compare: what to buy, the ways to hold it, every lever, the full table and
+all the charts. The guide and the workbench are one state: the switch only
+changes what is shown. The fee model is Rust compiled to WebAssembly; the
+UI is Svelte 5 + ECharts. Only what earns the same thing is ranked: the
+safe kinds (a money market fund, a fixed-rate deposit, a government bond
+held to maturity) among themselves, and the index kinds (a broker's index
+fund or ETF, a provident fund for investment, a study fund, a savings
+policy) among themselves; the other arena is only drawn beside, with its
+risk (`Safety`). A provident fund for savings, mixes, and personal advice
+are left out on purpose (`policies/not-modeled.md`).
 
 ## Layout
 
-- `crates/core` (lib `broker_fees`): `tariffs.rs` holds the real price lists,
-  `simulation.rs` runs them over the years (and states an outcome as a
-  yearly cost like a fund's fee, in today's money, and over a range of
-  deposits: `sweep`, with `Sweep::around` for where the cheapest plan stops
-  being cheapest), `vehicles.rs` holds what the law says about each kind of
-  account (a brokerage account, a provident fund for investment, a study
-  fund, a savings policy): the tax on the gain at the end, the ceiling on
-  deposits or their tax-free part, and how long the money is locked, the
-  same whoever runs the money, while fees belong to the plan (a fund's is a
-  `ManagementFee`). `funds.rs` lists the kinds of fund like brokers
-  (`BrokerKind::Funds`), by what savers pay; `listed()` is the brokers, then
-  the funds. The comparison ranks by what's left after tax
-  (`Outcome::after_tax`) and says why a plan can't be used (`NotOffered`:
-  the security isn't sold, a year's deposits pass a fund's ceiling, or its
-  money is still locked at the end).
-  `short_term.rs` is the short-term calculator's engine, apart from
-  `simulation`: a sum, and perhaps an amount every month, kept for 1 to
-  60 months, in a money market fund at the funds' reported fees
-  (`short_term/money_market.rs`), or, the sum alone, on a bank's fixed-rate
-  deposit at each bank's rate for the term as the Bank of Israel publishes
-  it (`short_term/deposits.rs`). A fund earns the Bank of
-  Israel's rate the saver expects, less its fee; a deposit's interest pays
-  15% tax, a fund's real gain 25%. Its words (the kinds' dates, why a place
-  can't be used, its "About the numbers" page, `about_short_term`) are in
-  `describe.rs` too, its examples in `examples.rs` (`short_term()`), and a
-  deposit at a rate the saver typed is `short_term::your_deposit`.
-  `describe.rs` holds all text shown
-  to users (fee names, explanations, caveat kinds, the "About the numbers"
-  page, Hebrew names), in Hebrew and English (see "Hebrew only" below),
-  `yours.rs` holds
-  the user's own plans (changed copies of listed plans, and plans of their
-  own) and the editor's fields, `examples.rs` the ready-made patterns behind
-  the example chips.
+- `crates/core` (lib `broker_fees`):
+  - `tariffs.rs` holds the real price lists (brokers' plans and, per bank,
+    its "Branch or through a banker" plan); `simulation.rs` runs them over
+    the years (and states an outcome as a yearly cost, in today's money,
+    and over a range of deposits: `sweep`, `Sweep::around`). The comparison
+    ranks by what's left after tax (`Outcome::after_tax`); within a shekel
+    it is a tie, and a tie goes to the plan with no may-cost-more caveat
+    (`compare_with_broker_caveats`); a first deposit that would open a better
+    plan is reported (`unlock`); a bond held to maturity is redeemed with no
+    sale fee (`Scenario.redeems_at_maturity`). `NotOffered` says why a plan
+    can't be used (the security isn't sold, no matching track, a year's
+    deposits pass a fund's ceiling, the money is still locked); the safe
+    kinds have their own (`short_term::NotOffered`: a deposit past 60
+    months, a bond past the curve's end).
+  - `vehicles.rs` holds what the law says about each kind of account (tax on
+    the gain, the deposit ceiling or its tax-free part, how long the money
+    is locked); `funds.rs` lists the kinds of fund like brokers
+    (`BrokerKind::Funds`), by what savers pay, with their S&P 500 tracks.
+  - `products.rs`: what holds the index for the saver and what that costs on
+    its own (`Product`, `Costs`; a fund's fees, the dividends' tax nobody
+    gives back, the tracking gap), so the expected return is the index's and
+    every plan keeps back its product's share. `ways.rs`: a `Way` is a
+    product in an account (an index fund through a bank, an ETF in Tel Aviv,
+    a US ETF, a provident fund's track); `compare_ways` ranks the ways, each
+    on the plans that can hold it.
+  - `history.rs` (+ `history/sp500.rs`, made by `policies/sp500-history.py`):
+    what every stretch of 1 to 30 years did since 1926 (`band`); the page
+    draws it as the band and the guide says it in words. It ends in June
+    2023 (`sources.md`).
+  - `short_term.rs` and `short_term/`: the safe kinds for 1 to 600 months:
+    `money_market.rs` (the funds' reported fees), `deposits.rs` (each bank's
+    fixed-rate deposit, to 60 months), `government_bonds.rs` (shekel bonds
+    held to maturity, nominal and CPI-linked, from the Bank of Israel's yield
+    curve, through the brokers' fees).
+  - `guide.rs` and `guide/`: the recommendation. `guide.rs` has the answers
+    (`Answers`, `Horizon`, `Flexibility`, `Cushion`, `Situation`), the fixed
+    numbers (the 12/36/60/84-month lines, the 3-month cushion, the ladder's
+    years), `follow_ups` and `check`; `guide/route.rs` is REDESIGN.md §3's
+    table, a `Route` per row, and builds `recommend` (what, why, steps, the
+    alternatives, the unlock line, the cushion's two parts), `ladder` (the
+    same money at 1, 3, 5, 10, 20 years) and `alternatives` (each kind's line
+    month by month plus the history band); `guide/index.rs` prices the index
+    kinds through `ways`, `guide/safe.rs` the safe kinds through
+    `short_term`, `guide/series.rs` draws the lines and names the columns of
+    the table (`columns_for`). The guide invents no figure: it asks the
+    engines.
+  - `situations.rs`: the chips the guide opens with (a reason Israelis save,
+    each with the answers it sets and a different lesson); it replaced
+    `examples.rs`.
+  - `describe.rs` holds all text shown to users, in Hebrew and English (see
+    "Hebrew only"), and its modules `describe/learn.rs` (the learn cards and
+    the glossary, each claim sourced and linked), `reasons.rs` (the reasons
+    with their numbers, why-not lines, the history sentence, safety tags,
+    the unlock line), `steps.rs` (how to do it, step by step, per kind) and
+    `answer.rs` (the what-sentence, the amount's notes, follow-up cards, the
+    bank stand-in note). `yours.rs` holds the user's own plans and the
+    editor's fields.
 - `crates/wasm`: bindings (wasm-bindgen + tsify), built into the git-ignored
-  `web/src/lib/core` by `npm run wasm`.
-- `web`: the app; state lives in `src/lib/app.svelte.ts`, with the chosen
-  calculator (`family`) and the short term's own state
-  (`short-term.svelte.ts`, `app.short`), kept while the long term's is
-  shown: only the chosen calculator is on the page (`{#if}` in
-  `App.svelte`), under `FamilySwitch.svelte`. Its inputs are
-  `ShortTermInputs.svelte`, its list of places `PlaceSheet.svelte` (the
-  same `Sheet.svelte` as the list of plans), its table `PlaceTable.svelte`,
-  its charts `InterestSplit.svelte` (`interest-split.ts`: the rate's
-  interest split into the saver's, the place's and the tax) and
-  `ValueChart.svelte` (the growth chart's options, in months); a place's
-  details are a kind of `Details`. The two share the palette (`colors.ts`)
-  and the table-and-chart linking (`linked.svelte.ts`), and the More
-  options switch. The plans to
-  compare are ticked in a list that opens over the inputs from the "What's
-  compared" card (`PlanSheet.svelte`; the whole screen on a phone), one
-  folded line per broker, then your plans. The page's own
-  words are in `src/lib/text/he.ts` (typed as `en.ts`), read through
-  `text.ts` (`t`). Your plans are kept in localStorage (`saved.ts`) as
-  core `Plan`s the web side never looks inside (`PlanData`). The charts' options are pure functions in
-  `growth-chart.ts`, `crossover-chart.ts` (the chart by deposit) and
-  `fee-breakdown.ts`; the components only wire them to ECharts and the
-  state, so the options are unit-tested without a browser. When a chart
-  draws a change and how long it glides there is `glide.ts`; the page's
-  curves and times, for CSS and script alike, are `motion.ts`. While the
-  inputs can't be compared (a field being retyped), the page keeps the last
-  results, faded, under the message: either state's `comparison` is the one
-  shown, `inputError` why the inputs can't be compared. `link.ts` puts a
-  comparison into the page's address (the Share button): the inputs, the
-  ticked plans by label, and your own ticked plans as data; a short-term
-  link says so (`c=s`) and carries that calculator's inputs, places and
-  deposits of your own instead. The expert
-  inputs (growing deposits, buying less often than monthly, inflation,
-  sell or keep) and the chart by
-  deposit sit behind the "More options" switch, the last card of either
-  calculator's inputs, whose fields open inside it; off, the state sends
-  the core the defaults. The sweep (the ticked plans over a range of
-  deposits, for that chart and the best plan's line about other deposits)
-  is 16 comparisons' work (23 when it varies the one-time deposit), so a
-  Web Worker with its own copy of the core does it
-  (`sweeper.ts`, `sweep.worker.ts`); the state matches each answer to the
-  request it answers. The sweep and the line about other deposits are about
-  fees alone (the yearly cost), while the table ranks after tax: the line
-  shows only when the best plan is also the cheapest in fees. How the money
-  is taken out (at once, or as a pension) is asked only while a ticked plan
-  pays a pension and everything is sold. Inflation lowers the tax
-  (2% unless More options sets another), except on a broker's holdings
-  abroad, whose gain the law measures against the exchange rate; a large
-  sale also pays the surtax, at its least. Showing amounts in today's money
-  is a separate switch there.
+  `web/src/lib/core` by `npm run wasm`; `lib.rs` the plans and comparison,
+  `guide.rs` the guide's (`recommend`, `ladder`, `alternatives`,
+  `compare_ways`, `ways`, `situations`, `follow_ups`, `banks`, `columns_for`,
+  `history_band`, `learn_card`, `glossary`, `about_all`, `footer`). A struct
+  with `#[serde(flatten)]` is written as an object, not a `Map`.
+- `web`: the app. One `AppState` (`src/lib/app.svelte.ts`) holds the guide's
+  `answers`, the `expert` switch (persisted as `expert-v2`, in links as
+  `x=1`), the workbench's inputs and `overrides` (a kind or way the user chose
+  on "לשנות" or by tapping an alternative), the ticked plans and your own,
+  and derives the `recommendation` (`core.recommend`), the `comparison`
+  within the arena (`compare` or `compareWays`) and `todaysMoney` (default
+  on). `App.svelte` is the header (title, glossary, about, share, the
+  switch), the layout and the footer, and the best bar on phones.
+  - Components: `Questions` (situation chips, the money and horizon fields,
+    follow-up cards), `Answer` (the sentence with "מה זה? ›" and "לשנות ›",
+    the amount, reasons, unlock line, cushion plan), `Alternatives` (+
+    `alternatives-chart.ts`: the lines per kind, the band, rows with the safety
+    tag and "why not"; tap a row to continue with it), `Within` (+ `within.ts`:
+    "איפה הכי זול לקנות": the top three, or in expert mode the full table, one
+    component for both arenas with the columns the core names), `Steps`,
+    `Donut` (+ `donut.ts`: where every shekel goes), `Ladder`, `Workbench`
+    (what to buy, the ways, the levers, "מה משווים" with `PlanSheet` and the
+    editor), `ExpertSwitch`, `Charts` (growth, lost to fees, fee breakdown,
+    by deposit; in the guide only growth and the donut), `LearnCard` and
+    `Glossary` (a `Sheet` with the card; a tip's "עוד על זה ›" opens it),
+    `PortfolioDialog` and `BankChips` (the situation "כבר יש לי תיק בבנק").
+    `kinds.ts` turns the core's kinds and ways into the keys that links and
+    series ids use; `colors.ts` is the palette (a color per kind, per fee part,
+    per plan); `horizon.ts` is the horizon field's number-and-unit.
+  - The plans to compare are ticked in a list that opens from the "What's
+    compared" card (`PlanSheet.svelte`; the whole screen on a phone), one
+    folded line per broker, then your plans. The page's own words (labels,
+    buttons, the switch, the footer) are in `src/lib/text/he.ts` (typed as
+    `en.ts`), read through `text.ts` (`t`); every sentence about money,
+    kinds, reasons, steps and cards comes from the core. Your plans are kept
+    in localStorage (`saved.ts`) as core `Plan`s the web side never looks
+    inside (`PlanData`); nothing else is remembered but the switch.
+  - The charts' options are pure functions in `growth-chart.ts`,
+    `crossover-chart.ts`, `fee-breakdown.ts`, `alternatives-chart.ts` and
+    `donut.ts`; the components only wire them to ECharts and the state, so
+    the options are unit-tested without a browser. `glide.ts` says when a
+    chart draws a change and how long it glides, `motion.ts` has the page's
+    curves and times. While the inputs can't be compared (a field being
+    retyped), the page keeps the last results, faded, under the message
+    (`inputError`).
+  - Work that costs more than a keystroke goes to a Web Worker with its own
+    copy of the core (`sweep.worker.ts`, `sweeper.ts`, jobs named in
+    `work.ts`: `sweep`, `recommend`, `ladder`, `alternatives`; the unit tests
+    run them in-line). Each job keeps only its latest request, and the state
+    matches each answer to the request it answers. The sweep (the ticked
+    plans over a range of deposits, for the chart by deposit and the best
+    plan's line about other deposits) is about fees alone, while the table
+    ranks after tax. The ladder and the alternatives are asked once typing
+    pauses.
+  - `link.ts` puts the state into the page's address (the Share button),
+    `#v=2&…`: the answers (`n`, `m`, horizon `h` as months, `u` or
+    `r:<age>:<retire>`, flexibility `fx`, cushion `cu`, situation `si`),
+    `x=1` for expert, the workbench's inputs when expert or overridden, the
+    ticked plans by English label and your own as data. A link without `v=2`
+    opens nothing.
+  - Inflation lowers the tax (2% unless the workbench sets another), except
+    on a broker's holdings abroad, whose gain the law measures against the
+    exchange rate; a large sale also pays the surtax, at its least. Amounts
+    are shown in today's money by default, the nominal figure as a note.
 - `policies`: the brokers' tariff PDFs that `tariffs.rs` is taken from;
   `sources.md` says where each number comes from and how unclear rows were
-  read (the law's rules in `vehicles.rs` and the funds' fees too), and
-  `not-modeled.md` lists the fees and taxes the app leaves out.
-  `gemel-net.py` works the funds' fees out from the regulator's open data,
-  `money-market-funds.py` the money market funds' from the stock
-  exchange's, and `deposit-rates.py` the banks' deposit rates from the
-  Bank of Israel's.
+  read (the law's rules in `vehicles.rs`, the funds' fees, the guide's rules,
+  the history, the yield curve), and `not-modeled.md` lists what the app and
+  the guide leave out. Scripts: `gemel-net.py` (funds' fees), `money-market-funds.py`,
+  `deposit-rates.py` (the Bank of Israel's), `yield-curve.py` (government
+  bonds), `sp500-history.py` (Shiller's data), `index-tracking.py` (what the
+  funds holding the index keep back).
+- `REDESIGN.md` is the plan this was built from; `docs/redesign/screens/`
+  the screens (`mock.html` is the source of truth for wording and layout).
 
 Keep as much logic as possible in Rust; the web side displays what it returns.
 
@@ -150,7 +197,11 @@ Keep as much logic as possible in Rust; the web side displays what it returns.
 `cargo fmt --check`, then in `web/`: `npm run wasm && npm test` (the unit
 tests, then the browser tests) and `npm run lint` (prettier, eslint,
 stylelint, svelte-check). After a change to how the page behaves when used
-(charts, animations, inputs, loading), also `npm run test:perf`.
+(charts, animations, inputs, loading, the worker's jobs), also
+`npm run test:perf`. After a change to the guide's rules, run
+`cargo mutants -p broker-fees -j 8 --file crates/core/src/guide.rs` (and
+`ways.rs`, `history.rs`) and turn the surviving mutants that matter into
+tests.
 
 **After any Rust change, run `npm run wasm`**, or the dev server and tests
 quietly keep running the old core.
@@ -215,15 +266,26 @@ the unit tests in Node, then the browser.
   cheapest track; partly as `proptest` properties over random scenarios
   (`PROPTEST_CASES=1000 cargo test` for a deeper run). A change to the
   simulation needs its rule here, and a new test must fail without its fix.
+- `crates/core/tests/guide.rs` has a test for each row of the guide's table
+  (REDESIGN.md §3; `situation` and horizon by horizon), the follow-ups, the
+  cushion's arithmetic, that the ladder's rungs are monotone within an
+  arena, that the alternatives always hold the current account and the other
+  arena, and the acceptance questions as the core answers them.
+  `guide_words.rs` checks the texts exist in both languages and name their
+  circumstance (never what they say). `ways.rs` checks the ways and the
+  products' costs, `history.rs` the band's arithmetic and ordering. A new
+  guide rule needs its row in `guide.rs` and a reason's text; a new kind of
+  safe holding needs a hand-worked case in `real_tariffs.rs`.
 - `cargo bench -p broker-fees` times the calls the page makes on every
-  keystroke (divan, `benches/hot_paths.rs`); the numbers to expect are in
-  LESSONS.md.
+  keystroke and the guide's (`recommend`, `ladder`, `compare_ways`, divan,
+  `benches/hot_paths.rs`); the numbers to expect are in LESSONS.md.
 - `cargo mutants -p broker-fees -j 8` asks whether the tests would notice a
   change to each line of the core; run it after adding a rule, and turn
   the surviving mutants that matter into tests (LESSONS.md, "Tools").
 - The web side's layers, and what goes where, are in `web/tests/CLAUDE.md`:
   vitest unit tests beside the code (`src/**/*.test.ts`), Playwright specs
-  by part of the app, and the performance suite.
+  by part of the app (`questions`, `answer`, `alternatives`, `workbench`,
+  `learn`, `acceptance`, besides the kept ones), and the performance suite.
 
 ## Conventions
 
@@ -247,6 +309,17 @@ the unit tests in Node, then the browser.
   typing. A repeated key in a keyed `{#each}` throws at runtime, unseen by
   svelte-check.
 - **ECharts:**
+  - **The alternatives chart** (`alternatives-chart.ts`): every series has an
+    `id`, the kind's `kindKey`, never its position; the history's band is
+    two `stack`ed series (the lower one's line transparent, the upper one's
+    `areaStyle`), not rows and never hovered; only three lines get an end
+    label (the recommended kind, the stock fund, the current account), the
+    rest are named in the rows under the chart; names are fitted with
+    `fitName`, never wrapped or cut; hover and the rows' linking go through
+    `dispatchAction`.
+  - **The donut** (`donut.ts`): labels are short (הפקדה / רווח / עמלות / מס /
+    הקרן עצמה) with `overflow: 'none'`; a slice under 0.5% is listed under
+    the donut, not labelled on it.
   - The `chart` attachment draws never before the paint that follows a
     change, so typing shows first, and not at all while its element has no
     size (a hidden view). Both chart views stay mounted; a hidden one keeps its
@@ -278,7 +351,7 @@ the unit tests in Node, then the browser.
 - **CSS:**
   - A grid child with a wide table needs `minmax(0, 1fr)`, or the page widens.
   - A table sized by its contents moves every column when a note comes or
-    goes: the results tables give the name's column a set share (`width`)
+    goes: the results table (`Within`) gives the name's column a set share (`width`)
     and split the rest. A warning in the best plan's card is a ⚠ beside its
     amount (`WarningSign`), its words in the table's row below: a line of
     its own moved the table, and an empty line kept for it looked broken.
@@ -310,6 +383,26 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   the choices ("Your bond can be bought…").
 - **Phones matter as much as desktop.** Test on a Samsung, not a Pixel.
   Scrolling with a finger must never pick anything.
+- **A recommendation always says what, why and how, and draws the
+  alternatives.** What: the thing's name in the words of the bank's app, the
+  ads and around (`מה זה? ›` opens its learn card). Why: each reason comes
+  from one of the saver's circumstances, with their numbers. How: the steps
+  (`Steps`). And the money in the kinds it did not choose is drawn beside it
+  (`Alternatives`, `Donut`), never only told; every kind keeps a "why not".
+  Safe and index kinds are never ranked against each other.
+- **The register** is "מה שמתאים לכסף כזה", never "ההמלצה שלנו": the page
+  says what fits money like this, not what to do; no personal advice, no
+  "you should". Where the past is shown it is said to be the past
+  ("ב־N מתוך M תקופות של X שנים נגמרה בהפסד"), and no figure is rounded to
+  "never".
+- **The learn card** has one shape (`LearnCard`, screen s5): the term, its
+  names (the bank's, the ads', in English), what it is, what it is good
+  for, its downside, what it costs, its tax, where you meet it, an example,
+  and what to compare it with (chips that open the other card in the same
+  sheet, with a way back). Every claim rests on a source linked under it.
+  A tip stays one paragraph and ends with "עוד על זה ›" when it has a card.
+- **Amounts are in today's money** by default, with the nominal figure as a
+  note, and the growth chart's axis says so.
 - **Keep the main thing prominent.** Secondary information stays subtle:
   - the exchange rates are folded into one line;
   - the broker's name under each plan, and the rank, are de-emphasized.
@@ -321,13 +414,13 @@ More traps, tariff research and this machine's tool quirks: `LESSONS.md`.
   - outlined buttons, as tall as a choice (33 px); text fields and menus
     37 px; tints of the accent and warning from the tokens on `:root`;
   - units inside the fields, beside the number (`₪ 10,000`, `10 %`);
-  - every field in either calculator's inputs one width (`--input-field`),
+  - every field in the questions and the workbench one width (`--input-field`),
     so they line up from card to card; the labels take the rest and wrap;
   - a "?" after words that may wrap sits in a flex row with them
     (`.titled`, the inputs' label spans): inline, a line can break before
     it and leave it alone;
   - while a table scrolls sideways, the screen ends on a whole column (the
-    container steps in `ResultsTable` and `PlaceTable`);
+    container steps in `Within`);
   - motion through the tokens in `app.css` (`motion.ts` for script):
     `--ease-out` for what arrives, `--ease-in` and less time for what
     leaves; presses sink a little; the results move to new numbers together
@@ -406,11 +499,21 @@ Users are Israeli; English text gives the Hebrew term alongside, e.g. "fees
   השתלמות; a savings policy → פוליסת חיסכון; its fee → דמי ניהול מהצבירה, מהפקדה; a monthly pension →
   קצבה; taking it all at once → משיכה בבת אחת; the deposit ceiling → תקרת
   הפקדה; an index-following track → מסלול עוקב מדד.
-- the two calculators → השקעה לטווח ארוך, חיסכון לטווח קצר; a money
+- the two arenas → סכום בטוח יותר, מדד לטווח ארוך (`arena_name`); a money
   market fund → קרן כספית; a fixed-rate deposit → פיקדון בריבית קבועה (a
   bank's monthly savings plan is a תוכנית חיסכון, not a פיקדון); a place to
-  keep the money, in the short term's table → אפיק; the Bank of Israel's
-  rate → ריבית בנק ישראל.
+  keep the money, in the table of the safe kinds → אפיק; the Bank of
+  Israel's rate → ריבית בנק ישראל.
+- the redesign's terms: a government bond held to maturity → אג״ח ממשלתית
+  לפדיון (a short one is a מק״מ); a CPI-linked deposit → פיקדון צמוד מדד;
+  the safety cushion → כרית ביטחון; the yield curve → עקום תשואות;
+  yield to maturity → תשואה לפדיון; a sum known in advance → סכום ידוע
+  מראש; money you may need any day → כסף שאולי תצטרכו בכל יום; "this
+  fits money like this" → מה שמתאים לכסף כזה; today's money → כסף של
+  היום; compound interest → ריבית דריבית; the S&P 500 index → מדד S&P 500;
+  a bank's branch price list → תעריף סניף (the plan "Branch or through a
+  banker"). Prefer "אג״ח ממשלתית לפדיון" to a bare "אג״ח" where the kind
+  matters, and "מסלול עוקב מדד" for a fund's index track.
 
 - A " · " shown in Hebrew has a non-breaking space before it (`\u00a0· `,
   `&nbsp;·` in markup), so a line may end with the dot but never start

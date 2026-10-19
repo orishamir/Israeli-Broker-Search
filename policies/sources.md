@@ -689,6 +689,40 @@ and the tax.
     it (91(ב1)(1ב)). The 15% of section 91(ב)(3) is for unlinked bonds,
     commercial paper and loans themselves, not a fund's units.
 
+## The guide's rules
+
+`crates/core/src/guide.rs` (the constants) and `guide/route.rs` (a `Route`
+for each row), from the table in REDESIGN.md §3; `tests/guide.rs` has a
+test for each row. The guide invents no figure: it asks the engines for what
+each kind comes to after tax and ranks within an arena by it. What is a
+decision (marked) and what is a fact the sources above give:
+
+| The money | Arena | Why the boundary is there |
+|---|---|---|
+| Needs it any day, or a date within 12 months | Safe; a money market fund wins unless a deposit leaves more and "any day" is off | **Decision**, `SAFE_ONLY_UP_TO_MONTHS`. The index's worst stretch is not a yearly figure for under a year (`history::band` says nothing under 1 year), A fund can be sold on any trading day and a deposit is locked to its term ("Money for the short term"). |
+| 13 to 36 months, known date | Safe: fixed deposit for the term, money market fund, government bond maturing at the date | **Decision**, `SHORT_GOAL_UP_TO_MONTHS`. Deposits take one sum; a bond or a fund takes monthly deposits. The sum is known in advance for a deposit and a nominal bond ("Government bonds and the yield curve"). |
+| 37 to 84 months, date fixed | Safe, among the kinds whose end sum is known in advance (bond to maturity, deposit to 60 months); the money fund is shown as an alternative | **Fact:** over 5 years 135 of 1,110 stretches of the S&P 500 ended lower (12%), over 7 years 52 of 1,086 (5%) ("The index's history"). A fixed date means it could be one of those. Seven years (`SAFE_IF_FIXED_UP_TO_MONTHS`, 84) is where the loss share reaches about 5% (as it is at 10 years); **decision** to treat 5% as too much for a payment due on a day. A CPI-linked bond is not ranked here: its shekel sum is not known (`Safety::RealValueKnown`). |
+| 37 to 59 months, date can move | Safe, with the reason saying that from 5 years with flexibility stocks become reasonable | **Decision**, `INDEX_IF_FLEXIBLE_FROM_MONTHS` (60): with a date that can move a year or two, the saver can wait out a fall (the sentence "אם הבורסה תהיה בירידה אז, תחכו"). |
+| 60 to 84 months, date can move | Index | As above. |
+| 85 months and more | Index | Over 10 years 50 of 1,050 stretches ended lower (5%), over 17 and 20 years none did, in dollars before fees and tax (the history ends June 2023 and is the past). The guide must not round this to "never". |
+| Retirement (age, retire-at) | Index, the provident fund for investment as a pension when the saver is 60 or more at the end; the study fund shown with who can open one | **Fact** (Kol Zchut, "Tax and the vehicles"): from 60, taken as a monthly pension, the gains are exempt; a lump sum or an earlier withdrawal pays 25%. The study fund needs an employer or self-employment, which the guide can't check. |
+| No date, monthly deposits | Two parts: a cushion first if there is none (a money market fund until 3 months of expenses), then an index kind that can be opened any time (a provident fund for investment or a broker's index fund, whichever leaves more, worked out over `REFERENCE_YEARS`, 10) | **Decision**, `CUSHION_MONTHS` = 3: the words say 3 to 6 months and the plan takes the low end, so it is reachable. No cushion means a fall forces a sale. The 10 years for "no date" are a stand-in for the ladder's middle. |
+| No date, one sum | The ladder | The same sum at 1, 3, 5, 10 and 20 years (`LADDER_YEARS`), which is the lesson: the answer changes with the horizon. |
+
+Other fixed numbers: the question "can the date move?" is asked from 36 to 84
+months (`FLEXIBILITY_ASKED_*`); deposits go to 60 months only, since the Bank
+of Israel publishes none longer (`NotOffered::TooLong`); the index's expected
+return is 10% a year, inflation 2% and the Bank of Israel's rate the
+published one, unless the workbench changes them (`USUAL_INDEX_RETURN`); the
+saver's age is taken as 30 when not given (`USUAL_AGE`), which only decides
+when a pension opens and the surtax's years.
+
+Within an arena the order is by what is left after tax, in today's money; a
+tie to the shekel goes to the plan without a "may cost more" caveat
+(`compare_with_broker_caveats`), and a plan the first deposit can't open is
+never the answer (the unlock line says what opens it). The kinds of
+different arenas are never ranked against each other.
+
 ## The index's history
 
 `crates/core/src/history.rs` (table: `history/sp500.rs`, made by

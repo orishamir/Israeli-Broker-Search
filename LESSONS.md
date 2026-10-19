@@ -261,6 +261,12 @@ all. Read those three first.
 
 ## The web app
 
+> The redesign (2026-10-19) removed the two calculators, `FamilySwitch`,
+> `ResultsTable`, `PlaceTable`, the More options switch and the example chips
+> (one `AppState`, the expert switch, `Within`). Entries below that name them
+> still hold as lessons; read them with `Within` and the expert switch in
+> their place.
+
 - Only the chosen calculator is on the page (`{#if}` in `App.svelte`);
   the other's state lives on in `AppState` (`app.short`), so switching
   keeps what was typed. Both calculators' deposit fields keep the ids
@@ -698,7 +704,93 @@ step()
 On a phone, `innerWidth` growing past the screen's width means the page
 was zoomed out.
 
+## The guide (the redesign, October 2026)
+
+What surprised while building REDESIGN.md, so the next change knows it.
+
+- **The plan's expectations met the data, and the data won.** The
+  acceptance table (REDESIGN.md §8) guessed answers; `tests/guide.rs` says
+  what the core gives. T2 (₪500 a month, 30 years): as a lump sum the
+  brokerage account's US ETF leaves more than the provident fund for
+  investment, which wins only as a pension from 60 (the test states each).
+  T3 (₪100,000 + ₪2,000 a month, 3 years): today's yield curve leaves more in
+  a CPI-linked bond than in the money market fund, so the test states the
+  rule (a deposit takes one sum and says why), not the winner. Write an
+  expectation as a rule the core must keep, and let the figure come from the
+  core; a winner fixed in a test breaks with every monthly data update.
+- **A CPI-linked bond's end sum isn't known in advance** (only its real
+  value is): `Safety::RealValueKnown`, so it is not ranked in the fixed-date
+  rows of 37 to 84 months, where "known in advance" decides, but is drawn
+  and ranked in the shorter ones.
+- **Shiller's file stops at June 2023.** The copy still served on his page was
+  last saved in September 2023 and has dividends only to June 2023, so the
+  history is 1926 to June 2023 and `sources.md` says so. The guide always
+  words it as the past, and a 10-year stretch did end lower in about 1 of 20
+  starts: never round it to "never".
+- **The study fund isn't the saver's to open.** It needs an employer or
+  self-employment, so it is drawn beside a pension answer with who can open
+  one (`Circumstance::StudyFundNeedsEligibility`), and never chosen as the
+  answer for someone who didn't say they can. The guide can't check
+  eligibility (`not-modeled.md`).
+- **Ties are real.** Plans that cost the same to the shekel exist (Excellence
+  and Altshuler's offers); ranking by "after tax" alone was an arbitrary
+  order, so a tie goes to the plan without a may-cost-more caveat
+  (`compare_with_broker_caveats`), and the page shows the ⚠ when the cheaper
+  one is strictly ahead.
+- **A bond bought and held to the end pays no sale fee and no conversion**
+  (`Scenario.redeems_at_maturity`); selling a stock fund does. Without the
+  flag the bond looked dearer than it is.
+- **Every alternatives line starts at the first sum alone** (9a8a4fd): the
+  money market fund, the current account and the band once started at the
+  first sum plus the first month's deposit, the brokerage and bond lines at
+  the sum, so the lines didn't meet at month 0.
+- **Across the WASM boundary again:** guide data built with
+  `#[serde(flatten)]` reached JavaScript as a `Map` (as `PlanData` did), so
+  the bindings write it as an object. The type is `tsify` with
+  `hashmap_as_object`.
+- **The worker does the guide too.** `recommend`, `ladder` and `alternatives`
+  take milliseconds to tens of ms (below), so they run in the Web Worker
+  with the sweep (`work.ts` names the jobs; the unit tests run them in-line
+  through the same function). Each job keeps only its latest request; the
+  state matches an answer to its request. A short horizon's recommendation
+  is also worked out on the page's thread (`app.svelte.ts`,
+  `RECOMMEND_ON_PAGE_UP_TO_MONTHS`, 5 years), so the first screen doesn't wait for the worker; the
+  ladder and the alternatives come from the worker.
+- **Sentences about money are the core's.** The page's own words once held
+  sentences with numbers filled in by TypeScript; they moved to
+  `describe/answer.rs` so the Hebrew is written once, both languages are
+  required, and a test can look for a missing one. A guide-words test checks
+  that a text exists and names its circumstance, never what it says.
+- **Branch tariffs are a plan like the others** ("Branch or through a
+  banker", unticked), so the situation "כבר יש לי תיק בבנק" is just ticking
+  it. Banks with no tariff in `policies` stand in as the dearest branch plan,
+  and the answer says so.
+
+Speed budgets, release build, `cargo bench -p broker-fees` on this machine
+(2026-10-19, medians). The guide asks for these once typing pauses and from
+the worker, never on a keystroke in the main thread; a change that moves one
+by more than a half deserves a look.
+
+| Call                                                          |     Median |
+| ------------------------------------------------------------- | ---------: |
+| `guide_data` (the tariffs and rates the page builds once)     |      24 µs |
+| `recommend`, safe (a date in 5 years: deposit, fund, bond)    |     2.5 ms |
+| `recommend`, a cushion first, then an index kind              |     5.7 ms |
+| `recommend`, index, 20 years (every way, the safe kinds)      |      19 ms |
+| `recommend`, index, no first deposit (tries the unlock line)  |      42 ms |
+| `ladder` (five rungs, none / ₪3,000 a month)                  | 12 / 19 ms |
+| `compare_ways` (seven ways, each on the plans that hold it)   |      30 ms |
+| `compare` every plan, Tel Aviv / USA                          | 5.8 / 9.6 ms |
+
+Budget for the page: `alternatives` is `recommend` plus the lines month by
+month, so count it as the dearest `recommend` plus a few ms.
+
 ## Speed
+
+The numbers below are from before the redesign (2026-10-01); the guide's
+interactions (typing an answer, tapping a ladder rung, the alternatives
+chart) have no row yet, and `test:perf` still has to be extended and
+re-measured for them: the core's own times are in "The guide" above.
 
 `npm run test:perf` (`web/tests/perf/speed.spec.ts`), 2026-10-01, on this
 machine, a production build, animations on. The phone project throttles

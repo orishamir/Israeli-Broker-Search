@@ -117,6 +117,41 @@ What `short_term.rs` leaves out (October 2026). The sources are in
 - **A lower tax:** 15% and 25% are the most an individual pays on interest
   and on a capital gain; someone with a low enough income may pay less.
 
+## What the guide doesn't do
+
+The guide (`crates/core/src/guide.rs`) answers for one kind of holding at a
+time. Left out (October 2026); the rules it does follow are in `sources.md`,
+"The guide's rules".
+
+- **Mixes and portfolios:** no split between stocks and bonds, no
+  allocation, no rebalancing. The answer is one kind, with the others drawn
+  beside it so the saver sees what a mix would sit between.
+- **Personal advice:** it says what fits money like this given the answers,
+  not what a person should do. It doesn't ask about debts, income, other
+  savings, a mortgage, or risk tolerance beyond the date and the cushion.
+- **Pension funds (קרנות פנסיה) and the provident fund for savings (קופת גמל
+  לחיסכון):** not compared. Pension funds are a different product (a pension
+  with insurance), and the provident fund for savings is left out on
+  purpose (see "Tax and the vehicles"). The glossary has a card for the
+  provident fund for savings that says why it isn't here.
+- **The study fund's eligibility:** it needs an employer who pays into one,
+  or self-employment. The guide shows it with "who can open one" and never
+  chooses it for someone; it can't tell whether the saver qualifies.
+- **The exchange rate in the history:** the S&P 500's history is in
+  dollars. What an Israeli saw in shekels moved with the rate too; the band
+  doesn't show that, and the page says the past is in dollars.
+- **The history's end:** June 2023 (Shiller's data). Later years are not in
+  the band.
+- **Coupons, bond prices, CPI-linked deposits:** see "Government bonds and
+  CPI-linked deposits". A CPI-linked deposit is not modelled; the CPI-linked
+  government bond is the stand-in.
+- **A different expected return per kind:** the index kinds share the
+  expected return the saver types (10% unless changed); the safe kinds
+  earn the Bank of Israel's rate or the curve's yield. Both are
+  assumptions the page states, not forecasts.
+- **Taxes beyond the modelled ones:** a low earner's lower rate, the estate
+  tax's avoidance beyond the note, and the surtax beyond its least.
+
 ## Mizrahi-Tefahot Bank
 
 - Custody cap: ₪10,750 a quarter on each of Tel Aviv and foreign holdings.
