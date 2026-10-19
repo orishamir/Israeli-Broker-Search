@@ -75,10 +75,9 @@ test('Share copies a link that opens the same answer: its choices and the bank',
   const answers = situationAnswers('goal')
   await expectAnswerFor(page, answers)
   await decide(page, answers, {}, 'SafeWay', { SafeWay: 'Bond' })
-  // The bank, asked where to buy, where it changes what is shown.
+  // The bank, one of the facts.
   const bank = banks()[0]
-  const where = page.locator('section.how .where')
-  await where.getByRole('button', { name: bank.name, exact: true }).click()
+  await page.locator('#bank').selectOption(bank.bank)
   const chosen = { ...answers, bank: bank.bank }
   await expectAnswerFor(page, chosen, { safeWay: 'Bond' })
 
@@ -89,10 +88,7 @@ test('Share copies a link that opens the same answer: its choices and the bank',
 
   await page.goto(link)
   await expectAnswerFor(page, chosen, { safeWay: 'Bond' })
-  await expect(where.getByRole('button', { name: bank.name, exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  await expect(page.locator('#bank')).toHaveValue(bank.bank)
   // And a link edited into nonsense still opens the page.
   await page.goto('/#v=2&n=abc&h=zz')
   await expect(page.locator('#now')).toBeVisible()

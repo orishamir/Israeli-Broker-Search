@@ -887,6 +887,8 @@ export class AppState {
     // A chip is the money's facts: the visitor's own bank stays.
     const bank = this.answers.bank
     this.answers = { ...($state.snapshot(situation.answers) as AnswersInput), bank }
+    // A portfolio at a bank is at the bank the visitor named.
+    if (typeof this.answers.situation === 'object') this.answers.situation = { ExistingPortfolio: { bank } }
     this.choices = {}
     this.tappedRow = undefined
     this.chosenThing = undefined

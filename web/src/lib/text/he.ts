@@ -380,6 +380,8 @@ export const he: Text = {
   retireAtAge: 'ואפרוש בגיל',
   answerUpdatesBelow: '↓ התשובה מתעדכנת למטה',
   otherBank: 'בנק אחר',
+  myBank: 'הבנק שלי',
+  noBankChosen: '—',
   withinTitle: 'איפה הכי זול לקנות אותה',
   // The workbench's charts and its funds
   afterSaleAndTax: 'אחרי מכירה ומס',
@@ -464,7 +466,7 @@ export const he: Text = {
   // (The chart's words about money are the core's: `outcomeWords`.)
   outcomeReturnLabel: 'התשואה השנתית שהחישוב מניח למדד S&P 500',
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
-  //     reference row's label, the bank's question.
+  //     reference row's label.
   howHeading: 'איך עושים את זה',
   howNothingYet: 'עוד לא בחרתם',
   howEmpty: 'בחרו למעלה, או הקישו על שורה בגרף, ותראו כאן מה קונים, איפה ואיך.',
@@ -476,7 +478,6 @@ export const he: Text = {
   tie: 'תיקו',
   yourBankRow: (name: string) => `הבנק שלכם: ${name}`,
   throughABank: 'דרך בנק',
-  askBank: 'מה הבנק שלכם? אז כל מקום יראה כמה יותר או פחות הוא משאיר לעומתו.',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'כמה מהרווח נשאר אצלכם',
   gainKept: 'נשאר לכם',

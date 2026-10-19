@@ -205,7 +205,8 @@
               {/if}
             {/if}
           </span>
-          <span class="value num" aria-hidden="true">{shekels(row.value.today)}</span>
+          <!-- An excluded option shows no end figure, only its reason (a note). -->
+          <span class="value num" aria-hidden="true">{row.excluded ? '' : shekels(row.value.today)}</span>
           {#each rowNotes[index] as note, at (at)}
             <p class="note">{note}</p>
           {/each}
@@ -230,6 +231,10 @@
 
 <style>
   .outcome {
+    /* On the card, not the rows: the legend's sample uses it too (unset
+       there, its line wasn't drawn at all). */
+    --reference: color-mix(in srgb, var(--text) 75%, transparent);
+
     display: flex;
     flex-direction: column;
     gap: 12px;
@@ -298,7 +303,6 @@
   /* ── The rows: the name, the track, the amount; on a narrow card the
      track goes under the name and the amount ── */
   .rows {
-    --reference: color-mix(in srgb, var(--text) 75%, transparent);
     --name-column: 15rem;
     --value-column: 7.5rem;
 

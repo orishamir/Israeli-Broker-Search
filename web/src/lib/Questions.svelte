@@ -1,18 +1,18 @@
 <script lang="ts">
   // The visitor's facts (REDESIGN.md §2.1): the situations strip (chips,
-  // each with a tip on hover), the money fields, the horizon (a number and a
-  // unit menu; "don't know yet"; for retirement, the two ages), and the way
-  // out to the workbench. Nothing else is asked here: what only the visitor
+  // each with a "?" that explains it), the money fields, the horizon (a
+  // number and a unit menu; "don't know yet"; for retirement, the two ages),
+  // the bank (optional), and the way out to the workbench. Nothing else is asked here: what only the visitor
   // can decide is asked in the answer, where it decides (§2.2). Everything
   // it changes goes through `app`.
-  import type { Attachment } from 'svelte/attachments'
   import type { AppState } from './app.svelte'
+  import type { Bank } from './core/core'
   import { defaultUnit, monthsOfTyped, shown, type Unit } from './horizon'
   import { reveal } from './motion'
+  import { oneColumn, showAnswer } from './scroll'
   import NumberField from './NumberField.svelte'
   import { t } from './text'
   import Tip from './Tip.svelte'
-  import { tip } from './tip'
 
   let { app }: { app: AppState } = $props()
 
@@ -30,13 +30,22 @@
     typeof horizon === 'object' && 'Retirement' in horizon ? horizon.Retirement : undefined,
   )
 
-  const popovers = $state<HTMLElement[]>([])
+  // The bank: optional, a fact like the others (§2.1). "Another bank" names
+  // none to the core, as no answer does: the reference is then the banks'
+  // range. It is only remembered here, so the menu says what was picked.
+  const OTHER = 'other'
+  let otherBank = $state(false)
+  const bankValue = $derived(app.answers.bank ?? (otherBank ? OTHER : ''))
+
+  /** A tip stands above or below the whole strip, over none of the chips. */
   let chipsBox = $state<HTMLElement>()
 
-  /** The tip's placement is for hovering; a tap picks the chip. */
-  const hoverOnly = (popover: HTMLElement): Attachment<HTMLElement> =>
-    // Over or under the whole row of chips, so it covers none of them.
-    tip(popover, { onClick: false, keepClear: chipsBox })
+  /** A chip fills the facts; where the answer is under them (a phone), the
+   * page goes to it, since that is what the chip changed. */
+  function choose(id: string) {
+    app.setSituation(id)
+    if (oneColumn()) requestAnimationFrame(() => showAnswer())
+  }
 </script>
 
 <div class="stack">
@@ -48,26 +57,26 @@
     </div>
     <p class="hint">{t.whatForHint}</p>
     <div class="chips" role="group" aria-label={t.whatForTitle} bind:this={chipsBox}>
-      {#each chips as situation, index (situation.id)}
-        {@const popover = popovers[index]}
-        <button
-          class="chip"
-          class:chosen={app.situationId === situation.id}
-          aria-pressed={app.situationId === situation.id}
-          onclick={() => app.setSituation(situation.id)}
-          {@attach popover && hoverOnly(popover)}
-        >
-          {situation.name}
-        </button>
+      {#each chips as situation (situation.id)}
+        <!-- The chip only chooses; its "?" alone explains it, so a tap never
+             leaves a tip open over the page (the review's X11). -->
+        <span class="titled pair">
+          <button
+            class="chip"
+            class:chosen={app.situationId === situation.id}
+            aria-pressed={app.situationId === situation.id}
+            onclick={() => choose(situation.id)}
+          >
+            {situation.name}
+          </button>
+          <Tip about={situation.name} keepClear={chipsBox}>
+            <p><strong>{situation.name}</strong></p>
+            <p>{situation.explanation}</p>
+            <p>{situation.lesson}</p>
+          </Tip>
+        </span>
       {/each}
     </div>
-    {#each chips as situation, index (situation.id)}
-      <div class="popover" popover="manual" role="tooltip" bind:this={popovers[index]}>
-        <p><strong>{situation.name}</strong></p>
-        <p>{situation.explanation}</p>
-        <p>{situation.lesson}</p>
-      </div>
-    {/each}
     <button class="link" onclick={() => app.knowsWhatToBuy()}>{t.iKnowWhatToBuy}</button>
   </section>
 
@@ -134,6 +143,28 @@
         </div>
       </div>
     {/if}
+    <div class="field-row">
+      <label for="bank" class="label titled">
+        <span>{t.myBank}</span><span class="optional">{t.optional}</span>
+      </label>
+      <div class="control">
+        <select
+          id="bank"
+          value={bankValue}
+          onchange={(event) => {
+            const value = event.currentTarget.value
+            otherBank = value === OTHER
+            app.setBank(value === '' || value === OTHER ? undefined : (value as Bank))
+          }}
+        >
+          <option value="">{t.noBankChosen}</option>
+          {#each app.banks as choice (choice.bank)}
+            <option value={choice.bank}>{choice.name}</option>
+          {/each}
+          <option value={OTHER}>{t.otherBank}</option>
+        </select>
+      </div>
+    </div>
   </section>
 
   <p class="updates">{t.answerUpdatesBelow}</p>
@@ -169,6 +200,9 @@
     gap: 8px;
     margin-bottom: 12px;
   }
+  .pair {
+    align-items: center;
+  }
   .chip {
     min-height: 33px;
     padding: 4px 14px;
@@ -201,6 +235,15 @@
   .label {
     flex: 1;
     min-width: 0;
+  }
+  .label.titled {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    column-gap: 8px;
+  }
+  .optional {
+    color: var(--weak);
+    font-size: 0.85rem;
   }
   .control {
     display: flex;

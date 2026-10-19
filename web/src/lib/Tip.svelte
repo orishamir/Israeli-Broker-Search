@@ -7,8 +7,14 @@
 
   /** A small "?" that explains `about`, on hover, focus or tap. `card`: the
    * term's learn card, if the core says it has one, which "עוד על זה ›"
-   * opens. */
-  let { about, card, children }: { about: string; card?: Term; children: Snippet } = $props()
+   * opens. `keepClear`: the group it explains a member of, which the tip
+   * stands above or below rather than over (see tip.ts). */
+  let {
+    about,
+    card,
+    keepClear,
+    children,
+  }: { about: string; card?: Term; keepClear?: HTMLElement; children: Snippet } = $props()
   const openCard = getContext<OpenCard | undefined>(OPEN_CARD)
 
   const id = $props.id()
@@ -20,7 +26,7 @@
   class="tip-button"
   aria-label={t.whatMeans(about)}
   aria-describedby={id}
-  {@attach popover && tip(popover)}>?</button
+  {@attach popover && tip(popover, { keepClear })}>?</button
 >
 <div {id} class="popover" popover="manual" role="tooltip" bind:this={popover}>
   {@render children()}

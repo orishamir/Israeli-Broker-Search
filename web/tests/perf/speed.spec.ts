@@ -1,7 +1,7 @@
 import { expect, test as base, type Page } from '@playwright/test'
 import { dateText } from '../../src/lib/format'
 import { t } from '../../src/lib/text'
-import { brokerName, exchangeName, listed, RATES, securityName, situations } from '../core'
+import { banks, brokerName, exchangeName, listed, RATES, securityName, situations } from '../core'
 
 // What the page costs to use, measured as a person feels it:
 // - Each interaction's time to the next paint, from the browser's Event
@@ -146,7 +146,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const chartRows = page.locator('section.outcome .row:not(.axis) button.press')
   const options = page.locator('section.answer .decision button.choose')
   const returnField = page.locator('#outcome-return')
-  const banks = page.locator('section.how .where .banks button')
+  const bank = page.locator('#bank')
   const expert = page.locator('label.expert-switch')
   // The plans are ticked in a list of their own, over the inputs.
   const list = page.getByRole('dialog', { name: t.whatsCompared })
@@ -317,16 +317,19 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       ),
     },
     {
-      label: 'guide: choosing a bank where to buy (ms)',
+      // One of the facts: a menu, chosen by its keys (the bank after the
+      // first, and back), with where to buy shown.
+      label: 'guide: choosing the bank (ms)',
       budget: budgets.view,
       measure: async () => {
         await options.first().click()
-        await expect(banks.first()).toBeVisible()
+        await bank.selectOption(banks()[0].bank)
+        await bank.focus()
         return typical(
           page,
           thereAndBack(
-            () => banks.nth(1).click(),
-            () => banks.first().click(),
+            () => page.keyboard.press('ArrowDown'),
+            () => page.keyboard.press('ArrowUp'),
           ),
         )
       },

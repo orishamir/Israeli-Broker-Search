@@ -3,21 +3,16 @@
   // core lists, with places that tie in one box and no rank inside it
   // (principle 13); the visitor's bank as the reference row, the others as
   // ₪ differences from it (principle 15). Until a bank is named, the banks'
-  // range is the reference, and the bank is asked here, where it changes
-  // what's shown (principle 3); it can be changed or taken back.
-  import type { AppState } from './app.svelte'
+  // range is the reference. The bank is asked once, with the visitor's facts
+  // (`Questions`, §2.1), not again here (principle 7).
   import type { WhereToBuyData } from './core/core'
   import { shekels } from './format'
   import { rangeText, tieGroups, versusText } from './how'
   import { t } from './text'
 
-  let { app, where }: { app: AppState; where: WhereToBuyData } = $props()
+  let { where }: { where: WhereToBuyData } = $props()
 
   const groups = $derived(tieGroups(where.rows))
-  const hasYours = $derived(where.rows.some((row) => row.yours))
-  const bank = $derived(app.answers.bank ?? undefined)
-  /** The chooser stays once a bank is named, so it can be changed. */
-  const asking = $derived(where.rows.length > 0 && (where.asksBank || (bank !== undefined && hasYours)))
 </script>
 
 <div class="where">
@@ -53,29 +48,6 @@
           <span class="versus reference">{t.referenceRow}</span>
         </div>
       {/if}
-    </div>
-  {/if}
-  {#if asking}
-    <div class="ask" role="group" aria-labelledby="where-bank">
-      <p id="where-bank">{t.askBank}</p>
-      <div class="banks">
-        {#each app.banks as choice (choice.bank)}
-          <button
-            type="button"
-            class="chip"
-            class:chosen={bank === choice.bank}
-            aria-pressed={bank === choice.bank}
-            onclick={() => app.setBank(choice.bank)}
-          >
-            {choice.name}
-          </button>
-        {/each}
-        <!-- No bank named is not "another bank" (principle 5): this only takes a
-             named bank back. -->
-        {#if bank !== undefined}
-          <button type="button" class="chip" onclick={() => app.setBank(undefined)}>{t.otherBank}</button>
-        {/if}
-      </div>
     </div>
   {/if}
   {#if where.rows.length === 0 && where.note}<p class="note">{where.note}</p>{/if}
@@ -166,28 +138,5 @@
     color: var(--weak);
     font-size: 0.9rem;
     line-height: 1.55;
-  }
-  .ask {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-  .ask p {
-    margin: 0;
-    font-size: 0.92rem;
-  }
-  .banks {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .chip {
-    min-height: 33px;
-    padding: 4px 14px;
-    border-radius: 999px;
-  }
-  .chip.chosen {
-    border-color: var(--accent);
-    background: var(--accent-tint);
   }
 </style>

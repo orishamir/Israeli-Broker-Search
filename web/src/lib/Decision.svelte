@@ -31,7 +31,12 @@
   <div class="options" class:three={decision.options.length > 2}>
     {#each decision.options as option (keyOf(option.pick))}
       {@const pressed = chosen === keyOf(option.pick)}
-      <div class="option" class:pressed class:other={chosen !== undefined && !pressed}>
+      <div
+        class="option"
+        class:pressed
+        class:other={chosen !== undefined && !pressed}
+        data-pick={keyOf(option.pick)}
+      >
         <h4 class="title">{option.title}</h4>
         {#if option.amount}<p class="amount">{option.amount}</p>{/if}
         {#if option.facts.length > 0}

@@ -12,11 +12,11 @@
   import type { HorizonRowData } from './core/core'
   import { HeldWhileTyping } from './held.svelte'
   import { glideHeight } from './motion'
+  import { showAnswer } from './scroll'
   import { t } from './text'
 
   let { app }: { app: AppState } = $props()
 
-  let section: HTMLElement | null = $state(null)
   const held = new HeldWhileTyping(() => app.horizons)
   const rows = $derived(held.current ?? [])
   /** Before the first rows: the five dates' places, empty. */
@@ -32,11 +32,9 @@
   function open(row: HorizonRowData) {
     app.setHorizonMonths(row.years * 12)
     if (row.flexibility !== undefined) app.choose({ Flexibility: row.flexibility })
-    // The answer is above the section: bring it into view.
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches
-    section
-      ?.closest('.answer-column')
-      ?.scrollIntoView({ block: 'start', behavior: reduced ? 'auto' : 'smooth' })
+    // The answer is above the section: bring it into view. (Not its column:
+    // on a phone that has no box of its own, `display: contents`.)
+    showAnswer()
   }
 </script>
 
@@ -46,7 +44,6 @@
     class:waiting={!app.horizonsFresh}
     aria-labelledby="horizons-title"
     aria-busy={!app.horizonsFresh}
-    bind:this={section}
     {@attach glideHeight()}
   >
     <div>

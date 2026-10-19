@@ -382,6 +382,8 @@ export const en = {
   retireAtAge: "and I'll retire at",
   answerUpdatesBelow: '↓ The answer updates below',
   otherBank: 'Another bank',
+  myBank: 'My bank',
+  noBankChosen: '—',
   withinTitle: "Where it's cheapest to buy",
   // The workbench's charts and its funds
   afterSaleAndTax: 'After selling and tax',
@@ -475,7 +477,7 @@ export const en = {
   // (The chart's words about money are the core's: `outcomeWords`.)
   outcomeReturnLabel: 'The yearly return the figures assume for the S&P 500 index',
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
-  //     reference row's label, the bank's question.
+  //     reference row's label.
   howHeading: 'How to do it',
   howNothingYet: 'Nothing chosen yet',
   howEmpty: 'Choose above, or tap a row in the chart, and see here what to buy, where and how.',
@@ -487,7 +489,6 @@ export const en = {
   tie: 'A tie',
   yourBankRow: (name: string) => `Your bank: ${name}`,
   throughABank: 'Through a bank',
-  askBank: 'Which is your bank? Then each place shows how much more or less it leaves than your bank.',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'How much of the gain stays with you',
   gainKept: 'Stays with you',
