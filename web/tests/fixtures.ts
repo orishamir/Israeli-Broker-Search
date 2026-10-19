@@ -1,7 +1,8 @@
 import { expect, test as base, type Locator, type Page } from '@playwright/test'
-import { dateText } from '../src/lib/format'
+import { dateText, shekels } from '../src/lib/format'
 import { t } from '../src/lib/text'
-import { listed, RATES } from './core'
+import { answersWith, followCard, listed, RATES, recommendation, situations } from './core'
+import type { AnswersInput, Overrides } from './core'
 
 export { expect, type Locator, type Page }
 
@@ -19,12 +20,41 @@ export const test = base.extend({
       route.fulfill({ json: { date: RATES.date, rates: { ILS: 3.4594, USD: 1.1403 } } }),
     )
     await page.goto('/')
-    await expect(page.locator('.chart canvas')).toBeVisible()
-    await expect(page.getByText(`· ${dateText(RATES.date)}`)).toBeVisible()
+    await expect(page.locator('.alternatives .chart canvas')).toBeVisible()
     await use(page)
     expect(errors, 'errors thrown in the page').toEqual([])
   },
 })
+
+/** The switch under the title, כל האפשרויות. */
+export const expertSwitch = (page: Page) => page.getByRole('switch', { name: t.allOptions })
+
+/** Turns the switch on or off by its label, as a finger does: the input
+ * itself is hidden behind the track. */
+export async function setExpert(page: Page, on = true) {
+  if ((await expertSwitch(page).isChecked()) !== on) await page.locator('label.expert-switch').click()
+  await expect(expertSwitch(page)).toBeChecked({ checked: on })
+}
+
+/** The workbench, with the switch on and `thing` chosen: by default another
+ * index or a stock, whose plans on one exchange are what most specs compare
+ * (the S&P 500 compares ways, bonds and short-term money the guide's kinds).
+ * Waits for the exchange rates, which the table's footnote dates once downloaded. */
+export async function workbench(page: Page, thing: string = t.thingOther) {
+  await setExpert(page)
+  await choice(page, t.whatToBuy, thing).click()
+  if (thing === t.thingOther)
+    await expect(page.locator('section.within .dates')).toContainText(dateText(RATES.date))
+}
+
+/** Types into one of the money fields (`now`, `monthly`, `horizon`). */
+export async function fillField(page: Page, id: 'now' | 'monthly' | 'horizon', value: string) {
+  await page.locator(`#${id}`).fill(value)
+}
+
+/** A situation chip, by the name the core gives it. */
+export const chip = (page: Page, name: string) =>
+  page.getByRole('group', { name: t.whatForTitle }).getByRole('button', { name, exact: true })
 
 /** The results table's rows, best first. */
 export const rows = (page: Page) => page.locator('tbody tr')
@@ -48,7 +78,11 @@ export const details = (page: Page) =>
 
 /** Opens the list of plans, unless it's open. */
 export async function openPlans(page: Page) {
-  if (!(await plansList(page).isVisible())) await page.getByRole('button', { name: t.addOrRemove }).click()
+  const open = page.getByRole('button', { name: t.addOrRemove })
+  if (!(await plansList(page).isVisible())) {
+    if (!(await open.isVisible())) await workbench(page)
+    await open.click()
+  }
   await expect(plansList(page)).toBeVisible()
 }
 
@@ -160,3 +194,82 @@ export async function fingerDrag(page: Page, target: Locator, at: number, dx: nu
   }
   await touch('touchEnd', [])
 }
+
+// ─────────────────────────── The guide ───────────────────────────
+
+/** The answer card. */
+export const answerCard = (page: Page) => page.locator('section.answer')
+
+/** The page shows what the core recommends for `answers`: the kind named in
+ * the sentence and, when it is a single sum, the amount that is left. Waits
+ * for the worker's answer on long horizons. */
+export async function expectAnswerFor(page: Page, answers: AnswersInput, overrides?: Overrides) {
+  const expected = recommendation(answers, overrides)
+  const card = answerCard(page)
+  // The sentence names the kind in the bank's words, bold where the core says.
+  const sentence = [...expected.what, ...expected.whatThen].map(({ text }) => text).join('')
+  await expect(card.locator('.what p').first()).toContainText(sentence)
+  if (!expected.twoParts) await expect(card.locator('.big')).toHaveText(shekels(expected.left.today))
+  return expected
+}
+
+/** What a person types into the questions. */
+export interface Entered {
+  now: number | null
+  monthly: number | null
+  /** Whole years; or `'unknown'`, or the ages for retirement. */
+  horizon: number | 'unknown' | { age: number; retireAt: number }
+  flexibility?: 'Fixed' | 'CanWait'
+  /** `'has'`, or the month's expenses of someone who has no cushion. */
+  cushion?: 'has' | number
+}
+
+const fieldText = (value: number | null) => (value === null ? '' : String(value))
+
+/** Types `entered` into the questions, as a person would (from the first
+ * chip's page), and returns the answers it stands for, as the core takes them. */
+export async function enter(page: Page, entered: Entered): Promise<AnswersInput> {
+  const { horizon } = entered
+  const retirement = typeof horizon === 'object'
+  if (retirement) await chip(page, situationName('retirement')).click()
+  await fillField(page, 'now', fieldText(entered.now))
+  await fillField(page, 'monthly', fieldText(entered.monthly))
+  let answers = answersWith({ now: entered.now, monthly: entered.monthly })
+  if (retirement) {
+    await page.locator('#age').fill(String(horizon.age))
+    await page.locator('#retire-at').fill(String(horizon.retireAt))
+    answers = { ...answers, horizon: { Retirement: { age: horizon.age, retire_at: horizon.retireAt } } }
+  } else if (horizon === 'unknown') {
+    await page.locator('.money').getByRole('button', { name: t.dontKnowYet }).click()
+  } else {
+    await fillField(page, 'horizon', String(horizon))
+    answers = { ...answers, horizon: { Months: horizon * 12 } }
+  }
+  if (entered.flexibility) {
+    const card = followCard('Flexibility')
+    await page
+      .locator('section.follow')
+      .filter({ hasText: card.title })
+      .getByRole('button', { name: card.answers[entered.flexibility === 'Fixed' ? 0 : 1] })
+      .click()
+    answers = { ...answers, flexibility: entered.flexibility }
+  }
+  if (entered.cushion !== undefined) {
+    const card = followCard('Cushion')
+    const has = entered.cushion === 'has'
+    await page
+      .locator('section.follow')
+      .filter({ hasText: card.title })
+      .getByRole('button', { name: card.answers[has ? 0 : 1] })
+      .click()
+    if (!has) await page.locator('#expenses').fill(String(entered.cushion))
+    answers = {
+      ...answers,
+      cushion: has ? { kind: 'has' } : { kind: 'hasNot', monthlyExpenses: entered.cushion as number },
+    }
+  }
+  return answers
+}
+
+/** A situation's name by its id, for its chip. */
+export const situationName = (id: string) => situations().find((each) => each.id === id)!.name

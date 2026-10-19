@@ -6,21 +6,33 @@
 
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
-import { percent, placeCost, shekels, yearlyCost } from '../src/lib/format'
+import { shekels, yearlyCost } from '../src/lib/format'
 import { parseNumber } from '../src/lib/numbers'
 import { t } from '../src/lib/text'
 import {
+  alternatives,
   brokers,
+  columnsFor,
   compare,
-  compareShortTerm,
   exchanges,
   initSync,
+  ladder,
+  recommend,
   securities,
   setLang,
-  shortTermKinds,
+  situations,
+  todaysRatePercent,
   usualInflationPercent,
 } from '../src/lib/core/core'
-import type { Exchange, Inputs, PlaceKey, PlanKey, Security, ShortTermInputs } from '../src/lib/core/core'
+import type {
+  AnswersInput,
+  Exchange,
+  GuideSettings,
+  Inputs,
+  Overrides,
+  PlanKey,
+  Security,
+} from '../src/lib/core/core'
 
 /** The key of a listed plan: where its broker is, and where it is in the broker's plans. */
 export type ListedKey = Extract<PlanKey, { kind: 'listed' }>
@@ -74,14 +86,74 @@ export const securityName = (value: Security) => securities().find((choice) => c
 /** An exchange's name on the page: "תל אביב" for `Tlv`. */
 export const exchangeName = (value: Exchange) => exchanges().find((choice) => choice.value === value)!.name
 
-/** What the page's inputs say, read back from its fields and ticks, as the
- * core takes them. */
+// ─────────────────────────── The guide ───────────────────────────
+
+/** The guide's own choice: nothing chosen over it. */
+export const NO_OVERRIDES: Overrides = { arena: undefined, kind: undefined }
+
+/** What the guide is asked for at the page's start: the usual rates, the
+ * plans ticked at first, the mocked exchange rates, no override. The page's
+ * own settings are these until the workbench changes them. */
+export const guideSettings = (overrides: Overrides = NO_OVERRIDES): GuideSettings => ({
+  indexReturnPercent: 10,
+  inflationPercent: usualInflationPercent(),
+  boiRatePercent: todaysRatePercent(),
+  ilsPerUsd: RATES.ilsPerUsd,
+  ilsPerEur: RATES.ilsPerEur,
+  plans: usualPlans.map(({ key }) => key),
+  yourPlans: [],
+  overrides,
+  thisYear: new Date().getFullYear(),
+})
+
+/** Answers with nothing but what the test says: a horizon not known, a sum
+ * not given, no flexibility. */
+export const answersWith = (some: Partial<AnswersInput>): AnswersInput => ({
+  situation: undefined,
+  now: null,
+  monthly: null,
+  horizon: 'Unknown',
+  flexibility: undefined,
+  cushion: undefined,
+  needsAnyDay: false,
+  ...some,
+})
+
+/** A situation chip's answers, by its id ("goal", "bonus", ...). */
+export function situationAnswers(id: string): AnswersInput {
+  const found = situations().find((situation) => situation.id === id)
+  if (!found) throw new Error(`no situation "${id}"`)
+  return found.answers
+}
+
+/** The guide's answer for `answers`, the page's settings, and the kind or
+ * arena the user chose over it, if any. */
+export const recommendation = (answers: AnswersInput, overrides: Overrides = NO_OVERRIDES) =>
+  recommend(answers, guideSettings(overrides))
+
+/** The same money at other horizons. */
+export const ladderFor = (answers: AnswersInput, overrides: Overrides = NO_OVERRIDES) =>
+  ladder(answers, guideSettings(overrides))
+
+/** The kinds drawn beside the answer, month by month. */
+export const alternativesFor = (answers: AnswersInput, overrides: Overrides = NO_OVERRIDES) =>
+  alternatives(answers, guideSettings(overrides))
+
+// ─────────────────────────── The workbench ───────────────────────────
+
+/** What the workbench's inputs say, read back from its fields and ticks, as
+ * the core takes them. Only with the switch on and "another index or a
+ * stock" chosen: the levers are on the page while the assumptions are
+ * unfolded, and the app's own values otherwise. The horizon is a number
+ * and a unit, and not unknown. */
 export async function inputsOnPage(page: Page): Promise<Inputs> {
-  const chosen = async (group: string) =>
-    page.getByRole('radiogroup', { name: group }).locator('input:checked').getAttribute('value')
-  const number = async (id: string) => {
+  const chosen = async (group: string) => {
+    const checked = page.getByRole('radiogroup', { name: group }).locator('input:checked')
+    return (await checked.count()) ? checked.getAttribute('value') : null
+  }
+  const number = async (id: string, otherwise: number | null = null) => {
     const field = page.locator(`#${id}`)
-    return (await field.count()) ? parseNumber(await field.inputValue()) : null
+    return (await field.count()) ? parseNumber(await field.inputValue()) : otherwise
   }
   // The ticks are in the list of plans, closed or folded most of the time.
   const ticked: PlanKey[] = []
@@ -91,65 +163,62 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
       .getByRole('checkbox', { name: plan.name, exact: true, includeHidden: true })
     if (await box.isChecked()) ticked.push(key)
   }
-  const exchange = (await chosen(t.exchange)) as Exchange
-  // The expert fields are on the page only under "More options"; off, the
-  // app takes the defaults.
-  const moreOptions = await page.getByLabel(t.moreOptions, { exact: true }).isChecked()
-  const inflation = moreOptions ? await number('inflation') : usualInflationPercent()
+  const exchange = ((await chosen(t.exchange)) ?? 'Usa') as Exchange
+  const typed = parseNumber(await page.locator('#horizon').inputValue())
+  const unit = await page.getByLabel(t.timeUnit).inputValue()
+  const months = unit === 'years' ? (typed ?? 0) * 12 : (typed ?? 0)
+  const inflation = await number('inflation', usualInflationPercent())
   // How the money is taken out is asked only while a ticked plan pays a pension.
   const wayOut = page.getByRole('radiogroup', { name: t.takingTheMoneyOut })
   const asPension = (await wayOut.count()) > 0 && (await chosen(t.takingTheMoneyOut)) === 'pension'
+  const atEnd = page.getByRole('radiogroup', { name: t.atTheEnd })
+  const todays = page.getByRole('checkbox', { name: t.todaysMoney })
+  const inTodaysMoney = (await todays.count()) ? await todays.isChecked() : true
   return {
-    security: (await chosen(t.security)) as Security,
+    security: ((await chosen(t.security)) ?? 'Etf') as Security,
     exchange,
-    firstDeposit: await number('first-deposit'),
-    monthlyDeposit: await number('monthly-deposit'),
-    yearlyReturnPercent: await number('yearly-return'),
-    years: Number(await page.locator('#years').inputValue()),
-    buyEveryMonths: moreOptions ? Number(await page.locator('#buy-every').inputValue()) : 1,
-    sharePrice: await number('share-price'),
-    depositGrowthPercent: moreOptions ? await number('deposit-growth') : 0,
+    product: undefined,
+    firstDeposit: await number('now'),
+    monthlyDeposit: await number('monthly'),
+    yearlyReturnPercent: await number('yearly-return', 10),
+    years: Math.min(50, Math.max(1, Math.ceil(months / 12))),
+    buyEveryMonths: (await page.locator('#buy-every').count())
+      ? Number(await page.locator('#buy-every').inputValue())
+      : 1,
+    sharePrice: await number('share-price', 500),
+    depositGrowthPercent: await number('deposit-growth', 0),
     inflationPercent: inflation,
-    inTodaysMoney:
-      moreOptions && !!inflation && (await page.getByRole('checkbox', { name: t.todaysMoney }).isChecked()),
+    inTodaysMoney: !!inflation && inTodaysMoney,
     asPension,
     age: asPension ? await number('age') : null,
-    sellAtEnd: moreOptions ? (await chosen(t.atTheEnd)) === 'sell' : true,
+    sellAtEnd: (await atEnd.count()) ? (await chosen(t.atTheEnd)) === 'sell' : true,
     // The rate fields are only on the page abroad; the app has the same rates.
-    ilsPerUsd: exchange === 'Tlv' ? RATES.ilsPerUsd : await number('usd'),
-    ilsPerEur: exchange === 'Tlv' ? RATES.ilsPerEur : await number('eur'),
+    ilsPerUsd: exchange === 'Tlv' ? RATES.ilsPerUsd : await number('usd', RATES.ilsPerUsd),
+    ilsPerEur: exchange === 'Tlv' ? RATES.ilsPerEur : await number('eur', RATES.ilsPerEur),
     plans: ticked,
     yourPlans: [],
   }
 }
 
-/** The results table the core would give for `inputs`: each row's plan
- * name and its amounts as the page formats them, best first, in the table's
- * column order: what's left after tax first when everything is sold, and
- * what's held, with no tax yet, when nothing is. */
+/** The workbench's table the core would give for `inputs`: each row's plan
+ * name and its amounts as the page formats them, best first, in the columns
+ * the core names for the index arena. */
 export function expectedRows(inputs: Inputs) {
+  const columns = columnsFor('Index').map(({ id }) => id)
   return compare(inputs).plans.map(({ key, outcome }) => {
     const plan = listedPlans.find((listed) => JSON.stringify(listed.key) === JSON.stringify(key))!
-    const [lost, yearly, fees] = outcome
-      ? [shekels(outcome.lostToFees), yearlyCost(outcome.yearlyCostPercent), shekels(outcome.fees.total)]
-      : []
-    const amounts = !outcome
-      ? []
-      : inputs.sellAtEnd
-        ? [
-            shekels(outcome.afterTax),
-            lost,
-            outcome.tax === 0 ? t.none : shekels(outcome.tax),
-            yearly,
-            fees,
-            shekels(outcome.held),
-          ]
-        : [shekels(outcome.held), lost, yearly, fees]
-    return { name: plan.plan.name, broker: plan.broker.name, amounts }
+    const amount = (column: string) => {
+      if (!outcome) return undefined
+      if (column === 'LeftAfterTax') return shekels(inputs.sellAtEnd ? outcome.afterTax : outcome.held)
+      if (column === 'CostAYear') return yearlyCost(outcome.yearlyCostPercent)
+      if (column === 'Fees') return shekels(outcome.fees.total)
+      return outcome.tax === 0 ? t.noTax : shekels(outcome.tax)
+    }
+    return { name: plan.plan.name, broker: plan.broker.name, amounts: columns.map(amount).filter(Boolean) }
   })
 }
 
-/** The results table as the page shows it, in the same shape. */
+/** The workbench's table as the page shows it, in the same shape. */
 export async function rowsOnPage(page: Page) {
   const rows = await page.locator('tbody tr').all()
   return Promise.all(
@@ -201,102 +270,4 @@ export function trackOnPage(inputs: Inputs, key: PlanKey): number | undefined {
   } catch {
     return undefined
   }
-}
-
-// ─────────────────────────── The short term ───────────────────────────
-
-/** The key of a listed place: where its kind is, and where it is in the kind's places. */
-export type ListedPlaceKey = Extract<PlaceKey, { kind: 'listed' }>
-
-/** Every listed place, with its kind and its key. */
-export const shortTermPlaces = shortTermKinds().flatMap((kind, group) =>
-  kind.places.map((place, index) => ({
-    kind,
-    place,
-    key: { kind: 'listed', group, place: index } as ListedPlaceKey,
-    /** As tests name it, and links: "Fixed-rate deposit · Bank Leumi". */
-    englishLabel: `${kind.englishName} · ${place.englishName}`,
-  })),
-)
-
-/** The place called `englishLabel` ("Fixed-rate deposit · Bank Leumi"). */
-export function place(englishLabel: string) {
-  const found = shortTermPlaces.find((listed) => listed.englishLabel === englishLabel)
-  if (!found) throw new Error(`no listed place "${englishLabel}"`)
-  return found
-}
-
-/** What the short-term calculator's inputs say, read back from its fields
- * and from the ticks in its list of places (closed most of the time). */
-export async function shortTermInputsOnPage(page: Page): Promise<ShortTermInputs> {
-  const number = async (id: string) => {
-    const field = page.locator(`#${id}`)
-    return (await field.count()) ? parseNumber(await field.inputValue()) : null
-  }
-  const places: PlaceKey[] = []
-  for (const { kind, place, key } of shortTermPlaces) {
-    const box = page
-      .getByRole('list', { name: kind.name, includeHidden: true })
-      .getByRole('checkbox', { name: place.name, exact: true, includeHidden: true })
-    if (await box.isChecked()) places.push(key)
-  }
-  // Your deposits: each rate field's id holds the deposit's.
-  const yourDeposits = []
-  const rates = page.locator('[id^="deposit-rate-"]')
-  for (const field of await rates.all()) {
-    const id = (await field.getAttribute('id'))!.replace('deposit-rate-', '')
-    yourDeposits.push({ id, ratePercent: parseNumber(await field.inputValue()) })
-    const box = page.locator('li.yours', { has: field }).getByRole('checkbox', { includeHidden: true })
-    if (await box.isChecked()) places.push({ kind: 'yours', id })
-  }
-  const moreOptions = await page.getByLabel(t.moreOptions, { exact: true }).isChecked()
-  return {
-    firstDeposit: await number('first-deposit'),
-    monthlyDeposit: await number('monthly-deposit'),
-    months: Number(await page.locator('#months').inputValue()),
-    ratePercent: await number('rate'),
-    inflationPercent: moreOptions ? await number('inflation') : usualInflationPercent(),
-    places,
-    yourDeposits,
-  }
-}
-
-/** The short-term table the core would give for `inputs`: each row's name
- * and its amounts as the page formats them, best first; a place the money
- * can't be kept in has the core's few words instead. `yourNames`: your
- * deposits' names, by id. */
-export function expectedPlaceRows(inputs: ShortTermInputs, yourNames: Record<string, string> = {}) {
-  return compareShortTerm(inputs).places.map(({ key, outcome, notOffered }) => {
-    const name =
-      key.kind === 'yours'
-        ? yourNames[key.id]
-        : shortTermPlaces.find((listed) => JSON.stringify(listed.key) === JSON.stringify(key))!.place.name
-    const amounts = outcome
-      ? [
-          shekels(outcome.afterTax),
-          percent(outcome.yearlyAfterTaxPercent),
-          placeCost(outcome.yearlyCostPercent),
-          outcome.tax === 0 ? t.noTax : shekels(outcome.tax),
-        ]
-      : [notOffered]
-    return { name, amounts }
-  })
-}
-
-/** The short-term table as the page shows it, in the same shape: a place
- * not offered by the words its cell starts with, before its ?. */
-export async function placeRowsOnPage(page: Page) {
-  const rows = await page.locator('tbody tr').all()
-  return Promise.all(
-    rows.map(async (row) => {
-      const cells = row.locator('td.amount')
-      const offered = (await cells.count()) > 1
-      return {
-        name: await row.locator('.names > span').first().textContent(),
-        amounts: offered
-          ? await cells.allTextContents()
-          : [(await cells.first().evaluate((cell) => cell.firstChild?.textContent ?? '')).trim()],
-      }
-    }),
-  )
 }
