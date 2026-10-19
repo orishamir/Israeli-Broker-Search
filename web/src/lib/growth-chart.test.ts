@@ -130,3 +130,8 @@ test('end labels of lines that end close together still read differently', () =>
   expect(end(b, 103_188)).toContain('₪103.19\u00a0אלף')
   expect(end(noFees, 103_250)).toBe('₪103.25\u00a0אלף')
 })
+
+test("the value axis says it is in today's money only when it is", () => {
+  expect(growthOption(view({ todaysMoney: true })).yAxis).toMatchObject({ name: t.inTodaysMoneyAxis })
+  expect(growthOption(view()).yAxis).toMatchObject({ name: undefined })
+})

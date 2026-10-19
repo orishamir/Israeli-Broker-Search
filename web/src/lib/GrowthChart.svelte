@@ -1,12 +1,14 @@
 <script lang="ts">
-  import type { AppState, Result } from './app.svelte'
+  import type { AppState } from './app.svelte'
+  import type { ChartEntry } from './chart-entries'
   import type { OutcomeData } from './core/core'
   import { chart } from './echarts.svelte'
   import { growthOption, NO_FEES, type Line } from './growth-chart'
   import { linkLines } from './linked.svelte'
   import { touchScreen } from './pointer'
 
-  let { app, results, noFees }: { app: AppState; results: Result[]; noFees: OutcomeData } = $props()
+  /** `entries`: a line for each plan, or for each way. */
+  let { app, entries, noFees }: { app: AppState; entries: ChartEntry[]; noFees: OutcomeData } = $props()
 
   /** Lost to fees rather than the value: as the view shown, or while another
    * chart is, as the last one shown, so that coming back to it (the fee
@@ -20,18 +22,17 @@
 
   const option = () =>
     growthOption({
-      lines: results
-        .filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined)
-        .map(({ plan, outcome, rank }): Line => ({
-          id: plan.id,
-          label: plan.label,
-          color: plan.color,
-          rank,
-          dotted: plan.yours !== undefined,
-          values: lost ? outcome.lostByMonth : outcome.valueByMonth,
-        })),
+      lines: entries.map(({ id, label, color, rank, yours, outcome }): Line => ({
+        id,
+        label,
+        color,
+        rank,
+        dotted: yours,
+        values: lost ? outcome.lostByMonth : outcome.valueByMonth,
+      })),
       noFees: lost ? null : noFees.valueByMonth,
       lost,
+      todaysMoney: app.inTodaysMoney,
       pinned: app.pinned,
       touch: touchScreen,
     })
