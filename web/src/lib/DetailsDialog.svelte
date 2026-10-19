@@ -8,6 +8,7 @@
   import FeesForInputs from './FeesForInputs.svelte'
   import Price from './Price.svelte'
   import PlanEditor from './PlanEditor.svelte'
+  import { reducedMotion } from './motion'
   import { t } from './text'
 
   let { app }: { app: AppState } = $props()
@@ -38,12 +39,28 @@
       // The about page opens at the section that was asked for, once drawn.
       if (app.details.kind === 'about' && app.details.section !== undefined) {
         const section = app.details.section
-        tick().then(() => dialog.querySelector(`#about-${section}`)?.scrollIntoView({ block: 'start' }))
+        const id = [...app.about.sections, app.about.accessibility][section]?.id
+        if (id) tick().then(() => dialog.querySelector(`#about-${id}`)?.scrollIntoView({ block: 'start' }))
       }
     } else if (dialog.open) {
       dialog.close()
     }
   })
+
+  /** A table-of-contents link: scrolls to the section and moves focus to its
+   * heading, so a keyboard or a screen reader follows. */
+  const goTo = (id: string) => {
+    const behavior = reducedMotion ? 'auto' : 'smooth'
+    if (id === 'top') {
+      dialog.scrollTo({ top: 0, behavior })
+      dialog.querySelector<HTMLElement>('#details-title')?.focus({ preventScroll: true })
+      return
+    }
+    // The section carries the scroll margin that keeps its heading clear of
+    // the sticky header; the heading takes the focus.
+    dialog.querySelector(`#about-${id}`)?.scrollIntoView({ block: 'start', behavior })
+    dialog.querySelector<HTMLElement>(`#about-${id} h3`)?.focus({ preventScroll: true })
+  }
 
   const broker = $derived(
     shown?.kind === 'broker' ? shown.broker : shown?.kind === 'plan' ? shown.plan.broker : undefined,
@@ -87,13 +104,28 @@
   {:else if shown?.kind === 'about'}
     <div class="content">
       <header>
-        <h2 id="details-title">{t.aboutTheNumbers}</h2>
+        <h2 id="details-title" tabindex="-1">{t.aboutTheNumbers}</h2>
         <button class="close" aria-label={t.close} onclick={() => dialog.close()}>✕</button>
       </header>
+      <nav aria-label={t.aboutContents} class="contents">
+        <ul>
+          {#each [...app.about.sections, app.about.accessibility] as section (section.id)}
+            <li>
+              <a
+                href="#about-{section.id}"
+                onclick={(event) => {
+                  event.preventDefault()
+                  goTo(section.id)
+                }}>{section.title}</a
+              >
+            </li>
+          {/each}
+        </ul>
+      </nav>
       <!-- The accessibility statement last, where the footer opens it. -->
-      {#each [...app.about.sections, app.about.accessibility] as section, index (section.title)}
-        <section class="about" id="about-{index}">
-          <h3>{section.title}</h3>
+      {#each [...app.about.sections, app.about.accessibility] as section (section.id)}
+        <section class="about" id="about-{section.id}">
+          <h3 tabindex="-1">{section.title}</h3>
           {#each section.paragraphs as paragraph (paragraph)}
             <p>{paragraph}</p>
           {/each}
@@ -117,6 +149,15 @@
               {/each}
             </ul>
           {/if}
+          <p class="to-top">
+            <a
+              href="#details-title"
+              onclick={(event) => {
+                event.preventDefault()
+                goTo('top')
+              }}>{t.backToTop}</a
+            >
+          </p>
         </section>
       {/each}
     </div>
@@ -438,6 +479,11 @@
   .about li {
     margin: 4px 0;
   }
+  .contents ul {
+    margin: 8px 0;
+    padding-inline-start: 20px;
+  }
+  .contents a,
   .about a {
     color: var(--accent);
   }

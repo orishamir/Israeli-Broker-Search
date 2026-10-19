@@ -257,6 +257,8 @@ export const en = {
 
   // A plan's details
   aboutTheNumbers: 'About the numbers',
+  aboutContents: 'In this page',
+  backToTop: 'Back to top',
   close: 'Close',
   tariffPdf: 'Tariff (PDF)',
   forPurchase: (purchase: string) => `For ${purchase}:`,
