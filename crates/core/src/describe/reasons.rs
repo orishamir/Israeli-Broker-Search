@@ -170,10 +170,10 @@ pub fn history_caveat(band: &Band, lang: Lang) -> String {
         format!(
             "The stretches overlap (each starts a month after the last), so they are far fewer \
              separate experiences than their number. The data runs to {until}, and the past is \
-             not a promise."
+             not a promise. A fund in shekels also moves with the dollar's exchange rate, which the band leaves out."
         ),
         format!(
-            "התקופות חופפות (כל אחת מתחילה חודש אחרי קודמתה), ולכן הן הרבה פחות ניסיונות נפרדים ממספרן. הנתונים מגיעים עד {until}, והעבר הוא לא הבטחה."
+            "התקופות חופפות (כל אחת מתחילה חודש אחרי קודמתה), ולכן הן הרבה פחות ניסיונות נפרדים ממספרן. הנתונים מגיעים עד {until}, והעבר הוא לא הבטחה. קרן בשקלים זזה גם עם שער הדולר, שהטווח לא כולל."
         ),
     )
 }
