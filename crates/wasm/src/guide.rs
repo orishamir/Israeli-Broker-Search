@@ -299,6 +299,10 @@ pub struct KindData {
     pub name: String,
     pub card: Option<Term>,
     pub safety: Safety,
+    /// The tag beside the kind ("sum known in advance"), and its sentence for
+    /// the tip.
+    pub safety_tag: String,
+    pub safety_note: String,
     pub arena: Option<Arena>,
 }
 
@@ -309,6 +313,10 @@ impl From<Kind> for KindData {
             name: kind.name(lang()).to_owned(),
             card: card_of(kind),
             safety: kind.safety(),
+            safety_tag: broker_fees::describe::reasons::safety_tag(kind.safety(), lang())
+                .to_owned(),
+            safety_note: broker_fees::describe::reasons::safety_note(kind.safety(), lang())
+                .to_owned(),
             arena: kind.arena(),
         }
     }
@@ -637,6 +645,12 @@ pub struct BandSeriesData {
     pub band: BandData,
     pub worst: Vec<f64>,
     pub best: Vec<f64>,
+    /// "In 52 of 1,086 stretches of 5 years since 1926 it ended lower", in
+    /// dollars: the band's caption's first half.
+    pub sentence: String,
+    /// What the sentence leaves out (the stretches overlap, the data's end,
+    /// a shekel fund also follows the exchange rate): its second half.
+    pub caveat: String,
 }
 
 // The outermost type decides how maps are written: see `AlternativeData`.
@@ -676,6 +690,8 @@ pub fn alternatives_for(
             band: (&band.band).into(),
             worst: numbers(&band.worst),
             best: numbers(&band.best),
+            sentence: broker_fees::describe::reasons::history_sentence(&band.band, lang()),
+            caveat: broker_fees::describe::reasons::history_caveat(&band.band, lang()),
         }),
     })
 }
