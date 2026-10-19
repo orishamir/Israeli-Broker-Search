@@ -25,9 +25,9 @@ use super::series::{self, Alternatives, BandSeries, KindSeries};
 use super::{
     Alternative, Amount, Answers, Arena, Breakdown, CUSHION_MONTHS, Choice, Circumstance, Context,
     Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility, Horizon,
-    INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, REFERENCE_YEARS, Ranked,
-    Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS, SHORT_GOAL_UP_TO_MONTHS, Settings,
-    Situation, StepText, check, follow_ups,
+    INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, Overrides, REFERENCE_YEARS,
+    Ranked, Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS, SHORT_GOAL_UP_TO_MONTHS,
+    Settings, Situation, StepText, check, follow_ups,
 };
 
 /// Which row of the table the answers fall in.
@@ -119,20 +119,19 @@ fn natural_route(answers: &Answers) -> Route {
 }
 
 /// The arena the expert asked for, or the situation implies.
-fn forced_arena(answers: &Answers, settings: &Settings) -> Option<Arena> {
-    settings
-        .overrides
+fn forced_arena(answers: &Answers, chosen: Overrides) -> Option<Arena> {
+    chosen
         .kind
         .and_then(Kind::arena)
-        .or(settings.overrides.arena)
+        .or(chosen.arena)
         .or_else(|| {
             matches!(answers.situation, Some(Situation::KnowsWhatToBuy)).then_some(Arena::Index)
         })
 }
 
-fn route_for(answers: &Answers, settings: &Settings) -> Route {
+fn route_for(answers: &Answers, chosen: Overrides) -> Route {
     let natural = natural_route(answers);
-    match forced_arena(answers, settings) {
+    match forced_arena(answers, chosen) {
         Some(arena) if arena != natural.arena() => Route::Forced(arena),
         _ => natural,
     }
@@ -256,6 +255,7 @@ fn safe_pool(route: Route, answers: &Answers) -> Vec<Kind> {
 fn decide_safe<'a>(
     answers: &Answers,
     settings: &Settings,
+    chosen: Overrides,
     data: &Data,
     route: Route,
 ) -> Decision<'a> {
@@ -272,7 +272,7 @@ fn decide_safe<'a>(
     };
     let mut pool = safe_pool(route, answers);
     // The kind the expert chose is ranked even where the rules would leave it out.
-    if let Some(kind) = settings.overrides.kind
+    if let Some(kind) = chosen.kind
         && kind.arena() == Some(Arena::Safe)
         && !pool.contains(&kind)
     {
@@ -284,8 +284,7 @@ fn decide_safe<'a>(
         // the fund is always there.
         priced = price_pool(vec![Kind::MoneyMarketFund]);
     }
-    let at = settings
-        .overrides
+    let at = chosen
         .kind
         .and_then(|kind| priced.iter().position(|p| p.kind == kind))
         .unwrap_or(0);
@@ -382,6 +381,7 @@ fn kind_line(priced: &Priced) -> Ranked {
 fn decide_index<'a>(
     answers: &Answers,
     settings: &Settings,
+    chosen: Overrides,
     data: &'a Data,
     route: Route,
 ) -> Option<Decision<'a>> {
@@ -397,8 +397,7 @@ fn decide_index<'a>(
     };
     let run = index::run(&ways, base, cands, &settings.rates);
     let ranked = run.ranked(level);
-    let at = settings
-        .overrides
+    let at = chosen
         .kind
         .and_then(|kind| match kind {
             Kind::Way(way) => ranked.iter().position(|line| line.kind == Kind::Way(way)),
@@ -449,9 +448,19 @@ fn decide_index<'a>(
 }
 
 fn decide<'a>(answers: &Answers, settings: &Settings, data: &'a Data) -> Decision<'a> {
-    let route = route_for(answers, settings);
+    decide_choosing(answers, settings, settings.overrides, data)
+}
+
+/// `decide`, with `chosen` in place of what the settings say the saver chose.
+fn decide_choosing<'a>(
+    answers: &Answers,
+    settings: &Settings,
+    chosen: Overrides,
+    data: &'a Data,
+) -> Decision<'a> {
+    let route = route_for(answers, chosen);
     if route.arena() == Arena::Index
-        && let Some(decision) = decide_index(answers, settings, data, route)
+        && let Some(decision) = decide_index(answers, settings, chosen, data, route)
     {
         return decision;
     }
@@ -462,7 +471,7 @@ fn decide<'a>(answers: &Answers, settings: &Settings, data: &'a Data) -> Decisio
     } else {
         Route::Short
     };
-    decide_safe(answers, settings, data, route)
+    decide_safe(answers, settings, chosen, data, route)
 }
 
 // ─────────────────────────── The words ───────────────────────────
@@ -993,7 +1002,16 @@ pub fn ladder(
 }
 
 fn rung(answers: &Answers, settings: &Settings, data: &Data, any_day: bool) -> Rung {
-    let decision = decide(answers, settings, data);
+    // What the saver chose is about one arena: at a horizon where the rules
+    // put the money in the other, the rung says what fits that horizon.
+    let chosen = if forced_arena(answers, settings.overrides)
+        .is_some_and(|arena| arena != natural_route(answers).arena())
+    {
+        Overrides::default()
+    } else {
+        settings.overrides
+    };
+    let decision = decide_choosing(answers, settings, chosen, data);
     Rung {
         months: decision.months,
         any_day,
