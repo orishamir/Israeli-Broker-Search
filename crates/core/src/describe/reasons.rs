@@ -13,7 +13,7 @@ use time::Date;
 
 use crate::describe::format_money;
 use crate::guide::{
-    Amount, Arena, Bank, Circumstance, Context, CushionPlan, Horizon,
+    Amount, Arena, AssumedBecause, Bank, Circumstance, Context, CushionPlan, Horizon,
     INDEX_IF_FLEXIBLE_FROM_MONTHS, Kind, SAFE_ONLY_UP_TO_MONTHS, Safety, Situation, UnlockLine,
 };
 use crate::history::Band;
@@ -372,6 +372,38 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
                      trading day.",
                     "עוד אין תאריך, ולכן הכסף נשאר במקום שאפשר למכור ממנו בכל יום מסחר.",
                 )
+            }
+        }
+        Circumstance::AssumedPeriod { months, because } => {
+            let period = span(*months, lang);
+            // "ל" before a number is joined with a non-breaking hyphen.
+            let for_period = if period.starts_with(|c: char| c.is_ascii_digit()) {
+                format!("ל\u{2011}{period}")
+            } else {
+                format!("ל{period}")
+            };
+            match because {
+                AssumedBecause::NoDate => say(
+                    lang,
+                    format!(
+                        "You gave no date, so the amounts shown are for {period}. That is the \
+                         page's own assumption, not something you said: change the time to see \
+                         the money at another date."
+                    ),
+                    format!(
+                        "לא נתתם תאריך, ולכן הסכומים שמוצגים הם {for_period}. זו הנחה של הדף, לא משהו שאמרתם: שנו את הזמן כדי לראות את הכסף בתאריך אחר."
+                    ),
+                ),
+                AssumedBecause::CushionFills => say(
+                    lang,
+                    format!(
+                        "You gave no date, so the amount shown is for the {period} it takes to \
+                         fill the cushion with what you put in each month."
+                    ),
+                    format!(
+                        "לא נתתם תאריך, ולכן הסכום שמוצג הוא {for_period} שלוקח למלא את הכרית מההפקדה החודשית שלכם."
+                    ),
+                ),
             }
         }
         Circumstance::OneSum => match kind {

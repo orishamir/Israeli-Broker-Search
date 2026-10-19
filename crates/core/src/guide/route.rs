@@ -23,11 +23,11 @@ use super::index::{self, Run};
 use super::safe::{self, Priced, amount, price_level};
 use super::series::{self, Alternatives, BandSeries, KindSeries};
 use super::{
-    Alternative, Amount, Answers, Arena, Breakdown, CUSHION_MONTHS, Choice, Circumstance, Context,
-    Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility, Horizon,
-    INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, REFERENCE_YEARS, Ranked,
-    Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS, SHORT_GOAL_UP_TO_MONTHS, Settings,
-    Situation, StepText, check, follow_ups,
+    Alternative, Amount, Answers, Arena, AssumedBecause, Breakdown, CUSHION_MONTHS, Choice,
+    Circumstance, Context, Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility,
+    Horizon, INDEX_IF_FLEXIBLE_FROM_MONTHS, InvalidAnswers, Kind, LADDER_YEARS, REFERENCE_YEARS,
+    Ranked, Reason, Recommendation, Rung, SAFE_ONLY_UP_TO_MONTHS, SHORT_GOAL_UP_TO_MONTHS,
+    Settings, Situation, StepText, check, follow_ups,
 };
 
 /// Which row of the table the answers fall in.
@@ -579,6 +579,25 @@ fn reasons_for(
         cost_a_year: d.cost_a_year,
     };
     circumstances.push(horizon_circumstance(d.route, answers, d));
+    // A period nobody gave is said, or the figures would look asked for.
+    if answers.horizon == Horizon::Unknown {
+        let because = if d.route == Route::CushionFirst {
+            Some(AssumedBecause::CushionFills)
+        } else if matches!(
+            d.route,
+            Route::UnknownSum | Route::OpenAnyTime | Route::Forced(_)
+        ) {
+            Some(AssumedBecause::NoDate)
+        } else {
+            None
+        };
+        if let Some(because) = because {
+            circumstances.push(Circumstance::AssumedPeriod {
+                months: d.months,
+                because,
+            });
+        }
+    }
     match d.route {
         Route::Short | Route::Forced(Arena::Safe) => {
             circumstances.extend(safe_kind_circumstances(d, ctx));

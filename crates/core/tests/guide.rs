@@ -1914,3 +1914,40 @@ fn the_risk_tag_follows_the_history_bands_count() {
         }
     }
 }
+
+/// With no date the guide still works out a period (a year for a sum, ten
+/// years for money every month, the months the cushion takes to fill); the
+/// answer says that it did, with the period, so the figures are not mistaken
+/// for something the saver asked about.
+#[test]
+fn a_period_the_saver_did_not_give_is_said() {
+    let assumed = |rec: &Recommendation| {
+        rec.reasons.iter().find_map(|reason| match reason.from {
+            Circumstance::AssumedPeriod { months, because } => Some((months, because)),
+            _ => None,
+        })
+    };
+    let bonus = recommended(&answers(dec!(15_000), dec!(0), Horizon::Unknown));
+    assert_eq!(assumed(&bonus), Some((12, AssumedBecause::NoDate)));
+    let monthly = recommended(&answers(dec!(0), dec!(2000), Horizon::Unknown));
+    assert_eq!(assumed(&monthly), Some((120, AssumedBecause::NoDate)));
+    let mut cushion = answers(dec!(0), dec!(3000), Horizon::Unknown);
+    cushion.cushion = Some(Cushion::HasNot {
+        monthly_expenses: dec!(10_000),
+    });
+    let rec = recommended(&cushion);
+    assert_eq!(assumed(&rec), Some((10, AssumedBecause::CushionFills)));
+    // Said in both languages, with the period.
+    let reason = rec
+        .reasons
+        .iter()
+        .find(|r| matches!(r.from, Circumstance::AssumedPeriod { .. }))
+        .unwrap();
+    assert!(reason.text[Lang::En].contains("10 months"));
+    assert!(reason.text[Lang::He].contains("10"));
+    // A date given is not an assumption.
+    assert_eq!(
+        assumed(&recommended(&answers(dec!(15_000), dec!(0), years(5)))),
+        None
+    );
+}

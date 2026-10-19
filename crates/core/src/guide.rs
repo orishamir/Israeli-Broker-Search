@@ -423,6 +423,15 @@ pub struct Amount {
     pub nominal: Decimal,
 }
 
+/// Why a period was taken for the figures although the saver gave none.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AssumedBecause {
+    /// No date: the guide's default period.
+    NoDate,
+    /// The cushion comes first, and the figure is for the months it takes.
+    CushionFills,
+}
+
 /// Each circumstance of the saver's that a reason can come from, with the
 /// numbers the reason's words need. Every [`Reason`] names the one that
 /// produced it, so the page can say how the answers affected the choice.
@@ -442,6 +451,13 @@ pub enum Circumstance {
     LongHorizon { months: u32 },
     /// No date yet.
     NoDate,
+    /// The figures are worked out for a period the saver didn't give: the
+    /// guide's own default (a year for a sum, ten years for money every
+    /// month), or the months it takes to fill the cushion. The answer says so.
+    AssumedPeriod {
+        months: u32,
+        because: AssumedBecause,
+    },
     /// One sum, no monthly deposits (a fixed-rate deposit takes only that).
     OneSum,
     /// Money comes in every month.
