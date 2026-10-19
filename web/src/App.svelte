@@ -5,6 +5,7 @@
   // components in it are other packages' (each says which at its top).
   import { AppState } from './lib/app.svelte'
   import Answer from './lib/Answer.svelte'
+  import Charts from './lib/Charts.svelte'
   import Alternatives from './lib/Alternatives.svelte'
   import DetailsDialog from './lib/DetailsDialog.svelte'
   import Donut from './lib/Donut.svelte'
@@ -58,6 +59,10 @@
     <div class="item" style:--order="7"><Donut {app} /></div>
     <div class="item wide" style:--order="5"><Within {app} /></div>
     <div class="item wide" style:--order="8"><Ladder {app} /></div>
+    <!-- Package K: the workbench's charts, with the switch on. -->
+    {#if app.expert}
+      <div class="item wide" style:--order="9" transition:reveal><Charts {app} /></div>
+    {/if}
   </div>
 </div>
 

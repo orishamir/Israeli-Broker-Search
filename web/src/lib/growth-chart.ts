@@ -39,6 +39,8 @@ export interface GrowthView {
   /** Time in months rather than years: the short term's. */
   months?: boolean
   noFeesName?: string
+  /** The amounts are in today's money: the value axis says so. */
+  todaysMoney?: boolean
 }
 
 /** [time, value] points, a month apart, from index 0 (the start): time in
@@ -131,7 +133,7 @@ export function growthOption(view: GrowthView): ChartOption {
     })
   }
   return {
-    grid: { left: 16, right: 90, top: 24, bottom: view.touch ? 88 : 32 },
+    grid: { left: 16, right: 90, top: view.todaysMoney ? 40 : 24, bottom: view.touch ? 88 : 32 },
     xAxis: {
       type: 'value',
       name: months ? t.monthsAxis : t.years,
@@ -156,6 +158,11 @@ export function growthOption(view: GrowthView): ChartOption {
     // changes smoothly while zooming; a little room above for the labels.
     yAxis: {
       type: 'value',
+      // Said on the axis itself, where the numbers are read.
+      name: view.todaysMoney ? t.inTodaysMoneyAxis : undefined,
+      nameLocation: 'end',
+      nameGap: 12,
+      nameTextStyle: { color: WEAK, align: 'left' },
       min: ({ min }) => min,
       max: ({ min, max }) => max + (max - min) * 0.04,
       // Only the round values; the ends are wherever the lines are.

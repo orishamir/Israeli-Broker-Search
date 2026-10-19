@@ -1,29 +1,539 @@
 <script lang="ts">
-  // STUB (package K fills it): the workbench, shown while `app.expert`: what
-  // to buy (`app.thing`/`chooseThing`), the ways (`app.wayChoices`,
-  // `selectedWays`, `toggleWay`), the levers (security, exchange, rates, unit
-  // price, expectations, buy every, growing deposits, keep/sell, pension),
-  // "מה משווים" with `PlanSheet` (`app.planSheetOpen`) and the editor, the
-  // charts' tabs (`app.chartView`; growth, lost to fees, breakdown, by
-  // deposit; the existing chart components take `app.comparison` /
-  // `app.waysComparison` as before). Screens s4, s7.
-  import type { AppState } from './app.svelte'
+  // The workbench, shown while `app.expert`: what to buy, the ways (ticked
+  // together), and the levers: the security and the exchange, the rates, the
+  // expectations, how often to buy, growing deposits, keep or sell, and how
+  // a pension is taken. "מה משווים" opens the list of plans. The deposits
+  // and the horizon are the questions' (`Questions`). Screens s4, s7.
+  import type { AppState, AtEnd, WayOut } from './app.svelte'
+  import Choices from './Choices.svelte'
+  import type { Choice, Term } from './core/core'
+  import { dateText, typedPercent } from './format'
+  import HebrewNames from './HebrewNames.svelte'
+  import { BUYING_INTERVALS, type Thing } from './link'
+  import { glideHeight, reveal } from './motion'
+  import NumberField from './NumberField.svelte'
+  import PlanSheet from './PlanSheet.svelte'
   import { t } from './text'
+  import { en } from './text/en'
+  import Tip from './Tip.svelte'
+  import { wayKey } from './kinds'
 
   let { app }: { app: AppState } = $props()
+
+  const thing = (value: Thing, name: string, explanation: string, card: Term | undefined): Choice<Thing> => ({
+    value,
+    name,
+    englishName: undefined,
+    explanation,
+    card,
+    hebrewNames: [],
+  })
+  const things: Choice<Thing>[] = [
+    thing('sp500', t.thingSp500, t.thingTip.sp500, 'sp500Index'),
+    thing('other', t.thingOther, t.thingTip.other, undefined),
+    thing('bonds', t.thingBonds, t.thingTip.bonds, 'governmentBond'),
+    thing('short', t.thingShort, t.thingTip.short, 'moneyMarketFund'),
+  ]
+
+  const atEndChoices: Choice<AtEnd>[] = [
+    {
+      value: 'sell',
+      name: t.sell,
+      englishName: en.sell,
+      explanation: t.sellTip,
+      card: undefined,
+      hebrewNames: [],
+    },
+    {
+      value: 'hold',
+      name: t.keep,
+      englishName: en.keep,
+      explanation: t.keepTip,
+      card: undefined,
+      hebrewNames: [],
+    },
+  ]
+
+  /** How the money is taken out, for the age a ticked plan's pension opens at. */
+  const wayOutChoices = (pensionFromAge: number): Choice<WayOut>[] => [
+    {
+      value: 'atOnce',
+      name: t.allAtOnce,
+      englishName: en.allAtOnce,
+      explanation: t.allAtOnceTip,
+      card: undefined,
+      hebrewNames: [],
+    },
+    {
+      value: 'pension',
+      name: t.asAPension,
+      englishName: en.asAPension,
+      explanation: t.asAPensionTip(pensionFromAge),
+      card: 'pension',
+      hebrewNames: [],
+    },
+  ]
+
+  const security = $derived(app.securities.find(({ value }) => value === app.security)!)
+  const exchange = $derived(app.exchangeChoices.find(({ value }) => value === app.exchange)!)
+
+  /** The assumptions are folded behind their one line until asked for: most
+   * people leave them as they are. */
+  let changing = $state(false)
+  const sp500 = $derived(app.thing === 'sp500')
+  const other = $derived(app.thing === 'other')
+  const index = $derived(sp500 || other)
+  /** The assumptions open outright where they are all there is. */
+  const open = $derived(!index || changing)
+  const summary = $derived(
+    t.workbenchSummary(
+      typedPercent(app.yearlyReturnPercent ?? 0),
+      typedPercent(app.inflationPercent ?? 0),
+      app.sellAtEnd,
+      t.plansTicked(app.compared.length),
+    ),
+  )
 </script>
 
-<section class="card workbench" data-stub="Workbench">
-  <h2>{t.whatToBuy}</h2>
-  <p>
-    {#each [['sp500', t.thingSp500], ['other', t.thingOther], ['bonds', t.thingBonds], ['short', t.thingShort]] as const as [thing, name] (thing)}
-      <button class:chosen={app.thing === thing} onclick={() => app.chooseThing(thing)}>{name}</button>
-    {/each}
-  </p>
+<section class="card workbench">
+  <div class="heading">
+    <h3>{t.whatToBuy}</h3>
+  </div>
+  <Choices
+    label={t.whatToBuy}
+    options={things}
+    bind:value={() => app.thing, (value) => app.chooseThing(value)}
+    wraps
+  />
+
+  {#if sp500}
+    <div class="heading ways-heading" transition:reveal>
+      <h3>{t.waysTitle}</h3>
+      <Tip about={t.waysTitle}><p>{t.waysTip}</p></Tip>
+    </div>
+    <p class="note">{t.waysHint}</p>
+    <ul class="ways" aria-label={t.waysTitle}>
+      {#each app.wayChoices as { way, name, card } (wayKey(way))}
+        {@const on = app.selectedWays.some((each) => wayKey(each) === wayKey(way))}
+        <li>
+          <button
+            type="button"
+            class="chip"
+            class:chosen={on}
+            aria-pressed={on}
+            onclick={() => app.toggleWay(way)}>{name}</button
+          >{#if card}<Tip about={name}>
+              {@const learn = app.cardFor(card)}
+              <p>{learn.what}</p>
+              <p><button class="link" onclick={() => app.openCard(card)}>{t.learnMore}</button></p>
+            </Tip>{/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  {#if other}
+    <div class="heading" transition:reveal>
+      <h3>{t.whatYouBuy}</h3>
+      <Tip about={t.whatYouBuy}>
+        <p>{t.whatYouBuyTip}</p>
+        {#each app.securities as option (option.value)}
+          <div class="term">
+            <strong>{option.name}</strong>
+            <HebrewNames names={option.hebrewNames} english={option.englishName} main={option.name} />
+            <p class="weak">{option.explanation}</p>
+          </div>
+        {/each}
+      </Tip>
+    </div>
+    <Choices label={t.security} options={app.securities} bind:value={app.security} />
+    <!-- Always shown: the English names are the ones people don't know. -->
+    <div class="glides" {@attach glideHeight()}>
+      <div class="explained">
+        <HebrewNames names={security.hebrewNames} english={security.englishName} main={security.name} />
+        <p class="weak">{security.explanation}</p>
+      </div>
+    </div>
+
+    <div class="heading">
+      <h3>{t.tradedOn}</h3>
+      <Tip about={t.tradedOn}>
+        <p>
+          {t.tradedOnTip(
+            security.name,
+            app.security === 'Bond'
+              ? t.tradedOnBonds
+              : app.security === 'Stock'
+                ? t.tradedOnStocks
+                : app.security === 'IndexFund'
+                  ? t.tradedOnIndexFunds
+                  : t.tradedOnFunds,
+          )}
+        </p>
+      </Tip>
+    </div>
+    <Choices label={t.exchange} options={app.exchangeChoices} bind:value={app.exchange} />
+    <!-- The description and the rates line change together, in one glide: the
+         rates line closing on its own while the new description was taller
+         moved the cards below one way and then the other. -->
+    <div class="glides" {@attach glideHeight()}>
+      <div>
+        <div class="explained">
+          <HebrewNames names={exchange.hebrewNames} english={exchange.englishName} main={exchange.name} />
+          <p class="weak">{exchange.explanation}</p>
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if index}
+    <p class="summary">
+      {summary}
+      <button class="link" aria-expanded={changing} onclick={() => (changing = !changing)}
+        >{changing ? t.hideAssumptions : t.changeAssumptions}</button
+      >
+    </p>
+  {/if}
+
+  {#if open}
+    <div class="levers" transition:reveal>
+      <h3>{t.levers}</h3>
+      <div class="fields">
+        {#if index}
+          <span>
+            <label for="yearly-return">{t.yearlyReturn}</label><Tip about={t.yearlyReturn}
+              >{t.yearlyReturnTip}</Tip
+            >
+          </span>
+          <NumberField id="yearly-return" suffix="%" step={0.5} bind:value={app.yearlyReturnPercent} />
+        {:else}
+          <span>
+            <label for="boi-rate">{t.boiRate}</label><Tip about={t.boiRate}>{t.boiRateTip}</Tip>
+          </span>
+          <NumberField id="boi-rate" suffix={t.percentAYear} step={0.25} bind:value={app.boiRatePercent} />
+        {/if}
+
+        <span>
+          <label for="inflation">{t.inflation}</label><Tip about={t.inflation}>{t.inflationTip}</Tip>
+        </span>
+        <NumberField id="inflation" suffix={t.percentAYear} step={0.5} bind:value={app.inflationPercent} />
+
+        {#if index && app.sharePriceSymbol}
+          {@const stock = app.security === 'Stock'}
+          <span>
+            <label for="share-price">{t.sharePrice(stock)}</label><Tip about={t.sharePrice(stock)}
+              >{t.sharePriceTip(stock)}</Tip
+            >
+          </span>
+          <NumberField id="share-price" prefix={app.sharePriceSymbol} bind:value={app.sharePrice} />
+        {/if}
+
+        {#if index}
+          <span>
+            <label for="deposit-growth">{t.growingBy}</label><Tip about={t.growingBy}>{t.growingByTip}</Tip>
+          </span>
+          <NumberField
+            id="deposit-growth"
+            suffix={t.percentAYear}
+            step={0.5}
+            bind:value={app.depositGrowthPercent}
+          />
+
+          <span>
+            <label for="buy-every">{t.buyEvery}</label><Tip about={t.buyEvery}>{t.buyEveryTip}</Tip>
+          </span>
+          <select id="buy-every" bind:value={app.buyEveryMonths}>
+            {#each BUYING_INTERVALS as { months } (months)}
+              <option value={months}>{t.intervals[months]}</option>
+            {/each}
+          </select>
+
+          <span>
+            <span class="label-text">{t.atTheEnd}</span><Tip about={t.atTheEnd}>{t.atTheEndTip}</Tip>
+          </span>
+          <Choices label={t.atTheEnd} options={atEndChoices} bind:value={app.atEnd} />
+        {/if}
+
+        <span class="whole-row">
+          <label class="switch">
+            <input type="checkbox" bind:checked={app.todaysMoney} />
+            {t.todaysMoney}
+          </label>
+          <Tip about={t.todaysMoney}>{t.todaysMoneyTip}</Tip>
+        </span>
+      </div>
+
+      {#if index && app.exchange !== 'Tlv'}
+        <!-- Rarely changed, so folded away unless the download failed. -->
+        <details class="rates" open={app.ratesStatus.kind === 'failed'}>
+          <summary>
+            <!-- Left to right even in Hebrew, or the equals signs read backwards. -->
+            <bdi dir="ltr">$1 = ₪{app.ilsPerUsd ?? '?'}&nbsp;· €1 = ₪{app.ilsPerEur ?? '?'}</bdi><span
+              class="weak"
+              >{#if app.ratesStatus.kind === 'downloading'}{t.downloadingRates}{:else if app.ratesStatus.kind === 'downloaded'}&nbsp;·
+                {dateText(app.ratesStatus.date)}{:else}{t.couldntDownloadRates}{/if}</span
+            >
+          </summary>
+          <div class="fields">
+            <label for="usd">$1 =</label>
+            <NumberField id="usd" prefix="₪" step={0.01} bind:value={app.ilsPerUsd} />
+            <label for="eur">€1 =</label>
+            <NumberField id="eur" prefix="₪" step={0.01} bind:value={app.ilsPerEur} />
+          </div>
+          <p class="note caption">
+            {#if app.ratesStatus.kind === 'failed'}
+              {t.couldntDownloadCheck(app.ratesStatus.error)}
+            {:else}
+              {t.ratesSource}
+            {/if}
+          </p>
+        </details>
+      {/if}
+    </div>
+  {/if}
 </section>
 
+<!-- Asked only while it changes something: a ticked plan pays a pension, and
+     everything is sold. -->
+{#if index && app.pensionFromAge !== undefined}
+  {@const from = app.pensionFromAge}
+  <section class="card" transition:reveal>
+    <div class="heading">
+      <h3>{t.takingTheMoneyOut}</h3>
+      <Tip about={t.takingTheMoneyOut}>{t.takingTheMoneyOutTip(from)}</Tip>
+    </div>
+    <div class="fields">
+      <!-- Across the card, under its heading, which says what is chosen:
+           beside a label the two wouldn't fit on one row. -->
+      <div class="whole-row">
+        <Choices label={t.takingTheMoneyOut} options={wayOutChoices(from)} bind:value={app.wayOut} />
+      </div>
+      {#if app.wayOut === 'pension'}
+        <span>
+          <label for="age">{t.yourAge}</label><Tip about={t.yourAge}>{t.yourAgeTip}</Tip>
+        </span>
+        <NumberField id="age" step={1} bind:value={app.age} />
+        {#if app.age !== null}
+          {@const then = Math.floor(app.age) + app.years}
+          <p class="whole-row note">{then >= from ? t.oldEnough(then, from) : t.tooYoung(then, from)}</p>
+        {/if}
+      {/if}
+    </div>
+  </section>
+{/if}
+
+<!-- What's compared, in short; the list itself opens in a sheet. -->
+{#if index}
+  <section class="card" transition:reveal>
+    <div class="heading">
+      <h3>{t.whatsCompared}</h3>
+      <Tip about={t.whatsCompared}>
+        <p>{t.whatsComparedTip}</p>
+      </Tip>
+    </div>
+    <p class="note">{t.tickedAtFirst}</p>
+    {#if app.compared.length > 0}
+      <ul class="compared" aria-label={t.whatsCompared}>
+        {#each app.compared as { plan, name } (plan.id)}
+          <li><span class="mark" class:yours={plan.yours} style:--plan-color={plan.color}></span>{name}</li>
+        {/each}
+      </ul>
+    {/if}
+    <div class="choose">
+      <button onclick={() => (app.planSheetOpen = true)}>{t.addOrRemove}</button>
+      <span class="count">{t.comparedOf(app.compared.length, app.plans.length)}</span>
+    </div>
+  </section>
+{/if}
+<PlanSheet {app} bind:open={app.planSheetOpen} />
+
 <style>
-  .chosen {
+  /* The cards below the workbench's first. */
+  section ~ section {
+    margin-top: 12px;
+  }
+  h3 {
+    margin: 0 0 10px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--weak);
+  }
+  /* A heading and its ?, which isn't part of the heading's name. */
+  .heading {
+    display: flex;
+    align-items: center;
+    margin: 14px 0 10px;
+  }
+  .heading:first-child {
+    margin-top: 0;
+  }
+  .heading h3 {
+    margin: 0;
+  }
+  .ways-heading {
+    margin-bottom: 4px;
+  }
+  .note {
+    margin: 0 0 8px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--weak);
+  }
+  /* The ways: each its own outlined chip, ticked or not, with its ?. */
+  .ways {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .ways li {
+    display: inline-flex;
+    align-items: center;
+  }
+  .chip {
+    min-height: 33px;
+    font-size: 0.9rem;
+  }
+  .chip.chosen {
     border-color: var(--accent);
+    background: var(--accent-tint);
+  }
+  .summary {
+    margin: 14px 0 0;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    color: var(--weak);
+  }
+  .levers {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+  }
+  /* Every field one width (`--input-field`), in every card of the page; the
+     labels take the rest, and a long one wraps. */
+  .fields {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--input-field);
+    gap: 8px 12px;
+    align-items: center;
+  }
+  /* A label and its "?" (see `.titled` in app.css). */
+  .fields > span {
+    display: flex;
+    align-items: baseline;
+  }
+  .fields > span > :global(.tip-button) {
+    translate: 0 -2px;
+  }
+  .fields select {
+    width: 100%;
+  }
+  /* Across both columns: a switch with its ?, a note under a field. */
+  .fields > .whole-row {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    white-space: normal;
+  }
+  .compared {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .compared li {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 1px 8px;
+    border-radius: 999px;
+    background: var(--raised);
+    font-size: 0.8rem;
+  }
+  .mark {
+    flex: none;
+    box-sizing: border-box;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--plan-color);
+  }
+  /* Your own plans are hollow, like their dotted lines in the charts. */
+  .mark.yours {
+    border: 2px solid var(--plan-color);
+    background: none;
+  }
+  .choose {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 10px;
+    margin-top: 12px;
+  }
+  .count {
+    color: var(--weak);
+    font-size: 0.8rem;
+  }
+  .explained {
+    margin-top: 10px;
+    font-size: 0.8rem;
+    line-height: 1.5;
+  }
+  /* See glideHeight: its content's margins counted in its height. */
+  .glides > :global(*) {
+    display: flow-root;
+  }
+  .explained p {
+    margin: 6px 0 0;
+  }
+  .weak {
+    color: var(--weak);
+  }
+  .rates {
+    margin-top: 12px;
+    font-size: 0.8rem;
+  }
+  .rates summary {
+    width: fit-content;
+    cursor: pointer;
+    font-variant-numeric: tabular-nums;
+  }
+  .rates summary .weak {
+    white-space: nowrap;
+  }
+  .rates summary:hover {
+    color: var(--accent);
+  }
+  .rates .fields {
+    margin-top: 8px;
+    font-size: 0.9rem;
+  }
+  .caption {
+    margin: 10px 0 6px;
+  }
+  /* One security in the "What you buy" tip. */
+  .term {
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  .term p {
+    margin: 4px 0 0;
+  }
+  .link {
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: inherit;
+  }
+  .link:hover {
+    background: none;
+    text-decoration: underline;
   }
 </style>

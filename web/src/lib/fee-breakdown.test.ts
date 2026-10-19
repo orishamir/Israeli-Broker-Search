@@ -1,5 +1,6 @@
 import type { BarSeriesOption } from 'echarts/charts'
 import { expect, test } from 'vitest'
+import { PRODUCT_COLOR } from './colors'
 import type { FeeAmounts } from './core/core'
 import {
   barsOption,
@@ -54,6 +55,7 @@ test('a focused fee is stacked first and keeps its color; the rest fade', () => 
   expect(stacking('all')).toBe(FEE_TYPES)
   expect(stacking('holding').map(({ key }) => key)).toEqual([
     'holding',
+    'product',
     'purchases',
     'conversions',
     'selling',
@@ -83,7 +85,7 @@ test('the bars name each plan, marking pinned ones, with the totals at the end',
   // The outline, the slots for the names, a stacked series per fee, each
   // faded for unpinned plans, then the rest of the row.
   expect(series.map(({ type }) => type)).toEqual(['custom', 'bar', ...FEE_TYPES.map(() => 'bar'), 'bar'])
-  expect(series[2].data).toEqual([
+  expect(series[3].data).toEqual([
     { value: 500, itemStyle: { opacity: 0.6 } },
     { value: 100, itemStyle: { opacity: 1 } },
   ])
@@ -141,11 +143,27 @@ test('over time, each fee piles up from nothing to the total by the end of each 
   const option = overTimeOption(byYear, 'all')
   const series = option.series as { name: string; data: number[][] }[]
   expect(series.map(({ name }) => name)).toEqual(FEE_TYPES.map(({ name }) => name))
-  expect(series[0].data).toEqual([
+  expect(series[1].data).toEqual([
     [0, 0],
     [1, 10],
     [2, 20],
     [3, 30],
   ])
   expect(option.xAxis).toMatchObject({ max: 3 })
+})
+
+test('the fund itself is a part of every bar, first, in its own color, and the parts add up to the total', () => {
+  expect(FEE_TYPES[0]).toMatchObject({ key: 'product', color: PRODUCT_COLOR })
+  expect(new Set(FEE_TYPES.map(({ color }) => color)).size).toBe(FEE_TYPES.length)
+  const withProduct: FeeAmounts = { ...fees(100, 50), product: 400, total: 550 }
+  const option = barsOption({
+    bars: [{ id: 'x', label: 'X', color: '#111111', hollow: false, fees: withProduct }],
+    focus: 'all',
+    pinned: new Set(),
+    width: 800,
+    measure,
+  })
+  const parts = seriesOf(option).filter(({ id }) => String(id).startsWith('fee '))
+  const sum = parts.map(({ data }) => (data as { value: number }[])[0].value).reduce((a, b) => a + b, 0)
+  expect(sum).toBe(withProduct.total)
 })

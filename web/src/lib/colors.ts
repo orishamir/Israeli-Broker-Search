@@ -48,3 +48,13 @@ export function handOut(
 export function withColor<T extends object>(item: T, color: () => string): T & { color: string } {
   return Object.defineProperty(item, 'color', { get: color, enumerable: true }) as T & { color: string }
 }
+
+// ── Package K: the workbench's ways and the fund's own cost ──
+/** "הקרן עצמה" in the fee breakdown: a part of a bar like the others, so one
+ * color in every bar. A teal, apart from the fees' blue, orange, violet and
+ * amber. */
+export const PRODUCT_COLOR = '#1f9e8f'
+
+/** A way's own color, beside its name only: by its place in the core's list
+ * of ways, so it doesn't change as other ways are ticked. */
+export const wayColor = (index: number): string => PLAN_COLORS[index % PLAN_COLORS.length]

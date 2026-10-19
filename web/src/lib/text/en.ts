@@ -416,6 +416,42 @@ export const en = {
   thingShort: 'Short-term money',
   waysTitle: 'In which ways to compare?',
   waysBest: 'The ways, best first',
+
+  // ── Package K: the workbench, the full list, the charts ──
+  workbenchSummary: (returnPercent: string, inflationPercent: string, selling: boolean, plans: string) =>
+    `Index return ${returnPercent}\u00a0· inflation ${inflationPercent}\u00a0· ${selling ? 'sold at the end' : 'not sold'}\u00a0· ${plans}`,
+  plansTicked: (count: number) => (count === 1 ? 'one plan ticked' : `${count} plans ticked`),
+  changeAssumptions: 'Change ›',
+  hideAssumptions: 'Close ›',
+  thingTip: {
+    sp500:
+      'An index of the 500 largest companies in the US. It can be bought in several ways, and the comparison shows what is left in each.',
+    other:
+      'Another index, a stock or a bond on one exchange: compares the banks and investment houses that sell it.',
+    bonds: 'Government bonds, held until the state pays them back on a fixed date.',
+    short: 'A money market fund or a deposit: for money needed soon, or that should not fall.',
+  },
+  waysHint: 'Tick several ways to see them side by side.',
+  waysTip:
+    'A way is what holds the index for you: an ETF on the Tel Aviv exchange or abroad, an index fund, or a provident fund track. Each way has its own cost and its own tax.',
+  levers: 'Assumptions and settings',
+  waysTable: 'The ways, best first',
+  waysTableHint: 'In each way: the cheapest plan for you',
+  wayAndWho: 'Way · through whom',
+  productCostNote: (amount: string) => `The fund itself: ${amount}`,
+  costAYearTip: 'Everything the money loses in a year, as a share of the holdings, like a fund fee.',
+  costAYearProduct:
+    ' It includes the fund itself: its management fee, the tax it loses on dividends, and the gap from the index.',
+  productItself: 'The fund itself',
+  productItselfTip:
+    'What the fund that holds the index keeps for itself, whatever the bank charges: its management fee, the tax on the dividends it receives and the gap between it and the index.',
+  showWayPlans: (count: number) => `All ${count} plans of the way ›`,
+  hideWayPlans: 'Hide ›',
+  allWays: (count: number) => `All ${count} ways ›`,
+  fullTableHint: 'The full table, the fee breakdown and the chart by deposit open with "All options"',
+  noPlansTicked: 'No plan is ticked for comparison: add one under "What is compared".',
+  inTodaysMoneyAxis: "In today's money",
+  waysChartsNote: 'Each way is drawn as its cheapest plan.',
 }
 
 export type Text = typeof en

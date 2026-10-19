@@ -1,8 +1,8 @@
 <script lang="ts">
   import type { ECharts } from 'echarts/core'
   import { MediaQuery } from 'svelte/reactivity'
-  import type { AppState, Result } from './app.svelte'
-  import type { OutcomeData, WhyNot } from './core/core'
+  import type { AppState } from './app.svelte'
+  import type { ChartEntry, Missing } from './chart-entries'
   import { chart } from './echarts.svelte'
   import {
     barsHeight,
@@ -23,34 +23,23 @@
   import Tip from './Tip.svelte'
   import { t } from './text'
 
-  let { app, results }: { app: AppState; results: Result[] } = $props()
+  /** `entries`: a bar for each plan, or for each way; `missing`: the plans
+   * left out, a group for each reason. */
+  let { app, entries, missing }: { app: AppState; entries: ChartEntry[]; missing: Missing[] } = $props()
 
   let focus = $state<Focus>('all')
   /** Picks a fee to compare by, or all of them again if it's picked. */
   const toggle = (key: FeeType) => (focus = focus === key ? 'all' : key)
   const popovers = $state<HTMLElement[]>([])
 
-  /** The plans without numbers, grouped by why, in the table's order. */
-  const missing = $derived.by(() => {
-    const groups: { whyNot: WhyNot | undefined; plans: Result[] }[] = []
-    for (const result of results.filter(({ outcome }) => !outcome)) {
-      const group = groups.find(({ whyNot }) => whyNot === result.whyNot)
-      if (group) group.plans.push(result)
-      else groups.push({ whyNot: result.whyNot, plans: [result] })
-    }
-    return groups
-  })
-  const offered = $derived(
-    results.filter((result): result is Result & { outcome: OutcomeData } => result.outcome !== undefined),
-  )
   /** The bars, least fees first: in total, or in the focused fee. */
   const rows = $derived(
     byFee(
-      offered.map(({ plan, outcome }): Bar => ({
-        id: plan.id,
-        label: plan.label,
-        color: plan.color,
-        hollow: plan.yours !== undefined,
+      entries.map(({ id, label, color, yours, outcome }): Bar => ({
+        id,
+        label,
+        color,
+        hollow: yours,
         fees: outcome.fees,
       })),
       focus,
@@ -60,8 +49,8 @@
   /** The plan shown over time: the one under the mouse, else the last pinned,
    * else the best. */
   const shown = $derived.by(() => {
-    const byId = (id: string | null | undefined) => offered.find(({ plan }) => plan.id === id)
-    return byId(app.hovered) ?? byId([...app.pinned].at(-1)) ?? offered[0]
+    const byId = (id: string | null | undefined) => entries.find((entry) => entry.id === id)
+    return byId(app.hovered) ?? byId([...app.pinned].at(-1)) ?? entries[0]
   })
 
   /** The bars' box, for fitting names and amounts. */
@@ -82,7 +71,7 @@
   }
 
   const bars = () => barsOption({ bars: rows, focus, pinned: app.pinned, width: barsWidth, measure })
-  const overTime = () => overTimeOption(shown.outcome.feesUpToYear, focus)
+  const overTime = () => overTimeOption(shown?.outcome.feesUpToYear ?? [], focus)
 
   /** Hovering a bar or a plan's name shows it over time; clicking pins it. */
   function setup(instance: ECharts) {
@@ -153,25 +142,22 @@
   {@const words = app.whyNotWords(whyNot)}
   <p class="hint">
     {words.cell}:
-    {#each plans as { plan, notOffered: reason }, index (plan.id)}
-      {index > 0 ? ', ' : ''}{plan.label}<Tip about={words.about}>{reason}</Tip>
+    {#each plans as { id, label, reason }, index (id)}
+      {index > 0 ? ', ' : ''}{label}<Tip about={words.about}>{reason}</Tip>
     {/each}
   </p>
 {/each}
 
-<h4>
-  <!-- No space before the hint, which starts with its separator: a line
+{#if shown}
+  <h4>
+    <!-- No space before the hint, which starts with its separator: a line
        mustn't start with "·". -->
-  {t.yearByYear} <span class="dot" style:background={shown.plan.color}></span>{shown.plan.label}<span
-    class="hint mouse">{t.hoverOrPin}</span
-  ><span class="hint touch">{t.tapAnotherBar}</span>
-</h4>
-<div
-  class="over-time"
-  {@attach chart(overTime)}
-  role="img"
-  aria-label={t.overTimeAria(shown.plan.label)}
-></div>
+    {t.yearByYear} <span class="dot" style:background={shown.color}></span>{shown.label}<span
+      class="hint mouse">{t.hoverOrPin}</span
+    ><span class="hint touch">{t.tapAnotherBar}</span>
+  </h4>
+  <div class="over-time" {@attach chart(overTime)} role="img" aria-label={t.overTimeAria(shown.label)}></div>
+{/if}
 
 <style>
   .label {

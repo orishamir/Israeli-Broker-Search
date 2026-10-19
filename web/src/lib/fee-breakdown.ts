@@ -4,6 +4,7 @@
 
 import type { BarSeriesOption } from 'echarts/charts'
 import type { FeeAmounts } from './core/core'
+import { PRODUCT_COLOR } from './colors'
 import type { ChartOption } from './echarts.svelte'
 import { compactShekels, readableOn, shekels } from './format'
 import { t } from './text'
@@ -16,6 +17,9 @@ export type Focus = 'all' | FeeType
  * for color blindness in this order, where each differs from its
  * neighbors; not every pair differs, so a focused fee fades the others. */
 export const FEE_TYPES: { key: FeeType; name: string; color: string; explanation: string }[] = [
+  // What the fund that holds the index keeps: first, where a bar starts,
+  // since it is the biggest part where there is one.
+  { key: 'product', name: t.productItself, color: PRODUCT_COLOR, explanation: t.productItselfTip },
   { key: 'purchases', name: t.purchases, color: '#3987e5', explanation: t.purchasesTip },
   { key: 'conversions', name: t.conversions, color: '#d95926', explanation: t.conversionsTip },
   // Violet, as what a place keeps is in the short term's chart.
