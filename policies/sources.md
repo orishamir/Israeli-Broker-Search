@@ -899,6 +899,64 @@ yields are the monthly average of September 2026.
   fees. Buying every month at a plan with a high minimum (Leumi's ₪26)
   costs a lot; the model doesn't buy less often.
 
+## What to search for: bond series and example funds
+
+Fetched on 20 October 2026 (`examples::checked`) by `examples.py`
+(`python3 -I policies/examples.py --write`, then `cargo fmt`), which
+rewrites the block in `crates/core/src/examples.rs`. Nothing in it is
+typed by hand; where a source didn't answer, the field is `None`.
+
+- **Government bonds and makam:** the exchange's list of everything it
+  lists, `GET https://api.tase.co.il/api/content/searchentities?lang=0`,
+  filtered by issuer (`SubId`): 954 "ממשל צמודה" (CPI-linked, 12 series),
+  926 "ממשל שקלית" (fixed-rate shekel, 17), 891 "מק״מ" (12 bills). The
+  variable-rate (923, "ממשל משתנה") and dollar (976, "ממשל גלובל") ones are
+  left out. Each series' day of repayment and linkage come from
+  `GET https://api.tase.co.il/api/company/securitydata?securityId={n}&lang=0`
+  (`RedemptionDate`, `Linkage`: "מדד המחירים לצרכן" for every linked one),
+  end of day 19 October 2026. The script stops if a bond's day falls in
+  another month and year than its name's last four digits, so a part
+  payment can't pass for the end: none did. The exchange names them
+  "ממשל צמודה 0529" and "ממשל שקלית 0330", not TheMarker's "ממשלתי צמוד";
+  the name kept is the exchange's.
+- **Israeli index funds on the S&P 500:** every fund on Maya
+  (`POST maya.tase.co.il/api/v1/funds/mutual`) that `index-tracking.py`
+  counts: an index fund, all of it on "S&P 500 - NTR" and in dollars, not
+  in dollar units. Eight, rates of 15 October 2026; the fee is the
+  manager's and the trustee's (`managementFee + trusteeFee`).
+- **Israeli ETFs on the S&P 500:** the eight plain, unhedged ones ((4D),
+  not "מנוטרלת מט״ח", not equal-weight, dividend, leveraged or mixed), by
+  the exchange's numbers in the script; it warns of any new one in the
+  exchange's list. Two more than `index-tracking.py` measures: Yelin
+  Lapidot's (1201656) and ATF's (1218916), too young to measure. The fees
+  are Funder's three columns (`funder.co.il/etf/{n}`: fixed, variable up
+  to, trustee's), read 20 October 2026; the exchange's API has none.
+- **Irish ETFs listed in Tel Aviv:** iShares Core S&P 500 UCITS (1159250,
+  ISIN IE00B5BMR087, the same fund as CSPX, so CSPX's 0.07%) and Invesco
+  S&P 500 UCITS (1183441, IE00B3YCGJ38), named by the exchange's
+  `LongName`. **Invesco's fee is missing:** its site
+  (etf.invesco.com) and API answered nothing to a script.
+- **US ETFs:** VOO 0.03% (Vanguard's profile API,
+  `investor.vanguard.com/vmf/api/VOO/profile`, as of 28 April 2026; its
+  share class $1.0 trillion on 30 September 2026), IVV 0.03% (iShares'
+  page; $880 billion on 16 October 2026), SPY 0.0945% gross (State
+  Street's page; $810 billion on 16 October 2026). All three are listed on
+  NYSE Arca, as their pages say.
+- **The Irish ETF bought in Europe:** CSPX, 0.07% (iShares' UK page, 16
+  October 2026). Its listings table gives Euronext Amsterdam as ticker
+  CSPX in euros (London's CSPX is in dollars, Xetra's is SXR8 in euros);
+  the app's European exchange is in euros, so Amsterdam's is the one
+  named. The script stops if that listing changes.
+- **Money market funds:** every shekel money market fund on Maya
+  (`classification.main` "כספית שקלית"), 44 of them, rates of 15 October
+  2026, with its number and fee. The two that `money_market.rs` names are
+  among them at its fees: "דולפין כספית שקלית" (5141098, 0.01%) and
+  "מיטב כספית" (5123898, 0.26%). "ברק כספית" (5141692) charges the same
+  0.01% as Dolphin.
+- **The order:** each list is by size, largest first, as its source gives
+  it (Maya's `assetValue`, the exchange's `MarketValue`, the issuers' net
+  assets): an order that says nothing about which fund is better.
+
 ## CPI-linked deposits
 
 Looked for on 19 October 2026 for `short_term/linked_deposits.rs`; not
