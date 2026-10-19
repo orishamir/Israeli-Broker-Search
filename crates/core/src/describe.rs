@@ -2484,10 +2484,10 @@ fn accessibility(lang: Lang) -> Section {
             ),
             item(
                 lang,
-                "The charts aren't described in words. The amounts at the end are in the table \
-                 too, but the fees by kind, the values midway and the chart by deposit are in \
-                 the charts alone.",
-                "הגרפים לא מתוארים במילים. הסכומים שבסוף התקופה מופיעים גם בטבלה, אבל פירוט העמלות לפי סוג, הערכים באמצע התקופה והגרף לפי הפקדה מופיעים רק בגרפים.",
+                "The charts aren't described in words. The amounts at the end are in the answer and \
+                 in the lists too, but the values midway, where the money goes and the chart by \
+                 deposit are in the charts alone.",
+                "הגרפים לא מתוארים במילים. הסכומים שבסוף התקופה מופיעים גם בתשובה וברשימות, אבל הערכים באמצע התקופה, לאן הולך הכסף והגרף לפי הפקדה מופיעים רק בגרפים.",
             ),
             item(
                 lang,
@@ -2498,8 +2498,8 @@ fn accessibility(lang: Lang) -> Section {
             Item {
                 text: paragraph(
                     "Something doesn't work for you? Say so on GitHub, and it will be fixed \
-                     (updated 18/10/2026).",
-                    "משהו לא עובד לכם? כתבו לנו ב\u{2011}GitHub, ונתקן (עודכן ב\u{2011}18/10/2026).",
+                     (updated 19/10/2026).",
+                    "משהו לא עובד לכם? כתבו לנו ב\u{2011}GitHub, ונתקן (עודכן ב\u{2011}19/10/2026).",
                 ),
                 url: Some(ISSUES.to_owned()),
             },

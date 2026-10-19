@@ -416,6 +416,20 @@ export const en = {
   thingShort: 'Short-term money',
   waysTitle: 'In which ways to compare?',
   waysBest: 'The ways, best first',
+  // Package L: the learn card, the glossary, the best bar
+  cardWhat: 'What it is',
+  cardGoodFor: 'What it is good for',
+  cardDownside: 'The downside',
+  cardCost: 'What it costs',
+  cardTax: 'Tax',
+  cardWhereMet: 'Where else you meet it',
+  cardInTheBank: "In the bank's app:",
+  cardInAds: 'In ads:',
+  cardVersus: (name: string) => `Versus ${name} ›`,
+  allTerms: 'All terms ›',
+  cardBack: '‹ Back',
+  bestBarToday: "in today's money",
+  bestBarJump: 'To the answer',
 }
 
 export type Text = typeof en

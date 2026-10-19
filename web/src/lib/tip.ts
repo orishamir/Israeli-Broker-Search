@@ -6,6 +6,8 @@ let closeOpen: (() => void) | null = null
 /** When the last tip closed: straight after one, the next opens at once and
  * without its rise, as the system's own tooltips do. */
 let lastClosed = -Infinity
+/** How long a tip with a link waits for the pointer to cross to it. */
+const LINK_GRACE = 250
 const warm = () => performance.now() - lastClosed < 300
 
 /** Shows `popover` (a `popover="manual"` element) next to the element this is
@@ -77,6 +79,10 @@ export const tip =
       if (onClick) trigger.setAttribute('aria-expanded', 'false')
       document.removeEventListener('pointerdown', onPointerDownElsewhere, true)
       document.removeEventListener('keydown', onKeyDown)
+      popover.removeEventListener('pointerenter', onPopoverEnter)
+      popover.removeEventListener('pointerleave', onPopoverLeave)
+      popover.removeEventListener('click', onPopoverClick)
+      popover.removeEventListener('focusout', onPopoverFocusOut)
       if (closeOpen === close) closeOpen = null
       if (byUser) onClose?.()
     }
@@ -93,6 +99,10 @@ export const tip =
       stopPositioning = autoUpdate(trigger, popover, place)
       document.addEventListener('pointerdown', onPointerDownElsewhere, true)
       document.addEventListener('keydown', onKeyDown)
+      popover.addEventListener('pointerenter', onPopoverEnter)
+      popover.addEventListener('pointerleave', onPopoverLeave)
+      popover.addEventListener('click', onPopoverClick)
+      popover.addEventListener('focusout', onPopoverFocusOut)
     }
 
     function onPointerDownElsewhere(event: PointerEvent) {
@@ -110,10 +120,26 @@ export const tip =
       if (!hover || event.pointerType !== 'mouse') return
       hoverTimer = setTimeout(open, warm() ? 0 : 150)
     }
+    // A tip with a link ("עוד על זה ›", `.more`) must be reachable: leaving
+    // the trigger for it mustn't close it, so it waits a moment for the
+    // pointer to arrive, and closes when the pointer leaves it.
+    const hasLink = () => popover.querySelector('.more') !== null
     function onPointerLeave(event: PointerEvent) {
       if (event.pointerType !== 'mouse') return
       clearTimeout(hoverTimer)
-      if (!clicked) close()
+      if (clicked) return
+      if (hasLink()) hoverTimer = setTimeout(() => close(), LINK_GRACE)
+      else close()
+    }
+    function onPopoverEnter(event: PointerEvent) {
+      if (event.pointerType === 'mouse') clearTimeout(hoverTimer)
+    }
+    function onPopoverLeave(event: PointerEvent) {
+      if (event.pointerType === 'mouse' && !clicked && hasLink())
+        hoverTimer = setTimeout(() => close(), LINK_GRACE)
+    }
+    function onPopoverClick(event: Event) {
+      if (event.target instanceof Element && event.target.closest('.more')) close()
     }
     function onClickTrigger() {
       if (clicked) return close()
@@ -126,7 +152,17 @@ export const tip =
     function onFocus() {
       if (hover && trigger.matches(':focus-visible, :has(:focus-visible)')) open()
     }
-    function onBlur() {
+    function onBlur(event: FocusEvent) {
+      // Tabbing on to the tip's own link keeps it open.
+      if (event.relatedTarget instanceof Node && popover.contains(event.relatedTarget)) return
+      if (!clicked) close()
+    }
+    function onPopoverFocusOut(event: FocusEvent) {
+      if (
+        event.relatedTarget instanceof Node &&
+        (popover.contains(event.relatedTarget) || trigger.contains(event.relatedTarget))
+      )
+        return
       if (!clicked) close()
     }
 

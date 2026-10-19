@@ -412,4 +412,18 @@ export const he: Text = {
   thingShort: 'כסף לטווח קצר',
   waysTitle: 'באילו דרכים להשוות?',
   waysBest: 'הדרכים, מהטובה לפחות טובה',
+  // Package L: the learn card, the glossary, the best bar
+  cardWhat: 'מה זה',
+  cardGoodFor: 'למה זה טוב',
+  cardDownside: 'החיסרון',
+  cardCost: 'מה זה עולה',
+  cardTax: 'מס',
+  cardWhereMet: 'איפה עוד פוגשים את זה',
+  cardInTheBank: 'באפליקציה של הבנק:',
+  cardInAds: 'בפרסומות:',
+  cardVersus: (name: string) => `לעומת ${name} ›`,
+  allTerms: 'כל המונחים ›',
+  cardBack: '‹ חזרה',
+  bestBarToday: 'בכסף של היום',
+  bestBarJump: 'לתשובה',
 }
