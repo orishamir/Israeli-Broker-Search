@@ -195,7 +195,20 @@ export function chart(
     })
     resizing.observe(element)
 
+    // ECharts hides its tooltip when the mouse leaves its canvas, but hears
+    // nothing from a finger lifted elsewhere, and a mouse that leaves
+    // mid-glide could leave it behind: hide it by action (not by option,
+    // which would redraw) when the pointer leaves or presses outside.
+    const hideTip = () => instance?.dispatchAction({ type: 'hideTip' })
+    const pressedElsewhere = (event: PointerEvent) => {
+      if (!element.contains(event.target as Node)) hideTip()
+    }
+    element.addEventListener('pointerleave', hideTip)
+    document.addEventListener('pointerdown', pressedElsewhere, true)
+
     return () => {
+      element.removeEventListener('pointerleave', hideTip)
+      document.removeEventListener('pointerdown', pressedElsewhere, true)
       cancelDraw()
       stopSetup?.()
       resizing.disconnect()
