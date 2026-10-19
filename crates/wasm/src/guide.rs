@@ -5,6 +5,7 @@
 //! fields (numbers that are `null` while a field is empty) into the core's
 //! types, and the core's answers into plain data.
 
+use broker_fees::describe::reasons::Span;
 use broker_fees::describe::{self, About, LearnCard, Term};
 use broker_fees::guide::{
     self, Alternative, Amount, Answers, Arena, Bank, Choice as GuideChoice, Circumstance, ColumnId,
@@ -84,6 +85,11 @@ pub struct GuideSettings {
     /// What the expert chose over the guide.
     #[serde(default)]
     pub overrides: Overrides,
+    /// The calendar year now, for "in 2041's shekels": the core keeps no
+    /// clock, so the page says. `null` leaves that note out.
+    #[serde(default)]
+    #[tsify(type = "number | null")]
+    pub this_year: Option<i32>,
 }
 
 /// Why the guide can't answer: its words are in the app's language.
@@ -238,6 +244,57 @@ impl From<Amount> for AmountData {
             nominal: number(amount.nominal),
         }
     }
+}
+
+/// A piece of a sentence, and whether the page should emphasise it.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct SpanData {
+    pub text: String,
+    pub bold: bool,
+}
+
+impl From<&Span> for SpanData {
+    fn from(span: &Span) -> Self {
+        SpanData {
+            text: span.text.clone(),
+            bold: span.bold,
+        }
+    }
+}
+
+fn spans(parts: &[Span]) -> Vec<SpanData> {
+    parts.iter().map(SpanData::from).collect()
+}
+
+/// The note under the answer's amount.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct LeftNoteData {
+    pub today: String,
+    /// The same sum in the money of the year it arrives, when that differs.
+    pub nominal: Option<String>,
+}
+
+/// One of the two arenas, named for the "change" menu.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ArenaChoice {
+    pub arena: Arena,
+    pub name: String,
+}
+
+/// A follow-up question as a card.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct FollowCardData {
+    pub follow_up: FollowUp,
+    pub title: String,
+    pub text: String,
+    /// The buttons, in the order of the answers they stand for.
+    pub answers: Vec<String>,
+    /// The label of the number field the card holds.
+    pub field: Option<String>,
 }
 
 /// The place or plan chosen, by name.
@@ -476,6 +533,15 @@ pub struct RecommendationData {
     pub steps: Vec<StepData>,
     pub follow_ups: Vec<FollowUp>,
     pub two_parts: Option<CushionPlanData>,
+    /// What was chosen, in the terms of the bank's app (or, for money with no
+    /// cushion, the plan in two parts), with the thing named in bold.
+    pub what: Vec<SpanData>,
+    /// The second part of the cushion plan's sentence.
+    pub what_then: Vec<SpanData>,
+    pub left_note: LeftNoteData,
+    pub current_account_line: String,
+    pub unlock_text: Option<String>,
+    pub arena_choices: Vec<ArenaChoice>,
     /// The columns of the list of `plans`.
     pub columns: Vec<ColumnData>,
 }
@@ -504,6 +570,28 @@ pub fn recommend_for(
     let data = data_for(settings);
     let core = settings_for(settings, &data)?;
     let r = guide::recommend(&answers.to_core(), &core, &data)?;
+    let (what, what_then) = match &r.two_parts {
+        Some(plan) => {
+            let (first, then) = describe::reasons::cushion_text(plan, r.answers.monthly, lang());
+            let mut first = spans(&first);
+            first.push(SpanData {
+                text: " ".to_owned(),
+                bold: false,
+            });
+            (first, spans(&then))
+        }
+        None => (
+            spans(&describe::answer::what(
+                r.kind,
+                &r.choice,
+                r.months,
+                &r.answers.horizon,
+                lang(),
+            )),
+            Vec::new(),
+        ),
+    };
+    let note = describe::answer::left_note(r.left, r.months, settings.this_year, lang());
     Ok(RecommendationData {
         arena: r.arena,
         kind: r.kind.into(),
@@ -547,6 +635,24 @@ pub fn recommend_for(
             then_ranked: plan.then_ranked.iter().map(RankedData::from).collect(),
             then_years: plan.then_years,
         }),
+        what,
+        what_then,
+        left_note: LeftNoteData {
+            today: note.today,
+            nominal: note.nominal,
+        },
+        current_account_line: describe::answer::current_account_line(r.current_account, lang()),
+        unlock_text: r
+            .unlock
+            .as_ref()
+            .map(|unlock| describe::reasons::unlock_text(unlock, lang())),
+        arena_choices: [Arena::Safe, Arena::Index]
+            .into_iter()
+            .map(|arena| ArenaChoice {
+                arena,
+                name: describe::answer::arena_name(arena, lang()).to_owned(),
+            })
+            .collect(),
         columns: columns(r.arena),
     })
 }
@@ -913,6 +1019,27 @@ pub fn follow_ups(answers: Ts<AnswersInput>) -> Result<Vec<Ts<FollowUp>>, JsErro
         .collect()
 }
 
+/// One follow-up question, as a card in the app's language.
+#[wasm_bindgen(js_name = followCard)]
+pub fn follow_card(follow_up: Ts<FollowUp>) -> Result<Ts<FollowCardData>, JsError> {
+    let follow_up = follow_up.to_rust()?;
+    let card = describe::answer::follow_card(follow_up, lang());
+    Ok(FollowCardData {
+        follow_up,
+        title: card.title,
+        text: card.text,
+        answers: card.answers,
+        field: card.field,
+    }
+    .into_ts()?)
+}
+
+/// What "another bank" is priced as.
+#[wasm_bindgen(js_name = bankStandInNote)]
+pub fn bank_stand_in_note() -> String {
+    describe::answer::bank_stand_in_note(lang()).to_owned()
+}
+
 /// The banks whose branch price list is modelled, for the "I already have a
 /// portfolio at a bank" chip.
 #[derive(Debug, Serialize, Tsify)]
@@ -1024,6 +1151,7 @@ mod tests {
             plans: None,
             your_plans: vec![],
             overrides: Overrides::default(),
+            this_year: Some(2026),
         }
     }
 

@@ -435,37 +435,10 @@ export const en = {
   situationTip: (name: string) => `About the situation "${name}"`,
   horizonUnknownPlaceholder: '?',
   horizonAmount: 'How long',
-  followFlexTitle: 'If the market is down exactly then, can you wait a year or two?',
-  followFlexText:
-    'When the money is needed on a fixed date, like a payment on a flat, a 20% fall in the market that year is a problem. When you can wait, it usually passes.',
-  followFlexFixed: 'No, I need it exactly then',
-  followFlexWait: 'Yes, I can wait',
-  followCushionTitle: 'Do you already have 3–6 months of expenses set aside?',
-  followCushionText:
-    'A cushion comes first: money at hand for a layoff or a sudden expense, so you never have to sell an investment during a fall.',
-  followCushionYes: 'Yes',
-  followCushionNo: 'Not yet',
-  monthlyExpenses: 'My expenses a month, roughly',
-  followAgeTitle: 'For retirement: how old are you?',
-  followAgeText:
-    'Your age decides when the money can be taken as a monthly pension, and so how many years it can grow.',
   whyThis: 'Why this one',
-  inTodaysMoney: "You'd be left with, in today's money, after tax",
-  inNominalMoney: (amount: string, year: number) => `${amount} in ${year}'s shekels`,
-  currentAccountLine: (amount: string) => `If the money sat in a current account: ${amount} in today's money`,
-  cushionFirst: (monthly: string, kind: string) => `First a cushion in a ${kind}: ${monthly} a month`,
-  cushionUntil: (target: string, months: number) =>
-    `until about ${target} has built up, around ${months} months.`,
-  cushionThen: (kind: string) => `Then, ${kind}, for the long term.`,
-  unlockLine: (deposit: string, plan: string, after: string, instead: string) =>
-    `With ${deposit} as the first deposit you can join ${plan}: ${after} instead of ${instead}.`,
   chooseKindTitle: 'Continue with what?',
-  bankStandIn:
-    "For another bank, the dearest branch price list we found is shown, so as not to show less than you'd pay.",
   portfolioHelp: "A portfolio's fees can be found in the bank's app, or ask the banker for the price list.",
   newOwnPlan: '+ Your own plan',
-  arenaSafe: 'A safer sum',
-  arenaIndex: 'An index, for the long term',
 }
 
 export type Text = typeof en

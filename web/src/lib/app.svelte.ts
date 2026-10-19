@@ -79,6 +79,7 @@ import type {
   ComparisonData,
   Exchange,
   FeesFor,
+  FollowCardData,
   FollowUp,
   GuideSettings,
   Horizon,
@@ -117,6 +118,9 @@ import { firstOfEachId, load, save } from './saved'
 import { ask, askSweep, type GuideRequest, type SweepRequest } from './sweeper'
 import { run, type Worked } from './work'
 import { t } from './text'
+
+/** The calendar year, for the core's "in 2041's shekels" note. */
+const THIS_YEAR = new Date().getFullYear()
 
 export { PLAN_COLORS } from './colors'
 export type { Thing } from './link'
@@ -307,6 +311,10 @@ export class AppState {
 
   readonly situations: SituationData[] = core.situations()
   readonly banks: BankChoice[] = core.banks()
+  /** What "another bank" is priced as, in the core's words. */
+  /** The label of the month's-expenses field, which the cushion's card holds. */
+  readonly expensesLabel: string = core.followCard('MonthlyExpenses').field ?? ''
+  readonly bankStandIn: string = core.bankStandInNote()
   readonly wayChoices: WayChoice[] = core.ways()
   readonly footer: string[] = core.footer()
   readonly about = core.aboutAll()
@@ -664,6 +672,7 @@ export class AppState {
     plans: this.tickedKeys,
     yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
     overrides: this.overrides,
+    thisYear: THIS_YEAR,
   })
 
   /** What the guide is asked: a new object whenever the answers or the
@@ -743,6 +752,9 @@ export class AppState {
       return []
     }
   })
+
+  /** The follow-up questions as cards, in the core's words. */
+  followCards: FollowCardData[] = $derived(this.followUps.map((each) => core.followCard(each)))
 
   /** What the workbench looks at: what the user chose there, or what the
    * recommendation is about. */

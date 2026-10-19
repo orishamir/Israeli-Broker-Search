@@ -24,16 +24,6 @@
   $effect(() => {
     if (existing && app.recommendationFresh) app.tickYourBranch()
   })
-
-  /** The year the money is there, for the nominal figure's note. */
-  const endYear = $derived(
-    recommendation ? new Date().getFullYear() + Math.ceil(recommendation.months / 12) : undefined,
-  )
-  const nominalDiffers = $derived(
-    recommendation !== undefined &&
-      Math.round(recommendation.left.nominal) !== Math.round(recommendation.left.today),
-  )
-  const monthly = $derived(app.answers.monthly ?? 0)
 </script>
 
 <section class="card answer">
@@ -42,19 +32,11 @@
   </div>
   {#if recommendation}
     <div class="what">
-      {#if plan}
-        <p>
-          <strong>{t.cushionFirst(shekels(monthly), recommendation.kind.name)}</strong>,
-          {t.cushionUntil(shekels(plan.target), Math.round(plan.monthsToFill))}
-          {t.cushionThen(plan.then.name)}
-        </p>
-      {:else}
-        <p>
-          <strong>{recommendation.kind.name}</strong>,
-          {recommendation.choice.provider}
-          {#if recommendation.choice.plan}· {recommendation.choice.plan}{/if}.
-        </p>
-      {/if}
+      <p>
+        {#each [...recommendation.what, ...recommendation.whatThen] as span, at (at)}{#if span.bold}<strong
+              >{span.text}</strong
+            >{:else}{span.text}{/if}{/each}
+      </p>
       <p class="actions">
         {#if recommendation.kind.card}
           {@const card = recommendation.kind.card}
@@ -72,20 +54,15 @@
       <div class="picker" transition:reveal>
         <h3>{t.chooseKindTitle}</h3>
         <div class="options">
-          <button
-            class="chip"
-            onclick={() => {
-              app.chooseArena('Safe')
-              choosing = false
-            }}>{t.arenaSafe}</button
-          >
-          <button
-            class="chip"
-            onclick={() => {
-              app.chooseArena('Index')
-              choosing = false
-            }}>{t.arenaIndex}</button
-          >
+          {#each recommendation.arenaChoices as choice (choice.arena)}
+            <button
+              class="chip"
+              onclick={() => {
+                app.chooseArena(choice.arena)
+                choosing = false
+              }}>{choice.name}</button
+            >
+          {/each}
         </div>
         <ul>
           {#each recommendation.ranked as ranked (kindKey(ranked.kind))}
@@ -114,12 +91,12 @@
       <div class="amount-box">
         <div class="big">{shekels(recommendation.left.today)}</div>
         <p class="sub">
-          {t.inTodaysMoney}{#if nominalDiffers && endYear}
-            · <bdi>{t.inNominalMoney(shekels(recommendation.left.nominal), endYear)}</bdi>{/if}
+          {recommendation.leftNote.today}{#if recommendation.leftNote.nominal}
+            &nbsp;· <bdi>{recommendation.leftNote.nominal}</bdi>{/if}
         </p>
       </div>
     {/if}
-    <p class="base">{t.currentAccountLine(shekels(recommendation.currentAccount.today))}</p>
+    <p class="base">{recommendation.currentAccountLine}</p>
 
     <h3>{t.whyThis}</h3>
     <ul class="reasons">
@@ -128,16 +105,8 @@
       {/each}
     </ul>
 
-    {#if recommendation.unlock}
-      {@const unlock = recommendation.unlock}
-      <p class="unlock" transition:reveal>
-        {t.unlockLine(
-          shekels(unlock.firstDeposit),
-          `${unlock.plan.provider} · ${unlock.plan.plan}`,
-          shekels(unlock.afterTax.today),
-          shekels(unlock.insteadOf.today),
-        )}
-      </p>
+    {#if recommendation.unlockText}
+      <p class="unlock" transition:reveal>{recommendation.unlockText}</p>
     {/if}
   {/if}
 </section>

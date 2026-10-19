@@ -54,9 +54,8 @@ test('a card opened from a card stacks, and back returns to the first', () => {
 
 test('the kinds the core says have a card are in the glossary', () => {
   const app = start()
-  for (const ranked of app.recommendation?.ranked ?? []) {
-    if (ranked.kind.card) expect(cardOf(app.glossary, ranked.kind.card)).toBeDefined()
-  }
+  const card = app.recommendation?.kind.card
+  if (card) expect(cardOf(app.glossary, card)).toBeDefined()
   expect(core.glossary().length).toBe(app.glossary.length)
 })
 

@@ -6,7 +6,6 @@
   // workbench. Everything it changes goes through `app`.
   import type { Attachment } from 'svelte/attachments'
   import type { AppState } from './app.svelte'
-  import type { FollowUp } from './core/core'
   import { defaultUnit, monthsOfTyped, shown, type Unit } from './horizon'
   import { reveal } from './motion'
   import NumberField from './NumberField.svelte'
@@ -33,12 +32,11 @@
   const popovers = $state<HTMLElement[]>([])
   /** The cards to show: the guide's follow-ups, the expenses field with the
    * cushion's (or on its own, if the cushion's question isn't asked). */
-  const cards = $derived(app.followUps.filter((each) => each !== 'MonthlyExpenses'))
+  const cards = $derived(app.followCards.filter((each) => each.followUp !== 'MonthlyExpenses'))
   const expensesAsked = $derived(
     app.followUps.includes('MonthlyExpenses') ||
-      (app.answers.cushion?.kind === 'hasNot' && cards.includes('Cushion')),
+      (app.answers.cushion?.kind === 'hasNot' && cards.some((each) => each.followUp === 'Cushion')),
   )
-  const cushionCard = (card: FollowUp) => card === 'Cushion'
 
   /** The tip's placement is for hovering; a tap picks the chip. */
   const hoverOnly = (popover: HTMLElement): Attachment<HTMLElement> => tip(popover, { onClick: false })
@@ -134,28 +132,28 @@
     </div>
   </section>
 
-  {#each cards as card (card)}
+  {#each cards as card (card.followUp)}
     <section class="card follow" transition:reveal>
-      {#if card === 'Flexibility'}
-        <h3>{t.followFlexTitle}</h3>
-        <p class="hint">{t.followFlexText}</p>
+      {#if card.followUp === 'Flexibility'}
+        <h3>{card.title}</h3>
+        <p class="hint">{card.text}</p>
         <div class="answers">
           <button
             class="chip"
             class:chosen={app.answers.flexibility === 'Fixed'}
             aria-pressed={app.answers.flexibility === 'Fixed'}
-            onclick={() => (app.answers.flexibility = 'Fixed')}>{t.followFlexFixed}</button
+            onclick={() => (app.answers.flexibility = 'Fixed')}>{card.answers[0]}</button
           >
           <button
             class="chip"
             class:chosen={app.answers.flexibility === 'CanWait'}
             aria-pressed={app.answers.flexibility === 'CanWait'}
-            onclick={() => (app.answers.flexibility = 'CanWait')}>{t.followFlexWait}</button
+            onclick={() => (app.answers.flexibility = 'CanWait')}>{card.answers[1]}</button
           >
         </div>
-      {:else if card === 'AgeAndRetirement'}
-        <h3>{t.followAgeTitle}</h3>
-        <p class="hint">{t.followAgeText}</p>
+      {:else if card.followUp === 'AgeAndRetirement'}
+        <h3>{card.title}</h3>
+        <p class="hint">{card.text}</p>
         <div class="field-row">
           <label for="age" class="label">{t.iAmAge}</label>
           <div class="control">
@@ -180,26 +178,26 @@
             />
           </div>
         </div>
-      {:else if cushionCard(card)}
-        <h3>{t.followCushionTitle}</h3>
-        <p class="hint">{t.followCushionText}</p>
+      {:else if card.followUp === 'Cushion'}
+        <h3>{card.title}</h3>
+        <p class="hint">{card.text}</p>
         <div class="answers">
           <button
             class="chip"
             class:chosen={app.answers.cushion?.kind === 'has'}
             aria-pressed={app.answers.cushion?.kind === 'has'}
-            onclick={() => setCushion(true)}>{t.followCushionYes}</button
+            onclick={() => setCushion(true)}>{card.answers[0]}</button
           >
           <button
             class="chip"
             class:chosen={app.answers.cushion?.kind === 'hasNot'}
             aria-pressed={app.answers.cushion?.kind === 'hasNot'}
-            onclick={() => setCushion(false)}>{t.followCushionNo}</button
+            onclick={() => setCushion(false)}>{card.answers[1]}</button
           >
         </div>
         {#if expensesAsked}
           <div class="field-row" transition:reveal>
-            <label for="expenses" class="label">{t.monthlyExpenses}</label>
+            <label for="expenses" class="label">{app.expensesLabel}</label>
             <div class="control">
               <NumberField id="expenses" bind:value={expenses.get, expenses.set} prefix="₪" />
             </div>

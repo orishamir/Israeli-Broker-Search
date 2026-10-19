@@ -4,6 +4,7 @@
 
 use std::sync::LazyLock;
 
+use broker_fees::describe::answer::{current_account_line, follow_card, left_note, what};
 use broker_fees::describe::reasons::{
     cushion_text, history_caveat, history_sentence, safety_note, safety_tag, steps_for,
     unlock_text, what_safety_costs,
@@ -106,6 +107,30 @@ fn every_reason_why_not_and_step_has_text_in_both_languages() {
                 clean(&step.text[lang], "a step");
             }
         }
+        for lang in [Lang::En, Lang::He] {
+            let spans = what(rec.kind, &rec.choice, rec.months, &answers.horizon, lang);
+            assert!(spans.iter().any(|part| part.bold), "{answers:?}");
+            for part in &spans {
+                clean(&part.text, "the what-sentence");
+            }
+            let note = left_note(rec.left, rec.months, Some(2026), lang);
+            clean(&note.today, "the amount's note");
+            clean(
+                &current_account_line(rec.current_account, lang),
+                "the base line",
+            );
+            for follow_up in &rec.follow_ups {
+                let card = follow_card(*follow_up, lang);
+                if *follow_up != FollowUp::MonthlyExpenses {
+                    clean(&card.title, "a follow-up's title");
+                    clean(&card.text, "a follow-up's text");
+                }
+                assert_eq!(
+                    card.field.is_some(),
+                    *follow_up == FollowUp::MonthlyExpenses
+                );
+            }
+        }
         if let Some(unlock) = &rec.unlock {
             for lang in [Lang::En, Lang::He] {
                 clean(&unlock_text(unlock, lang), "the unlock line");
@@ -114,8 +139,9 @@ fn every_reason_why_not_and_step_has_text_in_both_languages() {
         if let Some(plan) = &rec.two_parts {
             for lang in [Lang::En, Lang::He] {
                 let (first, second) = cushion_text(plan, dec!(3_000), lang);
-                clean(&first, "the cushion");
-                clean(&second, "after the cushion");
+                for part in first.iter().chain(&second) {
+                    clean(&part.text, "the cushion");
+                }
             }
         }
         if let Some(band) = &rec.band {

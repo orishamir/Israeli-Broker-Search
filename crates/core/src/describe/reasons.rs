@@ -19,6 +19,7 @@ use crate::guide::{
 use crate::history::Band;
 use crate::{Lang, Named, Vehicle, ils};
 
+pub use super::answer::Span;
 pub use super::steps::steps_for;
 
 /// ₪ to the shekel: "₪51,000".
@@ -936,37 +937,48 @@ pub fn unlock_text(unlock: &UnlockLine, lang: Lang) -> String {
 }
 
 /// The cushion's two parts: first the cushion, then where the monthly money
-/// goes. `monthly` is what the saver puts in each month.
+/// goes. `monthly` is what the saver puts in each month. The thing named in
+/// each part is a bold span.
 #[must_use]
-pub fn cushion_text(plan: &CushionPlan, monthly: Decimal, lang: Lang) -> (String, String) {
-    let first = say(
-        lang,
-        format!(
-            "First, a cushion in a money market fund: {} a month until {} gathers (three \
-             months of expenses), about {}.",
-            shekels(monthly),
-            shekels(plan.target),
-            span(plan.months_to_fill, lang)
-        ),
-        format!(
-            "קודם, כרית ביטחון בקרן כספית: {} בחודש עד שיצטברו {} (שלושה חודשי הוצאות), בערך {}.",
-            shekels(monthly),
-            shekels(plan.target),
-            span(plan.months_to_fill, lang)
-        ),
-    );
+pub fn cushion_text(plan: &CushionPlan, monthly: Decimal, lang: Lang) -> (Vec<Span>, Vec<Span>) {
+    let first = vec![
+        Span::bold(pick(
+            lang,
+            "First, a cushion in a money market fund",
+            "קודם, כרית ביטחון בקרן כספית",
+        )),
+        Span::plain(say(
+            lang,
+            format!(
+                ": {} a month until {} gathers (three months of expenses), about {}.",
+                shekels(monthly),
+                shekels(plan.target),
+                span(plan.months_to_fill, lang)
+            ),
+            format!(
+                ": {} בחודש עד שיצטברו {} (שלושה חודשי הוצאות), בערך {}.",
+                shekels(monthly),
+                shekels(plan.target),
+                span(plan.months_to_fill, lang)
+            ),
+        )),
+    ];
     let then = plan.then.name(lang);
-    let second = say(
-        lang,
-        format!(
-            "Then {then}, for the long run: of the places that can be opened at any time, it \
-             leaves the most after tax over {}.",
-            span(plan.then_years * 12, lang)
-        ),
-        format!(
-            "אחר כך {then}, לטווח ארוך: ממקומות שאפשר למשוך מהם בכל עת, זה מה שמשאיר הכי הרבה אחרי מס ב\u{2011}{}.",
-            span(plan.then_years * 12, lang)
-        ),
-    );
+    let second = vec![
+        Span::plain(pick(lang, "Then ", "אחר כך ")),
+        Span::bold(then),
+        Span::plain(say(
+            lang,
+            format!(
+                ", for the long run: of the places that can be opened at any time, it leaves \
+                 the most after tax over {}.",
+                span(plan.then_years * 12, lang)
+            ),
+            format!(
+                ", לטווח ארוך: ממקומות שאפשר למשוך מהם בכל עת, זה מה שמשאיר הכי הרבה אחרי מס ב\u{2011}{}.",
+                span(plan.then_years * 12, lang)
+            ),
+        )),
+    ];
     (first, second)
 }

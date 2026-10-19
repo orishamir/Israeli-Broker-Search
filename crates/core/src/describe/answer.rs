@@ -1,0 +1,315 @@
+//! The page's sentences about money in the answer and the questions: what
+//! was chosen (in the terms of the bank's app), the amount's notes, the
+//! follow-up cards, the bank stand-in note and the arenas' names. They live
+//! here, not in the page's texts, because each says something the guide
+//! computed (CLAUDE.md: keep the logic in Rust).
+//!
+//! A sentence the page may want to emphasise comes as [`Span`]s, so the page
+//! never has to parse markup out of a string.
+
+use super::reasons::{shekels, span};
+use crate::guide::{Amount, Arena, Choice, FollowUp, Horizon, Kind};
+use crate::ways::Way;
+use crate::{Lang, Named, Product, Vehicle};
+
+/// A piece of a sentence, and whether it is the thing named.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Span {
+    pub text: String,
+    pub bold: bool,
+}
+
+impl Span {
+    pub fn plain(text: impl Into<String>) -> Self {
+        Span {
+            text: text.into(),
+            bold: false,
+        }
+    }
+
+    pub fn bold(text: impl Into<String>) -> Self {
+        Span {
+            text: text.into(),
+            bold: true,
+        }
+    }
+}
+
+/// What the place is called after the kind: "(the cheapest: X · Y)". A name
+/// that only repeats the kind, as a fund's `plan` does, is left out.
+fn place(kind: Kind, choice: &Choice, lang: Lang) -> String {
+    let provider = &choice.provider[lang];
+    let plan = &choice.plan[lang];
+    let named = if plan.is_empty() || *plan == *kind.name(lang) || plan == provider {
+        provider.to_owned()
+    } else {
+        format!("{provider}{}· {plan}", lang.pick(" ", "\u{a0}"))
+    };
+    // A fund's or a bank's name says which it is already ("הקרן הזולה: ..."),
+    // a broker's account is the cheapest of several.
+    match kind {
+        Kind::GovernmentBond { .. } => lang.pick("the cheapest: ", "הזול: ").to_owned() + &named,
+        Kind::Way(way) if way.vehicle == Vehicle::Brokerage => {
+            lang.pick("the cheapest: ", "הזול: ").to_owned() + &named
+        }
+        // A fund's or a policy's name is the kind's again, with its fee.
+        Kind::Way(_) => String::new(),
+        _ => named,
+    }
+}
+
+/// What was chosen, in the terms the saver meets in the bank's app and in
+/// ads: the kind first (bold), then what it means for this money.
+#[must_use]
+pub fn what(kind: Kind, choice: &Choice, months: u32, horizon: &Horizon, lang: Lang) -> Vec<Span> {
+    let placed = place(kind, choice, lang);
+    let (head, rest) = match kind {
+        Kind::MoneyMarketFund => (
+            lang.pick("Money market fund (קרן כספית)", "קרן כספית").to_owned(),
+            lang.pick(
+                ", which you can sell on any trading day, and whose interest follows the Bank of Israel's",
+                ", שאפשר למכור בכל יום מסחר, והריבית שלה עוקבת אחרי ריבית בנק ישראל",
+            )
+            .to_owned(),
+        ),
+        Kind::FixedDeposit | Kind::LinkedDeposit => (
+            kind.name(lang).to_owned(),
+            match (kind, lang) {
+                (Kind::LinkedDeposit, Lang::He) => format!(
+                    " ל{}, שהקרן שלו צמודה למדד המחירים לצרכן, ושהכסף נעול בו עד סופו",
+                    span(months, lang)
+                ),
+                (Kind::LinkedDeposit, Lang::En) => format!(
+                    " for {}, whose principal follows the consumer price index, with the money locked in until the end",
+                    span(months, lang)
+                ),
+                (_, Lang::He) => format!(
+                    " ל{}, שהבנק קובע את הריבית שלו מראש ושהכסף נעול בו עד סופו",
+                    span(months, lang)
+                ),
+                (_, Lang::En) => format!(
+                    " for {}, whose rate the bank fixes in advance, with the money locked in until the end",
+                    span(months, lang)
+                ),
+            },
+        ),
+        Kind::GovernmentBond { .. } => (
+            kind.name(lang).to_owned(),
+            lang.pick(
+                " held until it is repaid, in ",
+                " שמחזיקים עד שהוא נפדה, בעוד ",
+            )
+            .to_owned()
+                + &span(months, lang)
+                + lang.pick(", through a brokerage account", ", דרך חשבון מסחר"),
+        ),
+        Kind::Way(way) => way_sentence(way, horizon, lang),
+        Kind::CurrentAccount => (
+            kind.name(lang).to_owned(),
+            lang.pick(", where it earns nothing", ", שבו הוא לא מרוויח כלום")
+                .to_owned(),
+        ),
+    };
+    let mut spans = vec![Span::bold(head), Span::plain(rest)];
+    if placed.is_empty() {
+        spans.push(Span::plain("."));
+    } else {
+        spans.push(Span::plain(format!(" ({placed}).")));
+    }
+    spans
+}
+
+fn way_sentence(way: Way, horizon: &Horizon, lang: Lang) -> (String, String) {
+    match (way.product, way.vehicle) {
+        (Product::IsraeliIndexFund, Vehicle::Brokerage) => (
+            lang.pick(
+                "Index fund (קרן מחקה) on the S&P 500",
+                "קרן מחקה על ה־S&P\u{a0}500",
+            )
+            .to_owned(),
+            lang.pick(
+                ", as it appears in the bank's app, on the Tel Aviv exchange",
+                ", כמו שהיא מופיעה באפליקציה של הבנק, בבורסה בתל אביב",
+            )
+            .to_owned(),
+        ),
+        (Product::IsraeliEtf, Vehicle::Brokerage) => (
+            lang.pick("ETF (קרן סל) on the S&P 500", "קרן סל על ה־S&P\u{a0}500")
+                .to_owned(),
+            lang.pick(", on the Tel Aviv exchange", ", בבורסה בתל אביב")
+                .to_owned(),
+        ),
+        (Product::ForeignEtfInTelAviv, Vehicle::Brokerage) => (
+            lang.pick("ETF (קרן סל) on the S&P 500", "קרן סל על ה־S&P\u{a0}500")
+                .to_owned(),
+            lang.pick(
+                ", registered in Ireland and traded in shekels in Tel Aviv",
+                ", רשומה באירלנד ונסחרת בשקלים בתל אביב",
+            )
+            .to_owned(),
+        ),
+        (Product::UsFund, Vehicle::Brokerage) => (
+            lang.pick(
+                "ETF (קרן סל) on the S&P 500, like VOO",
+                "קרן סל אמריקאית על ה־S&P\u{a0}500, כמו VOO",
+            )
+            .to_owned(),
+            lang.pick(", on the US exchange", ", בבורסה בארה״ב")
+                .to_owned(),
+        ),
+        (Product::IrishFund, Vehicle::Brokerage) => (
+            lang.pick(
+                "ETF (קרן סל) on the S&P 500, like CSPX",
+                "קרן סל אירית על ה־S&P\u{a0}500, כמו CSPX",
+            )
+            .to_owned(),
+            lang.pick(", on a European exchange", ", בבורסה באירופה")
+                .to_owned(),
+        ),
+        _ => {
+            // A fund or a policy: the track is named by `Way::name`.
+            let pension = match (*horizon, way.vehicle) {
+                (Horizon::Retirement { retire_at, .. }, Vehicle::InvestmentGemel)
+                    if retire_at >= 60 =>
+                {
+                    match lang {
+                        Lang::He => format!(", שתימשך כקצבה חודשית מגיל {retire_at}"),
+                        Lang::En => format!(
+                            ", which can be taken as a monthly pension from age {retire_at}"
+                        ),
+                    }
+                }
+                _ => String::new(),
+            };
+            (way.name(lang).to_owned(), pension)
+        }
+    }
+}
+
+/// The note under the amount: what the saver is shown, and the same sum in
+/// the money of the year it arrives, when that differs.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LeftNote {
+    pub today: String,
+    pub nominal: Option<String>,
+}
+
+#[must_use]
+pub fn left_note(left: Amount, months: u32, this_year: Option<i32>, lang: Lang) -> LeftNote {
+    let differs = left.nominal.round_dp(0) != left.today.round_dp(0);
+    let nominal = this_year.filter(|_| differs).map(|year| {
+        let arrives = year + i32::try_from(months.div_ceil(12)).unwrap_or(0);
+        match lang {
+            Lang::En => format!("{} in {arrives}'s shekels", shekels(left.nominal)),
+            Lang::He => format!("{} בשקלים של {arrives}", shekels(left.nominal)),
+        }
+    });
+    LeftNote {
+        today: lang
+            .pick(
+                "You would have this, in today's money, after tax",
+                "יישארו לכם בכסף של היום, אחרי מס",
+            )
+            .to_owned(),
+        nominal,
+    }
+}
+
+/// What the same deposits come to if the money sits in a current account.
+#[must_use]
+pub fn current_account_line(amount: Amount, lang: Lang) -> String {
+    match lang {
+        Lang::En => format!(
+            "If the money sat in a current account: {} in today's money",
+            shekels(amount.today)
+        ),
+        Lang::He => format!("אם הכסף יישב בעו״ש: {} בכסף של היום", shekels(amount.today)),
+    }
+}
+
+/// What "another bank" is priced as.
+#[must_use]
+pub fn bank_stand_in_note(lang: Lang) -> &'static str {
+    lang.pick(
+        "For another bank, the dearest branch price list we found is shown, so as not to show less than you would pay.",
+        "לבנק אחר מוצג מחירון הסניף היקר שמצאנו, כדי לא להציג פחות ממה שתשלמו.",
+    )
+}
+
+/// The two arenas, as the saver chooses between them.
+#[must_use]
+pub fn arena_name(arena: Arena, lang: Lang) -> &'static str {
+    match arena {
+        Arena::Safe => lang.pick("A safer sum", "סכום בטוח יותר"),
+        Arena::Index => lang.pick("An index, for the long run", "מדד, לטווח ארוך"),
+    }
+}
+
+/// A follow-up question as a card: its title, why it is asked, the answers
+/// offered and the number it takes, if any.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FollowCard {
+    pub title: String,
+    pub text: String,
+    /// The buttons, in the order of the answers they stand for.
+    pub answers: Vec<String>,
+    /// The label of the number field the card holds.
+    pub field: Option<String>,
+}
+
+#[must_use]
+pub fn follow_card(follow_up: FollowUp, lang: Lang) -> FollowCard {
+    let card = |title: &str, text: &str, answers: &[&str], field: Option<&str>| FollowCard {
+        title: title.to_owned(),
+        text: text.to_owned(),
+        answers: answers.iter().map(|&each| each.to_owned()).collect(),
+        field: field.map(str::to_owned),
+    };
+    match follow_up {
+        FollowUp::Flexibility => card(
+            lang.pick(
+                "If the market is down right then, could you wait another year or two?",
+                "אם הבורסה תהיה בירידה בדיוק אז, תוכלו לחכות עוד שנה-שנתיים?",
+            ),
+            lang.pick(
+                "When you need the money on a fixed date, like a payment on an apartment, a 20% fall in the market that year is a problem. When you can wait, it usually passes.",
+                "כשצריך את הכסף בתאריך קבוע, כמו תשלום על דירה, ירידה של 20% בבורסה באותה שנה היא בעיה. כשאפשר לחכות, היא בדרך כלל חולפת.",
+            ),
+            &[
+                lang.pick("No, exactly then", "לא, צריך בדיוק אז"),
+                lang.pick("Yes, I can wait", "כן, אפשר לחכות"),
+            ],
+            None,
+        ),
+        FollowUp::AgeAndRetirement => card(
+            lang.pick("For retirement: how old are you?", "לפרישה: בני כמה אתם?"),
+            lang.pick(
+                "Your age sets when the money can be taken as a monthly pension, and so how many years it can grow.",
+                "הגיל קובע מתי אפשר למשוך את הכסף כקצבה חודשית, ולכן כמה שנים הוא יכול לצמוח.",
+            ),
+            &[],
+            None,
+        ),
+        FollowUp::Cushion => card(
+            lang.pick(
+                "Do you already have money set aside for 3 to 6 months of expenses?",
+                "יש לכם כבר כסף בצד ל־3–6 חודשי הוצאות?",
+            ),
+            lang.pick(
+                "A cushion comes first: money within reach for a layoff or a sudden expense, so you never have to sell an investment while the market is down.",
+                "כרית ביטחון היא הדבר הראשון: כסף זמין למקרה של פיטורים או הוצאה פתאומית, כדי שלא תצטרכו למכור השקעה בזמן ירידות.",
+            ),
+            &[
+                lang.pick("Yes", "כן"),
+                lang.pick("Not yet", "עוד לא"),
+            ],
+            None,
+        ),
+        FollowUp::MonthlyExpenses => card(
+            "",
+            "",
+            &[],
+            Some(lang.pick("My expenses in a month, about", "ההוצאות שלי בחודש, בערך")),
+        ),
+    }
+}

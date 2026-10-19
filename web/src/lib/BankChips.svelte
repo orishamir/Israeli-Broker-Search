@@ -37,7 +37,7 @@
       {t.otherBank}
     </button>
   </div>
-  {#if bank === undefined}<p class="note">{t.bankStandIn}</p>{/if}
+  {#if bank === undefined}<p class="note">{app.bankStandIn}</p>{/if}
 {/if}
 
 <style>
