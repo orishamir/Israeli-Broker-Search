@@ -116,14 +116,18 @@ fn open_to_anyone(en: &'static str, he: &'static str) -> Vec<Caveat> {
     vec![Caveat::published(t(en, he)).source(&calcalist())]
 }
 
+/// The banks' average, listed beside the banks for comparing: what the
+/// guide never names as a place to open a deposit.
+pub const AVERAGE: Text = Text::new("Banks' average", "ממוצע הבנקים");
+
 /// The banks' deposits, as the Bank of Israel published them for September 2026.
 #[must_use]
 #[allow(clippy::too_many_lines, reason = "the banks' data")]
 pub fn kind() -> Kind {
     let figures = kav_hamashve();
     let average = Place {
-        name: t("Banks' average", "ממוצע הבנקים"),
-        short_name: t("Banks' average", "ממוצע הבנקים"),
+        name: AVERAGE,
+        short_name: AVERAGE,
         description: t(
             "What households got on average for fixed-rate deposits, at all the banks together.",
             "מה שמשקי בית קיבלו בממוצע על פיקדונות בריבית קבועה, בכל הבנקים יחד.",
@@ -195,7 +199,8 @@ pub fn kind() -> Kind {
         ),
         bank(
             t("Bank of Jerusalem", "בנק ירושלים"),
-            t("Jerusalem", "ירושלים"),
+            // Not "ירושלים" alone, which reads as the city.
+            t("Jerusalem", "בנק ירושלים"),
             false,
             rates![2.51 2.83 3.43 3.71 3.73 3.79 3.81],
             open_to_anyone(
@@ -293,7 +298,7 @@ pub fn kind() -> Kind {
                 "The interest is taxed at 15%, all of it, as interest on anything not linked to \
                  the price index: the bank withholds the tax when it pays (the Income Tax \
                  Ordinance, section 125ג(ג)(1)).",
-                "על הריבית משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד: הבנק מנכה את המס כשהוא משלם (פקודת מס הכנסה, סעיף 125ג(ג)(1)).",
+                "על הריבית משלמים מס של 15%, על כולה, כמו על כל ריבית על כסף שאינו צמוד למדד המחירים לצרכן: הבנק מנכה את המס כשהוא משלם (פקודת מס הכנסה, סעיף 125ג(ג)(1)).",
             ))
             .source(&section_125c()),
         ],

@@ -297,12 +297,14 @@ pub struct How {
     pub where_to_buy: Option<WhereToBuy>,
 }
 
-/// What to type in the app. `placeholder` marks a slot the research hasn't
-/// filled yet (a bond series' name, a fund's number): shown as such.
+/// What to type in the app. `placeholder` marks a slot the data can't fill
+/// (no bond series is repaid by the date): shown as such, and saying why.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Search {
     pub text: Text,
     pub placeholder: bool,
+    /// The pages its names and numbers come from.
+    pub sources: Vec<crate::Page>,
 }
 
 /// Where to buy, from the visitor's bank (§2.9).
@@ -633,6 +635,7 @@ fn index_side<'a>(
     settings: &Settings,
     data: &'a Data,
     deposited: Decimal,
+    parts: Parts,
 ) -> Option<IndexSide<'a>> {
     let overrides = Overrides {
         arena: Some(Arena::Index),
@@ -685,8 +688,16 @@ fn index_side<'a>(
             Some((at(history.worst)?, at(history.median)?, at(history.best)?))
         })
         .collect();
-    let unlock = run.unlock(&run.ways[lead], level, &settings.rates);
-    let also = run.also_possible(&run.ways[lead], level, &settings.rates);
+    // Only where to buy says them, which a horizon row doesn't show; the
+    // unlock line tries bigger first deposits, most of a row's time.
+    let (unlock, also) = if parts == Parts::ForAHorizonRow {
+        (None, None)
+    } else {
+        (
+            run.unlock(&run.ways[lead], level, &settings.rates),
+            run.also_possible(&run.ways[lead], level, &settings.rates),
+        )
+    };
     Some(IndexSide {
         run,
         lead,
@@ -753,8 +764,8 @@ pub fn answer_with(
     horizons: bool,
 ) -> Result<Answer, InvalidAnswers> {
     check(answers)?;
-    let facts = facts(answers, *choices, settings, data);
-    let mut answer = build(&facts, horizons);
+    let facts = facts(answers, *choices, settings, data, Parts::All { horizons });
+    let mut answer = build(&facts, Parts::All { horizons });
     if !horizons {
         answer.horizons.clear();
     }
@@ -766,6 +777,7 @@ fn facts<'a>(
     choices: Choices,
     settings: &'a Settings,
     data: &'a Data,
+    parts: Parts,
 ) -> Facts<'a> {
     let existing_bank = match answers.situation {
         Some(Situation::ExistingPortfolio { bank }) => Some(bank),
@@ -783,7 +795,7 @@ fn facts<'a>(
     };
     // A first guess of the deposits for the margins; the chart's are below.
     let (rough, _) = yardsticks(answers, safe_months(&safe_answers), settings.inflation);
-    let index = index_side(&index_answers, settings, data, rough.today);
+    let index = index_side(&index_answers, settings, data, rough.today, parts);
     // Where the rules put the money in the index, the data decides how sure
     // that is: if the index's worst stretch of the past, after fees and tax,
     // ends below the best safe way, safety or growth is the visitor's call.
@@ -956,7 +968,17 @@ impl Where {
     }
 }
 
-fn build(f: &Facts<'_>, with_horizons: bool) -> Answer {
+/// How much of the answer to build: all of it, or only what a horizon row
+/// reads (the lines, the chart's rows, the focus), which skips how to do it
+/// and the gain: most of a row's time otherwise.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Parts {
+    All { horizons: bool },
+    ForAHorizonRow,
+}
+
+fn build(f: &Facts<'_>, parts: Parts) -> Answer {
+    let details = parts != Parts::ForAHorizonRow;
     let mut lines: Vec<Line> = Vec::new();
     let safe_standing = safe_standing(f);
     // The cushion, before everything else, when the money goes to the index.
@@ -989,6 +1011,7 @@ fn build(f: &Facts<'_>, with_horizons: bool) -> Answer {
     let focus = chosen.and_then(|chosen| focus_row(f, chosen));
     let how: Vec<How> = rows
         .iter()
+        .filter(|_| details)
         .map(|row| {
             how_of(
                 f,
@@ -1010,7 +1033,9 @@ fn build(f: &Facts<'_>, with_horizons: bool) -> Answer {
         .then(|| plan_text(f, chosen, where_info.as_ref()))
         .flatten();
     let (title, body) = title_and_body(f, state, open_decisions > 0 || waiting);
-    let gain = gain(f, &lines, chosen, where_info.as_ref());
+    let gain = details
+        .then(|| gain(f, &lines, chosen, where_info.as_ref()))
+        .flatten();
     Answer {
         confidence: Confidence {
             state,
@@ -1025,13 +1050,12 @@ fn build(f: &Facts<'_>, with_horizons: bool) -> Answer {
         focus,
         how,
         gain,
-        horizons: if with_horizons {
+        horizons: if parts == (Parts::All { horizons: true }) {
             horizons(f)
         } else {
             Vec::new()
         },
-        annuity: matches!(f.answers.horizon, Horizon::Retirement { .. })
-            .then(card::annuity_placeholder),
+        annuity: details.then(|| annuity(f, chosen)).flatten(),
     }
 }
 
@@ -1055,15 +1079,13 @@ fn cushion_line(f: &Facts<'_>) -> Option<Line> {
     {
         return None;
     }
-    let expenses = match f.answers.cushion {
-        // The page sends an empty field as the stand-in itself, so the
-        // stand-in's figure is still said to be one.
-        Some(Cushion::HasNot { monthly_expenses }) => (
-            monthly_expenses,
-            monthly_expenses == STAND_IN_MONTHLY_EXPENSES,
-        ),
-        _ => (STAND_IN_MONTHLY_EXPENSES, true),
-    };
+    // Until the visitor types theirs (or while they say they have one), the
+    // option is worked out by the stand-in, and says so.
+    let expenses = f
+        .answers
+        .cushion
+        .and_then(Cushion::expenses)
+        .unwrap_or((STAND_IN_MONTHLY_EXPENSES, true));
     let target = expenses.0 * Decimal::from(CUSHION_MONTHS);
     let missing = (target - f.answers.now).max(Decimal::ZERO);
     // A sum now that is already the cushion leaves nothing to ask.
@@ -1239,6 +1261,10 @@ fn way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen>) {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the options, the switch point and the flip, one decision"
+)]
 fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen>) {
     let groups = &f.safe.groups;
     let Some(first) = groups.first() else {
@@ -1308,7 +1334,15 @@ fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen
         rate: f.settings.rate,
         switch,
         bond_at_your_bank,
-        flips: safe_standing != Standing::Tie,
+        flips: robust::order_flips(
+            safe_standing,
+            rate_range.map(|(low, high)| (low.today, high.today)),
+            &shown
+                .iter()
+                .filter(|group| group.way != SafeWay::MoneyMarketFund)
+                .map(|group| group.lead.left.today)
+                .collect::<Vec<_>>(),
+        ),
     });
     let picks: Vec<(Pick, Vec<RowId>, Option<Amount>)> = shown
         .iter()
@@ -1881,11 +1915,25 @@ fn how_of(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> How {
             .flatten(),
         account: info.and_then(|info| info.account),
     };
+    let tie = (row.kind == Kind::MoneyMarketFund)
+        .then(|| {
+            super::outcome::money_market_tie(
+                &f.safe_answers,
+                f.months,
+                &f.versions[0],
+                f.provider_margin,
+            )
+        })
+        .flatten();
     How {
         row: row.id,
         name: row.name.clone(),
         identity: how_words::identity(&ctx),
-        search: how_words::search(&ctx).map(|(text, placeholder)| Search { text, placeholder }),
+        search: how_words::search(&ctx, tie.as_ref()).map(|slot| Search {
+            text: slot.text,
+            placeholder: slot.placeholder,
+            sources: slot.sources,
+        }),
         // An option the rules exclude says why, and gives no steps.
         steps: if row.excluded.is_some() {
             Vec::new()
@@ -2038,36 +2086,43 @@ fn plan_text(f: &Facts<'_>, chosen: Option<Chosen>, info: Option<&WhereInfo>) ->
 }
 
 fn title_and_body(f: &Facts<'_>, state: ConfidenceState, open: bool) -> (Text, Text) {
-    let index = f.index.as_ref();
-    let fund = f
-        .safe
-        .group(SafeWay::MoneyMarketFund)
-        .map(|fund| fund.lead.left.today);
     card::title_and_body(&card::TitleFigures {
         state,
         arena: f.arena,
         asked: matches!(f.place, Place_::Asked { .. }),
-        today: f.settings.today,
         months: f.months,
         fixed_date: matches!(f.answers.horizon, Horizon::Months(_)),
-        index_left: index
-            .and_then(|index| index.left(index.lead))
-            .map(|amount| amount.today),
-        index_return: f.settings.index_return,
-        fund,
-        current_account: f.current_account.today,
-        deposited: f.deposited.today,
-        safe_low: f
-            .safe
-            .groups
-            .iter()
-            .map(|group| group.lead.left.today)
-            .min(),
-        safe_high: f.safe.groups.first().map(|group| group.lead.left.today),
         safe_lead: f.safe.groups.first().map(|group| group.lead.kind),
         open,
         retirement: matches!(f.answers.horizon, Horizon::Retirement { .. }),
     })
+}
+
+/// For retirement, the monthly pension the provident fund for investment
+/// would pay: the way chosen if it is that fund, or the index's lead if the
+/// way is still open and the lead is. Nothing while the money goes to a safe
+/// way, or for an age the payers' tables don't cover.
+fn annuity(f: &Facts<'_>, chosen: Option<Chosen>) -> Option<Text> {
+    let Horizon::Retirement { age, retire_at } = f.answers.horizon else {
+        return None;
+    };
+    if f.arena == Some(Arena::Safe) {
+        return None;
+    }
+    let index = f.index.as_ref()?;
+    let at = match chosen {
+        Some(Chosen::Index(at)) => at,
+        Some(Chosen::Safe(_)) => return None,
+        None => index.lead,
+    };
+    if index.way(at).way.vehicle != Vehicle::InvestmentGemel {
+        return None;
+    }
+    let sum = index.left(at)?.today;
+    let today = f.settings.today?;
+    let starts_in = today.year() + i32::try_from(retire_at - age).ok()?;
+    let estimate = crate::annuity::monthly(sum, retire_at, starts_in)?;
+    Some(card::annuity(&estimate, f.settings.index_return))
 }
 
 // ─────────────────────────── The gain ───────────────────────────
@@ -2088,7 +2143,8 @@ fn gain(
     };
     let base = &f.versions[0];
     let rates = &f.settings.rates;
-    // Each row: its label, the name a sentence uses, and its split.
+    // Each row: its label, the name a sentence uses, and its split. The
+    // takeaway is about the last two: the decision fees or tax decide last.
     let mut rows: Vec<(Text, Text, Split)> = Vec::new();
     if decided(DecisionId::Account) || decided(DecisionId::Holdings) {
         let info = info.filter(|info| info.decided)?;
@@ -2097,24 +2153,38 @@ fn gain(
         };
         let way = index.way(at);
         let best = info.places.best()?;
-        let reference = info
-            .places
-            .yours
-            .map(|at| &info.places.places[at])
-            .or_else(|| {
-                // Until the bank is named: the best bank's.
-                info.places.places.iter().find(|place| place.bank.is_some())
-            })?;
+        let named = info.places.yours.map(|at| &info.places.places[at]);
+        let reference = named.or_else(|| {
+            // Until the bank is named: the banks' dearer end, said as such.
+            info.places
+                .places
+                .iter()
+                .rfind(|place| place.bank.is_some())
+        })?;
         if best.cand == reference.cand {
             return None;
+        }
+        // The way not chosen stays beside them (principle 4): the study fund
+        // the wrapper's decision offered.
+        let unchosen = index
+            .study
+            .filter(|study| decided(DecisionId::Wrapper) && *study != at);
+        if let Some(study) = unchosen {
+            let name = row_words::name(Kind::Way(index.way(study).way));
+            rows.push((name.clone(), name, best_split(f, index, study)?));
         }
         for place in [best, reference] {
             let cand = &index.run.cands[place.cand?];
             let outcome = plan_outcome(cand, way.way, &index.run.base, base, rates)?;
-            let label = if place.yours {
-                gain_words::your_bank(&place.provider)
+            let label = match (place.yours, named.is_none() && place.cand == reference.cand) {
+                (true, _) => gain_words::your_bank(&place.provider),
+                (false, true) => gain_words::dearest_bank(&place.provider),
+                (false, false) => place.provider.clone(),
+            };
+            let label = if unchosen.is_some() {
+                gain_words::way_at(way.way, &label)
             } else {
-                place.provider.clone()
+                label
             };
             rows.push((
                 label,
@@ -2144,7 +2214,7 @@ fn gain(
             product: amount(split.product),
         })
         .collect();
-    let [(_, first_name, first), (_, second_name, second)] = rows.as_slice() else {
+    let [.., (_, first_name, first), (_, second_name, second)] = rows.as_slice() else {
         return None;
     };
     Some(Gain {
@@ -2183,7 +2253,7 @@ fn horizons(f: &Facts<'_>) -> Vec<HorizonRow> {
             ..at.clone()
         };
         let (fixed, can_wait) = (answered(Flexibility::Fixed), answered(Flexibility::CanWait));
-        let mut facts_at = facts(&at, f.choices, f.settings, f.data);
+        let mut facts_at = facts(&at, f.choices, f.settings, f.data, Parts::ForAHorizonRow);
         if facts_at.arena.is_some() {
             rows.extend(horizon_row(&facts_at, years, None, current));
             continue;
@@ -2206,7 +2276,13 @@ fn horizons(f: &Facts<'_>) -> Vec<HorizonRow> {
                 };
                 rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
             } else {
-                let facts_at = facts(answers, f.choices, f.settings, f.data);
+                let facts_at = facts(
+                    answers,
+                    f.choices,
+                    f.settings,
+                    f.data,
+                    Parts::ForAHorizonRow,
+                );
                 rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
             }
         }
@@ -2236,7 +2312,7 @@ fn horizon_row(
     flexibility: Option<Flexibility>,
     current: bool,
 ) -> Option<HorizonRow> {
-    let answer = build(f, false);
+    let answer = build(f, Parts::ForAHorizonRow);
     let rows = &answer.outcome.rows;
     let open_way = answer.lines.iter().find_map(|line| match &line.state {
         LineState::Decision(decision)

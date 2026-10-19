@@ -451,7 +451,7 @@ pub fn kind() -> Kind {
             Caveat::published(t(
                 "Taxed at 15% of the whole gain, inflation or not: a bond not linked to the \
                  index is taxed like interest (the Income Tax Ordinance, section 91(ב)(3)).",
-                "מס של 15% על כל הרווח, גם על החלק שרק שמר על ערך הכסף: אג״ח שלא צמוד למדד ממוסה כמו ריבית (פקודת מס הכנסה, סעיף 91(ב)(3)).",
+                "מס של 15% על כל הרווח, גם על החלק שרק שמר על ערך הכסף: אג״ח שלא צמוד למדד המחירים לצרכן ממוסה כמו ריבית (פקודת מס הכנסה, סעיף 91(ב)(3)).",
             ))
             .sources(&[&funds::income_tax_ordinance(), &tax_on_interest()]),
             Caveat::reading(
@@ -478,7 +478,7 @@ pub fn kind() -> Kind {
                  index isn't taxed (the Income Tax Ordinance, section 91(ב)(1)). The model \
                  takes prices to rise as much as you expect, 2% a year unless you say \
                  otherwise.",
-                "מס של 25% על הרווח הריאלי: החלק שרק עוקב אחרי המדד לא ממוסה (פקודת מס הכנסה, סעיף 91(ב)(1)). ההנחה היא שהמחירים עולים כמו שציפיתם, 2% בשנה אלא אם בחרתם אחרת.",
+                "מס של 25% על הרווח הריאלי: החלק שרק עוקב אחרי מדד המחירים לצרכן לא ממוסה (פקודת מס הכנסה, סעיף 91(ב)(1)). ההנחה היא שהמחירים עולים כמו שציפיתם, 2% בשנה אלא אם בחרתם אחרת.",
             ))
             .sources(&[&funds::income_tax_ordinance(), &tax_on_interest()]),
             Caveat::reading(

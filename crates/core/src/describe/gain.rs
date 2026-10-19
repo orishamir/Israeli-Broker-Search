@@ -7,7 +7,7 @@
 
 use rust_decimal::Decimal;
 
-use super::card::{about, both};
+use super::card::{about, both, joined_to};
 use super::reasons::shekels;
 use crate::describe::format_money;
 use crate::guide::{Amount, Flexibility};
@@ -61,6 +61,30 @@ pub fn your_bank(provider: &Text) -> Text {
     both(|lang| match lang {
         Lang::En => format!("Your bank: {}", &provider[lang]),
         Lang::He => format!("הבנק שלכם: {}", &provider[lang]),
+    })
+}
+
+/// Until the visitor names their bank, the bank row is the banks' dearer
+/// end, and says so: "הבנק היקר מבין הבנקים: דיסקונט".
+#[must_use]
+pub fn dearest_bank(provider: &Text) -> Text {
+    both(|lang| match lang {
+        Lang::En => format!("The dearest bank: {}", &provider[lang]),
+        Lang::He => format!("הבנק היקר מבין הבנקים: {}", &provider[lang]),
+    })
+}
+
+/// A place's row beside another way's: the way first, "קרן סל · אינטראקטיב".
+#[must_use]
+pub fn way_at(way: crate::ways::Way, place: &Text) -> Text {
+    both(|lang| {
+        let short = super::card::way_short(way, lang);
+        let mut chars = short.chars();
+        let short = match (lang, chars.next()) {
+            (Lang::En, Some(first)) => first.to_uppercase().collect::<String>() + chars.as_str(),
+            _ => short.to_owned(),
+        };
+        format!("{short}{}{}", lang.pick(" · ", "\u{a0}· "), &place[lang])
     })
 }
 
@@ -132,7 +156,9 @@ pub fn takeaway(first_name: &Text, first: Part, second_name: &Text, second: Part
                     None => "יותר מאשר".to_owned(),
                 };
                 let mut text = format!(
-                    "ההבדל בא בעיקר מהעמלות: ב{worse_name} הן לוקחות {how_much} ב{better_name}, ומה שהן לוקחות כבר לא צומח."
+                    "ההבדל בא בעיקר מהעמלות: {} הן לוקחות {how_much} {}, ומה שהן לוקחות כבר לא צומח.",
+                    joined_to('ב', worse_name),
+                    joined_to('ב', better_name)
                 );
                 if smaller_whole {
                     text.push_str(" לכן גם הרווח כולו קטן שם יותר.");
@@ -154,9 +180,9 @@ pub fn takeaway(first_name: &Text, first: Part, second_name: &Text, second: Part
             }
             (Lang::He, false) => {
                 let tax = if untaxed {
-                    format!("ב{better_name} אין מס על הרווח")
+                    format!("{} אין מס על הרווח", joined_to('ב', better_name))
                 } else {
-                    format!("ב{better_name} המס לוקח פחות מהרווח")
+                    format!("{} המס לוקח פחות מהרווח", joined_to('ב', better_name))
                 };
                 let fees = if dearer {
                     ", וזה שווה יותר מהעמלות הגבוהות יותר שם"

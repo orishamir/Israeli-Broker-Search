@@ -496,7 +496,7 @@ pub fn reason(circumstance: &Circumstance, kind: Kind, ctx: &Context, lang: Lang
         Circumstance::RealValueKnownInAdvance => both(
             "A bond linked to the price index keeps its buying power: what it will buy is known \
              in advance, though the sum in shekels follows the index.",
-            "אג״ח צמודה למדד שומרת על כוח הקנייה: מה שהיא תקנה ידוע מראש, אף על פי שהסכום בשקלים עוקב אחרי המדד.",
+            "אג״ח צמודה למדד המחירים לצרכן שומרת על כוח הקנייה: מה שהיא תקנה ידוע מראש, אף על פי שהסכום בשקלים עוקב אחרי המדד.",
         ),
         Circumstance::BondCanBeSold => both(
             "A bond can be sold before it is repaid, at the day's price, which may be above or \
@@ -942,7 +942,7 @@ pub fn why_not(
             both(
                 "A linked bond keeps its buying power, but its sum in shekels follows the \
                  index, so it isn't known in advance.",
-                "אג״ח צמודה שומרת על כוח הקנייה, אבל הסכום שלה בשקלים עוקב אחרי המדד ולכן לא ידוע מראש.",
+                "אג״ח צמודה שומרת על כוח הקנייה, אבל הסכום שלה בשקלים עוקב אחרי מדד המחירים לצרכן ולכן לא ידוע מראש.",
             ),
             worse,
         ]),

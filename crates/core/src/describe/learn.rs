@@ -810,7 +810,7 @@ fn government_bond() -> Card {
         ),
         tax: t(
             "A bond not linked to the index pays 15% of the whole gain; a linked one, 25% of the real gain.",
-            "על אג״ח שאינו צמוד למדד משלמים 15% מכל הרווח; על אג״ח צמוד, 25% מהרווח הריאלי.",
+            "על אג״ח שאינו צמוד למדד המחירים לצרכן משלמים 15% מכל הרווח; על אג״ח צמוד, 25% מהרווח הריאלי.",
         ),
         where_met: t(
             "In a securities account, in the lists of the exchange, and in articles about the state's debt.",
@@ -818,7 +818,7 @@ fn government_bond() -> Card {
         ),
         example: t(
             "For illustration: \u{201c}ממשלתי צמוד 0536\u{201d} is a linked bond repaid in May 2036; you know its date from its name, and its sum rises with the index.",
-            "להמחשה: ״ממשלתי צמוד 0536״ הוא אג״ח צמוד שנפדה במאי 2036; את התאריך שלו יודעים מהשם, והסכום שלו עולה עם המדד.",
+            "להמחשה: ״ממשלתי צמוד 0536״ הוא אג״ח צמוד שנפדה במאי 2036; את התאריך שלו יודעים מהשם, והסכום שלו עולה עם מדד המחירים לצרכן.",
         ),
         compare_with: &[
             Term::YieldToMaturity,

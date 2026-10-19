@@ -184,10 +184,10 @@ pub fn losses(history: &DepositsBand, monthly: bool) -> Text {
                 "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} לא נשאר בסוף פחות ממה שהופקד (בדולרים, לפני עמלות ומס)."
             ),
             (0, false, Lang::En) => format!(
-                "In none of {windows} stretches of {years} since {since} did the index end at a loss (in dollars, before fees and tax)."
+                "In none of {windows} stretches of {years} since {since} did the S&P 500 index end at a loss (in dollars, before fees and tax)."
             ),
             (0, false, Lang::He) => format!(
-                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} המדד לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} מדד S&P\u{a0}500 לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
             ),
             (_, true, Lang::En) => format!(
                 "In {lower} of {windows} stretches of {years} since {since}, less was left at the end than was put in (in dollars, before fees and tax)."
@@ -196,10 +196,10 @@ pub fn losses(history: &DepositsBand, monthly: bool) -> Text {
                 "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} נשאר בסוף פחות ממה שהופקד (בדולרים, לפני עמלות ומס)."
             ),
             (_, false, Lang::En) => format!(
-                "In {lower} of {windows} stretches of {years} since {since}, the index ended at a loss (in dollars, before fees and tax)."
+                "In {lower} of {windows} stretches of {years} since {since}, the S&P 500 index ended at a loss (in dollars, before fees and tax)."
             ),
             (_, false, Lang::He) => format!(
-                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} המדד נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} מדד S&P\u{a0}500 נגמר בהפסד (בדולרים, לפני עמלות ומס)."
             ),
         }
     })

@@ -77,9 +77,7 @@ impl Route {
 /// The target of the cushion and the months of saving that fill it, when a
 /// cushion is still to be filled.
 pub(super) fn cushion_to_fill(answers: &Answers) -> Option<(Decimal, u32)> {
-    let Some(Cushion::HasNot { monthly_expenses }) = answers.cushion else {
-        return None;
-    };
+    let (monthly_expenses, _) = answers.cushion.and_then(Cushion::expenses)?;
     if answers.monthly <= Decimal::ZERO {
         return None;
     }
@@ -654,7 +652,7 @@ fn reasons_for(
             circumstances.extend(cheapest);
         }
         Route::CushionFirst => {
-            if let Some(Cushion::HasNot { monthly_expenses }) = answers.cushion {
+            if let Some((monthly_expenses, _)) = answers.cushion.and_then(Cushion::expenses) {
                 circumstances.push(Circumstance::NoCushion {
                     monthly_expenses,
                     target: monthly_expenses * Decimal::from(CUSHION_MONTHS),

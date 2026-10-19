@@ -159,6 +159,22 @@ pub(super) fn standing(pairs: &[(Decimal, Decimal)], margin: Decimal) -> Standin
     }
 }
 
+/// Whether the order of the safe options changes within the versions: it
+/// does across them (`Flips`), or another option's figure lies within what
+/// the money market fund leaves at the rates tried (`fund`, low and high),
+/// so the rate at which they trade places lies within those rates. A tie as
+/// things are can flip too: being within the margin says nothing about which
+/// side of the switch point the rate is.
+pub(super) fn order_flips(
+    standing: Standing,
+    fund: Option<(Decimal, Decimal)>,
+    others: &[Decimal],
+) -> bool {
+    standing == Standing::Flips
+        || fund
+            .is_some_and(|(low, high)| others.iter().any(|other| low <= *other && *other <= high))
+}
+
 /// The Bank of Israel's average rate at which `ahead(rate)` (one option less
 /// the other) changes sign, between 0% and 10%, to a tenth of a point: the
 /// switch point said under a decision. `None` when it doesn't change sign
@@ -209,6 +225,19 @@ mod tests {
             standing(&[(dec!(100), dec!(50)), (dec!(100), dec!(95))], margin),
             Standing::Flips
         );
+    }
+
+    #[test]
+    fn a_switch_point_within_the_rates_tried_flips_the_order() {
+        // The fund leaves 100 to 120 at the rates tried.
+        let fund = Some((dec!(100), dec!(120)));
+        // The apartment's: a tie as things are, the bond inside the bar.
+        assert!(order_flips(Standing::Tie, fund, &[dec!(110)]));
+        assert!(order_flips(Standing::Clear, fund, &[dec!(130), dec!(100)]));
+        assert!(order_flips(Standing::Tie, fund, &[dec!(120)]));
+        assert!(!order_flips(Standing::Tie, fund, &[dec!(121), dec!(99)]));
+        assert!(!order_flips(Standing::Tie, None, &[dec!(110)]));
+        assert!(order_flips(Standing::Flips, None, &[]));
     }
 
     #[test]

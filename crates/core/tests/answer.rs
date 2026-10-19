@@ -81,7 +81,7 @@ fn pick(answers: &Answers, choices: Choices, pick: Pick) -> (Answers, Choices) {
         Pick::Cushion(CushionPick::Has) => answers.cushion = Some(Cushion::Has),
         Pick::Cushion(CushionPick::HasNot) => {
             answers.cushion = Some(Cushion::HasNot {
-                monthly_expenses: STAND_IN_MONTHLY_EXPENSES,
+                monthly_expenses: None,
             });
         }
         Pick::Flexibility(flexibility) => answers.flexibility = Some(flexibility),
@@ -489,7 +489,7 @@ fn every_bar_says_what_it_spans() {
             None,
             Some(Cushion::Has),
             Some(Cushion::HasNot {
-                monthly_expenses: dec!(8000),
+                monthly_expenses: Some(dec!(8000)),
             }),
         ] {
             let answers = Answers {
@@ -807,8 +807,9 @@ fn the_gain_takeaway_names_the_bigger_part() {
             .unwrap()
             .gain
             .expect("fees or tax decide something");
-        let [first, second] = gain.rows.as_slice() else {
-            panic!("two bars");
+        // The takeaway is about the last decision's two bars.
+        let [.., first, second] = gain.rows.as_slice() else {
+            panic!("two bars at least");
         };
         let (better, worse) = if first.kept.today >= second.kept.today {
             (first, second)
@@ -820,5 +821,368 @@ fn the_gain_takeaway_names_the_bigger_part() {
         let says = &gain.takeaway[Lang::En];
         assert_eq!(says.contains("from fees"), by_fees, "{says}");
         assert_eq!(says.contains("from tax"), !by_fees, "{says}");
+    }
+}
+
+// ─────────────────────────── The cleanup's rules ───────────────────────────
+
+/// Every start the rules below are checked on: the situations and the
+/// worked examples, each with the date's answer given both ways, with and
+/// without the visitor's bank.
+fn starts() -> Vec<Answers> {
+    let mut all: Vec<Answers> = situations().into_iter().map(|s| s.answers).collect();
+    all.extend([apartment(), bonus(), salary()]);
+    let mut out = Vec::new();
+    for start in all {
+        for flexibility in [None, Some(Flexibility::Fixed), Some(Flexibility::CanWait)] {
+            for bank in [start.bank, None] {
+                out.push(Answers {
+                    flexibility,
+                    bank,
+                    ..start.clone()
+                });
+            }
+        }
+    }
+    out
+}
+
+/// The choices that open every line, and none.
+fn every_choice() -> [Choices; 4] {
+    [
+        Choices::default(),
+        Choices {
+            safe_way: Some(SafeWay::Bond),
+            wrapper: Some(Wrapper::Anyone),
+            account: Some(Account::YourBank),
+            holdings: None,
+        },
+        Choices {
+            safe_way: Some(SafeWay::Deposit),
+            wrapper: Some(Wrapper::StudyFund),
+            account: Some(Account::NewAccount),
+            holdings: Some(Holdings::IndexFunds),
+        },
+        Choices {
+            safe_way: Some(SafeWay::MoneyMarketFund),
+            ..Choices::default()
+        },
+    ]
+}
+
+/// The ₪ amounts written in a text: "₪12,345" is 12345.
+fn amounts_in(text: &str) -> Vec<Decimal> {
+    let mut out = Vec::new();
+    for (at, _) in text.match_indices('₪') {
+        let digits: String = text[at + '₪'.len_utf8()..]
+            .chars()
+            .take_while(|c| c.is_ascii_digit() || *c == ',')
+            .filter(char::is_ascii_digit)
+            .collect();
+        if let Ok(amount) = digits.parse::<Decimal>() {
+            out.push(amount);
+        }
+    }
+    out
+}
+
+/// A typed month's expenses are the visitor's: only an empty field is the
+/// stand-in, and only then does the option say so.
+#[test]
+fn only_an_empty_expenses_field_is_a_stand_in() {
+    let fact = |monthly_expenses| {
+        let answers = Answers {
+            cushion: Some(Cushion::HasNot { monthly_expenses }),
+            ..salary()
+        };
+        let answer = answered(&answers, Choices::default());
+        let cushion = decision(&answer, LineKind::Before).expect("the cushion is asked");
+        let not_yet = cushion
+            .options
+            .iter()
+            .find(|option| option.pick == Pick::Cushion(CushionPick::HasNot))
+            .unwrap();
+        not_yet
+            .facts
+            .iter()
+            .map(|fact| fact.he.to_string())
+            .collect::<Vec<_>>()
+            .join(" ")
+    };
+    let typed = fact(Some(STAND_IN_MONTHLY_EXPENSES));
+    assert!(!typed.contains("הערכה"), "{typed}");
+    assert!(typed.contains("ההוצאות שלכם"), "{typed}");
+    let empty = fact(None);
+    assert!(empty.contains("הערכה"), "{empty}");
+}
+
+/// Where another safe way's figure lies inside the money market fund's bar
+/// (the rate ±0.5 point), the order flips within the versions: the decision
+/// then says the choice hangs on the rate, not on locking or an account.
+#[test]
+fn a_switch_inside_the_rate_bar_means_the_order_flips() {
+    let mut flipped = 0;
+    for start in starts() {
+        let answer = answered(&start, Choices::default());
+        let Some(way) = decision(&answer, LineKind::Way).filter(|d| d.id == DecisionId::SafeWay)
+        else {
+            continue;
+        };
+        let Some((low, high)) = answer.outcome.rows.iter().find_map(|row| match row.mark {
+            Mark::RateRange { low, high } => Some((low.today, high.today)),
+            _ => None,
+        }) else {
+            continue;
+        };
+        let inside = way.options.iter().any(|option| {
+            option.pick != Pick::SafeWay(SafeWay::MoneyMarketFund)
+                && option
+                    .value
+                    .is_some_and(|value| low <= value.today && value.today <= high)
+        });
+        if inside {
+            flipped += 1;
+            assert!(
+                way.why.he.contains("בריבית שאף אחד לא יודע"),
+                "{:?}: {}",
+                start.horizon,
+                way.why.he
+            );
+        }
+    }
+    assert!(flipped > 0, "the apartment's case, at least, flips");
+}
+
+/// The body says the direction and what's left; its figures are the lines',
+/// the options' and the chart's, so none of theirs is repeated in it
+/// (principle 13).
+#[test]
+fn the_body_repeats_no_figure_shown_elsewhere() {
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            let body = amounts_in(&answer.body.he);
+            if body.is_empty() {
+                continue;
+            }
+            let mut shown: Vec<Decimal> = Vec::new();
+            let json = serde_json::to_value(&answer.lines).unwrap();
+            let mut texts = Vec::new();
+            hebrew_in(&json, &mut texts);
+            for text in texts {
+                shown.extend(amounts_in(&text));
+            }
+            for row in &answer.outcome.rows {
+                shown.push(row.value.today);
+            }
+            shown.extend([
+                answer.outcome.deposited.today,
+                answer.outcome.current_account.today,
+            ]);
+            for amount in body {
+                assert!(
+                    shown
+                        .iter()
+                        .all(|other| (*other - amount).abs() > amount * dec!(0.01)),
+                    "the body repeats {amount}: {}",
+                    answer.body.he
+                );
+            }
+        }
+    }
+}
+
+fn hebrew_in(value: &serde_json::Value, out: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Object(fields) => {
+            if let Some(serde_json::Value::String(he)) = fields.get("he") {
+                out.push(he.clone());
+            }
+            fields.values().for_each(|field| hebrew_in(field, out));
+        }
+        serde_json::Value::Array(items) => items.iter().for_each(|item| hebrew_in(item, out)),
+        _ => {}
+    }
+}
+
+/// For retirement the answer gives the monthly pension as a range with whose
+/// coefficients it rests on, once; and the pension from work is said in the
+/// body, not asked.
+#[test]
+fn retirement_gives_the_pension_and_counts_the_one_from_work() {
+    let preset = situations()
+        .into_iter()
+        .find(|preset| preset.id == "retirement")
+        .unwrap();
+    let growth = Answers {
+        flexibility: Some(Flexibility::CanWait),
+        ..preset.answers.clone()
+    };
+    for answers in [&preset.answers, &growth] {
+        let answer = answered(answers, Choices::default());
+        let annuity = answer.annuity.as_ref().expect("a monthly pension");
+        assert!(!annuity.he.contains("[₪—]"), "{}", annuity.he);
+        assert_eq!(amounts_in(&annuity.he).len(), 2, "{}", annuity.he);
+        assert!(annuity.he.contains("מקדמי ההמרה"), "{}", annuity.he);
+        assert!(answer.body.he.contains("קרן הפנסיה"), "{}", answer.body.he);
+        assert!(
+            answer
+                .lines
+                .iter()
+                .all(|line| !matches!(&line.state, LineState::Decision(d) if d.question.he.contains("פנסיה"))),
+            "the pension from work is no question"
+        );
+    }
+    let safe = answered(
+        &Answers {
+            flexibility: Some(Flexibility::Fixed),
+            ..preset.answers.clone()
+        },
+        Choices::default(),
+    );
+    assert!(safe.annuity.is_none(), "a safe way pays no pension");
+    let not_retiring = answered(&salary(), Choices::default());
+    assert!(not_retiring.annuity.is_none());
+}
+
+/// What to type in the app: a bond's series by its number, from the data;
+/// the funds' examples marked as examples; the money market funds as a tie,
+/// never "the cheapest"; and a placeholder only where the data has nothing,
+/// saying why.
+#[test]
+fn the_search_slots_come_from_the_data() {
+    let numbers: Vec<String> = broker_fees::examples::government_bonds()
+        .iter()
+        .map(|bond| bond.number.to_string())
+        .collect();
+    let mut bonds = 0;
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            for how in &answer.how {
+                let Some(search) = &how.search else { continue };
+                let he = &search.text.he;
+                if search.placeholder {
+                    assert!(he.contains("____") && he.contains('('), "{he}");
+                    continue;
+                }
+                assert!(!he.contains("____") && !he.contains("[—]"), "{he}");
+                match how.row {
+                    Kind::GovernmentBond { .. } => {
+                        bonds += 1;
+                        assert!(
+                            numbers.iter().any(|number| he.starts_with(number.as_str())),
+                            "{he}"
+                        );
+                        assert_ne!(search.sources, Vec::new());
+                    }
+                    Kind::MoneyMarketFund => {
+                        assert!(he.starts_with("כספית שקלית"), "{he}");
+                        assert!(!he.contains("הזול"), "{he}");
+                    }
+                    Kind::Way(way) if way.vehicle == broker_fees::Vehicle::Brokerage => {
+                        assert!(
+                            he.contains(broker_fees::examples::NOT_A_PICK.he.as_ref()),
+                            "{he}"
+                        );
+                        assert_ne!(search.sources, Vec::new());
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+    assert!(bonds > 0);
+}
+
+/// Where to buy names each provider one way: a broker's plan as "short name ·
+/// plan", a bank's deposit by the bank's short name, and never the banks'
+/// average, which is no place to buy.
+#[test]
+fn where_to_buy_names_each_provider_one_way() {
+    let brokers: Vec<String> = DATA
+        .brokers
+        .iter()
+        .map(|broker| broker.short_name.he.to_string())
+        .collect();
+    let deposits: Vec<String> = DATA
+        .safe
+        .iter()
+        .flat_map(|kind| &kind.places)
+        .map(|place| place.short_name.he.to_string())
+        .collect();
+    let average = broker_fees::short_term::deposits::AVERAGE.he.to_string();
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            for how in &answer.how {
+                let Some(places) = &how.where_to_buy else {
+                    continue;
+                };
+                for row in &places.rows {
+                    let name = row.name.he.as_ref();
+                    assert_ne!(name, average);
+                    let provider = name.split("\u{a0}· ").next().unwrap();
+                    match how.row {
+                        Kind::FixedDeposit | Kind::LinkedDeposit => {
+                            assert!(deposits.iter().any(|bank| bank == name), "{name}");
+                        }
+                        _ => assert!(
+                            name.contains("\u{a0}· ") && brokers.iter().any(|b| b == provider),
+                            "{name}"
+                        ),
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// The gain keeps the option not chosen (principle 4): before the way is
+/// chosen, the wrapper's two options; after the ETF, the study fund beside
+/// the ETF at the place that leaves most and at the visitor's bank (or, with
+/// no bank named, the dearest bank, said as such). Never more than three.
+#[test]
+fn the_gain_keeps_the_option_not_chosen() {
+    let study = Kind::Way(
+        broker_fees::ways::Way::for_index()
+            .into_iter()
+            .find(|way| way.vehicle == broker_fees::Vehicle::StudyFund)
+            .unwrap(),
+    );
+    let study_name = |answer: &Answer| {
+        answer
+            .outcome
+            .rows
+            .iter()
+            .find(|row| row.kind == study)
+            .map(|row| row.name.he.to_string())
+    };
+    let before = answered(&salary(), Choices::default());
+    let gain = before.gain.as_ref().expect("tax decides the wrapper");
+    assert_eq!(gain.rows.len(), 2);
+    let etf = Choices {
+        wrapper: Some(Wrapper::Anyone),
+        ..Choices::default()
+    };
+    for bank in [Some(Bank::Hapoalim), None] {
+        let answers = Answers { bank, ..salary() };
+        let after = answered(&answers, etf);
+        let gain = after.gain.as_ref().expect("fees decide the account");
+        assert_eq!(gain.rows.len(), 3);
+        let name = study_name(&after).expect("the study fund is drawn");
+        assert_eq!(gain.rows[0].name.he, name, "the study fund stays");
+        let bank_row = &gain.rows[2].name.he;
+        match bank {
+            Some(_) => assert!(bank_row.contains("הבנק שלכם"), "{bank_row}"),
+            None => assert!(bank_row.contains("היקר"), "{bank_row}"),
+        }
+    }
+    for start in starts() {
+        for choices in every_choice() {
+            if let Some(gain) = answered(&start, choices).gain {
+                assert!((2..=3).contains(&gain.rows.len()));
+            }
+        }
     }
 }

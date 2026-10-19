@@ -120,7 +120,7 @@ fn guide_answers(
         horizon,
         flexibility: Some(guide::Flexibility::Fixed),
         cushion: Some(guide::Cushion::HasNot {
-            monthly_expenses: dec!(17000),
+            monthly_expenses: Some(dec!(17000)),
         }),
         needs_any_day: false,
         bank: None,
@@ -190,4 +190,48 @@ fn ladder_rungs(bencher: divan::Bencher, monthly: u32) {
         guide::Horizon::Unknown,
     );
     bencher.bench_local(|| guide::ladder(&answers, &settings, &data).unwrap());
+}
+
+// ─────────────────────────── The redesigned answer ───────────────────────────
+
+/// The answer as the page asks it: the visitor's facts, no choices yet,
+/// with the horizon section or without it (the page shows the rest first).
+fn answer_bench(bencher: divan::Bencher, answers: &guide::Answers, horizons: bool) {
+    let data = guide::Data::listed();
+    let mut settings = guide::Settings::new(rates());
+    settings.today = Some(time::macros::date!(2026 - 10 - 01));
+    let choices = guide::Choices::default();
+    bencher
+        .bench_local(|| guide::answer_with(answers, &choices, &settings, &data, horizons).unwrap());
+}
+
+fn unasked(now: u32, monthly: u32, months: u32) -> guide::Answers {
+    guide::Answers {
+        flexibility: None,
+        cushion: None,
+        bank: Some(guide::Bank::Hapoalim),
+        ..guide_answers(
+            rust_decimal::Decimal::from(now),
+            rust_decimal::Decimal::from(monthly),
+            guide::Horizon::Months(months),
+        )
+    }
+}
+
+/// The apartment: 3 years, the safe ways.
+#[divan::bench(args = [false, true])]
+fn answer_safe_3_years(bencher: divan::Bencher, horizons: bool) {
+    answer_bench(bencher, &unasked(100_000, 2000, 36), horizons);
+}
+
+/// Twenty years of deposits: the index's ways, the safe ways beside them.
+#[divan::bench(args = [false, true])]
+fn answer_index_20_years(bencher: divan::Bencher, horizons: bool) {
+    answer_bench(bencher, &unasked(10_000, 2000, 240), horizons);
+}
+
+/// ₪500 a month for 30 years: the cushion, the study fund, the unlock line.
+#[divan::bench(args = [false, true])]
+fn answer_salary_30_years(bencher: divan::Bencher, horizons: bool) {
+    answer_bench(bencher, &unasked(0, 500, 360), horizons);
 }

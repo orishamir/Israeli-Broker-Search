@@ -58,7 +58,7 @@ fn many_answers() -> Vec<Answers> {
     }
     let mut cushion = answers(dec!(0), dec!(3_000), Horizon::Unknown);
     cushion.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     all.push(cushion);
     let mut has = answers(dec!(0), dec!(3_000), Horizon::Unknown);
@@ -216,7 +216,18 @@ fn every_safety_has_a_tag_and_a_note() {
 /// "מדד S&P 500", "מדד המחירים לצרכן", a stock index as a kind ("מדד
 /// מניות"), other indices as such ("מדדים", "מדד אחר"), a name quoted as
 /// the bank shows it (״צמוד מדד״), or "נמדד" (measured).
+/// One sentence is a unit of its own: a bare מדד may refer back to the one
+/// index named earlier in it ([`bare_index_in_unit`]).
 fn bare_index(text: &str) -> Option<String> {
+    bare_index_in_unit(&[text])
+}
+
+/// The same rule over one unit (REDESIGN.md §2.8, amended 2026-10-20): an
+/// option card, a stated line, a chart row with its label, an identity line.
+/// There a bare מדד may refer back to an index named earlier in the unit,
+/// but only when exactly one index (the S&P 500 or the consumer price
+/// index) is named there; anywhere else it stands alone.
+fn bare_index_in_unit(parts: &[&str]) -> Option<String> {
     const WORDS: [&str; 10] = [
         "מדד",
         "המדד",
@@ -229,31 +240,94 @@ fn bare_index(text: &str) -> Option<String> {
         "כשהמדד",
         "שבמדד",
     ];
-    const NAMED: [&str; 6] = ["S&P", "ה\u{2011}S&P", "המחירים", "מניות", "המניות", "אחר"];
+    // Named, but not an index the words can refer back to.
+    const OTHER: [&str; 3] = ["מניות", "המניות", "אחר"];
+    let text = parts.join(" ");
     let hebrew_letter = |c: char| ('\u{5d0}'..='\u{5ea}').contains(&c);
+    let (mut sp500, mut prices) = (false, false);
     let mut quoted = false;
     let mut word = String::new();
     let mut chars = text.char_indices().peekable();
+    let mut previous = ' ';
     while let Some((at, c)) = chars.next() {
-        if c == '״' {
+        // A quote mark, not the gershayim inside a word ("אג״ח").
+        let inside_a_word =
+            hebrew_letter(previous) && chars.peek().is_some_and(|(_, next)| hebrew_letter(*next));
+        previous = c;
+        if c == '״' && !inside_a_word {
             quoted = !quoted;
         }
-        if hebrew_letter(c) {
-            word.push(c);
-            let ends = chars.peek().is_none_or(|(_, next)| !hebrew_letter(*next));
-            if ends {
-                let after = text[at + c.len_utf8()..].trim_start_matches([' ', '\u{a0}']);
-                if !quoted
-                    && WORDS.contains(&word.as_str())
-                    && !NAMED.iter().any(|name| after.starts_with(name))
-                {
-                    return Some(word);
-                }
-                word.clear();
+        if !hebrew_letter(c) {
+            continue;
+        }
+        word.push(c);
+        if chars.peek().is_some_and(|(_, next)| hebrew_letter(*next)) {
+            continue;
+        }
+        let after = text[at + c.len_utf8()..].trim_start_matches([' ', '\u{a0}']);
+        if !quoted && WORDS.contains(&word.as_str()) {
+            if after.starts_with("S&P") || after.starts_with("ה\u{2011}S&P") {
+                sp500 = true;
+            } else if after.starts_with("המחירים") {
+                prices = true;
+            } else if !OTHER.iter().any(|name| after.starts_with(name)) && sp500 == prices {
+                // Neither named yet, or both: nothing to refer back to.
+                return Some(word);
             }
         }
+        word.clear();
     }
     None
+}
+
+/// The units of an answer, each as its Hebrew strings in order: the lines'
+/// sentences, each option card, each chart row with its label, each
+/// identity line; every other string is a unit of its own.
+fn units(answer: &Answer) -> Vec<Vec<String>> {
+    let he = |text: &broker_fees::Text| text.he.to_string();
+    let mut units: Vec<Vec<String>> = Vec::new();
+    for line in &answer.lines {
+        match &line.state {
+            LineState::Stated { text, .. } => units.push(vec![he(text)]),
+            LineState::Decision(decision) => {
+                units.push(vec![he(&decision.question)]);
+                units.push(vec![he(&decision.why)]);
+                units.extend(decision.difference.iter().map(|text| vec![he(text)]));
+                for option in &decision.options {
+                    let mut card = vec![he(&option.title), he(&option.amount)];
+                    card.extend(option.facts.iter().map(he));
+                    card.extend(option.fits_if.iter().map(he));
+                    card.push(he(&option.button));
+                    units.push(card);
+                }
+            }
+            LineState::Waiting => {}
+        }
+    }
+    for row in &answer.outcome.rows {
+        let mut unit = vec![he(&row.name)];
+        unit.extend(row.tags.iter().map(he));
+        unit.extend(row.note.iter().map(he));
+        units.push(unit);
+        let mut rest = Vec::new();
+        hebrew_strings(&serde_json::to_value(&row.mark).unwrap(), &mut rest);
+        hebrew_strings(&serde_json::to_value(&row.excluded).unwrap(), &mut rest);
+        units.extend(rest.into_iter().map(|text| vec![text]));
+    }
+    let mut rest = Vec::new();
+    for how in &answer.how {
+        units.push(how.identity.iter().map(he).collect());
+        let mut how = how.clone();
+        how.identity.clear();
+        hebrew_strings(&serde_json::to_value(&how).unwrap(), &mut rest);
+    }
+    let mut others = answer.clone();
+    others.lines.clear();
+    others.outcome.rows.clear();
+    others.how.clear();
+    hebrew_strings(&serde_json::to_value(&others).unwrap(), &mut rest);
+    units.extend(rest.into_iter().map(|text| vec![text]));
+    units
 }
 
 /// Every Hebrew string inside a serialized value: a `Text`'s `he`, or a
@@ -304,6 +378,32 @@ fn the_check_finds_a_bare_index() {
     assert_eq!(bare_index("קרן על מדד S&P\u{a0}500"), None);
     assert_eq!(bare_index("״פיקדון צמוד מדד״, 3 שנים"), None);
     assert_eq!(bare_index("מה שאבד לעמלות נמדד לפני מס"), None);
+    // Within a unit: a reference back to the one index named before it…
+    assert_eq!(
+        bare_index_in_unit(&[
+            "צמיחה: קרן על מדד S&P\u{a0}500",
+            "₪19,925 אם המדד יעלה 10% בשנה"
+        ]),
+        None
+    );
+    // …but not before it is named, nor where two indexes are.
+    assert_eq!(
+        bare_index_in_unit(&["אם המדד יעלה 10% בשנה", "קרן על מדד S&P\u{a0}500"]).as_deref(),
+        Some("המדד")
+    );
+    assert_eq!(
+        bare_index_in_unit(&[
+            "אג״ח צמודה למדד המחירים לצרכן",
+            "קרן על מדד S&P\u{a0}500",
+            "אם המדד יעלה"
+        ])
+        .as_deref(),
+        Some("המדד")
+    );
+    assert_eq!(
+        bare_index_in_unit(&["קרן סל על מדד, בתל אביב"]).as_deref(),
+        Some("מדד")
+    );
 }
 
 /// The redesigned answers the checks below read: every row of the safe
@@ -391,14 +491,26 @@ fn the_guide_names_the_index_it_means() {
 }
 
 /// The same rule over the answer card's words (`describe/card.rs`,
-/// `describe/outcome.rs`) and the chips (`situations.rs`), which other
-/// workstreams of the redesign own: "אם המדד יעלה 10% בשנה", "המדד נגמר
-/// בהפסד", "עוברים למדד". Run it with `--ignored` until they name it.
+/// `describe/outcome.rs`) and the chips (`situations.rs`): never "אם המדד
+/// יעלה 10% בשנה", "המדד נגמר בהפסד" or "עוברים למדד".
 #[test]
-#[ignore = "the answer card's and the chips' words still say a bare המדד"]
 fn the_answer_card_names_the_index_it_means() {
     for answer in many_redesigned_answers() {
-        no_bare_index(&serde_json::to_value(&answer).unwrap(), "the answer");
+        for unit in units(&answer) {
+            let parts: Vec<&str> = unit.iter().map(String::as_str).collect();
+            assert!(
+                bare_index_in_unit(&parts).is_none(),
+                "the answer says a bare מדד: {unit:?}"
+            );
+        }
+        let value = serde_json::to_value(&answer).unwrap();
+        // Nor "a stock index", which doesn't say which: the answer is about
+        // the S&P 500 (principle 14).
+        let mut texts = Vec::new();
+        hebrew_strings(&value, &mut texts);
+        for text in texts {
+            assert!(!text.contains("מדד מניות"), "the answer: {text}");
+        }
     }
     for preset in broker_fees::situations::situations() {
         no_bare_index(&serde_json::to_value(&preset.name).unwrap(), "a chip");

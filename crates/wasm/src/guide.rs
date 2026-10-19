@@ -141,12 +141,10 @@ impl AnswersInput {
             flexibility: self.flexibility,
             cushion: self.cushion.as_ref().map(|cushion| match cushion {
                 CushionInput::Has => Cushion::Has,
-                // Until the visitor types theirs, the cushion is sized by
-                // the core's stand-in, which the answer says is one.
+                // Until the visitor types theirs, the core sizes the cushion
+                // by its stand-in, and the answer says it is one.
                 CushionInput::HasNot { monthly_expenses } => Cushion::HasNot {
-                    monthly_expenses: monthly_expenses
-                        .and_then(decimal)
-                        .unwrap_or(guide::STAND_IN_MONTHLY_EXPENSES),
+                    monthly_expenses: monthly_expenses.and_then(decimal),
                 },
             }),
             needs_any_day: self.needs_any_day,
@@ -164,7 +162,7 @@ impl AnswersInput {
             cushion: answers.cushion.map(|cushion| match cushion {
                 Cushion::Has => CushionInput::Has,
                 Cushion::HasNot { monthly_expenses } => CushionInput::HasNot {
-                    monthly_expenses: Some(number(monthly_expenses)),
+                    monthly_expenses: monthly_expenses.map(number),
                 },
             }),
             needs_any_day: answers.needs_any_day,
@@ -1374,8 +1372,10 @@ pub struct AnswerOutcomeData {
 #[serde(rename_all = "camelCase")]
 pub struct SearchData {
     pub text: String,
-    /// Still a placeholder (research to do): shown as such.
+    /// A placeholder the data can't fill (the text says why): shown as such.
     pub placeholder: bool,
+    /// The pages its names and numbers come from.
+    pub sources: Vec<describe::Source>,
 }
 
 #[derive(Debug, Serialize, Tsify)]
@@ -1611,6 +1611,11 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                 search: how.search.as_ref().map(|search| SearchData {
                     text: said(&search.text),
                     placeholder: search.placeholder,
+                    sources: search
+                        .sources
+                        .iter()
+                        .map(|page| describe::Source::new(page, lang()))
+                        .collect(),
                 }),
                 steps: said_all(&how.steps),
                 not_offered: how.not_offered.as_ref().map(said),
