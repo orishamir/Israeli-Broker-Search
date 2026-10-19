@@ -159,6 +159,15 @@ pub(super) fn standing(pairs: &[(Decimal, Decimal)], margin: Decimal) -> Standin
     }
 }
 
+/// Whether the order of two options changes within the versions: it does
+/// across them (`Flips`), or the rate at which they trade places lies within
+/// the rates tried. A tie as things are can flip too: being within the
+/// margin says nothing about which side of the switch point the rate is.
+pub(super) fn order_flips(standing: Standing, switch: Option<Percent>, rate: Percent) -> bool {
+    let (low, high) = ((rate.0 - RATE_STEP).max(Decimal::ZERO), rate.0 + RATE_STEP);
+    standing == Standing::Flips || switch.is_some_and(|at| low <= at.0 && at.0 <= high)
+}
+
 /// The Bank of Israel's average rate at which `ahead(rate)` (one option less
 /// the other) changes sign, between 0% and 10%, to a tenth of a point: the
 /// switch point said under a decision. `None` when it doesn't change sign
@@ -209,6 +218,19 @@ mod tests {
             standing(&[(dec!(100), dec!(50)), (dec!(100), dec!(95))], margin),
             Standing::Flips
         );
+    }
+
+    #[test]
+    fn a_switch_point_within_the_rates_tried_flips_the_order() {
+        let rate = Percent(dec!(3.25));
+        let at = |switch| Some(Percent(switch));
+        // The apartment's: a tie as things are, the switch inside the span.
+        assert!(order_flips(Standing::Tie, at(dec!(3.6)), rate));
+        assert!(order_flips(Standing::Clear, at(dec!(2.75)), rate));
+        assert!(order_flips(Standing::Tie, at(dec!(3.75)), rate));
+        assert!(!order_flips(Standing::Tie, at(dec!(3.8)), rate));
+        assert!(!order_flips(Standing::Tie, None, rate));
+        assert!(order_flips(Standing::Flips, None, rate));
     }
 
     #[test]

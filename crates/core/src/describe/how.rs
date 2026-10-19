@@ -5,10 +5,10 @@
 //! The identity line is always in one order: what it is (and who issues
 //! it) · where it trades · its currency · what it's linked to · when the
 //! money comes out. What to search for is its own slot, under the line.
-//! The bond series' names and the funds' numbers are research still to be
-//! done, so their search slots are marked placeholders, never invented; a
-//! fund's name, once there, is an example to search for and never a pick
-//! (principle 17).
+//! The names and numbers in it are `examples.rs`' (fetched, never typed):
+//! a bond's series is the one its date decides, a fund's name is an example
+//! to search for and never a pick (principle 17), and where no series fits,
+//! the slot is a marked placeholder that says why.
 
 #![allow(
     clippy::too_many_lines,
@@ -21,8 +21,10 @@ use time::Date;
 
 use super::card::{about, both, end_date};
 use super::reasons::{month_year, shekels, span};
+use crate::examples::{self, Example, FindBy, MoneyMarketFund};
 use crate::guide::{Account, AlsoPossible, Flexibility, Kind, UnlockLine};
-use crate::{Exchange, Lang, Product, Text, Vehicle};
+use crate::short_term::government_bonds::Linkage;
+use crate::{Exchange, Lang, Page, Product, Text, Vehicle};
 
 /// What the words need.
 #[derive(Debug, Clone, Copy)]
@@ -273,104 +275,258 @@ pub fn identity(ctx: &Context) -> Vec<Text> {
 
 /// The marked placeholder of a slot the research hasn't filled (principle
 /// 16): the page shows it as such.
-const TO_COME: &str = "[—]";
+const TO_COME: &str = "____";
 
-/// What to type in the app, and whether the slot is still a placeholder.
+/// What to type in the app: the text, whether it is still a placeholder,
+/// and the pages its names and numbers come from.
+#[derive(Debug, Clone)]
+pub struct Slot {
+    pub text: Text,
+    pub placeholder: bool,
+    pub sources: Vec<Page>,
+}
+
+/// The shekel money market funds that charge least, within the providers'
+/// margin of each other for the visitor's money: a tie, whose names the
+/// slot gives (principle 13), never "the cheapest".
+#[derive(Debug, Clone)]
+pub struct FundTie {
+    /// Least first.
+    pub funds: Vec<&'static MoneyMarketFund>,
+    /// What the first leaves above the last of them, in today's ₪.
+    pub gap: Decimal,
+}
+
+/// "1234567 · ממשל צמודה 0529": the number first, which every app finds,
+/// then the name the exchange gives it.
+fn numbered(number: impl std::fmt::Display, name: &str, lang: Lang) -> String {
+    format!("{number}{}{name}", lang.pick(" · ", "\u{a0}· "))
+}
+
+/// The examples of a way, at most two, said once as examples (principle
+/// 17): "for example 5124482 · קסם SP500 KTF or 5129275 · …".
+fn examples_of(way: crate::ways::Way, lead_en: &str, lead_he: &str) -> Option<Slot> {
+    let shown: Vec<&Example> = examples::for_way(way).take(2).collect();
+    if shown.is_empty() {
+        return None;
+    }
+    let text = both(|lang| {
+        let names: Vec<String> = shown
+            .iter()
+            .map(|example| match example.find_by {
+                FindBy::Number(number) => numbered(number, example.name, lang),
+                FindBy::Ticker(ticker) => numbered(ticker, example.name, lang),
+            })
+            .collect();
+        let or = lang.pick(" or ", " או ");
+        let lead = lang.pick(lead_en, lead_he);
+        let lead = if lead.is_empty() {
+            String::new()
+        } else {
+            format!("{lead}{}", lang.pick(" · ", "\u{a0}· "))
+        };
+        format!(
+            "{lead}{} {} ({})",
+            lang.pick("for example", "למשל"),
+            names.join(or),
+            &examples::NOT_A_PICK[lang]
+        )
+    });
+    Some(Slot {
+        text,
+        placeholder: false,
+        sources: shown.iter().map(|example| example.page()).collect(),
+    })
+}
+
+/// What to type in the app. A bond's series is the one repaid last by the
+/// visitor's date (`examples::nearest_bond`); a fund's are examples; the
+/// money market funds' are the ones that charge least, as a tie.
 #[must_use]
-pub fn search(ctx: &Context) -> Option<(Text, bool)> {
-    let nearest = |lang: Lang| match end(ctx) {
-        Some(end) => match lang {
-            Lang::En => format!("the series repaid nearest {}", month_year(end, lang)),
-            Lang::He => format!("הסדרה שנפדית הכי קרוב ל{}", month_year(end, lang)),
-        },
-        None => match lang {
-            Lang::En => format!("the series repaid nearest {}", year(ctx, lang)),
-            Lang::He => format!("הסדרה שנפדית הכי קרוב ל\u{2011}{}", year(ctx, lang)),
-        },
-    };
-    // A fund's name to come: an example to search for, never a pick.
-    let example = |en: &str, he: &str| {
-        both(|lang| match lang {
-            Lang::En => {
-                format!("{en} · for example {TO_COME} (an example, not a recommendation)")
-            }
-            Lang::He => format!("{he} · למשל {TO_COME} (דוגמה, לא המלצה)"),
-        })
+pub fn search(ctx: &Context, cheapest_funds: Option<&FundTie>) -> Option<Slot> {
+    let plain = |text: Text| Slot {
+        text,
+        placeholder: false,
+        sources: Vec::new(),
     };
     match ctx.kind {
-        Kind::MoneyMarketFund => Some((
-            fixed("money market fund in shekels (כספית שקלית)", "כספית שקלית"),
-            false,
-        )),
-        Kind::GovernmentBond { linked } => Some((
-            both(|lang| {
-                let name = if linked {
-                    "ממשלתי צמוד ____"
-                } else {
-                    "ממשלתי שקלי ____"
-                };
-                format!("{name} ({})", nearest(lang))
-            }),
-            true,
-        )),
-        Kind::FixedDeposit => Some((
-            both(|lang| match lang {
-                Lang::En => format!("fixed-rate deposit, {}", span(ctx.months, lang)),
-                Lang::He => format!("פיקדון בריבית קבועה, {}", span(ctx.months, lang)),
-            }),
-            false,
-        )),
-        Kind::LinkedDeposit => Some((
-            both(|lang| match lang {
-                Lang::En => format!(
-                    "CPI-linked deposit (״צמוד מדד״), {}",
-                    span(ctx.months, lang)
-                ),
-                Lang::He => format!("״פיקדון צמוד מדד״, {}", span(ctx.months, lang)),
-            }),
-            false,
-        )),
+        Kind::MoneyMarketFund => Some(money_market(cheapest_funds)),
+        Kind::GovernmentBond { linked } => Some(bond(ctx, linked)),
+        Kind::FixedDeposit => Some(plain(both(|lang| match lang {
+            Lang::En => format!("fixed-rate deposit, {}", span(ctx.months, lang)),
+            Lang::He => format!("פיקדון בריבית קבועה, {}", span(ctx.months, lang)),
+        }))),
+        Kind::LinkedDeposit => Some(plain(both(|lang| match lang {
+            Lang::En => format!(
+                "CPI-linked deposit (״צמוד מדד״), {}",
+                span(ctx.months, lang)
+            ),
+            Lang::He => format!("״פיקדון צמוד מדד״, {}", span(ctx.months, lang)),
+        }))),
         Kind::CurrentAccount => None,
         Kind::Way(way) => match (way.vehicle, way.product) {
-            (Vehicle::StudyFund, _) => Some((
-                fixed(
-                    "the S&P 500 track, in your study fund",
-                    "מסלול מדד S&P\u{a0}500, בקרן ההשתלמות שלכם",
-                ),
-                false,
-            )),
-            (Vehicle::InvestmentGemel | Vehicle::SavingsPolicy, _) => {
-                Some((fixed("the S&P 500 track", "מסלול מדד S&P\u{a0}500"), false))
+            (Vehicle::StudyFund, _) => Some(plain(fixed(
+                "the S&P 500 track, in your study fund",
+                "מסלול מדד S&P\u{a0}500, בקרן ההשתלמות שלכם",
+            ))),
+            (Vehicle::InvestmentGemel | Vehicle::SavingsPolicy, _) => Some(plain(fixed(
+                "the S&P 500 track",
+                "מסלול מדד S&P\u{a0}500",
+            ))),
+            (Vehicle::Brokerage, Product::UsFund | Product::IrishFund) => {
+                examples_of(way, "", "")
             }
-            (Vehicle::Brokerage, Product::UsFund) => Some((
-                fixed(
-                    "for example VOO (an example, not a recommendation)",
-                    "למשל VOO (דוגמה, לא המלצה)",
-                ),
-                false,
-            )),
-            (Vehicle::Brokerage, Product::IrishFund | Product::ForeignEtfInTelAviv) => Some((
-                fixed(
-                    "for example CSPX (an example, not a recommendation)",
-                    "למשל CSPX (דוגמה, לא המלצה)",
-                ),
-                false,
-            )),
-            (Vehicle::Brokerage, Product::IsraeliEtf) => Some((
-                example("S&P 500, among ETFs (קרנות סל)", "S&P\u{a0}500, בקרנות הסל"),
-                true,
-            )),
-            (Vehicle::Brokerage, _) => Some((
-                example(
-                    "S&P 500, among index funds (קרנות מחקות)",
-                    "S&P\u{a0}500, בקרנות המחקות",
-                ),
-                true,
-            )),
+            (Vehicle::Brokerage, Product::ForeignEtfInTelAviv) => {
+                examples_of(way, "S&P 500, in Tel Aviv", "S&P\u{a0}500, בתל אביב")
+            }
+            (Vehicle::Brokerage, Product::IsraeliEtf) => examples_of(
+                way,
+                "S&P 500, among ETFs (קרנות סל)",
+                "S&P\u{a0}500, בקרנות הסל",
+            ),
+            (Vehicle::Brokerage, _) => examples_of(
+                way,
+                "S&P 500, among index funds (קרנות מחקות)",
+                "S&P\u{a0}500, בקרנות המחקות",
+            ),
         },
     }
 }
 
+/// "כספית שקלית", and the funds that charge least, as a tie.
+fn money_market(tie: Option<&FundTie>) -> Slot {
+    let kind = fixed("money market fund in shekels (כספית שקלית)", "כספית שקלית");
+    let Some(tie) = tie.filter(|tie| !tie.funds.is_empty()) else {
+        return Slot {
+            text: kind,
+            placeholder: false,
+            sources: Vec::new(),
+        };
+    };
+    let highest = tie.funds.iter().map(|fund| fund.fee).max().unwrap_or_default();
+    let lowest = tie.funds.iter().map(|fund| fund.fee).min().unwrap_or_default();
+    let all = tie.funds.len() == examples::money_market_funds().len();
+    let text = both(|lang| {
+        let names: Vec<String> = tie
+            .funds
+            .iter()
+            .take(3)
+            .map(|fund| numbered(fund.number, fund.name, lang))
+            .collect();
+        let shown = names.join(lang.pick(", ", ", "));
+        let count = tie.funds.len();
+        let rest = count.saturating_sub(names.len());
+        let more = match (rest, lang) {
+            (0, _) => String::new(),
+            (1, Lang::En) => " and one more".to_owned(),
+            (1, Lang::He) => " ועוד אחת".to_owned(),
+            (_, Lang::En) => format!(" and {rest} more"),
+            (_, Lang::He) => format!(" ועוד {rest}"),
+        };
+        let gap = shekels(tie.gap.max(Decimal::ONE));
+        let charge = match (lowest == highest, lang) {
+            (true, Lang::En) => format!("charge {highest} a year"),
+            (true, Lang::He) => format!("גובות {highest} בשנה"),
+            (false, Lang::En) => format!("charge {lowest} to {highest} a year"),
+            (false, Lang::He) => format!("גובות בין {lowest} ל\u{2011}{highest} בשנה"),
+        };
+        match (count, all, lang) {
+            (1, _, Lang::En) => format!(
+                "{} · the one that charges least: {shown} ({highest} a year)",
+                kind.en
+            ),
+            (1, _, Lang::He) => format!(
+                "{}\u{a0}· הקרן שגובה הכי מעט: {shown} ({highest} בשנה)",
+                kind.he
+            ),
+            // Every fund within the margin: nothing to name.
+            (_, true, Lang::En) => format!(
+                "{} · on your money, all {count} funds end at most {gap} apart: any of them is fine",
+                kind.en
+            ),
+            (_, true, Lang::He) => format!(
+                "{}\u{a0}· בכסף שלכם, כל {count} הקרנות מסתיימות בהפרש של עד {gap}: כל אחת מהן בסדר",
+                kind.he
+            ),
+            (_, false, Lang::En) => format!(
+                "{} · {count} funds {charge}, at most {gap} apart on your money, a tie: {shown}{more}",
+                kind.en
+            ),
+            (_, false, Lang::He) => format!(
+                "{}\u{a0}· {count} קרנות {charge}, וההבדל ביניהן בכסף שלכם עד {gap}, כלומר תיקו: {shown}{more}",
+                kind.he
+            ),
+        }
+    });
+    Slot {
+        text,
+        placeholder: false,
+        sources: if all {
+            vec![crate::short_term::money_market::maya()]
+        } else {
+            tie.funds.iter().take(3).map(|fund| fund.page()).collect()
+        },
+    }
+}
+
+/// The series repaid last by the visitor's date, or a marked placeholder
+/// that says why there is none.
+fn bond(ctx: &Context, linked: bool) -> Slot {
+    let linkage = if linked {
+        Linkage::CpiLinked
+    } else {
+        Linkage::Unlinked
+    };
+    let by = ctx
+        .today
+        .and_then(|today| end_date(today, ctx.months).map(|by| (today, by)));
+    let series = by.and_then(|(today, by)| examples::nearest_bond(linkage, today, by));
+    if let Some(series) = series {
+        // The latest series can be repaid well before a far date: then the
+        // money waits from then, and the slot says when.
+        let early = by.is_some_and(|(_, by)| (by - series.repaid).whole_days() > 365);
+        return Slot {
+            text: both(|lang| {
+                let found = numbered(series.number, series.name, lang);
+                match (early, lang) {
+                    (false, _) => found,
+                    (true, Lang::En) => format!(
+                        "{found} (repaid in {}: no series is repaid nearer your date)",
+                        month_year(series.repaid, lang)
+                    ),
+                    (true, Lang::He) => format!(
+                        "{found} (נפדית ב{}: אין סדרה שנפדית קרוב יותר לתאריך שלכם)",
+                        month_year(series.repaid, lang)
+                    ),
+                }
+            }),
+            placeholder: false,
+            sources: vec![series.page()],
+        };
+    }
+    let name = if linked {
+        "ממשל צמודה"
+    } else {
+        "ממשל שקלית"
+    };
+    let text = both(|lang| match (by, lang) {
+        (Some((_, by)), Lang::En) => format!(
+            "{name} {TO_COME} (no series is repaid by {}: the nearest is repaid after your date)",
+            month_year(by, lang)
+        ),
+        (Some((_, by)), Lang::He) => format!(
+            "{name} {TO_COME} (אין סדרה שנפדית עד {}: הקרובה נפדית אחרי התאריך שלכם)",
+            month_year(by, lang)
+        ),
+        (None, Lang::En) => format!("{name} {TO_COME} (the series repaid nearest your date)"),
+        (None, Lang::He) => format!("{name} {TO_COME} (הסדרה שנפדית הכי קרוב לתאריך שלכם)"),
+    });
+    Slot {
+        text,
+        placeholder: true,
+        sources: Vec::new(),
+    }
+}
 /// "₪100,000 now, and ₪2,000 every month" as the buying steps say it: one
 /// step for the first sum, one for the months.
 fn buying(ctx: &Context, now: Text, every_month: Text) -> Vec<Text> {

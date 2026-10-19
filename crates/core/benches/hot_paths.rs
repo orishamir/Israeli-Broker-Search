@@ -120,7 +120,7 @@ fn guide_answers(
         horizon,
         flexibility: Some(guide::Flexibility::Fixed),
         cushion: Some(guide::Cushion::HasNot {
-            monthly_expenses: dec!(17000),
+            monthly_expenses: Some(dec!(17000)),
         }),
         needs_any_day: false,
         bank: None,

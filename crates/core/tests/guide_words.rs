@@ -58,7 +58,7 @@ fn many_answers() -> Vec<Answers> {
     }
     let mut cushion = answers(dec!(0), dec!(3_000), Horizon::Unknown);
     cushion.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     all.push(cushion);
     let mut has = answers(dec!(0), dec!(3_000), Horizon::Unknown);
@@ -391,14 +391,20 @@ fn the_guide_names_the_index_it_means() {
 }
 
 /// The same rule over the answer card's words (`describe/card.rs`,
-/// `describe/outcome.rs`) and the chips (`situations.rs`), which other
-/// workstreams of the redesign own: "אם המדד יעלה 10% בשנה", "המדד נגמר
-/// בהפסד", "עוברים למדד". Run it with `--ignored` until they name it.
+/// `describe/outcome.rs`) and the chips (`situations.rs`): never "אם המדד
+/// יעלה 10% בשנה", "המדד נגמר בהפסד" or "עוברים למדד".
 #[test]
-#[ignore = "the answer card's and the chips' words still say a bare המדד"]
 fn the_answer_card_names_the_index_it_means() {
     for answer in many_redesigned_answers() {
-        no_bare_index(&serde_json::to_value(&answer).unwrap(), "the answer");
+        let value = serde_json::to_value(&answer).unwrap();
+        no_bare_index(&value, "the answer");
+        // Nor "a stock index", which doesn't say which: the answer is about
+        // the S&P 500 (principle 14).
+        let mut texts = Vec::new();
+        hebrew_strings(&value, &mut texts);
+        for text in texts {
+            assert!(!text.contains("מדד מניות"), "the answer: {text}");
+        }
     }
     for preset in broker_fees::situations::situations() {
         no_bare_index(&serde_json::to_value(&preset.name).unwrap(), "a chip");

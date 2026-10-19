@@ -414,7 +414,7 @@ fn the_study_fund_is_never_the_answer_unless_chosen() {
 fn row_8_no_date_and_no_cushion_is_a_two_part_answer() {
     let mut unknown = answers(dec!(0), dec!(3000), Horizon::Unknown);
     unknown.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     let rec = recommended(&unknown);
     assert_eq!(rec.arena, Arena::Safe);
@@ -589,7 +589,7 @@ fn follow_ups_are_asked_only_when_the_answer_needs_them() {
     let mut unknown = answers(dec!(0), dec!(3000), Horizon::Unknown);
     assert_eq!(follow_ups(&unknown), [FollowUp::Cushion]);
     unknown.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     assert_eq!(
         follow_ups(&unknown),
@@ -609,7 +609,7 @@ fn the_cushion_is_three_months_of_expenses_filled_by_saving() {
     let cushion = |now, monthly, expenses| {
         let mut answers = answers(now, monthly, Horizon::Unknown);
         answers.cushion = Some(Cushion::HasNot {
-            monthly_expenses: expenses,
+            monthly_expenses: Some(expenses),
         });
         recommended(&answers).two_parts.expect("two parts")
     };
@@ -629,7 +629,7 @@ fn the_cushion_is_three_months_of_expenses_filled_by_saving() {
     // A cushion already full needs no first part.
     let mut full = answers(dec!(60_000), dec!(3000), Horizon::Unknown);
     full.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     let rec = recommended(&full);
     assert!(rec.two_parts.is_none());
@@ -672,7 +672,7 @@ fn impossible_answers_say_why() {
     );
     let mut expenses = answers(dec!(0), dec!(3000), Horizon::Unknown);
     expenses.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(0),
+        monthly_expenses: Some(dec!(0)),
     });
     assert_eq!(bad(&expenses), InvalidAnswers::NoExpenses);
     for why in [
@@ -963,7 +963,7 @@ fn a2_five_years_that_can_move_is_an_index_fund_in_tel_aviv() {
 fn c_the_cushion_comes_first_and_the_ladder_has_five_rungs() {
     let mut unknown = answers(dec!(0), dec!(3000), Horizon::Unknown);
     unknown.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     let rec = recommended(&unknown);
     let plan = rec.two_parts.as_ref().unwrap();
@@ -1377,7 +1377,7 @@ fn the_reason_says_whether_it_is_one_sum_or_money_every_month() {
 fn the_cushion_reason_and_plan_agree() {
     let mut unknown = answers(dec!(0), dec!(3000), Horizon::Unknown);
     unknown.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     let rec = recommended(&unknown);
     let plan = rec.two_parts.as_ref().unwrap();
@@ -1931,7 +1931,7 @@ fn the_stock_fund_beside_a_safe_answer_counts_every_month() {
     }
     let mut cushion = answers(dec!(0), dec!(3000), Horizon::Unknown);
     cushion.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(17_000),
+        monthly_expenses: Some(dec!(17_000)),
     });
     let rec = recommended(&cushion);
     let stock = rec
@@ -2017,7 +2017,7 @@ fn a_period_the_saver_did_not_give_is_said() {
     assert_eq!(assumed(&monthly), Some((120, AssumedBecause::NoDate)));
     let mut cushion = answers(dec!(0), dec!(3000), Horizon::Unknown);
     cushion.cushion = Some(Cushion::HasNot {
-        monthly_expenses: dec!(10_000),
+        monthly_expenses: Some(dec!(10_000)),
     });
     let rec = recommended(&cushion);
     assert_eq!(assumed(&rec), Some((10, AssumedBecause::CushionFills)));

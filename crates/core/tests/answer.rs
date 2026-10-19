@@ -81,7 +81,7 @@ fn pick(answers: &Answers, choices: Choices, pick: Pick) -> (Answers, Choices) {
         Pick::Cushion(CushionPick::Has) => answers.cushion = Some(Cushion::Has),
         Pick::Cushion(CushionPick::HasNot) => {
             answers.cushion = Some(Cushion::HasNot {
-                monthly_expenses: STAND_IN_MONTHLY_EXPENSES,
+                monthly_expenses: None,
             });
         }
         Pick::Flexibility(flexibility) => answers.flexibility = Some(flexibility),
@@ -489,7 +489,7 @@ fn every_bar_says_what_it_spans() {
             None,
             Some(Cushion::Has),
             Some(Cushion::HasNot {
-                monthly_expenses: dec!(8000),
+                monthly_expenses: Some(dec!(8000)),
             }),
         ] {
             let answers = Answers {

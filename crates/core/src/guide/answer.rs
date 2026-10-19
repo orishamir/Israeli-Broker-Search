@@ -297,12 +297,14 @@ pub struct How {
     pub where_to_buy: Option<WhereToBuy>,
 }
 
-/// What to type in the app. `placeholder` marks a slot the research hasn't
-/// filled yet (a bond series' name, a fund's number): shown as such.
+/// What to type in the app. `placeholder` marks a slot the data can't fill
+/// (no bond series is repaid by the date): shown as such, and saying why.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Search {
     pub text: Text,
     pub placeholder: bool,
+    /// The pages its names and numbers come from.
+    pub sources: Vec<crate::Page>,
 }
 
 /// Where to buy, from the visitor's bank (§2.9).
@@ -1030,8 +1032,7 @@ fn build(f: &Facts<'_>, with_horizons: bool) -> Answer {
         } else {
             Vec::new()
         },
-        annuity: matches!(f.answers.horizon, Horizon::Retirement { .. })
-            .then(card::annuity_placeholder),
+        annuity: annuity(f, chosen),
     }
 }
 
@@ -1055,15 +1056,13 @@ fn cushion_line(f: &Facts<'_>) -> Option<Line> {
     {
         return None;
     }
-    let expenses = match f.answers.cushion {
-        // The page sends an empty field as the stand-in itself, so the
-        // stand-in's figure is still said to be one.
-        Some(Cushion::HasNot { monthly_expenses }) => (
-            monthly_expenses,
-            monthly_expenses == STAND_IN_MONTHLY_EXPENSES,
-        ),
-        _ => (STAND_IN_MONTHLY_EXPENSES, true),
-    };
+    // Until the visitor types theirs (or while they say they have one), the
+    // option is worked out by the stand-in, and says so.
+    let expenses = f
+        .answers
+        .cushion
+        .and_then(Cushion::expenses)
+        .unwrap_or((STAND_IN_MONTHLY_EXPENSES, true));
     let target = expenses.0 * Decimal::from(CUSHION_MONTHS);
     let missing = (target - f.answers.now).max(Decimal::ZERO);
     // A sum now that is already the cushion leaves nothing to ask.
@@ -1308,7 +1307,7 @@ fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen
         rate: f.settings.rate,
         switch,
         bond_at_your_bank,
-        flips: safe_standing != Standing::Tie,
+        flips: robust::order_flips(safe_standing, switch, f.settings.rate),
     });
     let picks: Vec<(Pick, Vec<RowId>, Option<Amount>)> = shown
         .iter()
@@ -1881,11 +1880,25 @@ fn how_of(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> How {
             .flatten(),
         account: info.and_then(|info| info.account),
     };
+    let tie = (row.kind == Kind::MoneyMarketFund)
+        .then(|| {
+            super::outcome::money_market_tie(
+                &f.safe_answers,
+                f.months,
+                &f.versions[0],
+                f.provider_margin,
+            )
+        })
+        .flatten();
     How {
         row: row.id,
         name: row.name.clone(),
         identity: how_words::identity(&ctx),
-        search: how_words::search(&ctx).map(|(text, placeholder)| Search { text, placeholder }),
+        search: how_words::search(&ctx, tie.as_ref()).map(|slot| Search {
+            text: slot.text,
+            placeholder: slot.placeholder,
+            sources: slot.sources,
+        }),
         // An option the rules exclude says why, and gives no steps.
         steps: if row.excluded.is_some() {
             Vec::new()
@@ -2038,36 +2051,43 @@ fn plan_text(f: &Facts<'_>, chosen: Option<Chosen>, info: Option<&WhereInfo>) ->
 }
 
 fn title_and_body(f: &Facts<'_>, state: ConfidenceState, open: bool) -> (Text, Text) {
-    let index = f.index.as_ref();
-    let fund = f
-        .safe
-        .group(SafeWay::MoneyMarketFund)
-        .map(|fund| fund.lead.left.today);
     card::title_and_body(&card::TitleFigures {
         state,
         arena: f.arena,
         asked: matches!(f.place, Place_::Asked { .. }),
-        today: f.settings.today,
         months: f.months,
         fixed_date: matches!(f.answers.horizon, Horizon::Months(_)),
-        index_left: index
-            .and_then(|index| index.left(index.lead))
-            .map(|amount| amount.today),
-        index_return: f.settings.index_return,
-        fund,
-        current_account: f.current_account.today,
-        deposited: f.deposited.today,
-        safe_low: f
-            .safe
-            .groups
-            .iter()
-            .map(|group| group.lead.left.today)
-            .min(),
-        safe_high: f.safe.groups.first().map(|group| group.lead.left.today),
         safe_lead: f.safe.groups.first().map(|group| group.lead.kind),
         open,
         retirement: matches!(f.answers.horizon, Horizon::Retirement { .. }),
     })
+}
+
+/// For retirement, the monthly pension the provident fund for investment
+/// would pay: the way chosen if it is that fund, or the index's lead if the
+/// way is still open and the lead is. Nothing while the money goes to a safe
+/// way, or for an age the payers' tables don't cover.
+fn annuity(f: &Facts<'_>, chosen: Option<Chosen>) -> Option<Text> {
+    let Horizon::Retirement { age, retire_at } = f.answers.horizon else {
+        return None;
+    };
+    if f.arena == Some(Arena::Safe) {
+        return None;
+    }
+    let index = f.index.as_ref()?;
+    let at = match chosen {
+        Some(Chosen::Index(at)) => at,
+        Some(Chosen::Safe(_)) => return None,
+        None => index.lead,
+    };
+    if index.way(at).way.vehicle != Vehicle::InvestmentGemel {
+        return None;
+    }
+    let sum = index.left(at)?.today;
+    let today = f.settings.today?;
+    let starts_in = today.year() + i32::try_from(retire_at - age).ok()?;
+    let estimate = crate::annuity::monthly(sum, retire_at, starts_in)?;
+    Some(card::annuity(&estimate, f.settings.index_return))
 }
 
 // ─────────────────────────── The gain ───────────────────────────

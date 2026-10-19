@@ -164,9 +164,28 @@ pub enum Flexibility {
 pub enum Cushion {
     Has,
     HasNot {
-        /// ₪ a month.
-        monthly_expenses: Decimal,
+        /// ₪ a month, once the saver typed it: `None` until then, when the
+        /// cushion is sized by [`STAND_IN_MONTHLY_EXPENSES`] and the page
+        /// says that figure is a stand-in.
+        monthly_expenses: Option<Decimal>,
     },
+}
+
+impl Cushion {
+    /// The month's expenses the cushion is sized by, and whether that is
+    /// the stand-in (nothing typed yet); `None` for a saver who has one.
+    #[must_use]
+    pub fn expenses(self) -> Option<(Decimal, bool)> {
+        match self {
+            Cushion::Has => None,
+            Cushion::HasNot {
+                monthly_expenses: Some(typed),
+            } => Some((typed, false)),
+            Cushion::HasNot {
+                monthly_expenses: None,
+            } => Some((STAND_IN_MONTHLY_EXPENSES, true)),
+        }
+    }
 }
 
 /// What the saver answered. Amounts in ₪.
@@ -851,7 +870,9 @@ pub fn check(answers: &Answers) -> Result<(), InvalidAnswers> {
     if answers.now.is_zero() && answers.monthly.is_zero() {
         return Err(InvalidAnswers::NoMoney);
     }
-    if let Some(Cushion::HasNot { monthly_expenses }) = answers.cushion
+    if let Some(Cushion::HasNot {
+        monthly_expenses: Some(monthly_expenses),
+    }) = answers.cushion
         && monthly_expenses <= Decimal::ZERO
     {
         return Err(InvalidAnswers::NoExpenses);
