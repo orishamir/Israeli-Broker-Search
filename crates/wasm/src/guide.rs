@@ -47,6 +47,9 @@ pub struct AnswersInput {
     pub flexibility: Option<guide::Flexibility>,
     pub cushion: Option<CushionInput>,
     pub needs_any_day: bool,
+    /// The visitor's bank, when they named it.
+    #[serde(default)]
+    pub bank: Option<Bank>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Tsify)]
@@ -90,6 +93,10 @@ pub struct GuideSettings {
     #[serde(default)]
     #[tsify(type = "number | null")]
     pub this_year: Option<i32>,
+    /// The month now, 1 to 12, with `this_year`: for "in October 2029".
+    #[serde(default)]
+    #[tsify(type = "number | null")]
+    pub this_month: Option<u8>,
 }
 
 /// Why the guide can't answer: its words are in the app's language.
@@ -134,11 +141,16 @@ impl AnswersInput {
             flexibility: self.flexibility,
             cushion: self.cushion.as_ref().map(|cushion| match cushion {
                 CushionInput::Has => Cushion::Has,
+                // Until the visitor types theirs, the cushion is sized by
+                // the core's stand-in, which the answer says is one.
                 CushionInput::HasNot { monthly_expenses } => Cushion::HasNot {
-                    monthly_expenses: amount_of(*monthly_expenses),
+                    monthly_expenses: monthly_expenses
+                        .and_then(decimal)
+                        .unwrap_or(guide::STAND_IN_MONTHLY_EXPENSES),
                 },
             }),
             needs_any_day: self.needs_any_day,
+            bank: self.bank,
         }
     }
 
@@ -156,6 +168,7 @@ impl AnswersInput {
                 },
             }),
             needs_any_day: answers.needs_any_day,
+            bank: answers.bank,
         }
     }
 }
@@ -203,6 +216,17 @@ fn settings_for(settings: &GuideSettings, data: &Data) -> Result<Settings, Inval
     core.inflation = percent(settings.inflation_percent, core.inflation);
     core.rate = percent(settings.boi_rate_percent, core.rate);
     core.overrides = settings.overrides;
+    core.today = settings
+        .this_year
+        .zip(settings.this_month)
+        .and_then(|(year, month)| {
+            broker_fees::time::Date::from_calendar_date(
+                year,
+                broker_fees::time::Month::try_from(month).ok()?,
+                1,
+            )
+            .ok()
+        });
     // The plans ticked: a listed plan is where the data has it, your own
     // come after the listed brokers.
     let listed = data.brokers.len() - usize::from(!settings.your_plans.is_empty());
@@ -1234,6 +1258,411 @@ pub fn footer() -> Vec<String> {
     describe::footer(lang())
 }
 
+// ─────────────────────────── The answer ───────────────────────────
+
+/// What the page asks the answer for: the facts, the visitor's choices on
+/// the answer, the settings, and whether to work out the horizon section
+/// (most of a short answer's time: the page can show the rest first).
+#[derive(Debug, Clone, Deserialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerRequest {
+    pub answers: AnswersInput,
+    #[serde(default)]
+    pub choices: guide::Choices,
+    pub settings: GuideSettings,
+    /// `null` or true works the horizons out too.
+    #[serde(default)]
+    pub horizons: Option<bool>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfidenceData {
+    pub state: guide::ConfidenceState,
+    pub note: String,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct OptData {
+    pub pick: guide::Pick,
+    pub title: String,
+    pub amount: String,
+    pub value: Option<AmountData>,
+    pub facts: Vec<String>,
+    pub fits_if: Option<String>,
+    pub button: String,
+    pub rows: Vec<Kind>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct DecisionData {
+    pub id: guide::DecisionId,
+    pub question: String,
+    pub why: String,
+    pub options: Vec<OptData>,
+    pub difference: Option<String>,
+    pub chosen: Option<guide::Pick>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum LineStateData {
+    Stated {
+        text: String,
+        pill: guide::Pill,
+    },
+    Decision {
+        decision: DecisionData,
+    },
+    /// "יתברר אחרי ההחלטה למעלה".
+    Waiting,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct LineData {
+    pub kind: guide::LineKind,
+    pub label: String,
+    pub state: LineStateData,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum MarkData {
+    Known,
+    RateRange {
+        low: AmountData,
+        high: AmountData,
+    },
+    Market {
+        worst: AmountData,
+        median: AmountData,
+        assumed: AmountData,
+        best: AmountData,
+        losses: String,
+    },
+    Expected,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct RowData {
+    pub id: Kind,
+    pub name: String,
+    pub tags: Vec<String>,
+    pub mark: MarkData,
+    pub value: AmountData,
+    pub active: bool,
+    pub excluded: Option<String>,
+    pub note: Option<String>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerOutcomeData {
+    pub date: String,
+    pub title: String,
+    pub deposited: AmountData,
+    pub current_account: AmountData,
+    pub axis: (f64, f64),
+    pub rows: Vec<RowData>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchData {
+    pub text: String,
+    /// Still a placeholder (research to do): shown as such.
+    pub placeholder: bool,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct ProviderData {
+    pub name: String,
+    pub left: AmountData,
+    pub versus_yours: Option<AmountData>,
+    pub yours: bool,
+    pub tie: u8,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct WhereToBuyData {
+    pub title: String,
+    pub rows: Vec<ProviderData>,
+    pub bank_range: Option<(AmountData, AmountData)>,
+    pub note: Option<String>,
+    pub asks_bank: bool,
+    pub unlock: Option<String>,
+    pub may_cost_more: Option<String>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct HowData {
+    pub row: Kind,
+    pub name: String,
+    pub identity: Vec<String>,
+    pub search: Option<SearchData>,
+    pub steps: Vec<String>,
+    pub not_offered: Option<String>,
+    pub where_to_buy: Option<WhereToBuyData>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct GainRowData {
+    pub name: String,
+    pub kept: AmountData,
+    pub tax: AmountData,
+    pub fees: AmountData,
+    pub product: AmountData,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct GainData {
+    pub lead: String,
+    pub rows: Vec<GainRowData>,
+    pub takeaway: String,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct HorizonRowData {
+    pub years: u32,
+    pub flexibility: Option<guide::Flexibility>,
+    pub deposited: AmountData,
+    pub kind: Kind,
+    pub name: String,
+    pub low: AmountData,
+    pub high: AmountData,
+    pub per_shekel: (f64, f64),
+}
+
+/// The answer, in the page's language.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct AnswerData {
+    pub confidence: ConfidenceData,
+    pub title: String,
+    pub body: String,
+    pub lines: Vec<LineData>,
+    pub plan: Option<String>,
+    pub open_decisions: u32,
+    pub outcome: AnswerOutcomeData,
+    pub focus: Option<Kind>,
+    pub how: Vec<HowData>,
+    pub gain: Option<GainData>,
+    pub horizons: Vec<HorizonRowData>,
+    pub annuity: Option<String>,
+}
+
+fn said(text: &Text) -> String {
+    text[lang()].to_owned()
+}
+
+fn said_all(texts: &[Text]) -> Vec<String> {
+    texts.iter().map(said).collect()
+}
+
+fn decision_data(decision: &guide::Decision) -> DecisionData {
+    DecisionData {
+        id: decision.id,
+        question: said(&decision.question),
+        why: said(&decision.why),
+        options: decision
+            .options
+            .iter()
+            .map(|option| OptData {
+                pick: option.pick,
+                title: said(&option.title),
+                amount: said(&option.amount),
+                value: option.value.map(AmountData::from),
+                facts: said_all(&option.facts),
+                fits_if: option.fits_if.as_ref().map(said),
+                button: said(&option.button),
+                rows: option.rows.clone(),
+            })
+            .collect(),
+        difference: decision.difference.as_ref().map(said),
+        chosen: decision.chosen,
+    }
+}
+
+fn mark_data(mark: &guide::Mark) -> MarkData {
+    match mark {
+        guide::Mark::Known => MarkData::Known,
+        guide::Mark::Expected => MarkData::Expected,
+        guide::Mark::RateRange { low, high } => MarkData::RateRange {
+            low: (*low).into(),
+            high: (*high).into(),
+        },
+        guide::Mark::Market {
+            worst,
+            median,
+            assumed,
+            best,
+            losses,
+        } => MarkData::Market {
+            worst: (*worst).into(),
+            median: (*median).into(),
+            assumed: (*assumed).into(),
+            best: (*best).into(),
+            losses: said(losses),
+        },
+    }
+}
+
+fn where_data(where_to_buy: &guide::WhereToBuy) -> WhereToBuyData {
+    WhereToBuyData {
+        title: said(&where_to_buy.title),
+        rows: where_to_buy
+            .rows
+            .iter()
+            .map(|row| ProviderData {
+                name: said(&row.name),
+                left: row.left.into(),
+                versus_yours: row.versus_yours.map(AmountData::from),
+                yours: row.yours,
+                tie: row.tie,
+            })
+            .collect(),
+        bank_range: where_to_buy
+            .bank_range
+            .map(|(low, high)| (low.into(), high.into())),
+        note: where_to_buy.note.as_ref().map(said),
+        asks_bank: where_to_buy.asks_bank,
+        unlock: where_to_buy.unlock.as_ref().map(said),
+        may_cost_more: where_to_buy.may_cost_more.as_ref().map(said),
+    }
+}
+
+fn answer_data(answer: &guide::Answer) -> AnswerData {
+    AnswerData {
+        confidence: ConfidenceData {
+            state: answer.confidence.state,
+            note: said(&answer.confidence.note),
+        },
+        title: said(&answer.title),
+        body: said(&answer.body),
+        lines: answer
+            .lines
+            .iter()
+            .map(|line| LineData {
+                kind: line.kind,
+                label: said(&line.label),
+                state: match &line.state {
+                    guide::LineState::Stated { text, pill } => LineStateData::Stated {
+                        text: said(text),
+                        pill: *pill,
+                    },
+                    guide::LineState::Decision(decision) => LineStateData::Decision {
+                        decision: decision_data(decision),
+                    },
+                    guide::LineState::Waiting => LineStateData::Waiting,
+                },
+            })
+            .collect(),
+        plan: answer.plan.as_ref().map(said),
+        open_decisions: answer.open_decisions,
+        outcome: AnswerOutcomeData {
+            date: said(&answer.outcome.date),
+            title: said(&answer.outcome.title),
+            deposited: answer.outcome.deposited.into(),
+            current_account: answer.outcome.current_account.into(),
+            axis: (number(answer.outcome.axis.0), number(answer.outcome.axis.1)),
+            rows: answer
+                .outcome
+                .rows
+                .iter()
+                .map(|row| RowData {
+                    id: row.id,
+                    name: said(&row.name),
+                    tags: said_all(&row.tags),
+                    mark: mark_data(&row.mark),
+                    value: row.value.into(),
+                    active: row.active,
+                    excluded: row.excluded.as_ref().map(said),
+                    note: row.note.as_ref().map(said),
+                })
+                .collect(),
+        },
+        focus: answer.focus,
+        how: answer
+            .how
+            .iter()
+            .map(|how| HowData {
+                row: how.row,
+                name: said(&how.name),
+                identity: said_all(&how.identity),
+                search: how.search.as_ref().map(|search| SearchData {
+                    text: said(&search.text),
+                    placeholder: search.placeholder,
+                }),
+                steps: said_all(&how.steps),
+                not_offered: how.not_offered.as_ref().map(said),
+                where_to_buy: how.where_to_buy.as_ref().map(where_data),
+            })
+            .collect(),
+        gain: answer.gain.as_ref().map(|gain| GainData {
+            lead: said(&gain.lead),
+            rows: gain
+                .rows
+                .iter()
+                .map(|row| GainRowData {
+                    name: said(&row.name),
+                    kept: row.kept.into(),
+                    tax: row.tax.into(),
+                    fees: row.fees.into(),
+                    product: row.product.into(),
+                })
+                .collect(),
+            takeaway: said(&gain.takeaway),
+        }),
+        horizons: answer
+            .horizons
+            .iter()
+            .map(|row| HorizonRowData {
+                years: row.years,
+                flexibility: row.flexibility,
+                deposited: row.deposited.into(),
+                kind: row.kind,
+                name: said(&row.name),
+                low: row.low.into(),
+                high: row.high.into(),
+                per_shekel: (number(row.per_shekel.0), number(row.per_shekel.1)),
+            })
+            .collect(),
+        annuity: answer.annuity.as_ref().map(said),
+    }
+}
+
+pub fn answer_for(request: &AnswerRequest) -> Result<AnswerData, Problem> {
+    let data = data_for(&request.settings);
+    let core = settings_for(&request.settings, &data)?;
+    let answer = guide::answer_with(
+        &request.answers.to_core(),
+        &request.choices,
+        &core,
+        &data,
+        request.horizons.unwrap_or(true),
+    )?;
+    Ok(answer_data(&answer))
+}
+
+/// The redesigned answer (REDESIGN.md Part 2): the chip, the lines and their
+/// decisions, the outcome chart, how to do it, the gain, the horizons.
+#[wasm_bindgen]
+pub fn answer(request: Ts<AnswerRequest>) -> Result<Ts<AnswerData>, JsError> {
+    Ok(answer_for(&request.to_rust()?)
+        .map_err(|problem| shown(&problem.text()))?
+        .into_ts()?)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1250,6 +1679,7 @@ mod tests {
             your_plans: vec![],
             overrides: Overrides::default(),
             this_year: Some(2026),
+            this_month: Some(10),
         }
     }
 
@@ -1386,6 +1816,34 @@ mod tests {
     }
 
     #[test]
+    fn the_answer_is_the_cores_in_the_pages_language() {
+        let request = AnswerRequest {
+            answers: AnswersInput {
+                situation: None,
+                now: Some(100_000.0),
+                monthly: Some(2000.0),
+                horizon: Horizon::Months(36),
+                flexibility: None,
+                cushion: None,
+                needs_any_day: false,
+                bank: Some(Bank::Hapoalim),
+            },
+            choices: guide::Choices::default(),
+            settings: settings(),
+            horizons: Some(false),
+        };
+        let answer = answer_for(&request).unwrap();
+        assert_eq!(answer.lines.len(), 3);
+        assert!(answer.horizons.is_empty());
+        assert!(!answer.outcome.rows.is_empty());
+        assert!(
+            answer.outcome.title.ends_with("2029"),
+            "{}",
+            answer.outcome.title
+        );
+    }
+
+    #[test]
     fn the_types_the_page_reads_exist() {
         for declaration in [
             RecommendationData::DECL,
@@ -1395,6 +1853,8 @@ mod tests {
             WaysComparisonData::DECL,
             RungData::DECL,
             SituationData::DECL,
+            AnswerRequest::DECL,
+            AnswerData::DECL,
         ] {
             assert!(declaration.contains("export"), "{declaration}");
         }

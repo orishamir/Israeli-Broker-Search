@@ -137,6 +137,7 @@ pub type RowId = Kind;
 
 /// The chip (§2.3).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum ConfidenceState {
     /// כאן קשה לטעות: the same direction wins in every version, by far.
     A,
@@ -155,6 +156,7 @@ pub struct Confidence {
 
 /// The four lines, in this order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum LineKind {
     /// קודם: a step that must come first (the cushion).
     Before,
@@ -168,6 +170,7 @@ pub enum LineKind {
 
 /// How sure a stated line is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Pill {
     /// ברור.
     Clear,
@@ -474,14 +477,14 @@ fn arena_answers(answers: &Answers, place: Place_) -> (Answers, Answers) {
     // the money went to it from the start.
     index.cushion = Some(Cushion::Has);
     match place {
-        Place_::Asked { no_date: true } => {
+        Place_::Asked { no_date: true } if answers.monthly.is_zero() => {
             let months = NO_DATE_SUM_YEARS * 12;
             safe.horizon = Horizon::Months(months);
             safe.needs_any_day = true;
             index.horizon = Horizon::Months(months);
             index.flexibility = Some(Flexibility::CanWait);
         }
-        Place_::Asked { no_date: false } => {
+        Place_::Asked { .. } => {
             safe.flexibility = Some(Flexibility::Fixed);
             index.flexibility = Some(Flexibility::CanWait);
         }
@@ -493,10 +496,7 @@ fn arena_answers(answers: &Answers, place: Place_) -> (Answers, Answers) {
 /// The safe kinds compared for the answers: the rules' pool, and for a date
 /// 3 to 7 years away the money market fund and the linked bond beside the
 /// kinds whose sum is known (the owner's decision 11).
-fn safe_pool(safe_answers: &Answers, place: Place_) -> Vec<Kind> {
-    if matches!(place, Place_::Index { .. }) {
-        return vec![Kind::MoneyMarketFund];
-    }
+fn safe_pool(safe_answers: &Answers) -> Vec<Kind> {
     let route = route::natural_route(safe_answers);
     let mut pool = route::safe_pool(route, safe_answers);
     if matches!(route, Route::FixedDate | Route::FlexibleShort) {
@@ -574,13 +574,6 @@ impl SafeSide {
             .filter_map(|priced| safe_value(priced.kind, answers, self.months, version, data))
             .max()
             .unwrap_or(group.lead.left.today)
-    }
-
-    fn best_value(&self, answers: &Answers, version: &Version, data: &Data) -> Option<Decimal> {
-        self.groups
-            .iter()
-            .map(|group| self.value(group, answers, version, data))
-            .max()
     }
 }
 
@@ -760,16 +753,40 @@ fn facts<'a>(
     };
     let existing = existing_bank.is_some();
     let bank = answers.bank.or(existing_bank.flatten());
-    let place = place_of(answers, settings.overrides);
-    let arena = place.arena(answers.flexibility);
-    let (safe_answers, index_answers) = arena_answers(answers, place);
-    let safe_months = match safe_answers.horizon {
+    // The guide offers no override of its own (the owner, 2026-10-19): the
+    // workbench's stays in `settings` for the workbench.
+    let mut place = place_of(answers, Overrides::default());
+    let (mut safe_answers, index_answers) = arena_answers(answers, place);
+    let safe_months = |safe_answers: &Answers| match safe_answers.horizon {
         Horizon::Months(months) => months,
         Horizon::Retirement { .. } | Horizon::Unknown => route::index_years(&index_answers) * 12,
     };
     // A first guess of the deposits for the margins; the chart's are below.
-    let (rough, _) = yardsticks(answers, safe_months, settings.inflation);
+    let (rough, _) = yardsticks(answers, safe_months(&safe_answers), settings.inflation);
     let index = index_side(&index_answers, settings, data, rough.today);
+    // Where the rules put the money in the index, the data decides how sure
+    // that is: if the index's worst stretch of the past, after fees and tax,
+    // ends below the best safe way, safety or growth is the visitor's call.
+    if place == (Place_::Index { chosen: false })
+        && let Some(index) = &index
+        && let Some((worst, _, _)) = index.market[index.lead]
+    {
+        let asked = Place_::Asked {
+            no_date: answers.horizon == Horizon::Unknown,
+        };
+        let (safe_try, _) = arena_answers(answers, asked);
+        let base = robust::versions(settings, None)[0];
+        let best_safe = safe_pool(&safe_try)
+            .into_iter()
+            .filter_map(|kind| safe_value(kind, &safe_try, index.months, &base, data))
+            .max();
+        if best_safe.is_some_and(|best| worst < best) {
+            place = asked;
+            safe_answers = safe_try;
+        }
+    }
+    let arena = place.arena(answers.flexibility);
+    let safe_months = safe_months(&safe_answers);
     let months = match (arena, &index) {
         (Some(Arena::Index), Some(index)) => index.months,
         _ => safe_months,
@@ -778,7 +795,7 @@ fn facts<'a>(
     let history = index.as_ref().and_then(|index| index.history);
     let versions = robust::versions(settings, history.as_ref());
     let base = versions[0];
-    let pool = safe_pool(&safe_answers, place);
+    let pool = safe_pool(&safe_answers);
     let priced: Vec<Priced> = pool
         .into_iter()
         .filter_map(|kind| safe_priced(kind, &safe_answers, months, &base, data))
@@ -815,28 +832,6 @@ fn facts<'a>(
         index,
         versions,
     }
-}
-
-/// How the index's lead stands against the best safe way, in every version.
-fn direction(f: &Facts<'_>) -> Standing {
-    let Some(index) = &f.index else {
-        return Standing::Behind;
-    };
-    let pairs: Vec<(Decimal, Decimal)> = f
-        .versions
-        .iter()
-        .filter_map(|version| {
-            let index_value = way_value(
-                &index.run,
-                index.way(index.lead),
-                version,
-                &f.settings.rates,
-            )?;
-            let safe_value = f.safe.best_value(&f.safe_answers, version, f.data)?;
-            Some((index_value, safe_value))
-        })
-        .collect();
-    standing(&pairs, f.kind_margin)
 }
 
 /// How the first safe way stands against the second, in the versions that
@@ -943,21 +938,22 @@ impl Where {
 
 fn build(f: &Facts<'_>, with_horizons: bool) -> Answer {
     let mut lines: Vec<Line> = Vec::new();
-    let direction = (f.arena == Some(Arena::Index)).then(|| direction(f));
     let safe_standing = safe_standing(f);
     // The cushion, before everything else, when the money goes to the index.
     let cushion = cushion_line(f);
     if let Some(line) = cushion {
         lines.push(line);
     }
-    lines.push(place_line(f, direction));
+    lines.push(place_line(f));
     let (way_line, chosen) = way_line(f, safe_standing);
     lines.push(way_line);
     let (where_line, where_info) = where_line(f, chosen);
     lines.push(where_line);
     let state = match (f.place, f.arena) {
         (Place_::Asked { .. }, _) => ConfidenceState::C,
-        (_, Some(Arena::Index)) if direction == Some(Standing::Clear) => ConfidenceState::A,
+        // Above the lines the data already chose: the worst past stretch
+        // still beats the safe ways.
+        (Place_::Index { .. }, _) => ConfidenceState::A,
         (_, Some(Arena::Safe)) if safe_standing == Standing::Clear => ConfidenceState::A,
         _ => ConfidenceState::B,
     };
@@ -1120,7 +1116,7 @@ fn decision(
     }
 }
 
-fn place_line(f: &Facts<'_>, direction: Option<Standing>) -> Line {
+fn place_line(f: &Facts<'_>) -> Line {
     match f.place {
         Place_::Safe(because) => line(
             LineKind::PlaceType,
@@ -1137,15 +1133,21 @@ fn place_line(f: &Facts<'_>, direction: Option<Standing>) -> Line {
         Place_::Index { chosen } => line(
             LineKind::PlaceType,
             LineState::Stated {
-                text: card::place_index(
-                    f.months,
-                    f.index.as_ref().and_then(|index| index.history.as_ref()),
-                ),
-                pill: if !chosen && direction == Some(Standing::Clear) {
-                    Pill::Clear
-                } else {
-                    Pill::Rules
-                },
+                text: card::place_index(&card::PlaceIndexFigures {
+                    months: f.months,
+                    history: f.index.as_ref().and_then(|index| index.history),
+                    worst: f
+                        .index
+                        .as_ref()
+                        .and_then(|index| index.market[index.lead].map(|(worst, _, _)| worst)),
+                    safe: f
+                        .safe
+                        .groups
+                        .first()
+                        .map(|group| (group.lead.kind, group.lead.left.today)),
+                    deposited: f.deposited.today,
+                }),
+                pill: if chosen { Pill::Rules } else { Pill::Clear },
             },
         ),
         Place_::Asked { no_date } => {

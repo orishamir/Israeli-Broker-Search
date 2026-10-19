@@ -15,7 +15,21 @@
 //   app.followUps: FollowUp[]        the cards the answers still need
 //   app.setHorizonMonths(m) / setHorizonRetirement(age, retireAt)
 //   app.horizonMonths: number | undefined
-//   app.banks: BankChoice[]; app.setBank(bank | undefined)   the existing-portfolio chips
+//   app.banks: BankChoice[]; app.setBank(bank | undefined)   the visitor's bank (optional,
+//                                    asked in context; the existing-portfolio situation's too)
+//
+// THE REDESIGNED ANSWER (REDESIGN.md Part 2; replaces `recommendation` once W6 is done)
+//   app.choices: Choices             the visitor's choices on the answer (not facts)
+//   app.answer: AnswerData | undefined   chip, lines, decisions, plan, outcome chart,
+//        how, gain, horizons. Up to 5 years worked out on the page's thread first
+//        (without the horizons), then the worker's full answer; the last one stays
+//        while the next is worked out (`answerFresh` false).
+//   app.answerFresh: boolean
+//   app.choose(decision, pick)       picks an option: a fact goes into the answers
+//                                    (cushion, flexibility), the rest into `choices`
+//   app.focusedRow: Kind | undefined the row "איך עושים את זה" shows: the one tapped
+//                                    in the chart, else the answer's focus
+//   app.focusRow(kind | undefined)   tap a row (undefined: back to the answer's)
 //
 // THE ANSWER
 //   app.recommendation: RecommendationData | undefined   what fits, why, steps, plans
@@ -68,6 +82,8 @@ import { SvelteSet } from 'svelte/reactivity'
 import * as core from './core/core'
 import type {
   AlternativesData,
+  AnswerData,
+  AnswerRequest,
   AnswersInput,
   Arena,
   AroundData,
@@ -76,6 +92,8 @@ import type {
   BrokerInfo,
   CaveatGroup,
   Choice,
+  Choices,
+  DecisionId,
   ComparisonData,
   Exchange,
   FeesFor,
@@ -92,6 +110,7 @@ import type {
   PlanInfo,
   PlanKey,
   PlanOutcomeData,
+  Pick,
   Product,
   Purchase,
   RecommendationData,
@@ -122,6 +141,8 @@ import { unreadable } from './unreadable.svelte'
 
 /** The calendar year, for the core's "in 2041's shekels" note. */
 const THIS_YEAR = new Date().getFullYear()
+/** The month, 1 to 12, for the answer's "in October 2029". */
+const THIS_MONTH = new Date().getMonth() + 1
 
 export { PLAN_COLORS } from './colors'
 export type { Thing } from './link'
@@ -349,8 +370,14 @@ export class AppState {
     flexibility: undefined,
     cushion: undefined,
     needsAnyDay: false,
+    bank: undefined,
   })
   situationId = $state<string | undefined>()
+  /** What the visitor chose on the answer: the decisions that aren't facts
+   * about the money (those stay in `answers`). */
+  choices = $state<Choices>({})
+  /** The row tapped in the outcome chart, over the answer's own focus. */
+  private tappedRow = $state.raw<Kind | undefined>()
   /** The first visit's apartment scenario is on screen as an example, until
    * the saver changes anything (or opened a link, which is not an example). */
   exampleShown = $state(false)
@@ -695,6 +722,7 @@ export class AppState {
     yourPlans: this.yourPlans.map(({ id, plan }) => ({ id, plan })),
     overrides: this.overrides,
     thisYear: THIS_YEAR,
+    thisMonth: THIS_MONTH,
   })
 
   /** What the guide is asked: a new object whenever the answers or the
@@ -737,6 +765,68 @@ export class AppState {
       ? this.onPage.value !== undefined
       : this.recommendAnswer?.request === this.guideRequest && this.recommendAnswer.value !== undefined,
   )
+
+  // ── The redesigned answer ──
+  /** What the answer is asked: a new object whenever the answers, the
+   * choices or the settings change. */
+  answerRequest: AnswerRequest = $derived({
+    answers: $state.snapshot(this.answers) as AnswersInput,
+    choices: $state.snapshot(this.choices) as Choices,
+    settings: this.settings,
+    horizons: true,
+  })
+  /** For a short horizon, the answer worked out here at once, without the
+   * horizon section (most of its time); the worker's full one follows. */
+  private answerOnPage = $derived.by((): Worked<AnswerData> | undefined =>
+    this.onThePage ? run('answer', { ...this.answerRequest, horizons: false }) : undefined,
+  )
+  private answerFromWorker = $state.raw<Worked<AnswerData> & { request: AnswerRequest }>()
+  private lastAnswer: AnswerData | undefined = undefined
+  /** The answer (REDESIGN.md Part 2). While the answers can't be worked on,
+   * or the worker is still at it, the last one stays. */
+  answer: AnswerData | undefined = $derived.by(() => {
+    const fromWorker =
+      this.answerFromWorker?.request === this.answerRequest ? this.answerFromWorker.value : undefined
+    const answer = fromWorker ?? this.answerOnPage?.value
+    // The page's quick answer has no horizons: keep the last ones meanwhile.
+    if (answer && !fromWorker && this.lastAnswer) {
+      this.lastAnswer = { ...answer, horizons: this.lastAnswer.horizons }
+    } else if (answer) this.lastAnswer = answer
+    return this.lastAnswer
+  })
+  /** Whether `answer` (its horizons included) answers the answers as they are now. */
+  answerFresh: boolean = $derived(
+    this.answerFromWorker?.request === this.answerRequest && this.answerFromWorker.value !== undefined,
+  )
+  /** The row "איך עושים את זה" shows. */
+  focusedRow: Kind | undefined = $derived(this.tappedRow ?? this.answer?.focus ?? undefined)
+
+  /** Tapping a row of the outcome chart; `undefined` goes back to the answer's. */
+  focusRow(kind: Kind | undefined) {
+    this.tappedRow = kind
+  }
+
+  /** Picks an option of a decision. The facts (the cushion, whether the
+   * date can move) go into the answers; the rest into `choices`. The core
+   * re-evaluates which dependent decisions appear. */
+  choose(decision: DecisionId, pick: Pick) {
+    this.tappedRow = undefined
+    if ('Cushion' in pick) {
+      this.answers.cushion =
+        pick.Cushion === 'Has'
+          ? { kind: 'has' }
+          : {
+              kind: 'hasNot',
+              monthlyExpenses:
+                this.answers.cushion?.kind === 'hasNot' ? this.answers.cushion.monthlyExpenses : null,
+            }
+    } else if ('Flexibility' in pick) this.answers.flexibility = pick.Flexibility
+    else if ('SafeWay' in pick) this.choices.safeWay = pick.SafeWay
+    else if ('Wrapper' in pick) this.choices.wrapper = pick.Wrapper
+    else if ('Account' in pick) this.choices.account = pick.Account
+    else if ('Holdings' in pick) this.choices.holdings = pick.Holdings
+    void decision
+  }
 
   /** What the same money does at other horizons, and each kind's money
    * month by month: from the worker, so a little behind the answers. */
@@ -823,7 +913,11 @@ export class AppState {
     const situation = this.situations.find((each) => each.id === id)
     if (!situation) return
     this.situationId = id
-    this.answers = $state.snapshot(situation.answers) as AnswersInput
+    // A chip is the money's facts: the visitor's own bank stays.
+    const bank = this.answers.bank
+    this.answers = { ...($state.snapshot(situation.answers) as AnswersInput), bank }
+    this.choices = {}
+    this.tappedRow = undefined
     this.clearOverrides()
     if (situation.workbench) this.expert = true
     if (situation.opensDialog) this.portfolioDialogOpen = true
@@ -834,9 +928,12 @@ export class AppState {
     this.expert = true
   }
 
-  /** The bank the existing-portfolio situation asked about. */
+  /** The visitor's bank: what the places are compared from. For the
+   * existing-portfolio situation, it is also the bank the portfolio is at. */
   setBank(bank: Bank | undefined) {
-    this.answers.situation = { ExistingPortfolio: { bank } }
+    this.answers.bank = bank
+    if (this.situationId === 'existing' || typeof this.answers.situation === 'object')
+      this.answers.situation = { ExistingPortfolio: { bank } }
   }
 
   // ── Package I: the bank's branch plan, ticked ──
@@ -1201,7 +1298,12 @@ export class AppState {
       plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.englishLabel),
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
     }
-    if (typeof answers.situation === 'object') shared.bank = answers.situation.ExistingPortfolio.bank
+    shared.bank =
+      answers.bank ??
+      (typeof answers.situation === 'object' ? answers.situation.ExistingPortfolio.bank : undefined) ??
+      undefined
+    const choices = $state.snapshot(this.choices) as Choices
+    if (Object.values(choices).some((value) => value !== undefined)) shared.choices = choices
     // The three assumptions travel whenever they aren't the usual, in the
     // guide too, where the answer's line lets them be changed.
     if (this.yearlyReturnPercent !== USUAL_RETURN_PERCENT)
@@ -1271,6 +1373,7 @@ export class AppState {
     if (shared.flexibility !== undefined) this.answers.flexibility = shared.flexibility
     if (shared.cushion !== undefined) this.answers.cushion = shared.cushion
     if (shared.needsAnyDay) this.answers.needsAnyDay = true
+    if (shared.choices) this.choices = { ...shared.choices }
     if (shared.expert) this.expert = true
     this.chosenThing = shared.thing
     if (shared.ways) this.chosenWays = shared.ways
@@ -1335,6 +1438,10 @@ export class AppState {
     $effect(() => save('editor-view-v2', this.editorView))
     $effect(() => save('expert-v2', this.expert))
     // The heavy work runs off the page's thread; its answers come a moment later.
+    $effect(() => {
+      const request = this.answerRequest
+      ask('answer', request, (worked) => (this.answerFromWorker = { request, ...worked }))
+    })
     $effect(() => {
       if (this.onPage) return
       const request = this.guideRequest

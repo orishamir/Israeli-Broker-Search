@@ -2,11 +2,14 @@
 // there is no Worker: the unit tests) run the same functions.
 
 import {
+  answer,
   alternatives,
   ladder,
   recommend,
   sweep,
   type AlternativesData,
+  type AnswerData,
+  type AnswerRequest,
   type AnswersInput,
   type GuideSettings,
   type Inputs,
@@ -34,6 +37,8 @@ export interface Jobs {
   recommend: { request: GuideRequest; value: RecommendationData }
   ladder: { request: GuideRequest; value: RungData[] }
   alternatives: { request: GuideRequest; value: AlternativesData }
+  /** The redesigned answer (REDESIGN.md Part 2). */
+  answer: { request: AnswerRequest; value: AnswerData }
 }
 export type JobName = keyof Jobs
 
@@ -54,6 +59,8 @@ export function run<J extends JobName>(job: J, request: Jobs[J]['request']): Wor
           return recommend((request as GuideRequest).answers, (request as GuideRequest).settings)
         case 'ladder':
           return ladder((request as GuideRequest).answers, (request as GuideRequest).settings)
+        case 'answer':
+          return answer(request as AnswerRequest)
         default:
           return alternatives((request as GuideRequest).answers, (request as GuideRequest).settings)
       }

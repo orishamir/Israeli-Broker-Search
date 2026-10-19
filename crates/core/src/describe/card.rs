@@ -51,7 +51,8 @@ fn fixed(en: &'static str, he: &'static str) -> Text {
 }
 
 /// A headline amount, rounded to match how sure it is (principle 13).
-pub(crate) fn about(amount: Decimal) -> String {
+#[must_use]
+pub fn about(amount: Decimal) -> String {
     let step = if amount.abs() >= Decimal::from(100_000) {
         Decimal::from(1000)
     } else if amount.abs() >= Decimal::from(10_000) {
@@ -397,18 +398,56 @@ pub(crate) fn losses_sentence(history: &DepositsBand, monthly: bool, lang: Lang)
     }
 }
 
+/// The figures of the stated index line.
+#[derive(Debug, Clone, Copy)]
+pub struct PlaceIndexFigures {
+    pub months: u32,
+    pub history: Option<DepositsBand>,
+    /// The index at its worst past stretch, after fees and tax, today's money.
+    pub worst: Option<Decimal>,
+    /// The best safe way, and what it leaves.
+    pub safe: Option<(Kind, Decimal)>,
+    pub deposited: Decimal,
+}
+
+/// The index, stated: even its worst past stretch beat the best safe way,
+/// said in ₪ and as the past (many see stocks as betting).
 #[must_use]
-pub fn place_index(months: u32, history: Option<&DepositsBand>) -> Text {
+pub fn place_index(f: &PlaceIndexFigures) -> Text {
     both(|lang| {
-        let when = span(months, lang);
+        let when = span(f.months, lang);
         let head = match lang {
             Lang::En => format!("A stock index: {when}."),
             Lang::He => format!("מדד מניות: {when}."),
         };
-        match history {
-            Some(history) => format!("{head} {}", losses_sentence(history, false, lang)),
-            None => head,
+        let mut out = head;
+        if let (Some(worst), Some((kind, safe)), Some(history)) = (f.worst, f.safe, &f.history) {
+            let since = history.from.year();
+            let name = super::outcome::name(kind);
+            out.push(' ');
+            out.push_str(&match lang {
+                Lang::En => format!(
+                    "Even in the worst stretch of {when} since {since}, the index would have left about {}, more than {} in {} (after fees and tax, in today's money).",
+                    about(worst),
+                    about(safe),
+                    name.en.to_lowercase()
+                ),
+                Lang::He => format!(
+                    "גם בתקופה הגרועה ביותר של {when} מאז {since}, המדד היה משאיר בערך {}, יותר מ\u{2011}{} ב{} (אחרי עמלות ומס, בכסף של היום).",
+                    about(worst),
+                    about(safe),
+                    name.he
+                ),
+            });
+            if worst < f.deposited {
+                out.push(' ');
+                out.push_str(&losses_sentence(history, false, lang));
+            }
+        } else if let Some(history) = &f.history {
+            out.push(' ');
+            out.push_str(&losses_sentence(history, false, lang));
         }
+        out
     })
 }
 
@@ -535,10 +574,16 @@ fn if_index_rises(rate: Percent, lang: Lang) -> String {
 #[must_use]
 pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
     let question = if f.no_date {
-        fixed(
-            "Can the money wait at least 5 years, even if the market is down?",
-            "הכסף יכול לחכות לפחות 5 שנים, גם אם הבורסה בירידה?",
-        )
+        both(|lang| match lang {
+            Lang::En => format!(
+                "Can the money wait at least {}, even if the market is down?",
+                span(f.months, lang)
+            ),
+            Lang::He => format!(
+                "הכסף יכול לחכות לפחות {}, גם אם הבורסה בירידה?",
+                span(f.months, lang)
+            ),
+        })
     } else {
         both(|lang| match lang {
             Lang::En => format!(

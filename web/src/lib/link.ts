@@ -7,7 +7,16 @@
 
 import type { YourPlan } from './app.svelte'
 import * as core from './core/core'
-import type { Arena, Bank, CushionInput, Exchange, Flexibility, Horizon, Security } from './core/core'
+import type {
+  Arena,
+  Bank,
+  Choices,
+  CushionInput,
+  Exchange,
+  Flexibility,
+  Horizon,
+  Security,
+} from './core/core'
 import { firstOfEachId } from './saved'
 import { kindByKey, wayByKey } from './kinds'
 
@@ -20,9 +29,13 @@ const THINGS: Thing[] = ['sp500', 'other', 'bonds', 'short']
 /** What a link carries. Every field is optional: a link edited by hand may
  * lack some, and the rest still apply. */
 export interface Shared {
-  /** The situation chip's id, and the bank the existing-portfolio one asked. */
+  /** The situation chip's id. */
   situation?: string
+  /** The visitor's bank (the existing-portfolio situation's too). */
   bank?: Bank
+  /** What the visitor chose on the answer (the safe way, where the money
+   * builds up, the account, what a portfolio holds). */
+  choices?: Choices
   now?: number
   monthly?: number
   horizon?: Horizon
@@ -86,6 +99,10 @@ const BANK = 'bk'
 const FLEXIBILITY = 'fx'
 const CUSHION = 'cu'
 const ANY_DAY = 'ad'
+const SAFE_WAY = 'sw'
+const WRAPPER = 'wr'
+const ACCOUNT = 'ac'
+const HOLDINGS = 'ho'
 const EXPERT = 'x'
 const THING = 'th'
 const WAY = 'way'
@@ -98,6 +115,20 @@ const OVERRIDE_ARENA = 'oa'
 const OVERRIDE_KIND = 'ok'
 const PLAN = 'plan'
 const YOURS = 'yours'
+
+/** The answer's choices in a link: the core's value and its short key. */
+const SAFE_WAYS = { MoneyMarketFund: 'fund', Bond: 'bond', Deposit: 'deposit' } as const
+const WRAPPERS = { Anyone: 'open', StudyFund: 'study' } as const
+const ACCOUNTS = { NewAccount: 'new', YourBank: 'bank' } as const
+const HOLDINGS_KEYS = { IndexFunds: 'index', Managed: 'managed', DontKnow: 'unknown' } as const
+
+function keyOf<V extends string>(keys: Record<V, string>, value: V | null | undefined): string | undefined {
+  return value ? keys[value] : undefined
+}
+
+function valueOf<V extends string>(keys: Record<V, string>, key: string | null): V | undefined {
+  return (Object.keys(keys) as V[]).find((value) => keys[value] === key)
+}
 
 /** The hash (without its #) that `decode` reads back as `shared`. */
 export function encode(shared: Shared): string {
@@ -121,6 +152,13 @@ export function encode(shared: Shared): string {
     set(CUSHION, cushion.monthlyExpenses === null ? 'n' : `n:${cushion.monthlyExpenses}`)
   }
   if (shared.needsAnyDay) set(ANY_DAY, 1)
+  const choices = shared.choices
+  if (choices) {
+    set(SAFE_WAY, keyOf(SAFE_WAYS, choices.safeWay))
+    set(WRAPPER, keyOf(WRAPPERS, choices.wrapper))
+    set(ACCOUNT, keyOf(ACCOUNTS, choices.account))
+    set(HOLDINGS, keyOf(HOLDINGS_KEYS, choices.holdings))
+  }
   if (shared.expert) set(EXPERT, 1)
   set(THING, shared.thing)
   for (const way of shared.ways ?? []) params.append(WAY, way)
@@ -185,6 +223,13 @@ export function decode(hash: string): Shared {
   if (flexibility) shared.flexibility = flexibility === 'fixed' ? 'Fixed' : 'CanWait'
   shared.cushion = cushionIn(params.get(CUSHION))
   if (params.get(ANY_DAY) === '1') shared.needsAnyDay = true
+  const choices: Choices = defined({
+    safeWay: valueOf(SAFE_WAYS, params.get(SAFE_WAY)),
+    wrapper: valueOf(WRAPPERS, params.get(WRAPPER)),
+    account: valueOf(ACCOUNTS, params.get(ACCOUNT)),
+    holdings: valueOf(HOLDINGS_KEYS, params.get(HOLDINGS)),
+  })
+  if (Object.keys(choices).length > 0) shared.choices = choices
   if (params.get(EXPERT) === '1') shared.expert = true
   shared.thing = among(THING, THINGS)
   const ways = params.getAll(WAY).filter((key) => wayByKey(key))

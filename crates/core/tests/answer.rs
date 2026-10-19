@@ -380,7 +380,15 @@ fn an_existing_portfolio_asks_what_it_holds() {
         .into_iter()
         .find(|preset| preset.id == "existing")
         .unwrap();
-    let answer = answered(&preset.answers, Choices::default());
+    // Once the money goes to the index (the place type may be the
+    // visitor's call first, by the data).
+    let answer = answered(
+        &Answers {
+            flexibility: Some(Flexibility::CanWait),
+            ..preset.answers
+        },
+        Choices::default(),
+    );
     let holdings = decision(&answer, LineKind::Where).expect("what's in it");
     assert_eq!(holdings.id, DecisionId::Holdings);
     assert_eq!(holdings.options.len(), 3);
@@ -553,6 +561,81 @@ fn one_sum_through_the_history_is_the_band() {
         assert!((band.best.0 - mine.best.0).abs() < dec!(0.05), "{years}");
         assert_eq!(band.lower, mine.lower);
         assert_eq!(band.windows, mine.windows);
+    }
+}
+
+/// Above the lines, where the rules put the money in the index, the data
+/// decides how sure that is: the place type is the visitor's call (state C)
+/// exactly when the index's worst past stretch, after fees and tax, ends
+/// below the best safe way; otherwise it is stated, in state A.
+#[test]
+fn above_the_lines_the_worst_past_decides_the_state() {
+    let mut grid: Vec<Answers> = Vec::new();
+    for months in [96, 120, 180, 240, 360] {
+        for (now, monthly) in [
+            (dec!(20_000), dec!(0)),
+            (dec!(0), dec!(1000)),
+            (dec!(50_000), dec!(2000)),
+        ] {
+            grid.push(Answers {
+                bank: None,
+                ..answers(now, monthly, months)
+            });
+        }
+    }
+    grid.push(Answers {
+        horizon: Horizon::Retirement {
+            age: 45,
+            retire_at: 65,
+        },
+        ..answers(dec!(0), dec!(3000), 0)
+    });
+    grid.push(Answers {
+        horizon: Horizon::Unknown,
+        cushion: Some(Cushion::Has),
+        ..answers(dec!(0), dec!(3000), 0)
+    });
+    for answers in &grid {
+        let answer = answered(answers, Choices::default());
+        let worst = answer
+            .outcome
+            .rows
+            .iter()
+            .find_map(|row| match (&row.mark, row.kind) {
+                (Mark::Market { worst, .. }, Kind::Way(_)) => Some(worst.today),
+                _ => None,
+            })
+            .expect("the index's range is drawn");
+        let best_safe = answer
+            .outcome
+            .rows
+            .iter()
+            .filter(|row| row.kind.arena() == Some(Arena::Safe))
+            .map(|row| row.value.today)
+            .max()
+            .expect("a safe way is drawn");
+        let asked = decision(&answer, LineKind::PlaceType).is_some();
+        assert_eq!(
+            asked,
+            answer.confidence.state == ConfidenceState::C,
+            "{answers:?}"
+        );
+        if asked {
+            assert!(worst < best_safe, "{answers:?}");
+        } else {
+            assert!(worst >= best_safe, "{answers:?}");
+            assert_eq!(answer.confidence.state, ConfidenceState::A, "{answers:?}");
+            // The line says so in ₪, as the past: both figures, rounded.
+            let Some(LineState::Stated { text, .. }) =
+                line(&answer, LineKind::PlaceType).map(|line| &line.state)
+            else {
+                panic!("stated: {answers:?}");
+            };
+            for figure in [worst, best_safe] {
+                let rounded = broker_fees::describe::card::about(figure);
+                assert!(text.he.contains(&rounded), "{rounded} in {}", text.he);
+            }
+        }
     }
 }
 

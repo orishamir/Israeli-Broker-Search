@@ -302,3 +302,33 @@ test('a pick is dropped when the goal changes, and the ladder shows what fits ea
   await vi.waitFor(() => expect(app.recommendationFresh).toBe(true))
   expect(app.recommendation).toEqual(coreSays(app))
 })
+
+test('the answer is the core’s, and a choice re-evaluates it', async () => {
+  const app = start()
+  await vi.waitFor(() => expect(app.answerFresh).toBe(true))
+  expect(app.answer).toEqual(core.answer(app.answerRequest))
+  const way = app.answer?.lines.find((line) => line.state.type === 'decision')
+  if (way?.state.type !== 'decision') throw new Error('the goal has a decision')
+  const option = way.state.decision.options[0]
+  app.choose(way.state.decision.id, option.pick)
+  flushSync()
+  await vi.waitFor(() => expect(app.answerFresh).toBe(true))
+  const after = app.answer?.lines.find((line) => line.kind === way.kind)
+  expect(after?.state.type === 'decision' && after.state.decision.chosen).toEqual(option.pick)
+  // The choice travels in the link, and a chip starts the choices over.
+  expect(decode(encode(decode(app.address()))).choices).toEqual(app.choices)
+  app.setSituation('salary')
+  expect(app.choices).toEqual({})
+})
+
+test('the visitor’s bank stays across the chips, and a row tapped is focused', () => {
+  const app = start()
+  app.setBank('Leumi')
+  app.setSituation('bonus')
+  flushSync()
+  expect(app.answers.bank).toBe('Leumi')
+  app.focusRow('MoneyMarketFund')
+  expect(app.focusedRow).toBe('MoneyMarketFund')
+  app.focusRow(undefined)
+  expect(app.focusedRow).toEqual(app.answer?.focus ?? undefined)
+})

@@ -516,4 +516,12 @@ export const he: Text = {
   noPlansTicked: 'לא סומן מסלול להשוואה: הוסיפו אחד ב״מה משווים״.',
   inTodaysMoneyAxis: 'בכסף של היום',
   waysChartsNote: 'כל דרך מצוירת במסלול הזול ביותר שלה.',
+  // ── The redesign (REDESIGN.md Part 2): each stream adds its page words
+  // here, in both files. Words about money come from the core. ──
+  // W2: the answer card (§2.2–§2.4): pills, "בחרתם", the waiting line, the
+  //     plan's heading, "נשארה החלטה אחת / נשארו N החלטות".
+  // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
+  // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
+  //     reference row's label, the bank's question.
+  // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
 }

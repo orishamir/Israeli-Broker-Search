@@ -68,6 +68,8 @@ use std::ops::Index;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 pub use strum::IntoEnumIterator;
+/// The dates the guide is told (the core keeps no clock), for the bindings.
+pub use time;
 use time::Date;
 
 // ─────────────────────────── Languages ───────────────────────────

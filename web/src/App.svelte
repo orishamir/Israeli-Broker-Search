@@ -9,6 +9,11 @@
   import { AppState } from './lib/app.svelte'
   import { OPEN_CARD } from './lib/cards'
   import Answer from './lib/Answer.svelte'
+  import AnswerCard from './lib/AnswerCard.svelte'
+  import GainSplit from './lib/GainSplit.svelte'
+  import HorizonSection from './lib/HorizonSection.svelte'
+  import HowTo from './lib/HowTo.svelte'
+  import OutcomeChart from './lib/OutcomeChart.svelte'
   import Charts from './lib/Charts.svelte'
   import Alternatives from './lib/Alternatives.svelte'
   import DetailsDialog from './lib/DetailsDialog.svelte'
@@ -113,6 +118,13 @@
     {#if app.inputError !== undefined}
       <p class="card error item wide" style:--order="3" transition:reveal>{t.checkInputs(app.inputError)}</p>
     {/if}
+    <!-- The redesign (REDESIGN.md §2.1's order), filled by W2–W5; the
+         previous plan's parts below stay until W6 removes them. -->
+    <div class="item wide" style:--order="3"><AnswerCard {app} /></div>
+    <div class="item wide" style:--order="3"><OutcomeChart {app} /></div>
+    <div class="item wide" style:--order="3"><HowTo {app} /></div>
+    <div class="item wide" style:--order="3"><GainSplit {app} /></div>
+    <div class="item wide" style:--order="3"><HorizonSection {app} /></div>
     <div class="item wide" style:--order="3" bind:this={answer}><Answer {app} /></div>
     <div class="item" style:--order="4"><Alternatives {app} /></div>
     <div class="item" style:--order="7"><Donut {app} /></div>

@@ -19,7 +19,7 @@ type Waiting = { [J in JobName]?: { id: number; request: Jobs[J]['request']; ans
 
 // The order they're sent in when several wait: what the answer on screen
 // needs first, the chart by deposit last.
-const ORDER: JobName[] = ['recommend', 'alternatives', 'ladder', 'sweep']
+const ORDER: JobName[] = ['answer', 'recommend', 'alternatives', 'ladder', 'sweep']
 
 let worker: Worker | undefined
 /** Made when first asked, so a page that never asks, and the tests, have none. */

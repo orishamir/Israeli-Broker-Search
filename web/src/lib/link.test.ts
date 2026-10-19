@@ -22,6 +22,7 @@ const shared: Shared = {
   flexibility: 'CanWait',
   cushion: { kind: 'hasNot', monthlyExpenses: 7_000 },
   needsAnyDay: true,
+  choices: { safeWay: 'Bond', wrapper: 'StudyFund', account: 'YourBank', holdings: 'Managed' },
   expert: true,
   thing: 'sp500',
   ways: [wayKey(way)],
@@ -49,6 +50,28 @@ test('a link carries every field there and back', () => {
   expect(decode(hash)).toEqual(shared)
   // With or without the #, as the address bar gives it.
   expect(decode(`#${hash}`)).toEqual(shared)
+})
+
+test.each([
+  { safeWay: 'MoneyMarketFund' },
+  { safeWay: 'Deposit', account: 'NewAccount' },
+  { wrapper: 'Anyone', holdings: 'IndexFunds' },
+  { holdings: 'DontKnow' },
+] as const)("the answer's choices %o round-trip, each alone", (choices) => {
+  expect(decode(encode({ choices })).choices).toEqual(choices)
+})
+
+test('no choices leave nothing in the link', () => {
+  expect(encode({ choices: {} })).toBe('v=2')
+  expect(decode(encode({})).choices).toBeUndefined()
+})
+
+test("a choice the core doesn't know is left out", () => {
+  expect(decode('v=2&sw=gold&wr=open').choices).toEqual({ wrapper: 'Anyone' })
+})
+
+test("the visitor's bank round-trips without a situation", () => {
+  expect(decode(encode({ bank: 'Hapoalim' })).bank).toBe('Hapoalim')
 })
 
 test.each([
