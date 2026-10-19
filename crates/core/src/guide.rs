@@ -28,8 +28,10 @@ use crate::{Broker, ExchangeRates, Lang, Named, Percent, Text};
 mod index;
 mod route;
 mod safe;
+mod series;
 
-pub use route::{ladder, recommend};
+pub use route::{alternatives, ladder, recommend};
+pub use series::{Alternatives, BandSeries, Column, ColumnId, KindSeries, columns_for};
 
 // ─────────────────────────── The fixed numbers ───────────────────────────
 
@@ -75,6 +77,7 @@ pub(crate) const BRANCH_PLAN: &str = "Branch or through a banker";
 /// A situation that changes what the guide does beyond the money's own
 /// figures.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Situation {
     /// "I already have a portfolio at a bank" (כבר יש לי תיק בבנק): the
     /// bank's branch price list is compared beside the rest.
@@ -90,6 +93,7 @@ pub enum Situation {
 
 /// The banks whose branch price list is modelled.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, strum::EnumIter)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Bank {
     Leumi,
     MizrahiTefahot,
@@ -109,6 +113,7 @@ impl Bank {
 
 /// How long the money is kept.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Horizon {
     Months(u32),
     /// "I don't know yet" (עוד לא יודעים).
@@ -123,6 +128,7 @@ pub enum Horizon {
 
 /// Whether the date can move, asked of goals 3 to 7 years away.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Flexibility {
     /// The date is set: a payment due on a day.
     Fixed,
@@ -257,6 +263,7 @@ pub struct PlanRef {
 
 /// What the expert chose over the guide.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub struct Overrides {
     /// The arena, whatever the rules say.
     pub arena: Option<Arena>,
@@ -288,6 +295,7 @@ impl Data {
 
 /// The two arenas: what is ranked together.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Arena {
     /// Money market funds, deposits, government bonds held to maturity.
     Safe,
@@ -298,6 +306,7 @@ pub enum Arena {
 
 /// What the money is put in, in the terms people meet in the bank's app.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Kind {
     /// קרן כספית.
     MoneyMarketFund,
@@ -378,6 +387,7 @@ impl Kind {
 
 /// How sure the end sum is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum Safety {
     /// What it comes to is known when it's bought.
     SumKnown,
@@ -401,7 +411,7 @@ pub struct Amount {
 /// Each circumstance of the saver's that a reason can come from, with the
 /// numbers the reason's words need. Every [`Reason`] names the one that
 /// produced it, so the page can say how the answers affected the choice.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, strum::IntoStaticStr)]
 pub enum Circumstance {
     /// The money may be needed on any day.
     NeedsAnyDay,
@@ -576,6 +586,7 @@ pub struct CushionPlan {
 
 /// A question to ask now.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[cfg_attr(feature = "ts", derive(tsify::Tsify))]
 pub enum FollowUp {
     /// Can the date move?
     Flexibility,

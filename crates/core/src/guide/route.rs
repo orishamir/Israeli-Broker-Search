@@ -20,6 +20,7 @@ use crate::{Lang, Percent, Text, Vehicle};
 
 use super::index::{self, Run};
 use super::safe::{self, Priced, amount, price_level};
+use super::series::{self, Alternatives, BandSeries, KindSeries};
 use super::{
     Alternative, Amount, Answers, Arena, Breakdown, CUSHION_MONTHS, Choice, Circumstance, Context,
     Cushion, CushionPlan, Data, FLEXIBILITY_ASKED_UP_TO_MONTHS, Flexibility, Horizon,
@@ -952,4 +953,118 @@ fn rung(answers: &Answers, settings: &Settings, data: &Data, any_day: bool) -> R
         left: decision.left,
         safety: decision.kind.safety(),
     }
+}
+
+/// The lines of the alternatives chart: the answer's kind and each
+/// alternative's, month by month in today's shekels, and the band of what the
+/// index did over the horizon. It runs the kinds again for their whole
+/// lines, which `recommend` keeps only the end of, so the page asks for it
+/// from its Web Worker.
+///
+/// # Errors
+///
+/// When the answers can't be worked on.
+pub fn alternatives(
+    answers: &Answers,
+    settings: &Settings,
+    data: &Data,
+) -> Result<Alternatives, InvalidAnswers> {
+    check(answers)?;
+    let decision = decide(answers, settings, data);
+    let ctx = context(answers, settings, &decision);
+    let months = decision.months;
+    let mut kinds = vec![(decision.kind, true)];
+    kinds.extend(
+        alternatives_for(answers, settings, data, &decision, &ctx)
+            .into_iter()
+            .map(|alternative| (alternative.kind, false)),
+    );
+    let scenario = safe_scenario(answers, settings, months);
+    let level = decision.level;
+    // The index kinds are worked out for whole years: the answer's own when
+    // it is an index one, rounded otherwise.
+    let years = if decision.arena == Arena::Index {
+        months / 12
+    } else {
+        index::years_for(months)
+    };
+    let series = kinds
+        .into_iter()
+        .filter_map(|(kind, recommended)| {
+            let (value_by_month, left) = match kind {
+                Kind::CurrentAccount => (
+                    series::deposits_by_month(
+                        answers.now,
+                        answers.monthly,
+                        months,
+                        settings.inflation,
+                    ),
+                    decision.current_account,
+                ),
+                Kind::Way(way) => way_line(way, answers, settings, data, years)?,
+                _ => {
+                    let priced = safe::price(kind, data, &scenario, level)?;
+                    let line = series::deflated(
+                        &priced.outcome.value_by_month,
+                        settings.inflation,
+                        priced.left.today,
+                    );
+                    (line, priced.left)
+                }
+            };
+            Some(KindSeries {
+                kind,
+                name: kind.text(),
+                safety: kind.safety(),
+                recommended,
+                value_by_month,
+                left,
+            })
+        })
+        .collect();
+    let band = ctx.band.map(|band| BandSeries {
+        band,
+        worst: series::grown_at(
+            answers.now,
+            answers.monthly,
+            months,
+            settings.inflation,
+            band.worst,
+        ),
+        best: series::grown_at(
+            answers.now,
+            answers.monthly,
+            months,
+            settings.inflation,
+            band.best,
+        ),
+    });
+    Ok(Alternatives {
+        months,
+        series,
+        band,
+    })
+}
+
+/// A way's best plan's money month by month in today's shekels, and what it
+/// leaves.
+fn way_line(
+    way: Way,
+    answers: &Answers,
+    settings: &Settings,
+    data: &Data,
+    years: u32,
+) -> Option<(Vec<Decimal>, Amount)> {
+    let base = index::base_scenario(answers, settings, years);
+    let cands = index::candidates(answers, settings, data, &base);
+    let run = index::run(&[way], base, cands, &settings.rates);
+    let outcome = run.ways.first()?.best()?.outcome.as_ref().ok()?;
+    let left = amount(
+        outcome.after_tax,
+        price_level(settings.inflation, years * 12),
+    );
+    Some((
+        series::deflated(&outcome.value_by_month, settings.inflation, left.today),
+        left,
+    ))
 }

@@ -1620,3 +1620,81 @@ fn a_linked_bond_is_not_a_sum_known_in_advance() {
             .any(|l| l.kind == Kind::GovernmentBond { linked: true })
     );
 }
+
+// ─────────────────────────── The alternatives' lines ───────────────────────────
+
+/// The chart's lines are the alternatives' figures drawn whole: each ends at
+/// the amount `recommend` states for the kind, and the first is the answer.
+#[test]
+fn the_alternatives_lines_end_at_the_figures_of_the_answer() {
+    for preset in situations() {
+        let rec = recommended(&preset.answers);
+        let lines = alternatives(&preset.answers, &settings(), &DATA).unwrap();
+        assert_eq!(lines.series[0].kind, rec.kind, "{}", preset.id);
+        assert!(lines.series[0].recommended);
+        assert_eq!(lines.series[0].left, rec.left, "{}", preset.id);
+        for line in &lines.series {
+            assert_eq!(
+                line.value_by_month.last().copied(),
+                Some(line.left.today),
+                "{} {:?}",
+                preset.id,
+                line.kind
+            );
+            assert!(line.value_by_month.len() > 1);
+        }
+        // The current account is always drawn: the yardstick.
+        assert!(
+            lines
+                .series
+                .iter()
+                .any(|line| line.kind == Kind::CurrentAccount),
+            "{}",
+            preset.id
+        );
+    }
+}
+
+/// The band's lines are the deposits grown at the history's worst and best
+/// yearly rates: worst never above best, both starting at the first deposit
+/// and the first month's.
+#[test]
+fn the_bands_lines_bracket_the_deposits() {
+    let ten_years = answers(dec!(10_000), dec!(1_000), years(10));
+    let lines = alternatives(&can_wait(ten_years), &settings(), &DATA).unwrap();
+    let band = lines.band.expect("ten years are inside the history");
+    assert_eq!(band.worst.len(), 121);
+    assert_eq!(band.worst[0], dec!(11_000));
+    assert_eq!(band.best[0], dec!(11_000));
+    assert!(
+        band.worst
+            .iter()
+            .zip(&band.best)
+            .all(|(worst, best)| worst <= best)
+    );
+}
+
+/// The columns of the list within an arena: both rank by what is left; only
+/// the index arena's plans show the fees and the tax.
+#[test]
+fn the_columns_follow_the_arena() {
+    let ids = |arena| {
+        columns_for(arena)
+            .into_iter()
+            .map(|column| column.id)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        ids(Arena::Safe),
+        [ColumnId::LeftAfterTax, ColumnId::CostAYear]
+    );
+    assert_eq!(
+        ids(Arena::Index),
+        [
+            ColumnId::LeftAfterTax,
+            ColumnId::CostAYear,
+            ColumnId::Fees,
+            ColumnId::Tax
+        ]
+    );
+}
