@@ -359,12 +359,13 @@ fn decide_index<'a>(
     chosen: Overrides,
     data: &'a Data,
     route: Route,
+    asked: index::RunAsked,
 ) -> Option<Decision<'a>> {
     let years = index_years(answers);
     let months = years * 12;
     let level = price_level(settings.inflation, months);
-    let base = index::base_scenario(answers, settings, years);
-    let cands = index::candidates(answers, settings, data, &base);
+    let base = index::base_scenario(answers, settings, years, asked.monthly_from);
+    let cands = index::candidates(answers, settings, data, &base, asked);
     let ways = if route == Route::OpenAnyTime {
         index::open_any_time()
     } else {
@@ -433,9 +434,20 @@ pub(super) fn decide_choosing<'a>(
     chosen: Overrides,
     data: &'a Data,
 ) -> Decision<'a> {
+    decide_asking(answers, settings, chosen, data, index::RunAsked::default())
+}
+
+/// [`decide_choosing`], with what the answer asks of the index's run.
+pub(super) fn decide_asking<'a>(
+    answers: &Answers,
+    settings: &Settings,
+    chosen: Overrides,
+    data: &'a Data,
+    asked: index::RunAsked,
+) -> Decision<'a> {
     let route = route_for(answers, chosen);
     if route.arena() == Arena::Index
-        && let Some(decision) = decide_index(answers, settings, chosen, data, route)
+        && let Some(decision) = decide_index(answers, settings, chosen, data, route, asked)
     {
         return decision;
     }
@@ -767,8 +779,14 @@ fn cushion_plan(
     let mut then_answers = answers.clone();
     then_answers.now = Decimal::ZERO;
     then_answers.horizon = Horizon::Unknown;
-    let base = index::base_scenario(&then_answers, settings, years);
-    let cands = index::candidates(&then_answers, settings, data, &base);
+    let base = index::base_scenario(&then_answers, settings, years, 0);
+    let cands = index::candidates(
+        &then_answers,
+        settings,
+        data,
+        &base,
+        index::RunAsked::default(),
+    );
     let run = index::run(&index::open_any_time(), base, cands, &settings.rates);
     let then_ranked = run.ranked(level);
     let then = then_ranked.first()?.kind;

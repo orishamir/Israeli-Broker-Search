@@ -207,7 +207,7 @@ pub fn situations() -> Vec<Preset> {
                 ),
                 Text::new(
                     "The S&P 500 index, ₪10,000 now and ₪2,000 a month for 20 years, with every way to hold it side by side: an index fund or ETF in Tel Aviv, the US or Europe, and the provident funds. The one that leaves the most isn't always the one with the lowest fee.",
-                    "מדד S&P\u{a0}500, ₪10,000 עכשיו ועוד ₪2,000 בחודש במשך 20 שנה, וכל הדרכים להחזיק אותו זו לצד זו: קרן מחקה או קרן סל בתל אביב, בארה״ב או באירופה, וקופות הגמל. זו שמשאירה הכי הרבה היא לא תמיד זו עם הדמי ניהול הנמוכים.",
+                    "מדד S&P\u{a0}500, ₪10,000 עכשיו ועוד ₪2,000 בחודש במשך 20 שנה, וכל הדרכים להחזיק אותו זו לצד זו: קרן מחקה או קרן סל בתל אביב, בארה״ב או באירופה, וקופות הגמל. זו שמשאירה הכי הרבה היא לא תמיד זו שדמי הניהול שלה הנמוכים ביותר.",
                 ),
                 Text::new(
                     "The way to hold the S&P 500 index can matter more than the broker.",

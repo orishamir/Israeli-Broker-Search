@@ -126,41 +126,61 @@ pub struct DepositsBand {
 
 /// [`DepositsBand`] for `now` and `monthly` over `months`, or `None` outside
 /// 1 to 30 years (as [`band`]) or for no money at all.
-///
-/// Each stretch's end is worked out in one step from running sums of the
-/// index's inverse, so every stretch costs the same however long it is; only
-/// the three stretches reported are turned into a rate.
 #[must_use]
 pub fn deposits_band(now: Decimal, monthly: Decimal, months: u32) -> Option<DepositsBand> {
-    if !(SHORTEST_YEARS * 12..=LONGEST_YEARS * 12).contains(&months) {
+    deposits_band_from(now, monthly, 0, months)
+}
+
+/// What every stretch of `months` since 1926 did to `now`, put in at the
+/// start, and `monthly`, put in at the start of every month from month
+/// `from` on (a cushion's months go elsewhere first): each stretch's end as
+/// a multiple of what was put in, lowest first.
+///
+/// Each stretch's end is worked out in one step from running sums of the
+/// index's inverse, so every stretch costs the same however long it is.
+fn ends(now: f64, monthly: f64, from: u32, months: u32) -> Option<Vec<f64>> {
+    if !(SHORTEST_YEARS * 12..=LONGEST_YEARS * 12).contains(&months) || from >= months {
         return None;
     }
-    let now = now.to_f64()?;
-    let monthly = monthly.to_f64()?;
-    let put_in = now + monthly * f64::from(months);
+    let put_in = now + monthly * f64::from(months - from);
     if put_in <= 0.0 {
         return None;
     }
     let index = &sp500_months::INDEX;
     let n = months as usize;
+    let from = from as usize;
     // inverse[j] is the sum of 1/index[i] for i < j.
     let mut inverse = Vec::with_capacity(index.len() + 1);
     inverse.push(0.0_f64);
     for value in index {
         inverse.push(inverse.last().copied().unwrap_or(0.0) + 1.0 / value);
     }
-    // What the deposits end with, as a multiple of what was put in.
     let mut ends: Vec<f64> = (0..index.len() - n)
         .map(|start| {
             let end = index[start + n];
-            let monthly_part = monthly * end * (inverse[start + n] - inverse[start]);
+            let monthly_part = monthly * end * (inverse[start + n] - inverse[start + from]);
             (now * end / index[start] + monthly_part) / put_in
         })
         .collect();
+    ends.sort_by(f64::total_cmp);
+    Some(ends)
+}
+
+/// [`deposits_band`], with the monthly deposits starting in month `from`.
+/// Only the three stretches reported are turned into a rate.
+#[must_use]
+pub fn deposits_band_from(
+    now: Decimal,
+    monthly: Decimal,
+    from: u32,
+    months: u32,
+) -> Option<DepositsBand> {
+    let (now, monthly) = (now.to_f64()?, monthly.to_f64()?);
+    let ends = ends(now, monthly, from, months)?;
     let lower = u32::try_from(ends.iter().filter(|&&end| end < 1.0).count()).ok()?;
     let windows = u32::try_from(ends.len()).ok()?;
-    ends.sort_by(f64::total_cmp);
-    let rate = |multiple: f64| flat_rate(now, monthly, months, multiple * put_in);
+    let put_in = now + monthly * f64::from(months - from);
+    let rate = |multiple: f64| flat_rate(now, monthly, from, months, multiple * put_in);
     Some(DepositsBand {
         months,
         worst: rate(*ends.first()?)?,
@@ -173,24 +193,45 @@ pub fn deposits_band(now: Decimal, monthly: Decimal, months: u32) -> Option<Depo
     })
 }
 
-/// The flat yearly rate at which `now` and `monthly` (each put in at the
-/// start of its month) end at `end` after `months`. Found by halving: the end
-/// grows with the rate.
-fn flat_rate(now: f64, monthly: f64, months: u32, end: f64) -> Option<Percent> {
-    let ended = |yearly: f64| {
-        let growth = (1.0 + yearly).powf(1.0 / 12.0);
-        let mut total = now * growth.powf(f64::from(months));
-        let mut factor = 1.0;
-        for _ in 0..months {
-            factor *= growth;
-            total += monthly * factor;
-        }
-        total
-    };
+/// How many of the stretches [`deposits_band_from`] counts ended below what
+/// the same deposits end with at a flat `rate` a year: with the end after
+/// fees and tax rising with the rate, the stretches whose end, on that
+/// basis, falls below the figure the rate stands for.
+#[must_use]
+pub fn stretches_below(
+    now: Decimal,
+    monthly: Decimal,
+    from: u32,
+    months: u32,
+    rate: Percent,
+) -> Option<u32> {
+    let (now, monthly) = (now.to_f64()?, monthly.to_f64()?);
+    let ends = ends(now, monthly, from, months)?;
+    let put_in = now + monthly * f64::from(months - from);
+    let multiple = ended(now, monthly, from, months, rate.0.to_f64()? / 100.0) / put_in;
+    u32::try_from(ends.iter().filter(|&&end| end < multiple).count()).ok()
+}
+
+/// What `now` and `monthly` (each put in at the start of its month, the
+/// monthly ones from month `from`) end with after `months` at `yearly`.
+fn ended(now: f64, monthly: f64, from: u32, months: u32, yearly: f64) -> f64 {
+    let growth = (1.0 + yearly).powf(1.0 / 12.0);
+    let mut total = now * growth.powf(f64::from(months));
+    let mut factor = 1.0;
+    for _ in from..months {
+        factor *= growth;
+        total += monthly * factor;
+    }
+    total
+}
+
+/// The flat yearly rate at which `now` and `monthly` (from month `from`) end
+/// at `end` after `months`. Found by halving: the end grows with the rate.
+fn flat_rate(now: f64, monthly: f64, from: u32, months: u32, end: f64) -> Option<Percent> {
     let (mut low, mut high) = (-0.99_f64, 3.0_f64);
     for _ in 0..60 {
         let middle = f64::midpoint(low, high);
-        if ended(middle) < end {
+        if ended(now, monthly, from, months, middle) < end {
             low = middle;
         } else {
             high = middle;

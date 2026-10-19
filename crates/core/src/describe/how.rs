@@ -27,7 +27,7 @@ use crate::short_term::government_bonds::Linkage;
 use crate::{Exchange, Lang, Page, Product, Text, Vehicle};
 
 /// What the words need.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Context {
     pub kind: Kind,
     pub now: Decimal,
@@ -42,6 +42,10 @@ pub struct Context {
     /// A cushion to fill first: its target and months.
     pub cushion: Option<(Decimal, u32)>,
     pub account: Option<Account>,
+    /// The visitor's bank, once named: nothing is "yours" before.
+    pub bank: Option<Text>,
+    /// A portfolio already at a bank, moved as it is.
+    pub existing: bool,
 }
 
 fn fixed(en: &'static str, he: &'static str) -> Text {
@@ -113,7 +117,10 @@ pub fn identity(ctx: &Context) -> Vec<Text> {
                 "A mutual fund that lends short-term to the state and the banks",
                 "קרן נאמנות שמלווה כסף לזמן קצר למדינה ולבנקים",
             ),
-            fixed("Bought in the bank's app", "נקנית באפליקציה של הבנק"),
+            fixed(
+                "Bought in a bank's app, or at an investment house",
+                "נקנית באפליקציה של בנק, או בבית השקעות",
+            ),
             fixed("In shekels", "בשקלים"),
             fixed(
                 "Its rate moves with the Bank of Israel's",
@@ -369,9 +376,14 @@ pub fn search(ctx: &Context, cheapest_funds: Option<&FundTie>) -> Option<Slot> {
                 "the S&P 500 track, in your study fund",
                 "מסלול מדד S&P\u{a0}500, בקרן ההשתלמות שלכם",
             ))),
-            (Vehicle::InvestmentGemel | Vehicle::SavingsPolicy, _) => {
-                Some(plain(fixed("the S&P 500 track", "מסלול מדד S&P\u{a0}500")))
-            }
+            (Vehicle::InvestmentGemel, _) => Some(plain(fixed(
+                "the S&P 500 track, at any fund company that runs a provident fund for investment (their fees are compared on Gemel Net)",
+                "מסלול מדד S&P\u{a0}500, בכל חברה מנהלת של קופת גמל להשקעה (את דמי הניהול שלהן משווים בגמל נט)",
+            ))),
+            (Vehicle::SavingsPolicy, _) => Some(plain(fixed(
+                "the S&P 500 track, at an insurance company that sells savings policies",
+                "מסלול מדד S&P\u{a0}500, בחברת ביטוח שמוכרת פוליסות חיסכון",
+            ))),
             (Vehicle::Brokerage, Product::UsFund | Product::IrishFund) => examples_of(way, "", ""),
             (Vehicle::Brokerage, Product::ForeignEtfInTelAviv) => {
                 examples_of(way, "S&P 500, in Tel Aviv", "S&P\u{a0}500, בתל אביב")
@@ -547,18 +559,123 @@ fn buying(ctx: &Context, now: Text, every_month: Text) -> Vec<Text> {
     steps
 }
 
-/// "In your bank's securities account" or "open a trading account".
+/// Where a security is bought (finding 10): the bank's securities
+/// account, the visitor's once named; a new account where that's the
+/// option; or either, said the same way for every kind.
 fn account_step(ctx: &Context) -> Text {
-    if ctx.account == Some(Account::YourBank) {
+    match (ctx.account, &ctx.bank) {
+        (Some(Account::YourBank), Some(bank)) => both(|lang| match lang {
+            Lang::En => format!(
+                "In {}'s app, in its securities account: if you have none there, it opens in the app.",
+                bank.en
+            ),
+            Lang::He => format!(
+                "באפליקציה של {}, בחשבון ניירות הערך: אם אין לכם שם, פותחים אותו באפליקציה.",
+                bank.he
+            ),
+        }),
+        (Some(Account::YourBank), None) => fixed(
+            "In your bank's app, in its securities account: if you have none there, it opens in the app.",
+            "באפליקציה של הבנק, בחשבון ניירות הערך: אם אין לכם שם, פותחים אותו באפליקציה.",
+        ),
+        (Some(Account::NewAccount), _) => fixed(
+            "Open an account at one of the places below, if you have none there: a one-time chore. If you do, it's one more order.",
+            "פותחים חשבון באחד המקומות שלמטה, אם אין לכם שם: טרחה של פעם אחת. אם יש, זו עוד פקודה.",
+        ),
+        (None, _) => fixed(
+            "In a securities account, at a bank or an investment house. If you already have one, it's one more order.",
+            "בחשבון ניירות ערך, בבנק או בבית השקעות. אם כבר יש לכם אחד, זו עוד פקודה.",
+        ),
+    }
+}
+
+/// The steps of a portfolio moved as it is (finding 2): no sale, no tax.
+fn transfer_steps() -> Vec<Text> {
+    vec![
         fixed(
-            "In your bank's app, in its securities account (if you have none, it opens there).",
-            "באפליקציה של הבנק שלכם, בחשבון ניירות הערך (אם אין לכם, פותחים אותו שם).",
-        )
+            "Open an account at one of the places below: a one-time chore.",
+            "פותחים חשבון באחד המקומות שלמטה: טרחה של פעם אחת.",
+        ),
+        fixed(
+            "In the new account, ask to transfer the securities from the bank: they move as they are.",
+            "בחשבון החדש מבקשים להעביר אליו את ניירות הערך מהבנק: הם עוברים כמו שהם.",
+        ),
+        fixed(
+            "Don't sell: with no sale there's no tax, and the money stays invested the whole time.",
+            "לא מוכרים: בלי מכירה אין מס, והכסף נשאר מושקע כל הזמן.",
+        ),
+        fixed(
+            "Ask the bank whether it charges for transferring securities, and the new place whether it pays that back.",
+            "שואלים את הבנק אם הוא גובה עמלה על העברת ניירות ערך, ואת המקום החדש אם הוא מחזיר אותה.",
+        ),
+    ]
+}
+
+/// The money each month or at once, as a fund company's step says it.
+fn adds(ctx: &Context, lang: Lang) -> String {
+    if ctx.monthly.is_zero() {
+        shekels(ctx.now)
     } else {
-        fixed(
-            "Open a trading account, if you don't have one. If you already have one, it's one more order.",
-            "פותחים חשבון מסחר, אם אין לכם. אם כבר יש לכם אחד, זו עוד פקודה.",
-        )
+        match lang {
+            Lang::En => format!("{} a month", shekels(ctx.monthly)),
+            Lang::He => format!("{} בחודש", shekels(ctx.monthly)),
+        }
+    }
+}
+
+/// The steps of a fund company's way, each kind its own (the review's L14).
+fn fund_steps(ctx: &Context, vehicle: Vehicle) -> Vec<Text> {
+    let track = fixed(
+        "Choose the track that follows the S&P 500 index.",
+        "בוחרים את מסלול מדד S&P\u{a0}500.",
+    );
+    match vehicle {
+        Vehicle::InvestmentGemel => vec![
+            fixed(
+                "Open a provident fund for investment at a fund company, on its site or by phone: anyone can, with no employer.",
+                "פותחים קופת גמל להשקעה בחברה מנהלת, באתר שלה או בטלפון: כל אחד יכול, בלי מעסיק.",
+            ),
+            track,
+            both(|lang| match lang {
+                Lang::En => format!(
+                    "Deposit {}, by standing order, up to the yearly ceiling.",
+                    adds(ctx, lang)
+                ),
+                Lang::He => format!("מפקידים {}, בהוראת קבע, עד התקרה השנתית.", adds(ctx, lang)),
+            }),
+            fixed(
+                "Taking it out: as a monthly pension from 60, the gain is tax-free; all at once, 25% of the gain above inflation.",
+                "במשיכה: כקצבה חודשית מגיל 60 הרווח פטור ממס; בבת אחת, 25% מהרווח שמעבר לאינפלציה.",
+            ),
+        ],
+        Vehicle::SavingsPolicy => vec![
+            fixed(
+                "Open a savings policy at an insurance company: anyone can.",
+                "פותחים פוליסת חיסכון בחברת ביטוח: כל אחד יכול.",
+            ),
+            track,
+            both(|lang| match lang {
+                Lang::En => format!("Deposit {}.", adds(ctx, lang)),
+                Lang::He => format!("מפקידים {}.", adds(ctx, lang)),
+            }),
+            fixed(
+                "Taking it out: 25% of the gain above inflation.",
+                "במשיכה: 25% מהרווח שמעבר לאינפלציה.",
+            ),
+        ],
+        _ => vec![
+            both(|lang| match lang {
+                Lang::En => format!(
+                    "Check with the fund (or your employer) that you can add {}.",
+                    adds(ctx, lang)
+                ),
+                Lang::He => format!(
+                    "בודקים מול הקרן, או מול המעסיק, שאפשר להוסיף {}.",
+                    adds(ctx, lang)
+                ),
+            }),
+            track,
+        ],
     }
 }
 
@@ -586,11 +703,11 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
     if let (Some((target, _)), Kind::Way(_)) = (ctx.cushion, ctx.kind) {
         steps.push(both(|lang| match lang {
             Lang::En => format!(
-                "First: {monthly} a month to a money market fund in the bank's app, until {}.",
+                "First: {monthly} a month to a money market fund in the bank's app, until {} is aside; it stays there.",
                 shekels(target)
             ),
             Lang::He => format!(
-                "קודם: {monthly} בחודש לקרן כספית באפליקציה של הבנק, עד {}.",
+                "קודם: {monthly} בחודש לקרן כספית באפליקציה של הבנק, עד שיש בצד {}; הם נשארים שם.",
                 shekels(target)
             ),
         }));
@@ -598,8 +715,8 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
     match ctx.kind {
         Kind::MoneyMarketFund => {
             steps.push(fixed(
-                "In the bank's app, under mutual funds, search for ״כספית שקלית״.",
-                "באפליקציה של הבנק, תחת קרנות נאמנות, מחפשים ״כספית שקלית״.",
+                "In the bank's app or at an investment house, under mutual funds, search for ״כספית שקלית״.",
+                "באפליקציה של הבנק או בבית השקעות, תחת קרנות נאמנות, מחפשים ״כספית שקלית״.",
             ));
             steps.push(both(|lang| {
                 match (ctx.now.is_zero(), ctx.monthly.is_zero(), lang) {
@@ -718,6 +835,9 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
             });
         }
         Kind::CurrentAccount => {}
+        Kind::Way(way) if ctx.existing && way.vehicle == Vehicle::Brokerage => {
+            steps.extend(transfer_steps());
+        }
         Kind::Way(way) => {
             if way.vehicle == Vehicle::Brokerage {
                 steps.push(account_step(ctx));
@@ -760,28 +880,7 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
                 }));
                 steps.push(index_tax(way.product));
             } else {
-                steps.push(both(|lang| match lang {
-                    Lang::En => format!(
-                        "Check with the fund (or your employer) that you can add {}.",
-                        if ctx.monthly.is_zero() {
-                            now.clone()
-                        } else {
-                            format!("{monthly} a month")
-                        }
-                    ),
-                    Lang::He => format!(
-                        "בודקים מול הקרן, או מול המעסיק, שאפשר להוסיף {}.",
-                        if ctx.monthly.is_zero() {
-                            now.clone()
-                        } else {
-                            format!("{monthly} בחודש")
-                        }
-                    ),
-                }));
-                steps.push(fixed(
-                    "Choose the track that follows the S&P 500 index.",
-                    "בוחרים את מסלול מדד S&P\u{a0}500.",
-                ));
+                steps.extend(fund_steps(ctx, way.vehicle));
             }
         }
     }

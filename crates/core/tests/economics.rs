@@ -42,6 +42,7 @@ fn defaults(security: Security, exchange: Exchange) -> Scenario {
         inflation: Percent(dec!(0)),
         age: 30,
         withdrawal: Withdrawal::LumpSum,
+        monthly_from: 0,
         redeems_at_maturity: false,
     }
 }
@@ -784,6 +785,7 @@ fn scenarios() -> impl Strategy<Value = Scenario> {
                     inflation: Percent(Decimal::from(inflation)),
                     age,
                     withdrawal,
+                    monthly_from: 0,
                     redeems_at_maturity: false,
                 }
             },
@@ -1340,6 +1342,7 @@ proptest! {
         let scenario = Scenario {
             inflation: Percent(Decimal::ZERO),
             withdrawal: Withdrawal::LumpSum,
+            monthly_from: 0,
             redeems_at_maturity: false,
             ..scenario
         };
@@ -2370,6 +2373,7 @@ fn a_redemption_charges_no_sale_fee() {
     };
     let sold = defaults(Security::Bond, Exchange::Usa);
     let redeemed = Scenario {
+        monthly_from: 0,
         redeems_at_maturity: true,
         ..sold.clone()
     };
@@ -2439,4 +2443,39 @@ fn ties_share_a_rank_and_near_ties_are_marked() {
     let mixed = standings(&[dec!(200_000), dec!(150_000), dec!(149_000)]);
     assert!(!mixed[0].near_tie && !mixed[1].near_tie && !mixed[2].near_tie);
     assert_eq!(standings(&[]), []);
+}
+
+/// Monthly deposits that start later (a cushion's months go elsewhere
+/// first) are simply missing: with no fees and no inflation, starting them
+/// k whole years late leaves what the same deposits leave over k years
+/// fewer, and what was deposited is that much less.
+#[test]
+fn a_late_start_leaves_out_the_months_before_it() {
+    let base = Scenario {
+        first_deposit: dec!(0),
+        monthly_deposit: dec!(500),
+        ..defaults(Security::IndexFund, Exchange::Tlv)
+    };
+    for late in [1_u32, 4, 7] {
+        let delayed = Scenario {
+            monthly_from: late * 12,
+            ..base.clone()
+        };
+        let shorter = Scenario {
+            years: base.years - late,
+            ..base.clone()
+        };
+        assert_eq!(
+            delayed.deposited(),
+            base.deposited() - dec!(500) * Decimal::from(late * 12)
+        );
+        let delayed = simulate(&free_plan(), &delayed, &rates()).unwrap();
+        let shorter = simulate(&free_plan(), &shorter, &rates()).unwrap();
+        assert!(
+            (delayed.after_tax - shorter.after_tax).abs() < dec!(0.01),
+            "{late}: {} against {}",
+            delayed.after_tax,
+            shorter.after_tax
+        );
+    }
 }

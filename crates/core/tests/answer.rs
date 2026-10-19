@@ -296,6 +296,9 @@ fn the_bonus_asks_safety_or_growth_first() {
         Choices::default(),
     );
     assert!(is_stated(&growth, LineKind::Way));
+    // §2.5: where is stated after growth, a tie, with no account question:
+    // the bank is within the margin between kinds (finding 8).
+    assert!(is_stated(&growth, LineKind::Where), "no account question");
     assert_eq!(growth.confidence.state, ConfidenceState::C);
     assert_eq!(
         decision(&growth, LineKind::PlaceType).unwrap().options,
@@ -373,25 +376,81 @@ fn a_sum_with_no_date_asks_whether_it_can_wait() {
     assert_eq!(answer.confidence.state, ConfidenceState::C);
 }
 
-/// A portfolio already at a bank: what it holds is asked on the איפה line.
+/// A portfolio already at a bank (finding 2): the visitor asks what it
+/// costs, so the place type isn't asked; the first decision is what it
+/// holds, then the move is stated (as it is, no sale), against the bank's
+/// branch plan, or every bank's while none is named; and the steps move
+/// it, they don't buy.
 #[test]
 fn an_existing_portfolio_asks_what_it_holds() {
     let preset = situations()
         .into_iter()
         .find(|preset| preset.id == "existing")
         .unwrap();
-    // Once the money goes to the index (the place type may be the
-    // visitor's call first, by the data).
-    let answer = answered(
-        &Answers {
-            flexibility: Some(Flexibility::CanWait),
-            ..preset.answers
-        },
-        Choices::default(),
-    );
-    let holdings = decision(&answer, LineKind::Where).expect("what's in it");
-    assert_eq!(holdings.id, DecisionId::Holdings);
-    assert_eq!(holdings.options.len(), 3);
+    for bank in [None, Some(Bank::Discount)] {
+        let start = Answers {
+            situation: Some(Situation::ExistingPortfolio { bank }),
+            ..preset.answers.clone()
+        };
+        let answer = answered(&start, Choices::default());
+        assert!(is_stated(&answer, LineKind::PlaceType), "no place question");
+        assert!(decision(&answer, LineKind::PlaceType).is_none());
+        let first = answer
+            .lines
+            .iter()
+            .find_map(|line| match &line.state {
+                LineState::Decision(decision) => Some(decision.id),
+                _ => None,
+            })
+            .expect("a decision");
+        assert_eq!(first, DecisionId::Holdings);
+        assert_eq!(decision(&answer, LineKind::Way).unwrap().options.len(), 3);
+        assert!(is_waiting(&answer, LineKind::Where));
+        // No safe way: it would mean selling.
+        assert!(
+            answer
+                .outcome
+                .rows
+                .iter()
+                .all(|row| row.kind.arena() == Some(Arena::Index))
+        );
+        let moved = answered(
+            &start,
+            Choices {
+                holdings: Some(Holdings::IndexFunds),
+                ..Choices::default()
+            },
+        );
+        let Some(LineState::Stated { text, .. }) =
+            line(&moved, LineKind::Where).map(|line| &line.state)
+        else {
+            panic!("the move is stated");
+        };
+        assert!(text.he.contains("כמו שהם"), "{}", text.he);
+        let how = moved
+            .how
+            .iter()
+            .find(|how| Some(how.row) == moved.focus)
+            .unwrap();
+        let steps: String = how.steps.iter().map(|step| step.he.to_string()).collect();
+        assert!(steps.contains("להעביר"), "{steps}");
+        assert!(!steps.contains("קונים"), "{steps}");
+        assert!(how.search.is_none(), "nothing to buy");
+        let where_to_buy = how.where_to_buy.as_ref().unwrap();
+        match bank {
+            None => {
+                assert!(where_to_buy.rows.iter().all(|row| !row.yours));
+                assert!(where_to_buy.bank_range.is_some(), "the branch plans' range");
+                assert!(
+                    !he_texts(&moved)
+                        .iter()
+                        .any(|text| text.contains("הבנק שלכם"))
+                );
+            }
+            Some(_) => assert!(where_to_buy.rows.iter().any(|row| row.yours)),
+        }
+        assert!(moved.plan.is_some());
+    }
 }
 
 // ─────────────────────────── The rules of each part ───────────────────────────
@@ -602,9 +661,10 @@ fn one_sum_through_the_history_is_the_band() {
 }
 
 /// Above the lines, where the rules put the money in the index, the data
-/// decides how sure that is: the place type is the visitor's call (state C)
-/// exactly when the index's worst past stretch, after fees and tax, ends
-/// below the best safe way; otherwise it is stated, in state A.
+/// decides how sure that is (finding 4): the place type is stated, in state
+/// A, only when the index's worst past stretch, after fees and tax, beats
+/// the safe ways' best version (the rate half a point up) by more than the
+/// margin between kinds; otherwise it is the visitor's call (state C).
 #[test]
 fn above_the_lines_the_worst_past_decides_the_state() {
     let mut grid: Vec<Answers> = Vec::new();
@@ -632,6 +692,13 @@ fn above_the_lines_the_worst_past_decides_the_state() {
         cushion: Some(Cushion::Has),
         ..answers(dec!(0), dec!(3000), 0)
     });
+    // The workbench's 20 years at ₪2,000 a month, which the review found
+    // stated by ₪2,000 under a ₪4,900 margin.
+    grid.push(Answers {
+        bank: None,
+        ..answers(dec!(10_000), dec!(2000), 240)
+    });
+    let mut stated = 0;
     for answers in &grid {
         let answer = answered(answers, Choices::default());
         let worst = answer
@@ -643,14 +710,16 @@ fn above_the_lines_the_worst_past_decides_the_state() {
                 _ => None,
             })
             .expect("the index's range is drawn");
+        // The safe side's best version: the top of each row's mark.
         let best_safe = answer
             .outcome
             .rows
             .iter()
             .filter(|row| row.kind.arena() == Some(Arena::Safe))
-            .map(|row| row.value.today)
+            .map(|row| ends(row).1.today)
             .max()
             .expect("a safe way is drawn");
+        let margin = kind_margin(answer.outcome.deposited.today);
         let asked = decision(&answer, LineKind::PlaceType).is_some();
         assert_eq!(
             asked,
@@ -658,22 +727,23 @@ fn above_the_lines_the_worst_past_decides_the_state() {
             "{answers:?}"
         );
         if asked {
-            assert!(worst < best_safe, "{answers:?}");
+            assert!(worst - best_safe <= margin, "{answers:?}");
         } else {
-            assert!(worst >= best_safe, "{answers:?}");
+            stated += 1;
+            assert!(worst - best_safe > margin, "{answers:?}");
             assert_eq!(answer.confidence.state, ConfidenceState::A, "{answers:?}");
-            // The line says so in ₪, as the past: both figures, rounded.
+            // The line says so as the past, on the figures' basis; the
+            // figures are the chart's (each number once).
             let Some(LineState::Stated { text, .. }) =
                 line(&answer, LineKind::PlaceType).map(|line| &line.state)
             else {
                 panic!("stated: {answers:?}");
             };
-            for figure in [worst, best_safe] {
-                let rounded = broker_fees::describe::card::about(figure);
-                assert!(text.he.contains(&rounded), "{rounded} in {}", text.he);
-            }
+            assert!(text.he.contains("אחרי עמלות ומס"), "{}", text.he);
+            assert!(amounts_in(&text.he).is_empty(), "{}", text.he);
         }
     }
+    assert!(stated > 0, "some of the grid is clear");
 }
 
 /// The noise margins are the owner's: the larger of a sum and a share.
@@ -992,6 +1062,13 @@ fn the_body_repeats_no_figure_shown_elsewhere() {
     }
 }
 
+/// Every Hebrew text of an answer.
+fn he_texts(answer: &Answer) -> Vec<String> {
+    let mut texts = Vec::new();
+    hebrew_in(&serde_json::to_value(answer).unwrap(), &mut texts);
+    texts
+}
+
 fn hebrew_in(value: &serde_json::Value, out: &mut Vec<String>) {
     match value {
         serde_json::Value::Object(fields) => {
@@ -1018,12 +1095,59 @@ fn retirement_gives_the_pension_and_counts_the_one_from_work() {
         flexibility: Some(Flexibility::CanWait),
         ..preset.answers.clone()
     };
-    for answers in [&preset.answers, &growth] {
-        let answer = answered(answers, Choices::default());
-        let annuity = answer.annuity.as_ref().expect("a monthly pension");
-        assert!(!annuity.he.contains("[₪—]"), "{}", annuity.he);
-        assert_eq!(amounts_in(&annuity.he).len(), 2, "{}", annuity.he);
-        assert!(annuity.he.contains("מקדמי ההמרה"), "{}", annuity.he);
+    // While the place type is open, the pension is the growth option's,
+    // not the answer's (an option's result isn't shown before it's chosen).
+    let open = answered(&preset.answers, Choices::default());
+    if let Some(place) = decision(&open, LineKind::PlaceType) {
+        assert!(open.annuity.is_none(), "not before growth is chosen");
+        let growth_option = place
+            .options
+            .iter()
+            .find(|option| option.pick == Pick::Flexibility(Flexibility::CanWait))
+            .unwrap();
+        assert!(
+            growth_option
+                .facts
+                .iter()
+                .any(|fact| fact.he.contains("קצבה חודשית")),
+            "the pension is in the growth option"
+        );
+    }
+    // Retirement draws the other accounts beside the provident fund, and
+    // shows where the gain goes, since the way out decides the tax.
+    let grown = answered(&growth, Choices::default());
+    let vehicles: Vec<broker_fees::Vehicle> = grown
+        .outcome
+        .rows
+        .iter()
+        .filter_map(|row| match row.kind {
+            Kind::Way(way) => Some(way.vehicle),
+            _ => None,
+        })
+        .collect();
+    for vehicle in [
+        broker_fees::Vehicle::InvestmentGemel,
+        broker_fees::Vehicle::Brokerage,
+        broker_fees::Vehicle::StudyFund,
+    ] {
+        assert!(vehicles.contains(&vehicle), "{vehicle:?} is drawn");
+    }
+    assert!(grown.gain.is_some(), "the gain split");
+    let steps: String = grown
+        .how
+        .iter()
+        .filter(|how| Some(how.row) == grown.focus)
+        .flat_map(|how| how.steps.iter().map(|step| step.he.to_string()))
+        .collect();
+    assert!(
+        !steps.contains("מול המעסיק") && steps.contains("קופת גמל להשקעה"),
+        "{steps}"
+    );
+    let annuity = grown.annuity.as_ref().expect("a monthly pension");
+    assert!(!annuity.he.contains("[₪—]"), "{}", annuity.he);
+    assert_eq!(amounts_in(&annuity.he).len(), 2, "{}", annuity.he);
+    assert!(annuity.he.contains("מקדמי ההמרה"), "{}", annuity.he);
+    for answer in [&open, &grown] {
         assert!(answer.body.he.contains("קרן הפנסיה"), "{}", answer.body.he);
         assert!(
             answer
@@ -1194,6 +1318,8 @@ fn the_gain_keeps_the_option_not_chosen() {
 #[test]
 fn the_outcome_holds_the_current_account_and_both_arenas() {
     for start in starts() {
+        // Money already invested has no safe option: selling isn't one.
+        let existing = matches!(start.situation, Some(Situation::ExistingPortfolio { .. }));
         for choices in every_choice() {
             let answer = answered(&start, choices);
             let outcome = &answer.outcome;
@@ -1201,6 +1327,9 @@ fn the_outcome_holds_the_current_account_and_both_arenas() {
                 outcome.current_account.today > Decimal::ZERO,
                 "{start:?}: the current account is the yardstick"
             );
+            if existing {
+                continue;
+            }
             assert_eq!(
                 outcome.current_account.nominal, outcome.deposited.nominal,
                 "{start:?}: a current account leaves the deposits as they are"
@@ -1249,6 +1378,482 @@ fn the_horizons_grow_with_the_years_and_change_arena_once() {
                     pair[0].years
                 );
             }
+        }
+    }
+}
+
+// ─────────────────────────── The review's findings ───────────────────────────
+
+/// The starts the review's rules are checked on, and their answers with
+/// every choice.
+fn every_answer() -> Vec<(Answers, Choices, Answer)> {
+    let mut out = Vec::new();
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            out.push((start.clone(), choices, answer));
+        }
+    }
+    out
+}
+
+/// What the index's rows leave, in today's money.
+fn index_values(answer: &Answer) -> Vec<Decimal> {
+    answer
+        .outcome
+        .rows
+        .iter()
+        .filter(|row| matches!(row.kind, Kind::Way(_)))
+        .map(|row| row.value.today)
+        .collect()
+}
+
+/// Finding 1: "not yet" on the cushion is one path, the monthly money in a
+/// money market fund until the cushion is aside, then in the index, so it
+/// changes the index's figures whenever the cushion takes a month or more;
+/// and its option says what it leaves, as the chart does once it's chosen.
+#[test]
+fn the_cushions_answer_moves_the_figures() {
+    let mut grid: Vec<Answers> = situations().into_iter().map(|s| s.answers).collect();
+    grid.push(salary());
+    for months in [120, 240, 360] {
+        grid.push(answers(dec!(0), dec!(1000), months));
+        grid.push(answers(dec!(10_000), dec!(3000), months));
+    }
+    let mut asked = 0;
+    for start in grid {
+        for flexibility in [None, Some(Flexibility::CanWait)] {
+            let start = Answers {
+                flexibility,
+                ..start.clone()
+            };
+            let with = |cushion| {
+                answered(
+                    &Answers {
+                        cushion: Some(cushion),
+                        ..start.clone()
+                    },
+                    Choices::default(),
+                )
+            };
+            let has = with(Cushion::Has);
+            let Some(cushion) = decision(&has, LineKind::Before) else {
+                continue;
+            };
+            asked += 1;
+            let has_not = with(Cushion::HasNot {
+                monthly_expenses: None,
+            });
+            assert_ne!(
+                index_values(&has),
+                index_values(&has_not),
+                "{start:?}: not yet moves the index's figures"
+            );
+            let value = |answer: &Answer, pick| {
+                decision(answer, LineKind::Before)
+                    .unwrap()
+                    .options
+                    .iter()
+                    .find(|option| option.pick == Pick::Cushion(pick))
+                    .and_then(|option| option.value)
+                    .map(|value| value.today)
+            };
+            assert_ne!(
+                value(&has, CushionPick::Has),
+                value(&has, CushionPick::HasNot),
+                "{start:?}: each option says what it leaves"
+            );
+            assert!(
+                cushion
+                    .difference
+                    .as_ref()
+                    .is_some_and(|text| !amounts_in(&text.he).is_empty())
+            );
+            // Chosen, the chart's lead row is the option's figure.
+            let lead = |answer: &Answer| {
+                answer
+                    .outcome
+                    .rows
+                    .iter()
+                    .find(|row| matches!(row.kind, Kind::Way(_)) && row.active)
+                    .map(|row| row.value.today)
+            };
+            assert_eq!(
+                lead(&has_not),
+                value(&has_not, CushionPick::HasNot),
+                "{start:?}"
+            );
+            assert_eq!(lead(&has), value(&has, CushionPick::Has), "{start:?}");
+        }
+    }
+    assert!(asked > 0);
+}
+
+/// Finding 3: every statement about the past beside a figure is on that
+/// figure's basis: the bar's note counts the stretches that would have left
+/// less than was deposited after fees and tax, so it says "none" exactly
+/// when the bar's worst is at or above the deposits; and no dollar figure is
+/// shown, so no sentence is "in dollars, before fees and tax".
+#[test]
+fn the_past_is_said_on_the_figures_basis() {
+    for (start, _, answer) in every_answer() {
+        for text in he_texts(&answer) {
+            assert!(
+                !text.contains("בדולרים, לפני עמלות ומס"),
+                "{start:?}: {text}"
+            );
+        }
+        for row in &answer.outcome.rows {
+            if let Mark::Market { worst, losses, .. } = &row.mark {
+                let none = losses.he.starts_with("באף אחת");
+                assert_eq!(
+                    none,
+                    worst.today >= answer.outcome.deposited.today,
+                    "{start:?}: {}",
+                    losses.he
+                );
+            }
+        }
+        // The question's growth option never says it never lost, beside a
+        // bar whose worst is below the deposits.
+        if let Some(place) = decision(&answer, LineKind::PlaceType) {
+            let worst = answer.outcome.rows.iter().find_map(|row| match &row.mark {
+                Mark::Market { worst, .. } if row.active || row.excluded.is_none() => {
+                    Some(worst.today)
+                }
+                _ => None,
+            });
+            let growth = place
+                .options
+                .iter()
+                .find(|option| option.pick == Pick::Flexibility(Flexibility::CanWait))
+                .unwrap();
+            let says_never = growth
+                .facts
+                .iter()
+                .any(|fact| fact.he.contains("באף אחת מהן לא פחות ממה שהופקד"));
+            if says_never && let Some(worst) = worst {
+                assert!(worst >= answer.outcome.deposited.today, "{start:?}");
+            }
+        }
+    }
+}
+
+/// Finding 5: a figure that rests on an assumption (the index at a yearly
+/// return, a money market fund at a rate) is said to three significant
+/// figures wherever the answer words it: the rows, the options, the gaps.
+#[test]
+fn assumed_figures_are_rounded_to_three() {
+    let three = |amount: Decimal| broker_fees::describe::card::three_figures(amount) == amount;
+    for (start, _, answer) in every_answer() {
+        for row in &answer.outcome.rows {
+            if matches!(row.kind, Kind::MoneyMarketFund | Kind::Way(_)) {
+                for amount in amounts_in(&row.amount.he) {
+                    assert!(three(amount), "{start:?}: {}", row.amount.he);
+                }
+            }
+        }
+        for line in &answer.lines {
+            let LineState::Decision(decision) = &line.state else {
+                continue;
+            };
+            for option in &decision.options {
+                let assumed = matches!(
+                    option.pick,
+                    Pick::Wrapper(_)
+                        | Pick::Account(_)
+                        | Pick::Cushion(_)
+                        | Pick::Flexibility(_)
+                        | Pick::SafeWay(SafeWay::MoneyMarketFund)
+                );
+                if assumed {
+                    for amount in amounts_in(&option.amount.he) {
+                        assert!(three(amount), "{start:?}: {}", option.amount.he);
+                    }
+                }
+            }
+        }
+        // The plan repeats no option's figure.
+        if let Some(plan) = &answer.plan {
+            let options: Vec<Decimal> = answer
+                .lines
+                .iter()
+                .filter_map(|line| match &line.state {
+                    LineState::Decision(decision) => Some(decision),
+                    _ => None,
+                })
+                .flat_map(|decision| {
+                    decision
+                        .options
+                        .iter()
+                        .flat_map(|o| amounts_in(&o.amount.he))
+                })
+                .collect();
+            for amount in amounts_in(&plan.he) {
+                assert!(
+                    !options.contains(&amount) || amount < dec!(100_000),
+                    "{start:?}: {}",
+                    plan.he
+                );
+            }
+        }
+    }
+}
+
+/// Finding 6: a money market fund is never "known almost in advance"; the
+/// safe option says each kind it holds by how sure its sum is.
+#[test]
+fn each_safe_kind_is_said_by_its_own_certainty() {
+    for (start, _, answer) in every_answer() {
+        for text in he_texts(&answer) {
+            assert!(!text.contains("ידוע כמעט מראש"), "{start:?}: {text}");
+        }
+        let Some(place) = decision(&answer, LineKind::PlaceType) else {
+            continue;
+        };
+        let safe = &place.options[0];
+        let kinds = &safe.facts[0].he;
+        for row in answer
+            .outcome
+            .rows
+            .iter()
+            .filter(|row| place.options[0].rows.contains(&row.kind))
+        {
+            let sure = match row.kind {
+                Kind::MoneyMarketFund => "הריבית משתנה",
+                Kind::GovernmentBond { linked: true } => "כוח הקנייה ידוע מראש",
+                _ => "ידוע מראש",
+            };
+            assert!(kinds.contains(sure), "{start:?}: {kinds}");
+        }
+    }
+}
+
+/// Finding 7 (principle 8): a decision that appears once another is
+/// answered comes after it in the lines.
+#[test]
+fn a_dependent_decision_comes_after_its_parent() {
+    let mut starts: Vec<Answers> = situations().into_iter().map(|s| s.answers).collect();
+    starts.extend([apartment(), bonus(), salary()]);
+    let ids = |answer: &Answer| -> Vec<DecisionId> {
+        answer
+            .lines
+            .iter()
+            .filter_map(|line| match &line.state {
+                LineState::Decision(decision) => Some(decision.id),
+                _ => None,
+            })
+            .collect()
+    };
+    let mut checked = 0;
+    for start in starts {
+        let before = answered(&start, Choices::default());
+        for (at, line) in before.lines.iter().enumerate() {
+            let LineState::Decision(parent) = &line.state else {
+                continue;
+            };
+            for option in &parent.options {
+                let (answers, choices) = pick(&start, Choices::default(), option.pick);
+                let after = answered(&answers, choices);
+                let was = ids(&before);
+                for (later, line) in after.lines.iter().enumerate() {
+                    if let LineState::Decision(child) = &line.state
+                        && !was.contains(&child.id)
+                    {
+                        checked += 1;
+                        assert!(
+                            later > at,
+                            "{:?}: {:?} appears above {:?}, which it depends on",
+                            start.situation,
+                            child.id,
+                            parent.id
+                        );
+                    }
+                }
+            }
+        }
+    }
+    assert!(checked > 0);
+}
+
+/// Finding 8: "open a new account, or buy through your bank?" is a decision
+/// only when the bank is behind the best place by more than the margin
+/// between kinds; within it, the איפה line states it.
+#[test]
+fn the_account_is_asked_only_beyond_the_kinds_margin() {
+    let mut both_ways = (0, 0);
+    for (start, choices, answer) in every_answer() {
+        if choices.wrapper != Some(Wrapper::Anyone) {
+            continue;
+        }
+        let Some(focus) = answer.focus else { continue };
+        let Some(Kind::Way(way)) = Some(focus) else {
+            continue;
+        };
+        if way.vehicle != broker_fees::Vehicle::Brokerage
+            || matches!(start.situation, Some(Situation::ExistingPortfolio { .. }))
+        {
+            continue;
+        }
+        let how = answer.how.iter().find(|how| how.row == focus).unwrap();
+        let places = how.where_to_buy.as_ref().unwrap();
+        let Some(best) = places.rows.first() else {
+            continue;
+        };
+        let reference = places
+            .rows
+            .iter()
+            .find(|row| row.yours)
+            .map(|row| row.left.today)
+            .or(places.bank_range.map(|(_, high)| high.today));
+        let Some(reference) = reference else { continue };
+        let gap = best.left.today - reference;
+        let asked = decision(&answer, LineKind::Where).is_some_and(|d| d.id == DecisionId::Account);
+        let margin = kind_margin(answer.outcome.deposited.today);
+        assert_eq!(asked, gap > margin, "{start:?}: gap {gap}, margin {margin}");
+        if asked {
+            both_ways.0 += 1;
+        } else {
+            both_ways.1 += 1;
+        }
+    }
+    assert!(both_ways.0 > 0 && both_ways.1 > 0, "{both_ways:?}");
+}
+
+/// Finding 9: nothing is "your bank" until the visitor names one; with one
+/// named, the apartment's bond through it is said against the money market
+/// fund, and without, the banks' range is.
+#[test]
+fn nothing_is_yours_until_named() {
+    for (start, _, answer) in every_answer() {
+        let named = start.bank.is_some()
+            || matches!(
+                start.situation,
+                Some(Situation::ExistingPortfolio { bank: Some(_) })
+            );
+        if !named {
+            for text in he_texts(&answer) {
+                assert!(!text.contains("הבנק שלכם"), "{start:?}: {text}");
+                assert!(!text.contains("בבנק שלכם"), "{start:?}: {text}");
+            }
+        }
+    }
+    for (bank, says) in [(Some(Bank::Hapoalim), "דרך הבנק שלכם"), (None, "דרך בנק,")]
+    {
+        let answer = answered(
+            &Answers {
+                bank,
+                ..apartment()
+            },
+            Choices::default(),
+        );
+        let way = decision(&answer, LineKind::Way).unwrap();
+        let difference = &way.difference.as_ref().unwrap().he;
+        assert!(difference.contains(says), "{difference}");
+    }
+}
+
+/// Finding 10: one tie rule. The tie group is every place within the
+/// providers' margin of the best, and the note under where to buy names
+/// that group's size and its spread, its highest less its lowest.
+#[test]
+fn a_tie_note_measures_its_own_group() {
+    for (start, _, answer) in every_answer() {
+        let margin = provider_margin(answer.outcome.deposited.today);
+        for how in &answer.how {
+            let Some(places) = &how.where_to_buy else {
+                continue;
+            };
+            let tied: Vec<&Provider> = places.rows.iter().filter(|row| row.tie == 0).collect();
+            let Some(best) = places.rows.first() else {
+                continue;
+            };
+            for row in &tied {
+                assert!(
+                    (best.left.today - row.left.today).abs() <= margin,
+                    "{start:?}: {} is no tie",
+                    row.name.he
+                );
+            }
+            let Some(note) = &places.note else { continue };
+            let high = tied.iter().map(|row| row.left.today).max().unwrap();
+            let low = tied.iter().map(|row| row.left.today).min().unwrap();
+            assert!(note.he.contains(&format!("{}", tied.len())), "{}", note.he);
+            if high - low >= Decimal::ONE {
+                let said = amounts_in(&note.he);
+                assert_eq!(said, vec![(high - low).round()], "{start:?}: {}", note.he);
+            }
+        }
+    }
+}
+
+/// Finding 11: with no date of the visitor's, no date is made up; and a row
+/// the rules exclude doesn't stretch the axis, drawn as a tail beyond it.
+#[test]
+fn no_invented_date_and_no_axis_from_an_excluded_row() {
+    let months = [
+        "ינואר",
+        "פברואר",
+        "מרץ",
+        "אפריל",
+        "מאי",
+        "יוני",
+        "יולי",
+        "אוגוסט",
+        "ספטמבר",
+        "אוקטובר",
+        "נובמבר",
+        "דצמבר",
+    ];
+    for (start, _, answer) in every_answer() {
+        if start.horizon == Horizon::Unknown || start.needs_any_day {
+            let dated = months
+                .iter()
+                .any(|month| answer.outcome.title.he.contains(month));
+            assert!(!dated, "{start:?}: {}", answer.outcome.title.he);
+            assert!(answer.outcome.title.he.contains("לדוגמה"));
+            if let Some(plan) = &answer.plan {
+                assert!(
+                    !months.iter().any(|month| plan.he.contains(month)),
+                    "{}",
+                    plan.he
+                );
+            }
+        }
+        let (low, high) = answer.outcome.axis;
+        for row in &answer.outcome.rows {
+            if row.excluded.is_some() {
+                let outside = row.value.today > high || row.value.today < low;
+                assert_eq!(row.tail, outside, "{start:?}");
+            } else {
+                assert!(!row.tail);
+                assert!(
+                    row.value.today <= high && row.value.today >= low,
+                    "{start:?}"
+                );
+            }
+        }
+    }
+}
+
+/// The review's Hebrew (X16): a fund's value rises and falls; the situations
+/// put the article on the second noun.
+#[test]
+fn the_reviews_hebrew_is_fixed() {
+    for preset in situations() {
+        assert!(
+            !preset.explanation.he.contains("הדמי ניהול"),
+            "{}",
+            preset.explanation.he
+        );
+    }
+    for (_, _, answer) in every_answer() {
+        for row in &answer.outcome.rows {
+            assert!(row.tags.iter().all(|tag| tag.he != "עולה ויורד"));
+        }
+        for text in he_texts(&answer) {
+            assert!(!text.contains("למדד S&P"), "{text}");
+            assert!(!text.contains("(אם אין לכם, פותחים אותו שם)") || text.contains("באפליקציה"));
         }
     }
 }

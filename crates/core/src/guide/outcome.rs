@@ -215,12 +215,13 @@ pub(super) fn way_places(
                 .plans
                 .get(broker.new_customer_plan)
                 .is_some_and(|usual| std::ptr::eq(usual, cand.candidate.plan));
-            // A branch plan is compared only as a portfolio's own.
-            if bank.is_some() && !online && !cand.yours {
+            // A branch plan is compared only as what a portfolio pays.
+            if bank.is_some() && !online && !cand.branch {
                 return None;
             }
+            // Nothing is the visitor's until they name it (finding 2).
             let is_yours = if existing {
-                cand.yours
+                cand.yours && !cand.stands_in
             } else {
                 online && bank.is_some() && bank == yours
             };
@@ -228,13 +229,30 @@ pub(super) fn way_places(
                 name: super::safe::joined(&broker.short_name, &cand.candidate.plan.name),
                 provider: broker.short_name.clone(),
                 left: super::safe::amount(outcome.after_tax, level),
-                bank: if cand.yours && !existing { None } else { bank },
+                // For a portfolio, the banks' range is their branch plans'.
+                bank: if existing {
+                    bank.filter(|_| cand.branch)
+                } else {
+                    bank
+                },
                 yours: is_yours,
                 cost_a_year: Some(outcome.yearly_cost),
                 cand: Some(plan.index),
             })
         })
         .collect()
+}
+
+/// A bank's name as its price list gives it ("הפועלים"), for the words
+/// once the visitor named it.
+pub(super) fn bank_name(data: &Data, bank: Bank) -> Text {
+    data.brokers
+        .iter()
+        .find(|broker| bank_of(broker) == Some(bank))
+        .map_or_else(
+            || Text::new(bank.short_name(), bank.short_name()),
+            |broker| broker.short_name.clone(),
+        )
 }
 
 /// The deposits' bank whose short name the tariffs give a bank.
@@ -335,24 +353,26 @@ pub(super) fn bank_range(places: &[Place]) -> Option<(Amount, Amount)> {
     Some((low, high))
 }
 
-/// Ties among places: each takes the group of the first place within
-/// `margin` above it (best first), so the page shows ties as ties.
+/// Ties among places (finding 10): a place is in the group of the first
+/// place within `margin` of it, above or below (the order is the ranking's,
+/// which may put a plan that leaves a little more but may cost more second),
+/// and starts a group of its own otherwise. Group 0 is the best's.
 pub(super) fn tie_groups(places: &[Place], margin: Decimal) -> Vec<u8> {
-    let mut groups = Vec::with_capacity(places.len());
-    let mut head: Option<Decimal> = None;
-    let mut group: u8 = 0;
-    for place in places {
-        match head {
-            Some(top) if top - place.left.today <= margin => {}
-            Some(_) => {
-                group = group.saturating_add(1);
-                head = Some(place.left.today);
-            }
-            None => head = Some(place.left.today),
-        }
-        groups.push(group);
-    }
-    groups
+    let mut heads: Vec<Decimal> = Vec::new();
+    places
+        .iter()
+        .map(|place| {
+            let left = place.left.today;
+            let group = heads
+                .iter()
+                .position(|head| (*head - left).abs() <= margin)
+                .unwrap_or_else(|| {
+                    heads.push(left);
+                    heads.len() - 1
+                });
+            u8::try_from(group).unwrap_or(u8::MAX)
+        })
+        .collect()
 }
 
 // ─────────────────────────── The gain ───────────────────────────

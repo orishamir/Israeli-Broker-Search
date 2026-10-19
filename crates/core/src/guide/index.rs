@@ -23,9 +23,24 @@ pub(super) fn years_for(months: u32) -> u32 {
     (months.saturating_add(6) / 12).max(1)
 }
 
+/// How the guide's answer asks for the index's run beyond the answers: the
+/// month the monthly deposits start (a cushion's months go to a money market
+/// fund first), and, for a portfolio at a bank not named, every bank's
+/// branch plan as the range it is compared with.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(super) struct RunAsked {
+    pub monthly_from: u32,
+    pub every_branch: bool,
+}
+
 /// The deposits for `years`, bought through each way in turn (a way sets the
 /// security, exchange and product).
-pub(super) fn base_scenario(answers: &Answers, settings: &Settings, years: u32) -> Scenario {
+pub(super) fn base_scenario(
+    answers: &Answers,
+    settings: &Settings,
+    years: u32,
+    monthly_from: u32,
+) -> Scenario {
     // A pension from the provident fund opens at 60: whoever retires at 60
     // or later takes the money that way, which is the tax-free one.
     let (age, withdrawal) = match answers.horizon {
@@ -38,6 +53,7 @@ pub(super) fn base_scenario(answers: &Answers, settings: &Settings, years: u32) 
         exchange: Exchange::Tlv,
         first_deposit: answers.now,
         monthly_deposit: answers.monthly,
+        monthly_from,
         deposit_growth: crate::Percent(Decimal::ZERO),
         yearly_return: settings.index_return,
         product: None,
@@ -61,6 +77,8 @@ pub(super) struct Cand<'a> {
     /// The saver chose "another bank", and this branch plan only stands in
     /// for it.
     pub stands_in: bool,
+    /// A bank's branch plan, compared as what a portfolio at a bank pays.
+    pub branch: bool,
 }
 
 /// Every branch plan of a bank (the plan for an order given to a banker or
@@ -117,6 +135,7 @@ pub(super) fn candidates<'a>(
     settings: &Settings,
     data: &'a Data,
     base: &Scenario,
+    asked: RunAsked,
 ) -> Vec<Cand<'a>> {
     let mut chosen: Vec<PlanRef> = settings.ticked.clone().unwrap_or_else(|| {
         data.brokers
@@ -139,13 +158,20 @@ pub(super) fn candidates<'a>(
     }
     let mut yours = None;
     let mut stands_in = false;
+    let mut branches = Vec::new();
     if let Some(Situation::ExistingPortfolio { bank }) = answers.situation {
-        stands_in = bank.is_none();
-        yours = branch_plan(bank, data, base, &settings.rates);
-        if let Some(at) = yours
-            && !chosen.contains(&at)
-        {
-            chosen.push(at);
+        if asked.every_branch && bank.is_none() {
+            // No bank named: every bank's branch plan, none of them "yours".
+            branches = branch_plans(data);
+        } else {
+            stands_in = bank.is_none();
+            yours = branch_plan(bank, data, base, &settings.rates);
+            branches.extend(yours);
+        }
+        for at in &branches {
+            if !chosen.contains(at) {
+                chosen.push(*at);
+            }
         }
     }
     chosen
@@ -161,6 +187,7 @@ pub(super) fn candidates<'a>(
                 },
                 yours: Some(at) == yours,
                 stands_in: stands_in && Some(at) == yours,
+                branch: branches.contains(&at),
             })
         })
         .collect()

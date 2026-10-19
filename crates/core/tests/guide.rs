@@ -623,6 +623,7 @@ fn the_figures_are_in_todays_money_as_the_simulation_states_them() {
         inflation,
         age: 30,
         withdrawal: Withdrawal::LumpSum,
+        monthly_from: 0,
         redeems_at_maturity: false,
     };
     let near = |a: Decimal, b: Decimal| (a - b).abs() < dec!(0.01);

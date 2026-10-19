@@ -75,6 +75,10 @@ pub struct Scenario {
     pub first_deposit: Decimal,
     /// ₪, in the first year.
     pub monthly_deposit: Decimal,
+    /// The month the monthly deposits start in (0 is the first). Before it
+    /// they go elsewhere, as a safety cushion's do in the guide; the
+    /// one-time deposit still comes in the first month.
+    pub monthly_from: u32,
     /// How much more is deposited each month than a year earlier, as a
     /// salary grows: 3% turns ₪2,000 a month into ₪2,060 in the second
     /// year. Negative shrinks the deposits.
@@ -196,8 +200,9 @@ impl Scenario {
 
     /// Each month's deposit, first month first: the monthly deposit, grown
     /// by [`Scenario::deposit_growth`] at each new year. The one-time
-    /// deposit isn't among them. Check the scenario first: a growth that
-    /// overflows the arithmetic isn't caught here.
+    /// deposit isn't among them, and the months before
+    /// [`Scenario::monthly_from`] are nothing. Check the scenario first: a
+    /// growth that overflows the arithmetic isn't caught here.
     pub fn monthly_deposits(&self) -> impl Iterator<Item = Decimal> + '_ {
         let yearly = Decimal::ONE + self.deposit_growth.of(Decimal::ONE);
         (0..self.years)
@@ -207,6 +212,14 @@ impl Scenario {
                 Some(this_year)
             })
             .flat_map(|deposit| std::iter::repeat_n(deposit, 12))
+            .enumerate()
+            .map(|(month, deposit)| {
+                if month < self.monthly_from as usize {
+                    Decimal::ZERO
+                } else {
+                    deposit
+                }
+            })
     }
 
     /// What's deposited in each year, first year first: its twelve monthly
@@ -1658,6 +1671,7 @@ mod tests {
             inflation: Percent(dec!(0)),
             age: 30,
             withdrawal: Withdrawal::LumpSum,
+            monthly_from: 0,
             redeems_at_maturity: false,
         }
     }

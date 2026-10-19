@@ -3459,6 +3459,7 @@ mod tests {
             inflation: crate::Percent(dec!(0)),
             age: 30,
             withdrawal: Withdrawal::LumpSum,
+            monthly_from: 0,
             redeems_at_maturity: false,
         };
         let over = |year| NotOffered::OverTheCeiling { year };
@@ -3546,6 +3547,7 @@ mod tests {
             inflation: Percent(dec!(2)),
             age,
             withdrawal,
+            monthly_from: 0,
             redeems_at_maturity: false,
         };
         let at_once = |monthly_deposit| monthly(monthly_deposit, 30, Withdrawal::LumpSum);

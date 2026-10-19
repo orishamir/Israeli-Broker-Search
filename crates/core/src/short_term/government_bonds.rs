@@ -228,6 +228,7 @@ fn compared(linkage: Linkage, scenario: &Scenario) -> Result<simulation::Compari
         inflation: USUAL_INFLATION,
         age: 40,
         withdrawal: Withdrawal::LumpSum,
+        monthly_from: 0,
         redeems_at_maturity: REDEMPTION_IS_FREE,
         product: None,
     };

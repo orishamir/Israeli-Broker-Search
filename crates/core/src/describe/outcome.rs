@@ -5,10 +5,9 @@
 //! A product is named by what it is before any trade name (§2.8): "אג״ח
 //! צמודה של מדינת ישראל", and the index is named: "מדד S&P 500".
 
-use super::card::both;
-use super::reasons::{grouped, span};
+use super::card::{about, both};
+use super::reasons::{grouped, shekels, span};
 use crate::guide::{Arena, Kind, SafeBecause};
-use crate::history::DepositsBand;
 use crate::{Lang, Percent, Product, Text, Vehicle};
 
 fn fixed(en: &'static str, he: &'static str) -> Text {
@@ -67,15 +66,14 @@ pub fn name(kind: Kind) -> Text {
     }
 }
 
-/// The row's short tags: how sure, and what it asks of the saver.
+/// The row's short tags: how sure, and what it asks of the saver. Where
+/// each is bought is said the same way for every kind a securities account
+/// holds (finding 10): the difference between the places is the ₪.
 #[must_use]
 pub fn tags(kind: Kind, arena: Option<Arena>) -> Vec<Text> {
-    let account = fixed("Needs a trading account", "צריך חשבון מסחר");
+    let account = fixed("At a bank or an investment house", "בבנק או בבית השקעות");
     match kind {
-        Kind::MoneyMarketFund => vec![
-            fixed("The rate changes", "הריבית משתנה"),
-            fixed("At your bank", "בבנק שלכם"),
-        ],
+        Kind::MoneyMarketFund => vec![fixed("The rate changes", "הריבית משתנה"), account],
         Kind::FixedDeposit | Kind::LinkedDeposit => vec![
             fixed("Sum known in advance", "הסכום ידוע מראש"),
             fixed("Locked to the end", "נעול עד הסוף"),
@@ -89,7 +87,7 @@ pub fn tags(kind: Kind, arena: Option<Arena>) -> Vec<Text> {
         }
         Kind::CurrentAccount => vec![],
         Kind::Way(way) => {
-            let mut tags = vec![fixed("Rises and falls", "עולה ויורד")];
+            let mut tags = vec![fixed("Its value rises and falls", "הערך עולה ויורד")];
             match way.vehicle {
                 Vehicle::StudyFund => tags.push(fixed(
                     "Self-employed or through an employer",
@@ -108,27 +106,47 @@ pub fn tags(kind: Kind, arena: Option<Arena>) -> Vec<Text> {
     }
 }
 
-/// Under the fund while its months fill the cushion, and what its bar spans
-/// if it has one (`rate`). Said without "the first N", whose Hebrew gender
-/// follows the unit.
+/// A row's figure in words, rounded to how sure it is (principle 13): a sum
+/// known in advance to the shekel, one resting on a rate or a return to
+/// three figures, said as such.
 #[must_use]
-pub fn cushion_note(months: u32, rate: Option<Percent>) -> Text {
-    let bar = rate.map(rate_note);
-    both(|lang| {
-        let bar = bar
-            .as_ref()
-            .map_or_else(String::new, |bar| format!(" {}", &bar[lang]));
-        match lang {
-            Lang::En => format!(
-                "In your plan, the cushion builds up here for {}.{bar}",
-                span(months, lang)
-            ),
-            Lang::He => format!(
-                "בתוכנית שלכם, כאן נבנית הכרית, במשך {}.{bar}",
-                span(months, lang)
-            ),
+pub fn amount(kind: Kind, today: rust_decimal::Decimal) -> Text {
+    match kind {
+        Kind::FixedDeposit
+        | Kind::LinkedDeposit
+        | Kind::GovernmentBond { .. }
+        | Kind::CurrentAccount => both(|_| shekels(today)),
+        Kind::MoneyMarketFund | Kind::Way(_) => {
+            both(|lang| format!("{}{}", lang.pick("about ", "בערך "), about(today)))
         }
+    }
+}
+
+/// Under an index row whose plan fills the cushion first (finding 1): the
+/// figure is the plan's two parts.
+#[must_use]
+pub fn path_note(target: rust_decimal::Decimal, months: u32) -> Text {
+    both(|lang| match lang {
+        Lang::En => format!(
+            "In your plan: the first {} go to a money market fund for about {}, and stay there; the figure counts both parts.",
+            shekels(target),
+            span(rough(months), lang)
+        ),
+        Lang::He => format!(
+            "בתוכנית שלכם: {} הראשונים הולכים לקרן כספית, בערך {}, ונשארים שם; הסכום כולל את שני החלקים.",
+            shekels(target),
+            span(rough(months), lang)
+        ),
     })
+}
+
+/// A stretch said as roughly as it's known: 80 months is "about 7 years".
+fn rough(months: u32) -> u32 {
+    if months >= 24 {
+        (months + 6) / 12 * 12
+    } else {
+        months
+    }
 }
 
 /// Under the fund's bar: what it spans.
@@ -156,6 +174,12 @@ pub fn excluded(because: SafeBecause, months: u32) -> Text {
                 "Not offered for money you may need on any day.".to_owned()
             }
             (SafeBecause::AnyDay, Lang::He) => "לא מוצע לכסף שאולי תצטרכו בכל יום.".to_owned(),
+            (SafeBecause::Cushion, Lang::En) => {
+                "With the cushion first, no money reaches it before the date.".to_owned()
+            }
+            (SafeBecause::Cushion, Lang::He) => {
+                "עם הכרית קודם, לא מגיע אליה כסף לפני התאריך.".to_owned()
+            }
             (_, Lang::En) => format!(
                 "Not offered for money needed in {when} on a fixed date. If the date is 5 years away or more and can wait, that changes."
             ),
@@ -166,40 +190,38 @@ pub fn excluded(because: SafeBecause, months: u32) -> Text {
     })
 }
 
-/// The losses note under the index's bar: the past, said as the past, and
-/// never rounded to "never". With deposits every month, a loss is ending
-/// with less than was put in.
+/// The past of one row's deposits, on the figures' basis.
+#[derive(Debug, Clone, Copy)]
+pub struct PastCount {
+    /// The stretches that would have left less than was deposited.
+    pub below: u32,
+    pub windows: u32,
+    pub months: u32,
+    pub since: i32,
+}
+
+/// The losses note under the index's bar, on the bar's own basis (finding
+/// 3): after fees and tax, in today's money, for the visitor's deposits.
+/// The past said as the past, and never rounded to "never".
 #[must_use]
-pub fn losses(history: &DepositsBand, monthly: bool) -> Text {
-    let windows = grouped(history.windows);
-    let lower = grouped(history.lower);
-    let since = history.from.year();
+pub fn losses(past: &PastCount) -> Text {
+    let windows = grouped(past.windows);
+    let lower = grouped(past.below);
+    let since = past.since;
     both(|lang| {
-        let years = span(history.months, lang);
-        match (history.lower, monthly, lang) {
-            (0, true, Lang::En) => format!(
-                "In none of {windows} stretches of {years} since {since} was less left at the end than was put in (in dollars, before fees and tax)."
+        let years = span(past.months, lang);
+        match (past.below, lang) {
+            (0, Lang::En) => format!(
+                "In none of {windows} stretches of {years} since {since} would less have been left than was put in (after fees and tax, in today's money)."
             ),
-            (0, true, Lang::He) => format!(
-                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} לא נשאר בסוף פחות ממה שהופקד (בדולרים, לפני עמלות ומס)."
+            (0, Lang::He) => format!(
+                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} לא היה נשאר בסוף פחות ממה שהופקד (אחרי עמלות ומס, בכסף של היום)."
             ),
-            (0, false, Lang::En) => format!(
-                "In none of {windows} stretches of {years} since {since} did the S&P 500 index end at a loss (in dollars, before fees and tax)."
+            (_, Lang::En) => format!(
+                "In {lower} of {windows} stretches of {years} since {since}, less would have been left than was put in (after fees and tax, in today's money)."
             ),
-            (0, false, Lang::He) => format!(
-                "באף אחת מ\u{2011}{windows} תקופות של {years} מאז {since} מדד S&P\u{a0}500 לא נגמר בהפסד (בדולרים, לפני עמלות ומס)."
-            ),
-            (_, true, Lang::En) => format!(
-                "In {lower} of {windows} stretches of {years} since {since}, less was left at the end than was put in (in dollars, before fees and tax)."
-            ),
-            (_, true, Lang::He) => format!(
-                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} נשאר בסוף פחות ממה שהופקד (בדולרים, לפני עמלות ומס)."
-            ),
-            (_, false, Lang::En) => format!(
-                "In {lower} of {windows} stretches of {years} since {since}, the S&P 500 index ended at a loss (in dollars, before fees and tax)."
-            ),
-            (_, false, Lang::He) => format!(
-                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} מדד S&P\u{a0}500 נגמר בהפסד (בדולרים, לפני עמלות ומס)."
+            (_, Lang::He) => format!(
+                "ב\u{2011}{lower} מתוך {windows} תקופות של {years} מאז {since} היה נשאר בסוף פחות ממה שהופקד (אחרי עמלות ומס, בכסף של היום)."
             ),
         }
     })

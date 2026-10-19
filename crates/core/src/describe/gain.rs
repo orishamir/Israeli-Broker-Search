@@ -13,18 +13,11 @@ use crate::describe::format_money;
 use crate::guide::{Amount, Flexibility};
 use crate::{Lang, Percent, Text, ils};
 
-/// A figure rounded as [`about`] rounds it, for the bars' labels: to ₪10,
-/// ₪100 or ₪1,000 by its size.
+/// A figure rounded as [`about`] rounds it, for the bars' labels: to three
+/// significant figures (principle 13).
 #[must_use]
 pub fn rounded(amount: Decimal) -> Decimal {
-    let step = if amount.abs() >= Decimal::from(100_000) {
-        Decimal::from(1000)
-    } else if amount.abs() >= Decimal::from(10_000) {
-        Decimal::from(100)
-    } else {
-        Decimal::from(10)
-    };
-    (amount / step).round() * step
+    super::card::three_figures(amount)
 }
 
 /// The sentence that gives the deposits, which the bars don't draw: the
@@ -71,6 +64,16 @@ pub fn dearest_bank(provider: &Text) -> Text {
     both(|lang| match lang {
         Lang::En => format!("The dearest bank: {}", &provider[lang]),
         Lang::He => format!("הבנק היקר מבין הבנקים: {}", &provider[lang]),
+    })
+}
+
+/// For a portfolio at a bank not named, the bank row is the dearest
+/// branch price list, and says so.
+#[must_use]
+pub fn dearest_branch(provider: &Text) -> Text {
+    both(|lang| match lang {
+        Lang::En => format!("The dearest branch price list: {}", &provider[lang]),
+        Lang::He => format!("תעריף הסניף היקר מבין הבנקים: {}", &provider[lang]),
     })
 }
 

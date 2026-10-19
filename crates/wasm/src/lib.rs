@@ -801,6 +801,7 @@ fn scenario_with(inputs: &Inputs, share_price_matters: bool) -> Result<Scenario,
         } else {
             Withdrawal::LumpSum
         },
+        monthly_from: 0,
         redeems_at_maturity: false,
     };
     scenario.check()?;
