@@ -476,6 +476,10 @@ export const he: Text = {
   plansTicked: (count) => (count === 1 ? 'מסלול אחד מסומן' : `${count} מסלולים מסומנים`),
   changeAssumptions: 'לשנות ›',
   hideAssumptions: 'לסגור ›',
+  exampleTag: 'דוגמה',
+  assumptionsTitle: 'ההנחות שמאחורי המספרים',
+  assumptionsLine: (returnPercent, inflationPercent, boiPercent) =>
+    `בהנחה של ${returnPercent} בשנה, אינפלציה ${inflationPercent}, ריבית בנק ישראל ${boiPercent}`,
   thingTip: {
     sp500: 'מדד של 500 החברות הגדולות בארה״ב. אפשר לקנות אותו בכמה דרכים, וההשוואה מראה כמה יישאר בכל אחת.',
     other: 'מדד אחר, מניה או אג״ח בבורסה מסוימת: ההשוואה בין הבנקים ובתי ההשקעות שמוכרים אותם.',

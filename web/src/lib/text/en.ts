@@ -481,6 +481,10 @@ export const en = {
   plansTicked: (count: number) => (count === 1 ? 'one plan ticked' : `${count} plans ticked`),
   changeAssumptions: 'Change ›',
   hideAssumptions: 'Close ›',
+  exampleTag: 'Example',
+  assumptionsTitle: 'The assumptions behind the numbers',
+  assumptionsLine: (returnPercent: string, inflationPercent: string, boiPercent: string) =>
+    `Assuming ${returnPercent} a year, inflation ${inflationPercent}, Bank of Israel rate ${boiPercent}`,
   thingTip: {
     sp500:
       'An index of the 500 largest companies in the US. It can be bought in several ways, and the comparison shows what is left in each.',

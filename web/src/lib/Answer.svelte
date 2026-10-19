@@ -5,8 +5,9 @@
   // the plan in two parts. "לשנות ›" offers the other kinds; the sentences
   // are the core's, the frame here is the page's.
   import type { AppState } from './app.svelte'
+  import AssumptionsSheet from './AssumptionsSheet.svelte'
   import BankChips from './BankChips.svelte'
-  import { shekels } from './format'
+  import { shekels, typedPercent } from './format'
   import { kindKey } from './kinds'
   import { reveal } from './motion'
   import { t } from './text'
@@ -16,6 +17,7 @@
   const plan = $derived(recommendation?.twoParts)
 
   let choosing = $state(false)
+  let assuming = $state(false)
   const existing = $derived(
     typeof app.answers.situation === 'object' && 'ExistingPortfolio' in app.answers.situation,
   )
@@ -96,6 +98,16 @@
         </p>
       </div>
     {/if}
+    <p class="assume">
+      {t.assumptionsLine(
+        typedPercent(app.yearlyReturnPercent ?? 0),
+        typedPercent(app.inflationPercent ?? 0),
+        typedPercent(app.boiRatePercent ?? 0),
+      )}
+      <button class="link" aria-label={t.assumptionsTitle} onclick={() => (assuming = true)}
+        >{t.changeAssumptions}</button
+      >
+    </p>
     <p class="base">{recommendation.currentAccountLine}</p>
 
     <h3>{t.whyThis}</h3>
@@ -110,6 +122,8 @@
     {/if}
   {/if}
 </section>
+
+<AssumptionsSheet {app} bind:open={assuming} />
 
 <style>
   .answer {
@@ -201,10 +215,14 @@
     font-variant-numeric: tabular-nums;
   }
   .sub,
+  .assume,
   .base {
     margin: 4px 0 0;
     color: var(--weak);
     font-size: 0.9rem;
+  }
+  .assume {
+    margin-top: 2px;
   }
   .base {
     margin-top: 10px;

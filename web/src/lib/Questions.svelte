@@ -57,6 +57,7 @@
     <div class="titled heading">
       <h2>{t.whatForTitle}</h2>
       <Tip about={t.whatForTitle}>{t.whatForTip}</Tip>
+      {#if app.exampleShown}<span class="example" transition:reveal>{t.exampleTag}</span>{/if}
     </div>
     <p class="hint">{t.whatForHint}</p>
     <div class="chips" role="group" aria-label={t.whatForTitle}>
@@ -217,6 +218,13 @@
   }
   .heading {
     justify-content: flex-start;
+  }
+  .example {
+    padding: 1px 10px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    background: var(--accent-tint);
+    font-size: 0.8rem;
   }
   h2,
   h3 {

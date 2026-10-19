@@ -350,6 +350,10 @@ export class AppState {
     needsAnyDay: false,
   })
   situationId = $state<string | undefined>()
+  /** The first visit's apartment scenario is on screen as an example, until
+   * the saver changes anything (or opened a link, which is not an example). */
+  exampleShown = $state(false)
+  private exampleKey = ''
   /** What the user chose over the guide ("לשנות", "continue anyway"). */
   overrides = $state.raw<Overrides>(NO_OVERRIDES)
   overridden: boolean = $derived(this.overrides.arena !== undefined || this.overrides.kind !== undefined)
@@ -1168,6 +1172,16 @@ export class AppState {
    * when they matter, and the ticked plans, your own included, in the page's
    * address. */
   shareLink(): string {
+    return `${location.origin}${location.pathname}#${this.address()}`
+  }
+
+  /** The hash (without its #) the page's address keeps while the saver
+   * goes: the same as the Share button's link. */
+  address(): string {
+    return encode(this.sharedState())
+  }
+
+  private sharedState(): Shared {
     const { answers } = this
     const ticked = this.plans.filter((plan) => this.selected.has(plan.id))
     const shared: Shared = {
@@ -1183,6 +1197,13 @@ export class AppState {
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
     }
     if (typeof answers.situation === 'object') shared.bank = answers.situation.ExistingPortfolio.bank
+    // The three assumptions travel whenever they aren't the usual, in the
+    // guide too, where the answer's line lets them be changed.
+    if (this.yearlyReturnPercent !== USUAL_RETURN_PERCENT)
+      shared.yearlyReturnPercent = this.yearlyReturnPercent ?? undefined
+    if (this.boiRatePercent !== this.usualBoiRate) shared.boiRatePercent = this.boiRatePercent ?? undefined
+    if (this.inflationPercent !== this.usualInflation)
+      shared.inflationPercent = this.inflationPercent ?? undefined
     const { overrides } = this
     if (overrides.arena) shared.overrideArena = overrides.arena
     if (overrides.kind) shared.overrideKind = kindKey(overrides.kind)
@@ -1206,7 +1227,32 @@ export class AppState {
       shared.asPension = true
       shared.age = this.age ?? undefined
     }
-    return `${location.origin}${location.pathname}#${encode(shared)}`
+    return shared
+  }
+
+  /** Puts the page back as an address says (Back, Forward): the defaults,
+   * then what the address names. An address that names nothing is the
+   * first visit's, with its example. */
+  restore(shared: Shared) {
+    this.setSituation(shared.situation ?? FIRST_SITUATION)
+    this.portfolioDialogOpen = false
+    this.expert = shared.expert === true
+    this.chosenThing = undefined
+    this.chosenWays = undefined
+    this.security = 'Etf'
+    this.exchange = 'Usa'
+    this.sharePrice = 500
+    this.yearlyReturnPercent = USUAL_RETURN_PERCENT
+    this.inflationPercent = this.usualInflation
+    this.boiRatePercent = this.usualBoiRate
+    this.depositGrowthPercent = 0
+    this.buyEveryMonths = 1
+    this.todaysMoney = true
+    this.atEnd = 'sell'
+    this.wayOut = 'atOnce'
+    this.applyShared(shared)
+    this.exampleShown = Object.keys(shared).length === 0
+    this.exampleKey = this.address()
   }
 
   /** Takes what a link says, over the defaults. Its plans, listed and your
@@ -1274,7 +1320,12 @@ export class AppState {
     this.setSituation(shared.situation ?? FIRST_SITUATION)
     this.portfolioDialogOpen = false
     this.applyShared(shared)
+    this.exampleShown = Object.keys(shared).length === 0
+    this.exampleKey = this.address()
     this.loadRates()
+    $effect(() => {
+      if (this.exampleShown && this.address() !== this.exampleKey) this.exampleShown = false
+    })
     $effect(() => save('your-plans-v1', this.yourPlans))
     $effect(() => save('editor-view-v2', this.editorView))
     $effect(() => save('expert-v2', this.expert))
