@@ -224,14 +224,16 @@ stylelint, svelte-check). After a change to how the page behaves when used
 `npm run test:perf`. After a change to the guide's rules, run
 `cargo mutants -p broker-fees -j 8 --timeout 180 --file 'crates/core/src/guide.rs' --file 'crates/core/src/guide/*.rs' --file crates/core/src/ways.rs --file crates/core/src/history.rs`
 (about 15 minutes; `--file` takes globs and repeats) and turn the surviving
-mutants that matter into tests. It copies the tree for each job: keep
-`.claude/worktrees` empty (agents' worktrees there once made the tree
-19 GB), and put `TMPDIR` on the big disk if `/tmp` fills up.
+mutants that matter into tests. It copies the tree for each job, so run it
+with no agents' worktrees under `.claude/worktrees` (they once made the
+tree 19 GB), and put `TMPDIR` on the big disk if `/tmp` fills up.
 
 "Done means" is for the end of a change. Between the stages of a large
 change (the redesign, say), a broken build, failing tests and broken
-commits are fine: the owner prefers speed (2026-10-19). Agents work in the
-main tree, not in git worktrees.
+commits are fine: the owner prefers speed (2026-10-19). Subagents that run
+in parallel each get a git worktree. Merge each into `main` as soon as it's
+done, then delete the worktree and its branch, so none are left lying
+around.
 
 A change a visitor can see is also checked against `REDESIGN.md`'s review
 checklist.

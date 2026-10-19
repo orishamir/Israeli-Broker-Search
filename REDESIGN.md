@@ -441,10 +441,13 @@ Ask the owner when you reach any of these. Don't settle them yourself.
 ### How to run it
 
 - **Speed over a working `main`** (the owner's choice, 2026-10-19).
-  - Work in the main tree, without git worktrees.
   - Between stages, the build, the tests and the commits may all be broken.
   - Commit at milestones. Run `CLAUDE.md`'s "Done means" in full once, at the end, and fix what it finds then.
-- **Subagents running in parallel own different files**, so two never edit the same one. If two workstreams need the same file, run them one after the other.
+- **Each subagent that runs in parallel gets its own git worktree** (`isolation: worktree`), so the Rust builds, `npm run wasm` and half‑finished edits don't collide.
+  - Merge each into `main` as soon as it's done.
+  - Then delete the worktree and its branch (`git worktree remove`, `git branch -d`). A worktree with its build takes over a gigabyte, so none are left lying around.
+  - Work that runs alone can stay in the main tree.
+- **Give parallel workstreams different files where possible**, so their merges don't conflict. If two need the same file, run them one after the other.
 - **Never push** until the owner says so. A push to `main` deploys, and the deploy's tests would fail on a broken tree.
 
 ### Suggested workstreams
