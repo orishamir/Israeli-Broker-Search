@@ -2108,7 +2108,8 @@ fn gain(
     };
     let base = &f.versions[0];
     let rates = &f.settings.rates;
-    // Each row: its label, the name a sentence uses, and its split.
+    // Each row: its label, the name a sentence uses, and its split. The
+    // takeaway is about the last two: the decision fees or tax decide last.
     let mut rows: Vec<(Text, Text, Split)> = Vec::new();
     if decided(DecisionId::Account) || decided(DecisionId::Holdings) {
         let info = info.filter(|info| info.decided)?;
@@ -2117,24 +2118,39 @@ fn gain(
         };
         let way = index.way(at);
         let best = info.places.best()?;
-        let reference = info
-            .places
-            .yours
-            .map(|at| &info.places.places[at])
-            .or_else(|| {
-                // Until the bank is named: the best bank's.
-                info.places.places.iter().find(|place| place.bank.is_some())
-            })?;
+        let named = info.places.yours.map(|at| &info.places.places[at]);
+        let reference = named.or_else(|| {
+            // Until the bank is named: the banks' dearer end, said as such.
+            info.places
+                .places
+                .iter()
+                .filter(|place| place.bank.is_some())
+                .last()
+        })?;
         if best.cand == reference.cand {
             return None;
+        }
+        // The way not chosen stays beside them (principle 4): the study fund
+        // the wrapper's decision offered.
+        let unchosen = index
+            .study
+            .filter(|study| decided(DecisionId::Wrapper) && *study != at);
+        if let Some(study) = unchosen {
+            let name = row_words::name(Kind::Way(index.way(study).way));
+            rows.push((name.clone(), name, best_split(f, index, study)?));
         }
         for place in [best, reference] {
             let cand = &index.run.cands[place.cand?];
             let outcome = plan_outcome(cand, way.way, &index.run.base, base, rates)?;
-            let label = if place.yours {
-                gain_words::your_bank(&place.provider)
+            let label = match (place.yours, named.is_none() && place.cand == reference.cand) {
+                (true, _) => gain_words::your_bank(&place.provider),
+                (false, true) => gain_words::dearest_bank(&place.provider),
+                (false, false) => place.provider.clone(),
+            };
+            let label = if unchosen.is_some() {
+                gain_words::way_at(way.way, &label)
             } else {
-                place.provider.clone()
+                label
             };
             rows.push((
                 label,
@@ -2164,7 +2180,7 @@ fn gain(
             product: amount(split.product),
         })
         .collect();
-    let [(_, first_name, first), (_, second_name, second)] = rows.as_slice() else {
+    let [.., (_, first_name, first), (_, second_name, second)] = rows.as_slice() else {
         return None;
     };
     Some(Gain {

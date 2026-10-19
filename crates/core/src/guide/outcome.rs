@@ -263,23 +263,61 @@ pub(super) fn safe_places(priced: &Priced, data: &Data, yours: Option<Bank>) -> 
             _ => Bank::iter().find(|bank| name.en.contains(deposit_bank_name(*bank))),
         }
     };
+    // Every provider is named one way, as the index's places are: a broker
+    // by its short name and its plan ("לאומי · אונליין"), a bank's deposit
+    // by the bank's short name. The banks' average is no place to buy.
+    let named = |name: &Text| -> Option<(Text, Text)> {
+        match priced.kind {
+            Kind::GovernmentBond { .. } => {
+                let provider = provider_of(name);
+                let short = data
+                    .brokers
+                    .iter()
+                    .find(|broker| broker.name.en == provider.en || broker.short_name.en == provider.en)
+                    .map_or(provider, |broker| broker.short_name.clone());
+                let plan = plan_of(name);
+                Some((super::safe::joined(&short, &plan), short))
+            }
+            _ => {
+                let place = data
+                    .safe
+                    .iter()
+                    .flat_map(|kind| &kind.places)
+                    .find(|place| place.name == *name)?;
+                (place.name != short_term::deposits::AVERAGE)
+                    .then(|| (place.short_name.clone(), place.short_name.clone()))
+            }
+        }
+    };
     priced
         .places
         .iter()
         .filter(|place| place.fits)
-        .map(|place| {
+        .filter_map(|place| {
             let bank = banks_by_name(&place.name);
-            Place {
-                provider: provider_of(&place.name),
-                name: place.name.clone(),
+            let (name, provider) = named(&place.name)?;
+            Some(Place {
+                provider,
+                name,
                 left: place.left,
                 bank,
                 yours: bank.is_some() && bank == yours,
                 cost_a_year: place.cost_a_year,
                 cand: None,
-            }
+            })
         })
         .collect()
+}
+
+/// The plan's part of a "provider · plan" name.
+fn plan_of(name: &Text) -> Text {
+    let after = |text: &str, mark: &str| {
+        text.split_once(mark)
+            .map_or(text, |(_, plan)| plan)
+            .trim()
+            .to_owned()
+    };
+    Text::owned(after(&name.en, " · "), after(&name.he, "\u{a0}· "))
 }
 
 /// The provider's part of a "provider · plan" name.

@@ -1006,7 +1006,7 @@ pub struct WrapperFigures {
 }
 
 /// A way's short name, for a question or a button.
-fn way_short(way: Way, lang: Lang) -> &'static str {
+pub(crate) fn way_short(way: Way, lang: Lang) -> &'static str {
     match (way.product, way.vehicle) {
         (_, Vehicle::InvestmentGemel) => {
             lang.pick("a provident fund for investment", "קופת גמל להשקעה")
@@ -1138,6 +1138,29 @@ fn names(names: &[Text], lang: Lang) -> String {
     }
 }
 
+/// The names after a Hebrew preposition joined to each ("באקסלנס, באלטשולר
+/// או במיטב"): the ה of a name that has one goes ("בבינלאומי", "לפועלים").
+/// In English, the names alone.
+fn names_after(preposition: char, list: &[Text], lang: Lang) -> String {
+    if lang == Lang::En {
+        return names(list, lang);
+    }
+    let joined: Vec<Text> = list
+        .iter()
+        .map(|name| Text::owned(name.en.to_string(), joined_to(preposition, &name.he)))
+        .collect();
+    names(&joined, lang)
+}
+
+/// A Hebrew name after a one-letter preposition: "באקסלנס", and "בבינלאומי"
+/// for "הבינלאומי", whose ה the preposition takes.
+pub(crate) fn joined_to(preposition: char, name: &str) -> String {
+    format!(
+        "{preposition}{}",
+        name.strip_prefix('ה').unwrap_or(name)
+    )
+}
+
 fn cost_fact(cost: Option<Percent>) -> Option<Text> {
     cost.map(|cost| {
         let cost = Percent(cost.0.round_dp(2));
@@ -1183,7 +1206,7 @@ pub fn account_decision(f: &AccountFigures<'_>) -> DecisionWords {
             OptWords {
                 title: both(|lang| match lang {
                     Lang::En => format!("A new account at {}", names(f.tied, lang)),
-                    Lang::He => format!("חשבון חדש ב{}", names(f.tied, lang)),
+                    Lang::He => format!("חשבון חדש {}", names_after('ב', f.tied, lang)),
                 }),
                 amount: both(|_| shekels(f.best)),
                 facts: new_facts,
@@ -1244,8 +1267,8 @@ pub fn holdings_decision(
                             span(months, lang)
                         ),
                         Lang::He => format!(
-                            "מעבר ל{} חוסך בערך {} לאורך {}",
-                            names(tied, lang),
+                            "מעבר {} חוסך בערך {} לאורך {}",
+                            names_after('ל', tied, lang),
                             about(saves),
                             span(months, lang)
                         ),
@@ -1480,9 +1503,11 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
             (None, _) => String::new(),
         };
         let at = names(f.tied, lang);
+        let in_at = names_after('ב', f.tied, lang);
+        let to_at = names_after('ל', f.tied, lang);
         let main = match (f.kind, f.holdings, f.account, lang) {
             (_, Some(Holdings::IndexFunds), _, Lang::En) => format!("Move the portfolio as it is to {at}, without selling, and keep {name} there."),
-            (_, Some(Holdings::IndexFunds), _, Lang::He) => format!("מעבירים את התיק כמו שהוא ל{at}, בלי למכור, ומחזיקים שם {name}."),
+            (_, Some(Holdings::IndexFunds), _, Lang::He) => format!("מעבירים את התיק כמו שהוא {to_at}, בלי למכור, ומחזיקים שם {name}."),
             (_, Some(Holdings::Managed), _, Lang::En) => "Check each fund's management fee and the manager's fee before moving: moving alone doesn't lower them.".to_owned(),
             (_, Some(Holdings::Managed), _, Lang::He) => "בודקים את דמי הניהול של כל קרן ושל ניהול התיק לפני מעבר: מעבר לבד לא מוריד אותם.".to_owned(),
             (_, Some(Holdings::DontKnow), _, Lang::En) => "First see in the bank's app what the portfolio holds; then come back to this answer.".to_owned(),
@@ -1490,7 +1515,7 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
             (Kind::MoneyMarketFund, _, _, Lang::En) => format!("{name} in your bank's app: {money}, {until}."),
             (Kind::MoneyMarketFund, _, _, Lang::He) => format!("{name} באפליקציה של הבנק שלכם: {money}, {until}."),
             (Kind::FixedDeposit, _, _, Lang::En) => format!("{name} at {at}: {money}, {until}. Ask the bank what rate you'll get."),
-            (Kind::FixedDeposit, _, _, Lang::He) => format!("{name} ב{at}: {money}, {until}. שאלו את הבנק מה הריבית שתקבלו."),
+            (Kind::FixedDeposit, _, _, Lang::He) => format!("{name} {in_at}: {money}, {until}. שאלו את הבנק מה הריבית שתקבלו."),
             (Kind::Way(way), _, _, Lang::En) if way.vehicle == Vehicle::StudyFund => format!("{money} to your study fund, on the track that follows the S&P 500 index."),
             (Kind::Way(way), _, _, Lang::He) if way.vehicle == Vehicle::StudyFund => format!("{money} לקרן ההשתלמות שלכם, במסלול שעוקב אחרי מדד S&P\u{a0}500."),
             (Kind::Way(way), _, _, Lang::En) if way.vehicle != Vehicle::Brokerage => format!("{money} to {name}, at a fund company."),
@@ -1506,7 +1531,7 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
                 format!("{money} ל{name}, דרך {bank}.{less}")
             }
             (_, _, _, Lang::En) => format!("{name}, through a trading account at {at}: {money}."),
-            (_, _, _, Lang::He) => format!("{name}, דרך חשבון מסחר ב{at}: {money}."),
+            (_, _, _, Lang::He) => format!("{name}, דרך חשבון מסחר {in_at}: {money}."),
         };
         pre + &main
     })
