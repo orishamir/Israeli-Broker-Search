@@ -168,19 +168,20 @@ function opening(answers: AnswersInput, before: AnswerData) {
   })
 }
 
-/** The chosen button stays on the screen with the new question, wherever
- * the two fit on one (on a phone, what lies between them can be taller). */
-async function expectChosenKeptWhereItFits(page: Page, pressed: Locator, question: Locator) {
-  const [button, asked] = [(await pressed.boundingBox())!, (await question.boundingBox())!]
-  if (asked.y + asked.height - button.y <= page.viewportSize()!.height - 24)
-    await expect(pressed).toBeInViewport()
+/** The new decision is on the screen whole wherever it fits on one (the
+ * review's N8: its question alone isn't the decision); taller, its question
+ * and its first option's button are. */
+async function expectDecisionShown(page: Page, group: Locator) {
+  const box = (await group.boundingBox())!
+  if (box.height <= page.viewportSize()!.height - 24) await expect(group).toBeInViewport({ ratio: 1 })
+  else await expect(group.locator('.choose').first()).toBeInViewport({ ratio: 1 })
 }
 
 // A choice can open a decision that depends on it (the review of 2026-10-20,
-// X7): the chosen option stays on the screen while the card changes around
-// it, and the new question comes into view, on a phone too.
+// X7, N8): the chosen option stays while the card changes around it, then
+// the new decision comes into view, its options too, on a phone as well.
 test(
-  'a choice that opens a decision keeps the chosen option on the screen, and shows the new question',
+  'a choice that opens a decision shows the new decision with its options',
   { tag: '@phone' },
   async ({ page }) => {
     let opened = 0
@@ -195,10 +196,9 @@ test(
         const pressed = decisionGroup(page, first.decision).getByRole('button', { pressed: true })
         await expect(pressed).toBeVisible()
         await expect(decisionGroup(page, fresh[0].decision)).toBeVisible()
-        await expect(pressed).toBeInViewport()
         const question = answerLine(page, fresh[0].line).locator('.question')
         await expect(question).toBeInViewport({ ratio: 1 })
-        await expectChosenKeptWhereItFits(page, pressed, question)
+        await expectDecisionShown(page, answerLine(page, fresh[0].line))
         // Back to the first, for the next option.
         await chip(page, situationName('goal')).click()
         await chip(page, situationName(id)).click()

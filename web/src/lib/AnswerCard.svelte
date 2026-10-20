@@ -18,6 +18,7 @@
   <section
     class="card answer state-{state}"
     aria-labelledby="answer-title"
+    aria-busy={!app.answerFresh}
     class:stale={app.stale}
     {@attach glideHeight(SETTLE)}
   >

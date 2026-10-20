@@ -35,6 +35,8 @@
   setContext(OPEN_CARD, (term: Term) => app.openCard(term))
 
   const issues = $derived(app.about.accessibility.items.at(-1)?.url)
+  /** The answer shown is the last one: the worker is at the next. */
+  const awaiting = $derived(!app.answerFresh && !app.stale)
 </script>
 
 <!-- index.html's skeleton repeats the title. -->
@@ -61,10 +63,13 @@
     {#if app.inputError !== undefined}
       <p class="card error item wide" style:--order="3" transition:reveal>{t.checkInputs(app.inputError)}</p>
     {/if}
-    <div class="item wide" style:--order="3"><AnswerCard {app} /></div>
-    <div class="item wide" style:--order="3"><OutcomeChart {app} /></div>
-    <div class="item wide" style:--order="3"><HowTo {app} /></div>
-    <div class="item wide" style:--order="3"><GainSplit {app} /></div>
+    <!-- The answer's parts: while the worker works out the answer for what
+         the visitor just did, the last one stays, faded after a moment (the
+         review's N1), as the inputs' error state fades it. -->
+    <div class="item wide answers" class:awaiting style:--order="3"><AnswerCard {app} /></div>
+    <div class="item wide answers" class:awaiting style:--order="3"><OutcomeChart {app} /></div>
+    <div class="item wide answers" class:awaiting style:--order="3"><HowTo {app} /></div>
+    <div class="item wide answers" class:awaiting style:--order="3"><GainSplit {app} /></div>
     <!-- The workbench's table and charts, with the switch on. -->
     {#if app.expert}
       <div class="item wide" style:--order="5" transition:reveal><Within {app} /></div>
@@ -146,6 +151,15 @@
   }
   .stale {
     opacity: 0.5;
+  }
+  .answers {
+    transition: opacity var(--quick);
+  }
+  /* Only once it's been a moment: an answer that comes at once never
+     flickers. */
+  .answers.awaiting {
+    opacity: 0.55;
+    transition: opacity var(--quick) var(--awaiting-after);
   }
   .error {
     color: var(--error);

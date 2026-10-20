@@ -26,12 +26,7 @@
 </script>
 
 {#if gain}
-  <section
-    class="card gain"
-    class:waiting={!app.answerFresh}
-    aria-labelledby="gain-title"
-    {@attach glideHeight()}
-  >
+  <section class="card gain" aria-labelledby="gain-title" {@attach glideHeight()}>
     <div>
       <h2 id="gain-title">{t.gainTitle}</h2>
       <p class="lead">{gain.lead}</p>
@@ -75,10 +70,6 @@
 <style>
   .gain {
     transition: opacity var(--quick);
-  }
-
-  .waiting {
-    opacity: 0.6;
   }
 
   h2 {

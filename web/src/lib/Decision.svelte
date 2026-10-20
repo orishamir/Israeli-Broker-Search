@@ -39,6 +39,8 @@
       >
         <h4 class="title">{option.title}</h4>
         {#if option.amount}<p class="amount">{option.amount}</p>{/if}
+        <!-- A second amount in its own unit (a pension a month): one line. -->
+        {#if option.also}<p class="also">{option.also}</p>{/if}
         {#if option.facts.length > 0}
           <ul class="facts">
             {#each option.facts as fact, index (index)}<li>{fact}</li>{/each}
@@ -113,6 +115,12 @@
   .amount {
     margin: 0;
     font-size: 1.15rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  /* Close under the amount it goes with, one step smaller. */
+  .also {
+    margin: -4px 0 0;
     font-weight: 600;
     font-variant-numeric: tabular-nums;
   }

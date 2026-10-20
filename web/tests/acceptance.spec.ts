@@ -1,12 +1,4 @@
-import {
-  answerFor,
-  answersWith,
-  compareWays,
-  decisionsOf,
-  inputsOnPage,
-  situationAnswers,
-  ways,
-} from './core'
+import { answersWith, compareWays, decisionsOf, inputsOnPage, situationAnswers, ways } from './core'
 import type { AnswerData, AnswersInput, Choices, DecisionId, Holdings, LineKind, Pick } from './core'
 import {
   answerCard,
@@ -198,17 +190,16 @@ test('retirement: the answer says the monthly pension the core estimates, where 
   await chip(page, situationName('retirement')).click()
   const answers = situationAnswers('retirement')
   const first = await expectAnswerFor(page, answers)
-  // The pension the core estimates for the money grown in the index.
-  const pension = answerFor({ ...answers, flexibility: 'CanWait' }).annuity
-  expect(pension, 'the core estimates a pension').toBeDefined()
-  // Where the core says it: among what the growth option leaves while the
-  // place is open, on the card once it isn't; and the page shows it once.
+  // Where the core says it: the growth option's second amount while the
+  // place type is the visitor's (chosen or not), on the card otherwise; and
+  // the page shows it once (the review's N7).
   const placeType = decisionsOf(first).find(({ decision }) => decision.id === 'PlaceType')
   const growing = placeType?.decision.options.find(
     ({ pick }) => JSON.stringify(pick) === '{"Flexibility":"CanWait"}',
   )
-  const growth = growing?.facts ?? []
-  expect([...growth, first.annuity]).toContain(pension)
+  const pension = growing?.also ?? first.annuity
+  expect(pension, 'the core estimates a pension').toBeDefined()
+  await expect(answerCard(page).getByText(pension!, { exact: true })).toHaveCount(1)
   await expect(answerCard(page).getByText(pension!, { exact: true })).toBeVisible()
   await expect(answerCard(page).locator('.annuity')).toHaveCount(Number(first.annuity !== undefined))
 })

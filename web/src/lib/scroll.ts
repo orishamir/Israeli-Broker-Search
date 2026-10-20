@@ -29,8 +29,9 @@ const MARGIN = 12
  * Keeps the option just chosen where it was on the screen while the answer
  * changes around it (lines above it may come or go, a phone has no scroll
  * anchoring in Safari), then, if the choice opened a decision the visitor
- * can't see, brings its question gently into view without pushing the
- * chosen option off the top. Stops as soon as the visitor scrolls.
+ * can't see whole, brings it gently into view: its question and its
+ * options, or as much of them as the screen holds. Stops as soon as the
+ * visitor scrolls.
  *
  * `find` finds the option again (the answer may draw it anew); `fresh`
  * says whether the answer is worked out for the latest inputs (a worker
@@ -57,24 +58,21 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean) {
 
   const revealNew = () => {
     const opened = [...openDecisions()].find((line) => !before.has(line))
-    const question = opened && document.querySelector(`section.answer [data-line="${opened}"] .question`)
-    if (!question) return
-    const box = question.getBoundingClientRect()
-    // What must stay on the screen of the chosen option: its pressed button,
-    // which says it was chosen (on a phone the options stack, and the whole
-    // option may be taller than the room left).
-    const chosen = find()?.querySelector('.choose')?.getBoundingClientRect().top ?? top
-    if (box.top < MARGIN) {
+    const group = opened && document.querySelector(`section.answer [data-line="${opened}"]`)
+    const question = group && group.querySelector('.question')
+    if (!group || !question) return
+    const asked = question.getBoundingClientRect().top
+    const bottom = group.getBoundingClientRect().bottom
+    if (asked < MARGIN) {
       // Opened above (it depends on nothing below it): go up to it.
-      scrollBy({ top: box.top - MARGIN * 4, behavior: behavior() })
-    } else if (box.bottom > innerHeight - MARGIN) {
-      // Below the screen: up to the middle, but the chosen button stays, if
-      // both fit on the screen. On a phone the options stack, and what lies
-      // between them can be taller than the screen: then the new question
-      // wins, since what was chosen is only above it (the review's X7).
-      const middle = box.top - innerHeight / 2
-      const keep = chosen - MARGIN
-      const by = box.bottom - keep <= innerHeight - MARGIN ? Math.min(middle, keep) : middle
+      scrollBy({ top: asked - MARGIN * 4, behavior: behavior() })
+    } else if (bottom > innerHeight - MARGIN) {
+      // Below the screen's end: the question alone isn't the decision, its
+      // options are (the review's N8). Up until the whole decision is on
+      // the screen, or, where it's taller than the screen (stacked options
+      // on a phone), until its question is near the top. What was chosen is
+      // above it, and may go off the top: the new question wins.
+      const by = Math.min(bottom - (innerHeight - MARGIN), asked - MARGIN * 4)
       if (by > 0) scrollBy({ top: by, behavior: behavior() })
     }
   }

@@ -38,7 +38,8 @@
   }
 </script>
 
-{#if app.answer && (pending || rows.length > 0)}
+<!-- Money that may be needed any day has no date to move: no section. -->
+{#if app.answer?.moves && (pending || rows.length > 0)}
   <section
     class="card horizons"
     class:waiting={!app.horizonsFresh}

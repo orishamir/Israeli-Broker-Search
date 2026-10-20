@@ -53,6 +53,9 @@
   --ease-out: cubic-bezier(0.2, 0, 0, 1);
   --ease-in: cubic-bezier(0.4, 0, 1, 1);
   --quick: 150ms var(--ease-out);
+  /* How long an answer may take before the last one fades while it's
+     worked out: a quick one never flickers. */
+  --awaiting-after: 150ms;
   /* The results moving to new numbers: the charts, the summary, the rows
      (`SETTLE` in motion.ts). */
   --settle: 400ms var(--ease-out);
