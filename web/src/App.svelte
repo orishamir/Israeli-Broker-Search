@@ -65,12 +65,14 @@
     <div class="item wide" style:--order="3"><OutcomeChart {app} /></div>
     <div class="item wide" style:--order="3"><HowTo {app} /></div>
     <div class="item wide" style:--order="3"><GainSplit {app} /></div>
-    <div class="item wide" style:--order="3"><HorizonSection {app} /></div>
     <!-- The workbench's table and charts, with the switch on. -->
     {#if app.expert}
       <div class="item wide" style:--order="5" transition:reveal><Within {app} /></div>
       <div class="item wide" style:--order="9" transition:reveal><Charts {app} /></div>
     {/if}
+    <!-- Last: its rows come from the worker a moment after the answer, and
+         grow it, so nothing anyone is working with sits below it. -->
+    <div class="item wide" style:--order="10"><HorizonSection {app} /></div>
   </div>
 </div>
 

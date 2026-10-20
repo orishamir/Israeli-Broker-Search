@@ -40,15 +40,13 @@ export async function setExpert(page: Page, on = true) {
  * index or a stock, whose plans on one exchange are what most specs compare
  * (the S&P 500 compares ways, bonds and short-term money the guide's kinds).
  * Waits for the exchange rates, which the table's footnote dates once
- * downloaded, and for the horizons above the table: they come from the
- * worker after the answer, and their rows push the table down when they do
- * (a hover there would find another row under the mouse). */
+ * downloaded. (The horizons, which the worker answers after the rest, sit
+ * below the table and charts, so their rows arriving moves nothing here.) */
 export async function workbench(page: Page, thing: string = t.thingOther) {
   await setExpert(page)
   await choice(page, t.whatToBuy, thing).click()
   if (thing === t.thingOther)
     await expect(page.locator('section.within .dates')).toContainText(dateText(RATES.date))
-  await expect(page.locator('section.horizons[aria-busy="true"]')).toHaveCount(0)
 }
 
 /** Types into one of the money fields (`now`, `monthly`, `horizon`). */
