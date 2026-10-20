@@ -209,3 +209,36 @@ pub(super) fn joined(provider: &Text, plan: &Text) -> Text {
         format!("{}\u{a0}· {}", provider.he, plan.he),
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal_macros::dec;
+
+    use super::*;
+
+    /// A place whose price may be too low says so, on its row and on the
+    /// kind's best place.
+    #[test]
+    fn a_place_that_may_cost_more_is_warned() {
+        let data = Data::listed();
+        let scenario = short_term::Scenario {
+            first_deposit: dec!(100_000),
+            monthly_deposit: dec!(0),
+            months: 24,
+            rate: Percent(dec!(4)),
+            inflation: Percent(dec!(2)),
+        };
+        let mut warned = 0;
+        for kind in [
+            Kind::MoneyMarketFund,
+            Kind::FixedDeposit,
+            Kind::GovernmentBond { linked: true },
+            Kind::GovernmentBond { linked: false },
+        ] {
+            let priced = price(kind, &data, &scenario, Decimal::ONE).unwrap();
+            assert_eq!(priced.warning.is_some(), priced.may_cost_more, "{kind:?}");
+            warned += usize::from(priced.may_cost_more);
+        }
+        assert!(warned > 0);
+    }
+}

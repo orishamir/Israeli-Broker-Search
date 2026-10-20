@@ -1090,30 +1090,49 @@ pub fn answer_with(
     Ok(answer)
 }
 
-/// What the lead way's best plan leaves with the deposits changed: the
-/// first one, and the month the monthly ones start.
-fn lead_with(
-    index: &IndexSide<'_>,
-    first_deposit: Decimal,
-    monthly_from: u32,
-    version: &Version,
+/// What the cushion's other answer leaves at the date, worked out as the
+/// answer to it would be, with its own best way and plan: with `fill`
+/// (the target and its months) the path through the fund, without it the
+/// money in the index from the start. A function of its own, and never
+/// inlined, so that `facts`, under which the engines run deep, keeps a
+/// small frame in a debug build.
+#[inline(never)]
+fn other_path(
+    answers: &Answers,
+    plain_index: &Answers,
     settings: &Settings,
-) -> Option<Decimal> {
-    let way = index.way(index.lead);
-    let best = way.best()?;
-    let base = crate::simulation::Scenario {
-        first_deposit,
-        monthly_from,
-        ..index.run.base.clone()
+    data: &Data,
+    ask: IndexAsk,
+    fill: Option<(Decimal, u32)>,
+    months: u32,
+) -> Option<Amount> {
+    // Only the lead's figure is read: no unlock line, which tries bigger
+    // first deposits, most of the time otherwise.
+    let ask = IndexAsk {
+        parts: Parts::ForAHorizonRow,
+        ..ask
     };
-    plan_outcome(
-        &index.run.cands[best.index],
-        way.way,
-        &base,
-        version,
-        &settings.rates,
-    )
-    .map(|outcome| outcome.after_tax)
+    let side = match fill {
+        None => index_side(plain_index, settings, data, ask)?,
+        Some((target, fill)) => {
+            let base = robust::versions(settings, None)[0];
+            let part = cushion_part(answers, target, fill, months, &base, data)?;
+            let waits = Answers {
+                now: Decimal::ZERO,
+                ..plain_index.clone()
+            };
+            let ask = IndexAsk {
+                run: RunAsked {
+                    monthly_from: part.fill,
+                    ..ask.run
+                },
+                cushion: Some(part),
+                ..ask
+            };
+            index_side(&waits, settings, data, ask)?
+        }
+    };
+    side.left(side.lead)
 }
 
 #[allow(
@@ -1136,7 +1155,8 @@ fn facts<'a>(
     // The guide offers no override of its own (the owner, 2026-10-19): the
     // workbench's stays in `settings` for the workbench.
     let mut place = place_of(answers, Overrides::default());
-    let (mut safe_answers, index_answers) = arena_answers(answers, place);
+    let (mut safe_answers, plain_index) = arena_answers(answers, place);
+    let index_answers = plain_index.clone();
     let index_months = route::index_years(&index_answers) * 12;
     let safe_months = |safe_answers: &Answers| match safe_answers.horizon {
         Horizon::Months(months) => months,
@@ -1162,21 +1182,19 @@ fn facts<'a>(
     } else {
         index_answers
     };
-    let mut index = index_side(
-        &index_answers,
-        settings,
-        data,
-        IndexAsk {
-            deposited: rough.today,
-            parts,
-            run: RunAsked {
-                monthly_from: path.map_or(0, |cushion| cushion.fill),
-                every_branch: existing,
-            },
-            cushion: path,
-            existing,
+    // The index on some deposits: the cushion's months, when it has some,
+    // go to the fund first.
+    let ask = |cushion: Option<CushionPart>| IndexAsk {
+        deposited: rough.today,
+        parts,
+        run: RunAsked {
+            monthly_from: cushion.map_or(0, |cushion| cushion.fill),
+            every_branch: existing,
         },
-    );
+        cushion,
+        existing,
+    };
+    let mut index = index_side(&index_answers, settings, data, ask(path));
     // Where the rules put the money in the index, the data decides how sure
     // that is (finding 4): only if the index's worst stretch of the past,
     // after fees and tax, beats the safe ways' best version (the rate half
@@ -1222,14 +1240,30 @@ fn facts<'a>(
         && !answers.needs_any_day
         && !existing
         && !missing.is_zero();
+    let months_to_fill = (missing.checked_div(answers.monthly))
+        .and_then(|months| months.ceil().to_u32())
+        .unwrap_or(u32::MAX);
+    let months = index.as_ref().map_or(index_months, |index| index.months);
+    let all = months_to_fill.saturating_add(12) > months;
+    // Each option of the cushion leaves what choosing it shows (principle
+    // 4): the other path is worked out as the answer to it would be. A
+    // horizon row reads no option, so it skips that.
+    let other = if !cushion_asked || parts == Parts::ForAHorizonRow || (all && path.is_none()) {
+        None
+    } else {
+        let fill = (path.is_none()).then_some((target, months_to_fill));
+        other_path(
+            answers,
+            &plain_index,
+            settings,
+            data,
+            ask(None),
+            fill,
+            months,
+        )
+    };
     let cushion = cushion_asked.then(|| {
-        let months_to_fill = (missing / answers.monthly)
-            .ceil()
-            .to_u32()
-            .unwrap_or(u32::MAX);
         let index = index.as_ref();
-        let months = index.map_or(index_months, |index| index.months);
-        let all = months_to_fill.saturating_add(12) > months;
         let level = super::safe::price_level(settings.inflation, months);
         let amount = |today: Decimal| Amount {
             today,
@@ -1238,22 +1272,10 @@ fn facts<'a>(
         let fund_alone =
             || safe_value(Kind::MoneyMarketFund, answers, months, &base, data).map(amount);
         let (has, has_not) = match index {
-            Some(index) if index.cushion.is_some() => (
-                lead_with(index, answers.now, 0, &base, settings).map(amount),
-                index.left(index.lead),
-            ),
+            Some(index) if index.cushion.is_some() => (other, index.left(index.lead)),
             Some(index) => (
                 index.left(index.lead),
-                if all {
-                    fund_alone()
-                } else {
-                    cushion_part(answers, target, months_to_fill, months, &base, data).and_then(
-                        |part| {
-                            lead_with(index, Decimal::ZERO, months_to_fill, &base, settings)
-                                .map(|left| amount(left + part.left.today))
-                        },
-                    )
-                },
+                if all { fund_alone() } else { other },
             ),
             None => (None, fund_alone()),
         };
@@ -2998,33 +3020,18 @@ fn horizons(f: &Facts<'_>) -> Vec<HorizonRow> {
             rows.extend(horizon_row(&facts_at, years, None, current));
             continue;
         }
-        // The two answers' facts differ only in the arena where both arenas
-        // run the same months: no need to work the engines out again.
-        let same_months = facts_at
-            .index
-            .as_ref()
-            .is_none_or(|index| index.months == facts_at.months);
+        // The two answers' facts differ only in the arena: both arenas run
+        // the row's whole years, so the engines needn't be worked out again.
         for (flexibility, answers) in [
             (Flexibility::Fixed, &fixed),
             (Flexibility::CanWait, &can_wait),
         ] {
-            if same_months {
-                facts_at.answers = answers;
-                facts_at.arena = match facts_at.place.arena(Some(flexibility)) {
-                    Some(Arena::Index) if facts_at.index.is_none() => Some(Arena::Safe),
-                    arena => arena,
-                };
-                rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
-            } else {
-                let facts_at = facts(
-                    answers,
-                    f.choices,
-                    f.settings,
-                    f.data,
-                    Parts::ForAHorizonRow,
-                );
-                rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
-            }
+            facts_at.answers = answers;
+            facts_at.arena = match facts_at.place.arena(Some(flexibility)) {
+                Some(Arena::Index) if facts_at.index.is_none() => Some(Arena::Safe),
+                arena => arena,
+            };
+            rows.extend(horizon_row(&facts_at, years, Some(flexibility), current));
         }
     }
     rows
@@ -3148,4 +3155,501 @@ fn horizon_row(
         per_shekel: (per(low), per(high)),
         per_shekel_text: gain_words::per_shekel(per(low), per(high)),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    //! The private parts the answer is made of, where a rule about the
+    //! answer as a whole can't reach them: the arithmetic of the cushion's
+    //! path, the index's figures with the cushion in them, the axis, and the
+    //! places a line names.
+
+    use std::sync::LazyLock;
+
+    use rust_decimal_macros::dec;
+
+    use super::*;
+    use crate::ExchangeRates;
+
+    static DATA: LazyLock<Data> = LazyLock::new(Data::listed);
+    static SETTINGS: LazyLock<Settings> = LazyLock::new(|| {
+        let mut settings = Settings::new(ExchangeRates::new(dec!(3.7), dec!(4.625)).unwrap());
+        settings.today = Some(time::macros::date!(2026 - 10 - 01));
+        settings
+    });
+
+    fn answers(now: Decimal, monthly: Decimal, months: u32) -> Answers {
+        Answers {
+            situation: None,
+            now,
+            monthly,
+            horizon: Horizon::Months(months),
+            flexibility: None,
+            cushion: None,
+            needs_any_day: false,
+            bank: Some(Bank::Hapoalim),
+        }
+    }
+
+    fn facts_of(answers: Answers) -> Facts<'static> {
+        let answers: &'static Answers = Box::leak(Box::new(answers));
+        facts(
+            answers,
+            Choices::default(),
+            &SETTINGS,
+            &DATA,
+            Parts::All { horizons: false },
+        )
+    }
+
+    fn base() -> Version {
+        robust::versions(&SETTINGS, None)[0]
+    }
+
+    // ─────────────────────────── Where the money goes ───────────────────────────
+
+    /// Appendix A's lines, each on its side.
+    #[test]
+    fn the_place_follows_the_lines() {
+        let place = |answers: Answers| place_of(&answers, Overrides::default());
+        let no_date = |now, monthly| Answers {
+            horizon: Horizon::Unknown,
+            ..answers(now, monthly, 1)
+        };
+        assert_eq!(
+            place(no_date(dec!(10_000), dec!(0))),
+            Place_::Asked { no_date: true }
+        );
+        assert_eq!(
+            place(no_date(dec!(0), dec!(1000))),
+            Place_::Index { chosen: false }
+        );
+        let at = |months| place(answers(dec!(10_000), dec!(0), months));
+        assert_eq!(at(12), Place_::Safe(SafeBecause::Short));
+        assert_eq!(at(13), Place_::Safe(SafeBecause::KnownDate));
+        assert_eq!(at(36), Place_::Safe(SafeBecause::KnownDate));
+        assert_eq!(at(37), Place_::Safe(SafeBecause::Rules));
+        assert_eq!(at(59), Place_::Safe(SafeBecause::Rules));
+        assert_eq!(at(60), Place_::Asked { no_date: false });
+        assert_eq!(at(84), Place_::Asked { no_date: false });
+    }
+
+    /// A sum with no date is asked as five years: the safe side as money
+    /// that may be needed any day, the index's as money that can wait.
+    #[test]
+    fn a_sum_with_no_date_is_asked_as_five_years() {
+        let sum = Answers {
+            horizon: Horizon::Unknown,
+            ..answers(dec!(10_000), dec!(0), 1)
+        };
+        let (safe, index) = arena_answers(&sum, Place_::Asked { no_date: true });
+        let five_years = Horizon::Months(NO_DATE_SUM_YEARS * 12);
+        assert_eq!(safe.horizon, five_years);
+        assert!(safe.needs_any_day);
+        assert_eq!(index.horizon, five_years);
+        assert_eq!(index.flexibility, Some(Flexibility::CanWait));
+        // A date that can move: each side takes its own answer, on the date.
+        let dated = answers(dec!(10_000), dec!(0), 72);
+        let (safe, index) = arena_answers(&dated, Place_::Asked { no_date: false });
+        assert_eq!(safe.flexibility, Some(Flexibility::Fixed));
+        assert_eq!(index.flexibility, Some(Flexibility::CanWait));
+        assert_eq!(safe.horizon, Horizon::Months(72));
+        assert!(!safe.needs_any_day);
+    }
+
+    // ─────────────────────────── The safe side ───────────────────────────
+
+    /// A way's two kinds (a bond linked or not) are led by the one that
+    /// leaves more, whichever comes first.
+    #[test]
+    fn a_ways_lead_is_its_best_kind() {
+        let scenario = crate::short_term::Scenario {
+            first_deposit: dec!(100_000),
+            monthly_deposit: dec!(0),
+            months: 48,
+            rate: SETTINGS.rate,
+            inflation: SETTINGS.inflation,
+        };
+        let price = |linked| {
+            super::super::safe::price(
+                Kind::GovernmentBond { linked },
+                &DATA,
+                &scenario,
+                Decimal::ONE,
+            )
+            .unwrap()
+        };
+        let (linked, unlinked) = (price(true), price(false));
+        assert_ne!(linked.left.today, unlinked.left.today);
+        let best = linked.left.today.max(unlinked.left.today);
+        for order in [
+            vec![linked.clone(), unlinked.clone()],
+            vec![unlinked, linked],
+        ] {
+            let groups = groups_of(order);
+            assert_eq!(groups.len(), 1);
+            assert_eq!(groups[0].lead.left.today, best);
+            assert!(groups[0].variant.as_ref().unwrap().left.today < best);
+        }
+    }
+
+    /// The rate moves only the money market fund; inflation moves every
+    /// safe kind; the index's return and the funds' fees move none.
+    #[test]
+    fn a_version_moves_the_safe_kinds_it_is_about() {
+        let f = facts_of(answers(dec!(100_000), dec!(2000), 36));
+        let fund = f.safe.group(SafeWay::MoneyMarketFund).unwrap();
+        let bond = f.safe.group(SafeWay::Bond).unwrap();
+        let mut seen = Vec::new();
+        for version in &f.versions {
+            let value = |group| f.safe.value(group, &f.safe_answers, version, f.data);
+            let (fund_moved, bond_moved) = (
+                value(fund) != fund.lead.left.today,
+                value(bond) != bond.lead.left.today,
+            );
+            match version.varies {
+                Varies::Rate => assert!(fund_moved && !bond_moved, "{version:?}"),
+                Varies::Inflation => assert!(fund_moved && bond_moved, "{version:?}"),
+                _ => assert!(!fund_moved && !bond_moved, "{version:?}"),
+            }
+            seen.push(version.varies);
+        }
+        assert!(seen.contains(&Varies::Rate) && seen.contains(&Varies::Inflation));
+    }
+
+    // ─────────────────────────── The cushion ───────────────────────────
+
+    /// The cushion's path: its months' deposits in the fund, then held there
+    /// to the end, the tax and fees of each step in the money of its own end.
+    #[test]
+    fn the_cushion_is_filled_then_held() {
+        let version = base();
+        let saver = answers(dec!(5000), dec!(2000), 120);
+        let fund = |first, monthly, months| {
+            super::super::safe::price(
+                Kind::MoneyMarketFund,
+                &DATA,
+                &crate::short_term::Scenario {
+                    first_deposit: first,
+                    monthly_deposit: monthly,
+                    months,
+                    rate: version.rate,
+                    inflation: version.inflation,
+                },
+                Decimal::ONE,
+            )
+            .unwrap()
+            .outcome
+        };
+        let level = |months| super::super::safe::price_level(version.inflation, months);
+        let part = cushion_part(&saver, dec!(24_000), 10, 120, &version, &DATA).unwrap();
+        let filled = fund(saver.now, saver.monthly, 10);
+        let held = fund(filled.after_tax, Decimal::ZERO, 110);
+        assert_eq!(part.fill, 10);
+        assert_eq!(part.left.nominal, held.after_tax);
+        assert_eq!(part.left.today, held.after_tax / level(120));
+        assert_eq!(part.tax, filled.tax / level(10) + held.tax / level(120));
+        assert_eq!(part.fees, filled.kept / level(10) + held.kept / level(120));
+        assert!(part.left.nominal > filled.after_tax, "held, it grows");
+        // Filled to the end, and past it: one step.
+        let once = fund(saver.now, saver.monthly, 120);
+        for fill in [120, 200] {
+            let part = cushion_part(&saver, dec!(24_000), fill, 120, &version, &DATA).unwrap();
+            assert_eq!(part.fill, 120);
+            assert_eq!(part.left.nominal, once.after_tax);
+            assert_eq!(part.tax, once.tax / level(120));
+            assert_eq!(part.fees, once.kept / level(120));
+        }
+    }
+
+    // ─────────────────────────── The index side ───────────────────────────
+
+    /// With no cushion yet, the cushion is part of every figure of the
+    /// index: what it leaves is added to each way's and each place's, and
+    /// its deposits, tax and fees to the gain's split.
+    #[test]
+    fn every_index_figure_holds_the_cushion() {
+        let saver = Answers {
+            cushion: Some(Cushion::HasNot {
+                monthly_expenses: None,
+            }),
+            ..answers(dec!(0), dec!(1000), 120)
+        };
+        let f = facts_of(saver.clone());
+        let index = f.index.as_ref().unwrap();
+        let cushion = index.cushion.expect("the path");
+        let offset = index.offset();
+        assert_eq!(offset, cushion.left.today);
+        assert!(offset > Decimal::ZERO);
+        let lead = index.lead;
+        let way = super::super::safe::amount(index.way(lead).after_tax().unwrap(), index.level);
+        let left = index.left(lead).unwrap();
+        assert_eq!(left.today, way.today + offset);
+        assert_eq!(left.nominal, way.nominal + offset * index.level);
+        let rates = &SETTINGS.rates;
+        assert_eq!(
+            index.value(lead, &base(), rates),
+            way_value(&index.run, index.way(lead), &base(), rates).map(|way| way + offset)
+        );
+        let bare = way_places(&index.run, index.way(lead), f.bank, false, index.level);
+        let places = index.places(lead, f.bank, false);
+        assert!(!places.is_empty());
+        for (place, bare) in places.iter().zip(&bare) {
+            assert_eq!(place.left.today, bare.left.today + offset);
+            assert_eq!(place.left.nominal, bare.left.nominal + offset * index.level);
+        }
+        // The split: the way's on its own deposits, the cushion's beside it.
+        let best = index.way(lead).best().unwrap();
+        let outcome = plan_outcome(
+            &index.run.cands[best.index],
+            index.way(lead).way,
+            &index.run.base,
+            &base(),
+            rates,
+        )
+        .unwrap();
+        let deposited = f.deposited.today;
+        let own = deposited - cushion.deposited;
+        let alone = split(&outcome, own);
+        assert_eq!(alone.kept, outcome.after_tax - own);
+        assert_eq!(alone.fees + alone.product, outcome.fees.total());
+        assert_eq!(alone.product, outcome.fees.product);
+        let both = index.split(&outcome, deposited);
+        assert_eq!(
+            both.kept,
+            alone.kept + cushion.left.today - cushion.deposited
+        );
+        assert_eq!(both.tax, alone.tax + cushion.tax);
+        assert_eq!(both.fees, alone.fees + cushion.fees);
+        assert_eq!(both.product, alone.product);
+        // A bigger first deposit leaves more than these deposits do, the
+        // cushion in both.
+        let unlock = index
+            .unlock
+            .as_ref()
+            .expect("no first deposit: an unlock line");
+        assert!(unlock.instead_of.today > left.today, "{unlock:?}");
+        assert!(unlock.after_tax.today > unlock.instead_of.today);
+        for amount in [unlock.after_tax, unlock.instead_of] {
+            let at_the_date = amount.today * index.level;
+            assert!(
+                (amount.nominal - at_the_date).abs() < dec!(0.01),
+                "{amount:?}"
+            );
+        }
+    }
+
+    /// The index's other ways: the next is another way anyone can open; a
+    /// study fund is drawn only when it leaves more than the margin more.
+    #[test]
+    fn the_index_s_next_and_study_fund_are_what_they_say() {
+        let mut drawn = [0, 0];
+        for monthly in [dec!(500), dec!(50)] {
+            let months = if monthly == dec!(50) { 120 } else { 360 };
+            let f = facts_of(answers(dec!(0), monthly, months));
+            let index = f.index.as_ref().unwrap();
+            let next = index.next.expect("another way");
+            assert_ne!(next, index.lead);
+            assert!(open_to_anyone(index.way(next).way));
+            assert!(index.way(next).best().is_some());
+            let lead = index.left(index.lead).unwrap().today;
+            for at in 0..index.run.ways.len() {
+                if index.way(at).way.vehicle != Vehicle::StudyFund {
+                    assert_ne!(index.study, Some(at));
+                    continue;
+                }
+                let beyond = index.left(at).unwrap().today - lead > f.kind_margin;
+                assert_eq!(index.study == Some(at), beyond, "{monthly}");
+                drawn[usize::from(beyond)] += 1;
+            }
+        }
+        assert!(drawn[0] > 0 && drawn[1] > 0, "{drawn:?}");
+    }
+
+    /// How many past stretches leave a way below a figure: none below its
+    /// worst, all above its best, about half at its median; and for the
+    /// lead, how many below the best safe way, which leaves more than was
+    /// deposited, so at least as many.
+    #[test]
+    fn the_stretches_below_a_figure_follow_the_market_range() {
+        let saver = answers(dec!(0), dec!(500), 360);
+        let f = facts_of(saver.clone());
+        let index = f.index.as_ref().unwrap();
+        let history = index.history.unwrap();
+        let lead = index.lead;
+        let (worst, median, best) = index.market[lead].unwrap();
+        let below = |target| stretches_below(index, &saver, lead, target, &SETTINGS);
+        assert_eq!(below(worst - dec!(1)), Some(0));
+        assert_eq!(below(worst), Some(0));
+        assert_eq!(below(best + dec!(1)), Some(history.windows));
+        let half = below(median).unwrap();
+        assert!(half.abs_diff(history.windows / 2) <= 3, "{half}");
+        let losses = index.losses[lead].unwrap();
+        let below_safe = losses.below_safe.expect("against the best safe way");
+        assert!(below_safe >= losses.below_deposited);
+        for at in index.drawn().into_iter().filter(|at| *at != lead) {
+            assert!(index.losses[at].is_some_and(|losses| losses.below_safe.is_none()));
+        }
+    }
+
+    /// The pension is the provident fund's own sum's, without the cushion
+    /// kept in a money market fund beside it, from the year of retiring.
+    #[test]
+    fn the_pension_is_the_funds_own_sum() {
+        let saver = Answers {
+            horizon: Horizon::Retirement {
+                age: 30,
+                retire_at: 67,
+            },
+            cushion: Some(Cushion::HasNot {
+                monthly_expenses: None,
+            }),
+            ..answers(dec!(0), dec!(3000), 0)
+        };
+        let f = facts_of(saver);
+        let index = f.index.as_ref().unwrap();
+        assert_eq!(index.way(index.lead).way.vehicle, Vehicle::InvestmentGemel);
+        assert!(index.offset() > Decimal::ZERO);
+        let sum = index.left(index.lead).unwrap().today - index.offset();
+        assert_eq!(
+            annuity_of(&f, Some(index.lead)),
+            crate::annuity::monthly(sum, 67, 2026 + 37)
+        );
+    }
+
+    // ─────────────────────────── The chart's axis ───────────────────────────
+
+    fn row(value: Decimal, mark: Mark, excluded: bool) -> Row {
+        Row {
+            id: Kind::MoneyMarketFund,
+            kind: Kind::MoneyMarketFund,
+            name: Text::new("", ""),
+            tags: Vec::new(),
+            mark,
+            value: Amount {
+                today: value,
+                nominal: value,
+            },
+            amount: Text::new("", ""),
+            tail: false,
+            active: true,
+            excluded: excluded.then(|| Text::new("out", "בחוץ")),
+            note: None,
+        }
+    }
+
+    fn amount(value: Decimal) -> Amount {
+        Amount {
+            today: value,
+            nominal: value,
+        }
+    }
+
+    /// From 5% below the lowest bad case to 5% above the highest typical
+    /// value: a market bar's best and an excluded row stretch nothing, and
+    /// an excluded row beyond the ends is a tail.
+    #[test]
+    fn the_axis_spans_what_is_typical() {
+        let rows = vec![
+            row(
+                dec!(120),
+                Mark::RateRange {
+                    low: amount(dec!(110)),
+                    high: amount(dec!(130)),
+                },
+                false,
+            ),
+            row(
+                dec!(150),
+                Mark::Market {
+                    worst: amount(dec!(70)),
+                    median: amount(dec!(140)),
+                    assumed: amount(dec!(150)),
+                    best: amount(dec!(400)),
+                    losses: Text::new("", ""),
+                },
+                false,
+            ),
+            row(dec!(500), Mark::Known, true),
+            row(dec!(10), Mark::Known, true),
+            row(dec!(100), Mark::Known, true),
+            row(dec!(154), Mark::Known, true),
+            row(dec!(66), Mark::Known, true),
+        ];
+        let ((low, high), rows) = axis(rows, amount(dec!(100)), amount(dec!(90)));
+        // 70 to 150, and 5% of the 80 between them each way.
+        assert_eq!((low, high), (dec!(66), dec!(154)));
+        let tails: Vec<bool> = rows.iter().map(|row| row.tail).collect();
+        assert_eq!(tails, [false, false, true, true, false, false, false]);
+        // Never below zero.
+        let (axis, _) = axis(
+            vec![row(dec!(100), Mark::Known, false)],
+            amount(dec!(1)),
+            amount(dec!(1)),
+        );
+        assert_eq!(axis.0, Decimal::ZERO);
+    }
+
+    // ─────────────────────────── The places ───────────────────────────
+
+    fn place(name: &str, left: Decimal, yours: bool) -> Place {
+        Place {
+            name: Text::owned(name.to_owned(), name.to_owned()),
+            provider: Text::owned(name.to_owned(), name.to_owned()),
+            left: amount(left),
+            bank: yours.then_some(Bank::Hapoalim),
+            yours,
+            cost_a_year: None,
+            cand: None,
+        }
+    }
+
+    fn names(texts: &[Text]) -> Vec<String> {
+        texts.iter().map(|text| text.en.to_string()).collect()
+    }
+
+    /// The tie group is every place within the providers' margin of the
+    /// best; the visitor's bank behind it joins the line within the margin
+    /// between kinds, named first, and the line's spread then runs from it.
+    #[test]
+    fn the_visitors_bank_joins_within_the_kinds_margin() {
+        let places = || {
+            vec![
+                place("A", dec!(10_000), false),
+                place("B", dec!(9900), false),
+                place("Y", dec!(9500), true),
+            ]
+        };
+        let apart = Where::new(places(), dec!(200));
+        assert_eq!(apart.ties, [0, 0, 1]);
+        assert_eq!(names(&apart.tied_names()), ["A", "B"]);
+        assert_eq!(apart.tied().len(), 2);
+        assert_eq!(apart.spread(), dec!(100));
+        assert_eq!(
+            apart.yours_name().map(|name| name.en.to_string()),
+            Some("Y".to_owned())
+        );
+        let joined = Where::new(places(), dec!(200)).join_yours(dec!(1000));
+        assert!(joined.yours_joins);
+        let your_bank = card::your_bank(&Text::owned("Y".to_owned(), "Y".to_owned()));
+        assert_eq!(
+            names(&joined.line_names()),
+            [your_bank.en.to_string(), "A".into(), "B".into()]
+        );
+        assert_eq!(joined.line_spread(), dec!(500));
+        let behind = Where::new(places(), dec!(200)).join_yours(dec!(400));
+        assert!(!behind.yours_joins);
+        assert_eq!(names(&behind.line_names()), ["A", "B"]);
+        assert_eq!(behind.line_spread(), dec!(100));
+        // Already in the tie group, it joins nothing.
+        let tied = Where::new(
+            vec![
+                place("A", dec!(10_000), false),
+                place("Y", dec!(9950), true),
+            ],
+            dec!(200),
+        )
+        .join_yours(dec!(1000));
+        assert!(!tied.yours_joins);
+    }
 }

@@ -227,6 +227,82 @@ mod tests {
         );
     }
 
+    /// A difference of exactly the margin is noise, in every version.
+    #[test]
+    fn exactly_the_margin_is_not_clear() {
+        let margin = dec!(10);
+        assert_eq!(
+            standing(&[(dec!(100), dec!(50)), (dec!(100), dec!(90))], margin),
+            Standing::Flips
+        );
+    }
+
+    fn settings(rate: Decimal, inflation: Decimal, index_return: Decimal) -> Settings {
+        let rates = crate::ExchangeRates::new(dec!(3.7), dec!(4.625)).unwrap();
+        Settings {
+            rate: Percent(rate),
+            inflation: Percent(inflation),
+            index_return: Percent(index_return),
+            ..Settings::new(rates)
+        }
+    }
+
+    fn version(varies: Varies, rate: &str, inflation: &str, index: &str) -> Version {
+        let p = |s: &str| Percent(s.parse().unwrap());
+        Version {
+            varies,
+            rate: p(rate),
+            inflation: p(inflation),
+            index_return: p(index),
+            fund_fee: if varies == Varies::FundFee {
+                FundFee::Negotiated
+            } else {
+                FundFee::Average
+            },
+        }
+    }
+
+    /// The settings first, then each thing the site can't know moved alone,
+    /// the others left as they are.
+    #[test]
+    fn each_version_moves_one_thing() {
+        let band = DepositsBand {
+            worst: Percent(dec!(-1.5)),
+            median: Percent(dec!(6.2)),
+            ..crate::history::deposits_band(dec!(1000), dec!(0), 120).unwrap()
+        };
+        let all = versions(&settings(dec!(4), dec!(2), dec!(7)), Some(&band));
+        let expected = [
+            version(Varies::Nothing, "4", "2", "7"),
+            version(Varies::Rate, "3.5", "2", "7"),
+            version(Varies::Rate, "4.5", "2", "7"),
+            version(Varies::Inflation, "4", "1", "7"),
+            version(Varies::Inflation, "4", "3", "7"),
+            version(Varies::IndexReturn, "4", "2", "5"),
+            version(Varies::IndexReturn, "4", "2", "10"),
+            version(Varies::History, "4", "2", "-1.5"),
+            version(Varies::History, "4", "2", "6.2"),
+            version(Varies::FundFee, "4", "2", "7"),
+        ];
+        assert_eq!(all, expected);
+    }
+
+    /// A version the settings already are isn't run twice, and the rate never
+    /// goes below zero.
+    #[test]
+    fn a_version_the_settings_already_are_is_left_out() {
+        let all = versions(&settings(dec!(0.2), dec!(3), dec!(10)), None);
+        let expected = [
+            version(Varies::Nothing, "0.2", "3", "10"),
+            version(Varies::Rate, "0", "3", "10"),
+            version(Varies::Rate, "0.7", "3", "10"),
+            version(Varies::Inflation, "0.2", "1", "10"),
+            version(Varies::IndexReturn, "0.2", "3", "5"),
+            version(Varies::FundFee, "0.2", "3", "10"),
+        ];
+        assert_eq!(all, expected);
+    }
+
     #[test]
     fn a_switch_point_within_the_rates_tried_flips_the_order() {
         // The fund leaves 100 to 120 at the rates tried.

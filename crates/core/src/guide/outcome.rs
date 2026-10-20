@@ -418,3 +418,80 @@ pub(super) fn at_end(today: Decimal, months: u32, inflation: Percent) -> Amount 
         nominal: today * price_level(inflation, months),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal_macros::dec;
+
+    use super::super::robust::Varies;
+    use super::*;
+
+    /// The money market funds' tie: the cheapest by fee, then each next one
+    /// while it leaves within the margin of the cheapest's, on the saver's
+    /// deposits in today's money; the gap is the cheapest's less the last's.
+    #[test]
+    fn the_funds_tie_is_the_cheapest_within_the_margin() {
+        let answers = Answers {
+            situation: None,
+            now: dec!(100_000),
+            monthly: dec!(1000),
+            horizon: super::super::Horizon::Months(36),
+            flexibility: None,
+            cushion: None,
+            needs_any_day: false,
+            bank: None,
+        };
+        let version = Version {
+            varies: Varies::Nothing,
+            rate: Percent(dec!(4)),
+            inflation: Percent(dec!(2)),
+            index_return: Percent(dec!(10)),
+            fund_fee: FundFee::Average,
+        };
+        let mut funds: Vec<&examples::MoneyMarketFund> =
+            examples::money_market_funds().iter().collect();
+        funds.sort_by_key(|fund| fund.fee);
+        // What each leaves on its own, the rate less its fee, in today's money.
+        let level = price_level(version.inflation, 36);
+        let left: Vec<Decimal> = funds
+            .iter()
+            .map(|fund| {
+                let scenario = safe_scenario(&answers, 36, &version);
+                short_term::simulate(
+                    &short_term::Place {
+                        name: Text::new("", ""),
+                        short_name: Text::new("", ""),
+                        description: Text::new("", ""),
+                        pays: short_term::Pays::TheRateLess(fund.fee),
+                        caveats: Vec::new(),
+                        compared_at_first: false,
+                    },
+                    &scenario,
+                )
+                .unwrap()
+                .after_tax
+                    / level
+            })
+            .collect();
+        assert!(left[0] > left[left.len() - 1]);
+        let mut sizes = Vec::new();
+        for margin in [dec!(0), dec!(100), dec!(500), dec!(1_000_000)] {
+            let tie = money_market_tie(&answers, 36, &version, margin).unwrap();
+            let n = tie.funds.len();
+            assert!(n >= 1);
+            assert!(tie.funds.iter().zip(&funds).all(|(a, b)| a.name == b.name));
+            assert!(
+                left[..n].iter().all(|this| left[0] - this <= margin),
+                "{margin}"
+            );
+            if let Some(next) = left.get(n) {
+                assert!(left[0] - next > margin, "{margin}");
+            }
+            assert_eq!(tie.gap, left[0] - left[n - 1], "{margin}");
+            sizes.push(n);
+        }
+        assert_eq!(sizes[3], funds.len());
+        assert!(sizes.windows(2).all(|pair| pair[0] <= pair[1]));
+        assert!(sizes[0] < sizes[3], "{sizes:?}");
+    }
+}

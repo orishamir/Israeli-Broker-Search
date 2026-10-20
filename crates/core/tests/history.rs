@@ -86,3 +86,59 @@ fn between_whole_years_the_band_is_halfway_between_the_rows() {
         (expected * Decimal::from(between.windows)).round()
     );
 }
+
+use broker_fees::Percent;
+use broker_fees::history::{deposits_band, deposits_band_from, stretches_below};
+
+/// Outside 1 to 30 years, or with the deposits starting after the end, the
+/// history says nothing about a saver's own deposits.
+#[test]
+fn a_saver_s_band_needs_a_stretch_it_can_cover() {
+    assert!(deposits_band(dec!(1000), dec!(100), 6).is_none());
+    assert!(deposits_band(dec!(1000), dec!(100), 361).is_none());
+    assert!(deposits_band_from(dec!(1000), dec!(100), 120, 120).is_none());
+    assert!(stretches_below(dec!(1000), dec!(100), 120, 120, Percent(dec!(5))).is_none());
+    assert!(deposits_band(dec!(1000), dec!(100), 12).is_some());
+}
+
+#[test]
+fn a_saver_s_band_is_ordered() {
+    for months in [12, 60, 240] {
+        let b = deposits_band(dec!(1000), dec!(100), months).unwrap();
+        assert!(b.worst < b.median && b.median < b.best, "{months}: {b:?}");
+        assert_eq!(b.windows, 1170 - months);
+    }
+}
+
+/// Monthly deposits that start in month 12 of 120 are a saver who puts in
+/// for 108 months, over the stretches that leave the first year out: some of
+/// the shorter saver's stretches, so never wider than theirs.
+#[test]
+fn deposits_that_start_late_are_a_shorter_saver_s() {
+    let late = deposits_band_from(dec!(0), dec!(100), 12, 120).unwrap();
+    let short = deposits_band(dec!(0), dec!(100), 108).unwrap();
+    assert!(
+        short.worst <= late.worst && late.best <= short.best,
+        "{late:?} {short:?}"
+    );
+    assert!(late.lower <= short.lower);
+    assert_eq!(late.windows + 12, short.windows);
+}
+
+/// How many stretches ended below a flat rate: none below the worst
+/// stretch's rate, all above the best's, and at 0% the ones that ended
+/// below what was put in.
+#[test]
+fn the_stretches_below_a_rate_follow_the_band() {
+    for (now, monthly, from) in [(dec!(1000), dec!(100), 12), (dec!(5000), dec!(0), 0)] {
+        for months in [24, 120] {
+            let b = deposits_band_from(now, monthly, from, months).unwrap();
+            let below = |rate: Decimal| stretches_below(now, monthly, from, months, Percent(rate));
+            assert_eq!(below(b.worst.0 - dec!(0.01)), Some(0), "{months}");
+            assert_eq!(below(b.best.0 + dec!(0.01)), Some(b.windows), "{months}");
+            assert_eq!(below(Decimal::ZERO), Some(b.lower), "{months}");
+            let half = below(b.median.0).unwrap();
+            assert!(half.abs_diff(b.windows / 2) <= 2, "{months}: {half}");
+        }
+    }
+}

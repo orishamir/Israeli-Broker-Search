@@ -1653,3 +1653,42 @@ fn nothing_is_said_about_moving_without_a_portfolio_at_a_bank() {
     short.situation = Some(Situation::ExistingPortfolio { bank: None });
     assert!(recommended(&short).move_portfolio.is_none());
 }
+
+/// The table's ranks count only the lines the first deposit opens, unless
+/// it opens none; a line it doesn't open has no rank.
+#[test]
+fn only_what_the_first_deposit_opens_is_ranked() {
+    use broker_fees::guide::{Amount, Kind, Ranked, ranked_standings};
+    let line = |left: Decimal, fits: bool| Ranked {
+        kind: Kind::MoneyMarketFund,
+        name: broker_fees::Text::new("A place", "מקום"),
+        left: Amount {
+            today: left,
+            nominal: left,
+        },
+        cost_a_year: None,
+        may_cost_more: false,
+        warning: None,
+        fees: None,
+        tax: None,
+        fits,
+        yours: false,
+        own_plan: None,
+    };
+    let ranks = |lines: &[Ranked]| -> Vec<Option<usize>> {
+        ranked_standings(lines)
+            .into_iter()
+            .map(|standing| standing.map(|standing| standing.rank))
+            .collect()
+    };
+    // The best doesn't open with this deposit: the other two are 1 and 2.
+    let some = [
+        line(dec!(30_000), false),
+        line(dec!(20_000), true),
+        line(dec!(10_000), true),
+    ];
+    assert_eq!(ranks(&some), [None, Some(1), Some(2)]);
+    // None opens: all are ranked, as they are.
+    let none = [line(dec!(30_000), false), line(dec!(20_000), false)];
+    assert_eq!(ranks(&none), [Some(1), Some(2)]);
+}

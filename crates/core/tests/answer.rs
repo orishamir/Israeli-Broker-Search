@@ -832,6 +832,33 @@ fn a_horizon_row_opens_exactly_what_it_showed() {
                 drawn.iter().any(|(_, high)| *high == row.high),
                 "{label}: high"
             );
+            // The range is what the opened answer leaves to it: the focused
+            // row, or the options of the way still open (a study fund only
+            // for those who have one), or the lit rows of its arena.
+            let rows = &opened.outcome.rows;
+            let open_way = decision(&opened, LineKind::Way).filter(|way| way.chosen.is_none());
+            let spanned: Vec<&Row> = match (opened.focus, open_way) {
+                (Some(focus), _) => rows.iter().filter(|shown| shown.id == focus).collect(),
+                (None, Some(way)) => way
+                    .options
+                    .iter()
+                    .filter(|option| option.pick != Pick::Wrapper(Wrapper::StudyFund))
+                    .flat_map(|option| &option.rows)
+                    .filter_map(|id| rows.iter().find(|shown| shown.id == *id))
+                    .collect(),
+                (None, None) => rows
+                    .iter()
+                    .filter(|shown| shown.active && shown.excluded.is_none())
+                    .filter(|shown| shown.kind.arena() == row.kind.arena())
+                    .collect(),
+            };
+            let low = spanned.iter().map(|shown| ends(shown).0.today).min();
+            let high = spanned.iter().map(|shown| ends(shown).1.today).max();
+            assert_eq!(low, Some(row.low.today), "{label}: the lowest it spans");
+            assert_eq!(high, Some(row.high.today), "{label}: the highest it spans");
+            assert_eq!(row.deposited, opened.outcome.deposited, "{label}");
+            let per = |amount: Amount| (amount.today / row.deposited.today).round_dp(2);
+            assert_eq!(row.per_shekel, (per(row.low), per(row.high)), "{label}");
         }
     }
 }
@@ -1020,6 +1047,23 @@ fn a_switch_inside_the_rate_bar_means_the_order_flips() {
         });
         if inside {
             flipped += 1;
+            // Where the fund and the way beside it trade places is said, as
+            // a rate (principle 6), when the difference measures that pair.
+            let fund = Pick::SafeWay(SafeWay::MoneyMarketFund);
+            let pair = &way.options[..2.min(way.options.len())];
+            let other_inside = pair.iter().any(|option| option.pick == fund)
+                && pair.iter().any(|option| {
+                    option.pick != fund
+                        && option
+                            .value
+                            .is_some_and(|value| low <= value.today && value.today <= high)
+                });
+            let said = way.difference.as_ref().map_or("", |text| &text.he);
+            assert!(
+                !other_inside || said.contains("בממוצע מעל כ") || said.contains("בממוצע מתחת לכ"),
+                "{:?}: {said}",
+                start.horizon
+            );
             assert!(
                 way.why.he.contains("בריבית שאף אחד לא יודע"),
                 "{:?}: {}",
@@ -2078,4 +2122,676 @@ fn an_options_second_amount_is_short() {
             }
         }
     }
+}
+
+// ─────────────────────────── The mutants' rules ───────────────────────────
+
+/// Small portfolios already at a bank, where moving saves little: every
+/// figure lies within the margins, so the rules' other side shows.
+fn small_portfolios() -> Vec<(Answers, Choices, Answer)> {
+    static ALL: LazyLock<Vec<(Answers, Choices, Answer)>> = LazyLock::new(|| {
+        let mut out = Vec::new();
+        for (now, months, bank) in [
+            (dec!(20_000), 36, None),
+            (dec!(20_000), 36, Some(Bank::Leumi)),
+            (dec!(5000), 24, None),
+            (dec!(5000), 24, Some(Bank::Discount)),
+        ] {
+            let start = Answers {
+                situation: Some(Situation::ExistingPortfolio { bank }),
+                bank: None,
+                ..answers(now, dec!(0), months)
+            };
+            for holdings in [None, Some(Holdings::IndexFunds)] {
+                let choices = Choices {
+                    holdings,
+                    ..Choices::default()
+                };
+                let answer = answered(&start, choices);
+                out.push((start.clone(), choices, answer));
+            }
+        }
+        out
+    });
+    ALL.clone()
+}
+
+/// What a nominal figure is to its today's one at the chart's date: the
+/// current account's, which keeps the deposits as they are.
+fn price_level(answer: &Answer) -> Decimal {
+    let account = answer.outcome.current_account;
+    account.nominal / account.today
+}
+
+/// Every figure on the chart's date has its nominal one at that date's
+/// prices: the rows and their marks, the options, the places and their
+/// differences, the banks' range.
+#[test]
+fn every_figure_at_the_date_has_its_nominal_at_the_date() {
+    for (start, choices, answer) in every_answer() {
+        // The index is worked out for whole years: beside a date that isn't
+        // one, its figures are at its own (`the_charts_deposits_are_over_the_rows_months`).
+        if matches!(start.horizon, Horizon::Months(months) if months % 12 != 0) {
+            continue;
+        }
+        let level = price_level(&answer);
+        let check = |amount: &Amount, what: &str| {
+            let expected = amount.today * level;
+            assert!(
+                (amount.nominal - expected).abs() <= Decimal::ONE + expected.abs() / dec!(100_000),
+                "{start:?} {choices:?} {what}: {amount:?} at {level}"
+            );
+        };
+        for row in &answer.outcome.rows {
+            check(&row.value, "a row");
+            match &row.mark {
+                Mark::RateRange { low, high } => {
+                    check(low, "the rate bar's low");
+                    check(high, "the rate bar's high");
+                }
+                Mark::Market {
+                    worst,
+                    median,
+                    assumed,
+                    best,
+                    ..
+                } => {
+                    for (amount, what) in [
+                        (worst, "worst"),
+                        (median, "median"),
+                        (assumed, "assumed"),
+                        (best, "best"),
+                    ] {
+                        check(amount, what);
+                    }
+                }
+                Mark::Known | Mark::Expected => {}
+            }
+        }
+        for line in &answer.lines {
+            if let LineState::Decision(decision) = &line.state {
+                for value in decision.options.iter().filter_map(|option| option.value) {
+                    check(&value, "an option");
+                }
+            }
+        }
+        for place in answer
+            .how
+            .iter()
+            .filter_map(|how| how.where_to_buy.as_ref())
+        {
+            for row in &place.rows {
+                check(&row.left, "a place");
+                if let Some(versus) = &row.versus_yours {
+                    check(versus, "against yours");
+                }
+            }
+            if let Some((low, high)) = &place.bank_range {
+                check(low, "the banks' low");
+                check(high, "the banks' high");
+            }
+        }
+    }
+}
+
+/// The deposits the chart draws are the visitor's own over the months its
+/// rows are worked out for: the date, or for the index the whole years it
+/// runs (70 months is 6 years), and a retirement's years.
+#[test]
+fn the_charts_deposits_are_over_the_rows_months() {
+    let mut all: Vec<(Answers, Answer)> = every_answer()
+        .into_iter()
+        .map(|(start, _, answer)| (start, answer))
+        .collect();
+    // A date that isn't whole years, which can wait: the index's arena.
+    let odd = Answers {
+        flexibility: Some(Flexibility::CanWait),
+        ..answers(dec!(10_000), dec!(1000), 66)
+    };
+    all.push((odd.clone(), answered(&odd, Choices::default())));
+    for (start, answer) in &all {
+        let deposits = |months: u32| start.now + start.monthly * Decimal::from(months);
+        let drawn = answer.outcome.deposited.nominal;
+        match start.horizon {
+            Horizon::Months(months) => {
+                let index = answer
+                    .outcome
+                    .rows
+                    .iter()
+                    .any(|row| row.active && matches!(row.kind, Kind::Way(_)));
+                let whole = (months + 6) / 12 * 12;
+                let expected = if index && !start.needs_any_day {
+                    deposits(whole)
+                } else {
+                    deposits(months)
+                };
+                assert_eq!(drawn, expected, "{start:?}");
+            }
+            Horizon::Retirement { age, retire_at } => {
+                assert_eq!(drawn, deposits((retire_at - age) * 12), "{start:?}");
+            }
+            Horizon::Unknown => {}
+        }
+    }
+}
+
+/// The plan is shown once every decision is made and no line waits.
+#[test]
+fn the_plan_comes_once_nothing_is_open() {
+    let mut shown = 0;
+    for (start, choices, answer) in every_answer() {
+        let waiting = answer
+            .lines
+            .iter()
+            .any(|line| line.state == LineState::Waiting);
+        let open = answer.open_decisions > 0 || waiting;
+        assert_eq!(answer.plan.is_some(), !open, "{start:?} {choices:?}");
+        shown += usize::from(!open);
+    }
+    assert!(shown > 0);
+}
+
+/// Where to buy: the best's tie group and the next, four at most, and the
+/// visitor's bank always, as the reference the others are measured from;
+/// a plan that may cost more is warned once, on its row or under them;
+/// and the bank is asked only where naming it would move the reference by
+/// more than the providers' margin.
+#[test]
+fn where_to_buy_shows_the_ties_and_measures_from_your_bank() {
+    let (mut warned, mut unlocks, mut asked, mut not_asked) = (0, 0, 0, 0);
+    for (start, choices, answer) in every_answer().into_iter().chain(small_portfolios()) {
+        let lead = answer
+            .outcome
+            .rows
+            .iter()
+            .find(|row| matches!(row.kind, Kind::Way(_)))
+            .map(|row| row.id);
+        let margin = provider_margin(answer.outcome.deposited.today);
+        for how in &answer.how {
+            let Some(place) = &how.where_to_buy else {
+                continue;
+            };
+            let label = format!("{start:?} {choices:?} {:?}", how.row);
+            let others: Vec<&Provider> = place.rows.iter().filter(|row| !row.yours).collect();
+            assert!(others.len() <= 4, "{label}");
+            assert!(others.iter().all(|row| row.tie <= 1), "{label}");
+            let yours = place.rows.iter().find(|row| row.yours);
+            let existing = is_existing(&start);
+            assert_eq!(
+                place.title,
+                broker_fees::describe::card::where_title(yours.is_some(), existing),
+                "{label}: the title says what the rows are measured from"
+            );
+            for row in &place.rows {
+                let expected = yours.filter(|_| !row.yours).map(|yours| Amount {
+                    today: row.left.today - yours.left.today,
+                    nominal: row.left.nominal - yours.left.nominal,
+                });
+                assert_eq!(row.versus_yours, expected, "{label}");
+            }
+            let warnings = place
+                .rows
+                .iter()
+                .filter(|row| row.warning.is_some())
+                .count();
+            assert!(warnings <= 1, "{label}");
+            assert!(warnings == 0 || place.may_cost_more.is_none(), "{label}");
+            warned += usize::from(warnings > 0 || place.may_cost_more.is_some());
+            unlocks += usize::from(place.unlock.is_some());
+            // What a bigger first deposit or a plan that may cost more would
+            // do is said of the way the rules lead with, under its places.
+            if Some(how.row) != lead {
+                assert!(warnings == 0 && place.may_cost_more.is_none(), "{label}");
+                assert!(place.unlock.is_none(), "{label}");
+            }
+            if how.row == Kind::MoneyMarketFund {
+                assert!(place.rows.is_empty() && place.note.is_some(), "{label}");
+            }
+            let widens = start.bank.is_none()
+                && how.row != Kind::MoneyMarketFund
+                && place
+                    .rows
+                    .first()
+                    .zip(place.bank_range)
+                    .is_some_and(|(best, (low, _))| best.left.today - low.today > margin);
+            assert_eq!(place.asks_bank, widens, "{label}");
+            asked += usize::from(place.asks_bank);
+            not_asked += usize::from(start.bank.is_none() && place.bank_range.is_some() && !widens);
+        }
+    }
+    assert!(
+        warned > 0 && unlocks > 0 && asked > 0 && not_asked > 0,
+        "{warned} {unlocks} {asked} {not_asked}"
+    );
+}
+
+/// Every row of a kind bought at places has its places, the row's own
+/// figure among them: the best place's.
+#[test]
+fn every_rows_places_hold_its_figure() {
+    for (start, choices, answer) in every_answer() {
+        for how in &answer.how {
+            let Some(row) = answer.outcome.rows.iter().find(|row| row.id == how.row) else {
+                continue;
+            };
+            if !matches!(
+                row.kind,
+                Kind::Way(_) | Kind::GovernmentBond { .. } | Kind::FixedDeposit
+            ) {
+                continue;
+            }
+            let places = &how.where_to_buy.as_ref().unwrap().rows;
+            assert!(
+                places
+                    .iter()
+                    .any(|place| (place.left.today - row.value.today).abs() < dec!(0.01)),
+                "{start:?} {choices:?} {:?}: {} among {:?}",
+                row.kind,
+                row.value.today,
+                places
+                    .iter()
+                    .map(|place| place.left.today)
+                    .collect::<Vec<_>>()
+            );
+        }
+    }
+}
+
+/// The rows follow the choices (§2.6): before a way is chosen every
+/// option's rows are lit, once chosen only its own; a row the rules exclude
+/// is never lit; and only the money market fund's bar carries the rate's
+/// note.
+#[test]
+fn the_rows_light_with_the_choices() {
+    for (start, choices, answer) in every_answer() {
+        let label = format!("{start:?} {choices:?}");
+        let active = |id: &RowId| {
+            answer
+                .outcome
+                .rows
+                .iter()
+                .find(|row| row.id == *id)
+                .map(|row| row.active)
+        };
+        for row in &answer.outcome.rows {
+            assert!(
+                row.excluded.is_none() || !row.active,
+                "{label} {:?}",
+                row.kind
+            );
+            if matches!(row.mark, Mark::Known) && row.kind.arena() == Some(Arena::Safe) {
+                assert!(row.note.is_none(), "{label} {:?}", row.kind);
+            }
+        }
+        for line in &answer.lines {
+            let LineState::Decision(decision) = &line.state else {
+                continue;
+            };
+            if !matches!(decision.id, DecisionId::SafeWay | DecisionId::Wrapper) {
+                continue;
+            }
+            let chosen = decision
+                .options
+                .iter()
+                .find(|option| Some(option.pick) == decision.chosen);
+            for option in &decision.options {
+                for id in &option.rows {
+                    let lit = match chosen {
+                        None => true,
+                        Some(chosen) => chosen.rows.contains(id),
+                    };
+                    if let Some(active) = active(id) {
+                        assert_eq!(active, lit, "{label} {:?} {id:?}", option.pick);
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// A study fund is offered beside the way anyone can open only when it
+/// leaves more by more than the margin between kinds.
+#[test]
+fn a_study_fund_is_asked_only_beyond_the_margin() {
+    let mut asked = 0;
+    for (start, choices, answer) in every_answer() {
+        let Some(wrapper) =
+            decision(&answer, LineKind::Way).filter(|d| d.id == DecisionId::Wrapper)
+        else {
+            continue;
+        };
+        asked += 1;
+        let value = |pick| {
+            wrapper
+                .options
+                .iter()
+                .find(|option| option.pick == Pick::Wrapper(pick))
+                .unwrap()
+        };
+        let (anyone, study) = (value(Wrapper::Anyone), value(Wrapper::StudyFund));
+        let gap = study.value.unwrap().today - anyone.value.unwrap().today;
+        let margin = kind_margin(answer.outcome.deposited.today);
+        assert!(gap > margin, "{start:?} {choices:?}: {gap} under {margin}");
+        assert!(
+            study
+                .rows
+                .iter()
+                .all(|row| matches!(row, Kind::Way(way) if way.vehicle == broker_fees::Vehicle::StudyFund)),
+            "{start:?}"
+        );
+    }
+    assert!(asked > 0);
+}
+
+/// A portfolio already at a bank: it is moved as it is, an index fund in
+/// Tel Aviv; the chip says "hard to go wrong" exactly when moving saves
+/// more than the margin between kinds, against the named bank or the bank
+/// that leaves most, and the move is "clear" only then and with one place
+/// to move to, and the plan moves it only then; for managed funds or holdings not known, the gain isn't
+/// drawn, since no fee decides anything there.
+#[test]
+fn a_portfolio_moves_when_it_saves_beyond_the_margin() {
+    let (mut cases, mut states) = (0, HashSet::new());
+    let small: Vec<Answers> = small_portfolios()
+        .into_iter()
+        .map(|(start, _, _)| start)
+        .collect();
+    for start in starts().into_iter().filter(is_existing).chain(small) {
+        for holdings in [None, Some(Holdings::IndexFunds)] {
+            let answer = answered(
+                &start,
+                Choices {
+                    holdings,
+                    ..Choices::default()
+                },
+            );
+            let lead = &answer.outcome.rows[0];
+            let Kind::Way(way) = lead.kind else {
+                panic!("{start:?}: the lead is the index")
+            };
+            assert_eq!(way.vehicle, broker_fees::Vehicle::Brokerage);
+            assert_eq!(way.product, broker_fees::Product::IsraeliIndexFund);
+            let place = answer
+                .how
+                .iter()
+                .find(|how| how.row == lead.id)
+                .and_then(|how| how.where_to_buy.as_ref())
+                .unwrap();
+            let best = place.rows[0].left.today;
+            let reference = place
+                .rows
+                .iter()
+                .find(|row| row.yours)
+                .map(|row| row.left.today)
+                .or(place.bank_range.map(|(_, high)| high.today))
+                .unwrap();
+            let margin = kind_margin(answer.outcome.deposited.today);
+            let worth = best - reference > margin;
+            assert_eq!(
+                answer.confidence.state == ConfidenceState::A,
+                worth,
+                "{start:?}: {best} from {reference}"
+            );
+            states.insert(worth);
+            if holdings.is_some() {
+                let one = place.rows.iter().filter(|row| row.tie == 0).count() == 1;
+                let Some(LineState::Stated { pill, .. }) =
+                    line(&answer, LineKind::Where).map(|line| &line.state)
+                else {
+                    panic!("{start:?}: the move is stated");
+                };
+                assert_eq!(*pill == Pill::Clear, worth && one, "{start:?}");
+                // The plan moves it only when that saves (finding 2).
+                let plan = answer.plan.as_ref().expect("the move's plan");
+                assert_eq!(
+                    plan.en.contains("Keep the portfolio where it is"),
+                    !worth,
+                    "{start:?}: {}",
+                    plan.en
+                );
+            }
+            cases += 1;
+        }
+        for holdings in [Holdings::Managed, Holdings::DontKnow] {
+            let answer = answered(
+                &start,
+                Choices {
+                    holdings: Some(holdings),
+                    ..Choices::default()
+                },
+            );
+            assert!(answer.gain.is_none(), "{start:?} {holdings:?}");
+        }
+    }
+    assert!(cases > 0 && states.len() == 2, "{states:?}");
+}
+
+/// The cushion's options (finding 1): each says what it leaves whichever is
+/// chosen, and that is what the chart's lit row leaves once it is chosen;
+/// "not yet" leaves less, the money waiting in a fund first; and it says
+/// the month's expenses it is sized by. Where the cushion takes all the
+/// time but a year, it is still a path; past that, every shekel goes to it.
+#[test]
+fn the_cushions_options_keep_their_figures() {
+    let starts = [
+        (answers(dec!(0), dec!(500), 360), None),
+        (answers(dec!(20_000), dec!(2000), 360), None),
+        // 60 months to fill, a year left for the index: a path.
+        (answers(dec!(0), dec!(400), 72), Some(Flexibility::CanWait)),
+        // 80 months to fill: all of it goes to the cushion.
+        (answers(dec!(0), dec!(300), 72), Some(Flexibility::CanWait)),
+    ];
+    for (start, flexibility) in starts {
+        let start = Answers {
+            flexibility,
+            ..start
+        };
+        let with = |cushion| {
+            answered(
+                &Answers {
+                    cushion,
+                    ..start.clone()
+                },
+                Choices::default(),
+            )
+        };
+        let open = with(None);
+        let has = with(Some(Cushion::Has));
+        let has_not = with(Some(Cushion::HasNot {
+            monthly_expenses: None,
+        }));
+        let option = |answer: &Answer, pick| {
+            decision(answer, LineKind::Before)
+                .unwrap_or_else(|| panic!("{start:?}: the cushion is asked"))
+                .options
+                .iter()
+                .find(|option| option.pick == Pick::Cushion(pick))
+                .cloned()
+                .unwrap()
+        };
+        let asked = decision(&open, LineKind::Before).unwrap();
+        let texts: String = [&asked.question, &asked.why]
+            .into_iter()
+            .chain(asked.options.iter().map(|option| &option.amount))
+            .chain(asked.options.iter().flat_map(|option| &option.facts))
+            .map(|text| text.he.to_string())
+            .collect();
+        assert!(
+            amounts_in(&texts).contains(&STAND_IN_MONTHLY_EXPENSES),
+            "{texts}"
+        );
+        for (pick, chosen) in [(CushionPick::Has, &has), (CushionPick::HasNot, &has_not)] {
+            let amount = option(&open, pick).value.unwrap();
+            let at_the_date = amount.today * price_level(&open);
+            assert!(
+                (amount.nominal - at_the_date).abs() < Decimal::ONE,
+                "{start:?} {amount:?}"
+            );
+            let value = amount.today;
+            for answer in [&has, &has_not] {
+                assert_eq!(
+                    option(answer, pick).value.unwrap().today,
+                    value,
+                    "{start:?} {pick:?}"
+                );
+            }
+            let first = option(chosen, pick).rows[0];
+            let row = chosen
+                .outcome
+                .rows
+                .iter()
+                .find(|row| row.id == first)
+                .unwrap();
+            assert!(row.active, "{start:?} {pick:?}");
+            assert_eq!(row.value.today, value, "{start:?} {pick:?}");
+        }
+        assert!(
+            option(&open, CushionPick::HasNot).value.unwrap().today
+                < option(&open, CushionPick::Has).value.unwrap().today,
+            "{start:?}"
+        );
+        let takes_all = start.monthly == dec!(300);
+        let index_lit = has_not
+            .outcome
+            .rows
+            .iter()
+            .any(|row| row.active && matches!(row.kind, Kind::Way(_)));
+        assert_eq!(index_lit, !takes_all, "{start:?}");
+    }
+}
+
+/// The past said beside the growth option is on its figures' basis: "even
+/// less than was put in" exactly when the index's worst stretch leaves less
+/// than the deposits.
+#[test]
+fn even_less_than_was_put_in_only_when_it_was() {
+    let mut said = [0, 0];
+    for (start, choices, answer) in every_answer() {
+        if decision(&answer, LineKind::PlaceType).is_none() {
+            continue;
+        }
+        let Some(worst) = answer.outcome.rows.iter().find_map(|row| match &row.mark {
+            Mark::Market { worst, .. } => Some(worst.today),
+            _ => None,
+        }) else {
+            continue;
+        };
+        let below = worst < answer.outcome.deposited.today;
+        let place = decision(&answer, LineKind::PlaceType).unwrap();
+        let texts: String = [&answer.body, &place.question, &place.why]
+            .into_iter()
+            .chain(&place.difference)
+            .chain(place.options.iter().map(|option| &option.amount))
+            .chain(place.options.iter().flat_map(|option| &option.facts))
+            .map(|text| text.he.to_string())
+            .collect();
+        let says = texts.contains("ואפילו פחות ממה ש");
+        assert_eq!(says, below, "{start:?} {choices:?}");
+        said[usize::from(below)] += 1;
+    }
+    assert!(said[0] > 0 && said[1] > 0, "{said:?}");
+}
+
+/// A safe answer the rules state is "hard to go wrong" exactly when its way
+/// is stated too: one way leads clearly, in every version, or there is one.
+#[test]
+fn a_safe_answer_is_clear_when_its_way_is() {
+    let mut clear = 0;
+    for (start, choices, answer) in every_answer() {
+        let safe = answer
+            .outcome
+            .rows
+            .iter()
+            .filter(|row| row.active)
+            .all(|row| row.kind.arena() == Some(Arena::Safe));
+        if !safe || !is_stated(&answer, LineKind::PlaceType) || is_existing(&start) {
+            continue;
+        }
+        let stated = is_stated(&answer, LineKind::Way);
+        assert_eq!(
+            answer.confidence.state == ConfidenceState::A,
+            stated,
+            "{start:?} {choices:?}"
+        );
+        clear += usize::from(stated);
+    }
+    assert!(clear > 0);
+}
+
+/// For retirement, once the rules state the index, the card gives the
+/// monthly pension the provident fund's sum would pay, as a range.
+#[test]
+fn a_stated_retirement_gives_the_pension() {
+    let start = Answers {
+        horizon: Horizon::Retirement {
+            age: 30,
+            retire_at: 67,
+        },
+        cushion: Some(Cushion::Has),
+        ..answers(dec!(0), dec!(3000), 0)
+    };
+    let answer = answered(&start, Choices::default());
+    assert!(
+        is_stated(&answer, LineKind::PlaceType),
+        "{:?}",
+        answer.lines
+    );
+    let annuity = answer.annuity.expect("the pension");
+    assert_eq!(amounts_in(&annuity.he).len(), 2, "{}", annuity.he);
+}
+
+/// "How much of the gain stays" is drawn only where fees or tax decide
+/// something on the page (§2.7): the account or the move (fees), the study
+/// fund (tax), or retirement's way out (tax), and then for what that
+/// decision weighs: the study fund beside the account only once it was
+/// offered, and for retirement the brokerage account beside the provident
+/// fund.
+#[test]
+fn the_gain_is_drawn_only_where_fees_or_tax_decide() {
+    let mut retirements = 0;
+    for (start, choices, answer) in every_answer().into_iter().chain(small_portfolios()) {
+        let Some(gain) = &answer.gain else { continue };
+        let label = format!("{start:?} {choices:?}");
+        let asked = |id| {
+            answer
+                .lines
+                .iter()
+                .any(|line| matches!(&line.state, LineState::Decision(d) if d.id == id))
+        };
+        let moved = is_existing(&start) && choices.holdings == Some(Holdings::IndexFunds);
+        let index_lit = answer
+            .outcome
+            .rows
+            .iter()
+            .any(|row| row.active && matches!(row.kind, Kind::Way(_)));
+        let retirement = matches!(start.horizon, Horizon::Retirement { .. }) && index_lit;
+        assert!(
+            asked(DecisionId::Account) || asked(DecisionId::Wrapper) || moved || retirement,
+            "{label}"
+        );
+        assert!(gain.rows.len() <= 3, "{label}");
+        if (asked(DecisionId::Account) || moved) && !asked(DecisionId::Wrapper) {
+            assert_eq!(gain.rows.len(), 2, "{label}");
+        }
+        if retirement && !asked(DecisionId::Account) && !asked(DecisionId::Wrapper) {
+            retirements += 1;
+            let name = |vehicle| {
+                answer.outcome.rows.iter().find_map(|row| match row.kind {
+                    Kind::Way(way) if way.vehicle == vehicle => Some(row.name.clone()),
+                    _ => None,
+                })
+            };
+            let names: Vec<broker_fees::Text> =
+                gain.rows.iter().map(|row| row.name.clone()).collect();
+            assert_eq!(
+                names,
+                [
+                    name(broker_fees::Vehicle::Brokerage).unwrap(),
+                    name(broker_fees::Vehicle::InvestmentGemel).unwrap()
+                ],
+                "{label}"
+            );
+        }
+    }
+    assert!(retirements > 0);
 }

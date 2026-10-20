@@ -449,7 +449,7 @@ by more than a half deserves a look.
 | `compare` every plan, Tel Aviv / USA                         | 5.8 / 9.6 ms |
 | `answer`, 3 years safe, without / with horizons (2026-10-20) |   9 / 100 ms |
 | `answer`, index, 20 years, without / with horizons           |  31 / 125 ms |
-| `answer`, ₪500 a month for 30 years, without / with horizons |  64 / 154 ms |
+| `answer`, ₪500 a month for 30 years, without / with horizons |  83 / 177 ms |
 
 ## Conventions
 

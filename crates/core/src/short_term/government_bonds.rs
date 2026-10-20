@@ -241,8 +241,10 @@ fn compared(linkage: Linkage, scenario: &Scenario) -> Result<simulation::Compari
 }
 
 /// Every broker's plan that can hold the bonds for `scenario` and what it leaves
-/// after the long-term simulation's tax and fees, best first: the ranking the
-/// cheapest plan comes from.
+/// after the bond's own tax ([`super::simulate`]'s: 15% of the interest for a
+/// shekel bond, 25% of the real gain for a linked one), best first: the
+/// ranking the cheapest plan comes from, each plan's figure what the bond
+/// would leave through it.
 ///
 /// # Errors
 ///
@@ -253,22 +255,45 @@ pub fn broker_ranking(
 ) -> Result<Vec<(Via, Decimal)>, NotOffered> {
     let comparison = compared(linkage, scenario)?;
     let plans = plans();
-    Ok(comparison
+    let tax = super::Pays::GovernmentBond(linkage).tax();
+    let mut ranked: Vec<(Via, Decimal)> = comparison
         .plans
         .iter()
         .filter(|plan| plan.fits)
         .filter_map(|plan| {
             let outcome = plan.outcome.as_ref().ok()?;
             let (broker, plan) = &plans[plan.index];
+            let end = *ended(outcome, scenario.months).last()?;
+            let left = end - tax.on(end - scenario.deposited(), scenario.kept_up_with_prices());
             Some((
                 Via {
                     broker: broker.clone(),
                     plan: plan.name.clone(),
                 },
-                outcome.after_tax,
+                left,
             ))
         })
-        .collect())
+        .collect();
+    ranked.sort_by_key(|(_, left)| std::cmp::Reverse(*left));
+    Ok(ranked)
+}
+
+/// A plan's value month by month to the end of the wait: the simulation
+/// counts whole years, so the money is read at the month the wait ends, and
+/// at whole years that is what the redemption pays out.
+fn ended(outcome: &simulation::Outcome, months: u32) -> Vec<Decimal> {
+    let mut value_by_month: Vec<Decimal> = outcome
+        .value_by_month
+        .iter()
+        .take(months as usize + 1)
+        .copied()
+        .collect();
+    if months.is_multiple_of(12)
+        && let Some(last) = value_by_month.last_mut()
+    {
+        *last = outcome.after_selling;
+    }
+    value_by_month
 }
 
 /// What the saver's deposits come to held to the end, month by month, in
@@ -288,21 +313,8 @@ pub(super) fn run(linkage: Linkage, scenario: &Scenario) -> Result<Run, NotOffer
     let outcome = best.outcome.as_ref().expect("checked above");
     let (broker, plan) = &plans[best.index];
 
-    // The simulation counts whole years: the money is read at the month the
-    // wait ends. At whole years that is what the redemption pays out.
-    let mut value_by_month: Vec<Decimal> = outcome
-        .value_by_month
-        .iter()
-        .take(months as usize + 1)
-        .copied()
-        .collect();
-    if months.is_multiple_of(12) {
-        *value_by_month
-            .last_mut()
-            .expect("the start is always there") = outcome.after_selling;
-    }
     Ok(Run {
-        value_by_month,
+        value_by_month: ended(outcome, months),
         via: Via {
             broker: broker.clone(),
             plan: plan.name.clone(),
@@ -602,5 +614,37 @@ mod tests {
             yield_for_months(Linkage::Unlinked, 16 * 12),
             Err(OutsideTheCurve::TooLong)
         );
+    }
+
+    /// Every account's figure is what the bond leaves through it after the
+    /// bond's own tax, as the kind's figure is: the best account's is the
+    /// kind's. The money is read at the month the wait ends, whole years or
+    /// not.
+    #[test]
+    fn an_accounts_figure_is_the_bonds_through_it() {
+        for linkage in [Linkage::Unlinked, Linkage::CpiLinked] {
+            for months in [30, 36] {
+                let scenario = Scenario {
+                    first_deposit: dec!(100_000),
+                    monthly_deposit: dec!(1000),
+                    months,
+                    rate: Percent(dec!(4)),
+                    inflation: Percent(dec!(2)),
+                };
+                let place = super::super::Place {
+                    name: t("A bond", "אג״ח"),
+                    short_name: t("A bond", "אג״ח"),
+                    description: t("", ""),
+                    pays: super::super::Pays::GovernmentBond(linkage),
+                    caveats: Vec::new(),
+                    compared_at_first: false,
+                };
+                let kind = super::super::simulate(&place, &scenario).unwrap();
+                assert_eq!(kind.value_by_month.len(), months as usize + 1);
+                let ranking = broker_ranking(linkage, &scenario).unwrap();
+                assert_eq!(ranking[0].1, kind.after_tax, "{linkage:?} {months}");
+                assert!(ranking.windows(2).all(|pair| pair[0].1 >= pair[1].1));
+            }
+        }
     }
 }
