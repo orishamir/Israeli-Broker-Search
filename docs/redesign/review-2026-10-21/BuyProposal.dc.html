@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: איפה לקנות וכמה מהרווח נשאר</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 1000px; height: 760px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 16px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <section aria-labelledby="buy-h" style="padding: 16px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <h2 id="buy-h" style="margin: 0 0 8px; font-size: 1.05rem;">איפה לקנות קרן סל על מדד מניות רחב</h2>
+    <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 24px; max-width: 640px;">
+      <span style="padding: 9px 0; display: flex; align-items: center; gap: 8px; font-weight: 600;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>אינטראקטיב, חשבון חדש</span>
+      <span style="padding: 9px 0; font-weight: 700; white-space: nowrap;">בערך ₪427,000</span>
+      <span style="padding: 9px 0; border-top: 1px solid rgba(255,255,255,0.08);">דרך בנק <span style="color: #a3a9b8; font-size: 0.85rem;">(נקודת השוואה, מהיקר ועד מזרחי באונליין)</span></span>
+      <span style="padding: 9px 0; border-top: 1px solid rgba(255,255,255,0.08); white-space: nowrap;">בערך ₪322,000 עד ₪339,000</span>
+    </div>
+    <p style="margin: 8px 0 0; font-size: 0.92rem;"><strong>באינטראקטיב:</strong> בין ₪88,500 ל‑₪105,000 יותר מאשר דרך בנק, לאורך 30 שנים.</p>
+  </section>
+
+  <section aria-labelledby="gain-h" style="padding: 16px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <h2 id="gain-h" style="margin: 0; font-size: 1.05rem;">כמה מהרווח נשאר אצלכם</h2>
+    <p style="margin: 2px 0 6px; color: #a3a9b8; font-size: 0.88rem;">תפקידו ₪180,000 (בערך ₪136,000 בכסף של היום). זה הרווח שמעליהם, ולאן הוא הולך:</p>
+    <sc-for list="{{ bars }}" as="bar" hint-placeholder-count="3">
+      <div style="margin-top: 10px;">
+        <p style="margin: 0 0 22px; font-weight: 600; font-size: 0.95rem;">{{ bar.name }} <span style="color: #a3a9b8; font-weight: 400; font-size: 0.85rem;">{{ bar.note }}</span></p>
+        <div style="position: relative; height: 30px; margin-bottom: 22px;">
+          <div style="display: flex; height: 30px; width: {{ bar.width }}%;">
+            <sc-for list="{{ bar.parts }}" as="p" hint-placeholder-count="4">
+              <div style="flex: none; width: {{ p.share }}%; height: 30px; box-sizing: border-box; background: {{ p.color }}; color: #0d0f14; font-size: 0.8rem; font-weight: 600; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap; border-left: 1px solid #151820;">{{ p.inside }}</div>
+            </sc-for>
+          </div>
+          <sc-for list="{{ bar.outside }}" as="o" hint-placeholder-count="2">
+            <span style="position: absolute; right: {{ o.at }}%; top: {{ o.top }}px; transform: translateX(50%); color: #c4c9d4; font-size: 0.78rem; white-space: nowrap;">{{ o.text }}</span>
+          </sc-for>
+        </div>
+      </div>
+    </sc-for>
+    <p style="margin: 2px 0 0; font-size: 0.92rem;">ההבדל בא בעיקר מהעמלות: במזרחי הן לוקחות פי 2.6 מאשר באינטראקטיב, ומה שהן לוקחות כבר לא צומח.</p>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":760}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const max = 410;
+    const colors = { kept: '#2fa37a', tax: '#e0703a', fees: '#4a90e2', fund: '#bcc83c' };
+    const names = { kept: 'נשאר לכם', tax: 'מס', fees: 'עמלות', fund: 'הקרן עצמה' };
+    const bar = (name, note, parts) => {
+      const total = parts.reduce((a, [, v]) => a + v, 0);
+      let before = 0;
+      let flip = 0;
+      const outside = [];
+      const shown = parts.filter(([, v]) => v > 0).map(([key, v]) => {
+        const share = (v / total) * 100;
+        const label = names[key] + ' ₪' + Math.round(v * 1000).toLocaleString('en-US');
+        const inside = share >= 14 ? label : '';
+        const at = ((before + share / 2) / 100) * (total / max) * 100;
+        if (!inside) {
+          outside.push({ text: label, at: at.toFixed(2), top: flip % 2 === 0 ? -20 : 34 });
+          flip++;
+        }
+        before += share;
+        return { share: share.toFixed(2), color: colors[key], inside };
+      });
+      return { name, note, width: ((total / max) * 100).toFixed(2), parts: shown, outside };
+    };
+    return {
+      bars: [
+        bar('קרן השתלמות, במסלול מניות', 'פטורה ממס', [['kept', 333], ['tax', 0], ['fees', 27.1], ['fund', 21.1]]),
+        bar('קרן סל, אינטראקטיב', '', [['kept', 292], ['tax', 92.6], ['fees', 2.1], ['fund', 21]]),
+        bar('קרן סל, הזול מבין הבנקים: מזרחי', '', [['kept', 203], ['tax', 74.9], ['fees', 43.3], ['fund', 17.5]]),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

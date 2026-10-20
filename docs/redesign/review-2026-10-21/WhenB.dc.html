@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>מתי תצטרכו את הכסף, ארבע התשובות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="position: relative; width: 1320px; height: 380px; box-sizing: border-box; padding: 24px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px;">
+    <sc-for list="{{ cols }}" as="c" hint-placeholder-count="4">
+      <div>
+        <p style="margin: 0 0 8px; color: #a3a9b8; font-size: 0.85rem; font-weight: 600;">{{ c.caption }}</p>
+        <div style="padding: 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+          <p style="margin: 0 0 8px;">מתי תצטרכו את הכסף?</p>
+          <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;">
+            <sc-for list="{{ c.buttons }}" as="b" hint-placeholder-count="4">
+              <span style="display: grid; place-items: center; min-height: 40px; border: 1px solid {{ b.border }}; border-radius: 8px; background: {{ b.bg }}; color: {{ b.fg }}; font-size: 0.9rem; font-weight: 600;">{{ b.label }}</span>
+            </sc-for>
+          </div>
+          <div style="display: flex; align-items: center; height: 66px; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; background: #1a1e27; font-size: 0.88rem;">
+            <sc-if value="{{ c.isDate }}" hint-placeholder-val="{{ false }}">
+              <span style="display: flex; align-items: center; gap: 8px;">בעוד <span style="width: 48px; height: 34px; box-sizing: border-box; padding: 5px 8px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #1d212c; text-align: left;">3</span><span style="display: inline-flex; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; overflow: hidden; font-size: 0.82rem;"><span style="padding: 6px 8px; background: #7b9bff; color: #0d0f14;">שנים</span><span style="padding: 6px 8px; color: #c4c9d4;">חודשים</span></span></span>
+            </sc-if>
+            <sc-if value="{{ c.isRetirement }}" hint-placeholder-val="{{ false }}">
+              <span style="display: flex; align-items: center; gap: 6px; font-size: 0.84rem;">הגיל שלי היום <span style="width: 38px; height: 34px; box-sizing: border-box; padding: 5px 6px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #1d212c; text-align: left;">45</span> גיל הפרישה <span style="width: 38px; height: 34px; box-sizing: border-box; padding: 5px 6px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #1d212c; text-align: left;">65</span></span>
+            </sc-if>
+            <sc-if value="{{ c.isAnyDay }}" hint-placeholder-val="{{ false }}">
+              <span style="color: #c4c9d4;">כמו כרית ביטחון: כסף שצריך להיות זמין כבר למחרת.</span>
+            </sc-if>
+            <sc-if value="{{ c.isUnknown }}" hint-placeholder-val="{{ false }}">
+              <span style="color: #c4c9d4;">בלי תאריך. התשובה תראה מה מתאים לטווחים שונים.</span>
+            </sc-if>
+          </div>
+        </div>
+      </div>
+    </sc-for>
+  </div>
+  <div aria-hidden="true" style="position: absolute; top: 258px; right: 12px; left: 12px; border-top: 2px dashed #f2c14e;"></div>
+  <span style="position: absolute; top: 266px; left: 24px; padding: 0 6px; border-radius: 6px; background: #f2c14e; color: #0d0f14; font-size: 0.75rem; font-weight: 700;">בכל ארבע התשובות התיבה נגמרת כאן</span>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1320,"height":380}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const labels = [['date', 'בעוד זמן ידוע'], ['retirement', 'בפרישה'], ['anyDay', 'לשעת חירום'], ['unknown', 'עוד אין תאריך']];
+    const captions = { date: 'נבחר ״בעוד זמן ידוע״', retirement: 'נבחר ״בפרישה״', anyDay: 'נבחר ״לשעת חירום״', unknown: 'נבחר ״עוד אין תאריך״' };
+    return {
+      cols: labels.map(([kind]) => ({
+        caption: captions[kind],
+        isDate: kind === 'date',
+        isRetirement: kind === 'retirement',
+        isAnyDay: kind === 'anyDay',
+        isUnknown: kind === 'unknown',
+        buttons: labels.map(([id, label]) => ({
+          label,
+          bg: id === kind ? '#7b9bff' : 'transparent',
+          fg: id === kind ? '#0d0f14' : '#c4c9d4',
+          border: id === kind ? '#7b9bff' : 'rgba(255,255,255,0.16)',
+        })),
+      })),
+    };
+  }
+}
+</script>
+</body>
+</html>

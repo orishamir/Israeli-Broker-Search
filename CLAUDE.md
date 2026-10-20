@@ -33,8 +33,12 @@ How the guide answers, in the owner's words (2026-10-19), after reviewing the re
 14. **Make the last step concrete:** what to search for in the app. Never "מדד" alone, and say what a product is before its trade name.
 15. **Compare from the visitor's own bank.**
 16. **Be honest with data:** no invented numbers, marked placeholders, and the past said to be the past.
-17. **Rank only what earns the same;** the rest is drawn beside, and which indexes to hold is the visitor's call. A fund's name is an example, never a pick.
+17. **Rank only what earns the same;** the rest is drawn beside, and which indexes to hold is the visitor's call. A fund's name is an example, never a pick, and so is the index: what to buy is "מדד מניות רחב", and the S&P 500 is named only where it's what was measured, as an example.
 18. **When a principle strains, question the principle:** propose a fix to the owner rather than bending the page to fit.
+19. **An example is a starting point, not a fact about the visitor:** it fills only fields on screen, answers no decision, and is marked only while the fields hold its numbers.
+20. **A control looks like what it does, and does only that:** one setting, one control, one name, and no side effects on other controls.
+21. **What the visitor is using never moves:** a field being typed in or a control just pressed stays exactly where it is, and nothing above or beside it appears, vanishes or resizes.
+22. **Trying an answer shows what changed, in place, and can be taken back:** only content changes between tries, what changed stays findable (with a sign in sight when it's off screen), and trying an example or option never loses what the visitor entered.
 
 Before calling a visible change done, run `REDESIGN.md`'s review checklist.
 
@@ -70,6 +74,8 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
 - "כמה מהרווח נשאר אצלכם" and the horizon section.
 
 The guide has no assumptions sheet and no override: inflation and the rate are workbench levers. The old answer, the alternatives chart, the donut, the ladder and the follow‑up cards are gone. `docs/redesign/review-2026-10-20.md` is the review against Part 1.
+
+**Next (2026-10-21):** `REDESIGN.md` Part 4, the owner's review of what was built, is designed and not built. Its mockups are in `docs/redesign/review-2026-10-21/`.
 
 **The engine.** The fee model is Rust compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: ההחלטה כטבלת השוואה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 375px; height: 820px; box-sizing: border-box; padding: 12px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <section aria-labelledby="way-q" style="padding: 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <span style="color: #a3a9b8; font-size: 0.85rem; font-weight: 600;">המוצר</span>
+      <span style="padding: 1px 9px; border: 1px solid rgba(242,193,78,0.5); border-radius: 999px; background: rgba(242,193,78,0.15); color: #f2c14e; font-size: 0.8rem; font-weight: 600;">החלטה שלכם</span>
+    </div>
+    <h3 id="way-q" style="margin: 4px 0 4px; font-size: 1rem; line-height: 1.4;">מה חשוב לכם יותר: הכי פשוט, או לדעת כבר היום כמה יהיה?</h3>
+    <p style="margin: 0 0 12px; color: #a3a9b8; font-size: 0.85rem;">ההבדל בכסף קטן ותלוי בריבית, לכן זה עניין של מה שנוח לכם.</p>
+
+    <div role="group" aria-labelledby="way-q" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 10px; font-size: 0.85rem;">
+      <div style="padding: 10px 8px 6px; border: 1px solid rgba(255,255,255,0.16); border-bottom: none; border-radius: 10px 10px 0 0; background: #1d212c;">
+        <div style="font-weight: 700; font-size: 1rem;">לדעת מראש</div>
+        <div style="color: #a3a9b8;">אג״ח צמודה של מדינת ישראל</div>
+      </div>
+      <div style="padding: 10px 8px 6px; border: 1px solid rgba(255,255,255,0.16); border-bottom: none; border-radius: 10px 10px 0 0; background: #1d212c;">
+        <div style="font-weight: 700; font-size: 1rem;">הכי פשוט</div>
+        <div style="color: #a3a9b8;">קרן כספית</div>
+      </div>
+
+      <div style="grid-column: 1 / -1; padding: 8px 8px 2px; color: #a3a9b8; font-size: 0.78rem; font-weight: 600;">מה יהיה בסוף</div>
+      <div style="padding: 0 8px 6px;">
+        <div style="font-size: 1.15rem; font-weight: 700;">₪174,934</div>
+        <div style="color: #a3a9b8;">כוח הקנייה ידוע כבר היום</div>
+      </div>
+      <div style="padding: 0 8px 6px;">
+        <div style="font-size: 1.15rem; font-weight: 700;">בערך ₪174,000</div>
+        <div style="color: #a3a9b8;">₪172,000 עד ₪175,000, לפי הריבית</div>
+      </div>
+
+      <div style="grid-column: 1 / -1; padding: 8px 8px 2px; border-top: 1px solid rgba(255,255,255,0.08); color: #a3a9b8; font-size: 0.78rem; font-weight: 600;">מה זה דורש</div>
+      <div style="padding: 0 8px 6px;">חשבון ניירות ערך. מחזיקים עד הפדיון ב‑2029.</div>
+      <div style="padding: 0 8px 6px;">אפליקציית הבנק. אפשר למכור בכל יום מסחר.</div>
+
+      <div style="grid-column: 1 / -1; padding: 8px 8px 2px; border-top: 1px solid rgba(255,255,255,0.08); color: #a3a9b8; font-size: 0.78rem; font-weight: 600;">מתאים אם</div>
+      <div style="padding: 0 8px 8px;">חשוב לכם לדעת היום כמה יהיה בסוף.</div>
+      <div style="padding: 0 8px 8px;">אתם רוצים כמה שפחות התעסקות.</div>
+
+      <div style="padding: 0 0 0;">
+        <button type="button" aria-pressed="false" style="width: 100%; min-height: 44px; padding: 4px 6px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e6e8ee; font: inherit; font-weight: 600;">לדעת מראש</button>
+      </div>
+      <div>
+        <button type="button" aria-pressed="false" style="width: 100%; min-height: 44px; padding: 4px 6px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e6e8ee; font: inherit; font-weight: 600;">קרן כספית</button>
+      </div>
+    </div>
+
+    <p style="margin: 14px 0 0; padding: 10px 12px; border-radius: 8px; background: #1d212c; font-size: 0.88rem;"><strong>ההבדל:</strong> בריבית של היום האג״ח משאירה בערך ₪1,210 יותר. אם הריבית תהיה בממוצע מעל כ‑3.6%, הקרן הכספית משאירה יותר.</p>
+    <button type="button" aria-expanded="false" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 4px; padding: 0 4px; border: none; background: none; color: #7b9bff; font: inherit; font-size: 0.9rem;">עוד על שתי האפשרויות<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":820}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {};
+  }
+}
+</script>
+</body>
+</html>

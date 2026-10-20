@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: התוכנית ומסלול הבחירות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 1000px; height: 1460px; box-sizing: border-box; padding: 24px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <section aria-labelledby="plan-h" style="min-height: 1400px; box-sizing: border-box; padding: 28px 36px; border: 1px solid #7b9bff; border-radius: 14px; background: #151820;">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;">
+      <span style="padding: 2px 10px; border-radius: 999px; background: #7b9bff; color: #0d0f14; font-size: 0.85rem; font-weight: 600;">כאן קשה לטעות</span>
+      <span style="color: #a3a9b8; font-size: 0.85rem;">הכיוון ברור, והוא לא משתנה בשום גרסה שבדקנו.</span>
+    </div>
+
+    <p style="margin: 28px 0 6px; color: #c9d3ff; font-size: 0.95rem; font-weight: 600;">התוכנית שלכם</p>
+    <h2 id="plan-h" style="margin: 0; max-width: 760px; font-size: 2.1rem; line-height: 1.3;">₪500 בחודש לקרן סל על מדד מניות רחב, בחשבון חדש באינטראקטיב</h2>
+
+    <div style="display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 20px; margin-top: 22px;">
+      <p style="margin: 0; font-size: 3.4rem; font-weight: 700; line-height: 1.05;">בערך ₪427,000</p>
+      <p style="margin: 0; color: #c4c9d4; font-size: 1rem;">ב‑2056, אם המדד יעלה 10% בשנה</p>
+    </div>
+    <p style="margin: 8px 0 0; color: #a3a9b8; font-size: 0.92rem;">בכסף של היום, אחרי מס. תפקידו בערך ₪136,000. החישוב לפי מדד S&amp;P 500, כדוגמה למדד רחב.</p>
+
+    <h3 style="margin: 34px 0 12px; padding-top: 22px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 1rem; color: #c4c9d4;">איך הגעתם לזה</h3>
+    <ol style="margin: 0; padding: 0; list-style: none;">
+      <sc-for list="{{ steps }}" as="s" hint-placeholder-count="5">
+        <li style="display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; column-gap: 16px;">
+          <div aria-hidden="true" style="display: flex; flex-direction: column; align-items: center;">
+            <span style="flex: none; width: 28px; height: 28px; box-sizing: border-box; border: 2px solid #7b9bff; border-radius: 50%; display: grid; place-items: center; background: {{ s.nodeColor }}; color: #0d0f14;">
+              <sc-if value="{{ s.settled }}" hint-placeholder-val="{{ true }}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+            </span>
+            <span style="flex: 1; width: 2px; min-height: 18px; background: {{ s.lineColor }};"></span>
+          </div>
+          <div style="padding: 2px 0 24px; min-width: 0;">
+            <p style="margin: 0; display: flex; align-items: center; gap: 8px; color: #a3a9b8; font-size: 0.85rem; font-weight: 600;">{{ s.label }}
+              <sc-if value="{{ s.stated }}" hint-placeholder-val="{{ false }}"><span style="padding: 0 8px; border-radius: 999px; background: #262b38; color: #e6e8ee; font-size: 0.75rem; font-weight: 600;">ברור</span></sc-if>
+              <sc-if value="{{ s.yours }}" hint-placeholder-val="{{ false }}"><span style="padding: 0 8px; border-radius: 999px; background: #262b38; color: #e6e8ee; font-size: 0.75rem; font-weight: 600;">בחירה שלכם</span></sc-if>
+            </p>
+            <p style="margin: 2px 0 0; font-size: 1.2rem; font-weight: 700;">{{ s.choice }}</p>
+            <p style="margin: 4px 0 0; color: #a3a9b8; font-size: 0.92rem;">{{ s.other }}</p>
+
+            <sc-if value="{{ s.stated }}" hint-placeholder-val="{{ false }}">
+              <button type="button" aria-expanded="{{ s.open }}" onClick="{{ s.toggle }}" style="display: inline-flex; align-items: center; gap: 6px; min-height: 36px; margin-top: 4px; padding: 0; border: none; background: transparent; color: #9db4ff; font: inherit; font-size: 0.92rem; font-weight: 600;">{{ s.whyLabel }}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: {{ s.chevron }};"><path d="m6 9 6 6 6-6"></path></svg></button>
+              <sc-if value="{{ s.open }}" hint-placeholder-val="{{ true }}">
+                <div style="margin-top: 8px; padding: 16px 18px; border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; background: #1a1e27;">
+                  <p style="margin: 0; font-size: 1.05rem; font-weight: 700;">הפסד אחרי 30 שנה הוא מאוד לא סביר: בעבר זה לא קרה אף פעם.</p>
+                  <p style="margin: 8px 0 0;">בדקנו כל תקופה של 30 שנה מאז 1926, 810 תקופות, עם הפקדה כל חודש כמו שלכם. באף אחת מהן לא נשאר בסוף פחות ממה שהופקד. גם בתקופה הגרועה מכולן נשאר יותר מאשר בקרן כספית.</p>
+                  <p style="margin: 8px 0 0;">התקופות האלה עברו דרך המשבר הגדול של 1929, שבו הבורסה האמריקאית איבדה יותר משלושה רבעים מערכה, דרך מלחמת העולם השנייה, בועת הדוטקום של 2000 והמשבר של 2008. מי שהמשיך להפקיד ולא מכר באמצע, סיים כל אחת מהן עם יותר ממה שהפקיד.</p>
+                  <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 20px; row-gap: 6px; max-width: 560px; margin-top: 14px; font-size: 0.95rem;">
+                    <span style="color: #c4c9d4;">מה שתפקידו</span><span style="font-weight: 700; white-space: nowrap;">בערך ₪136,000</span>
+                    <span style="color: #c4c9d4;">קרן כספית, הדרך הבטוחה</span><span style="font-weight: 700; white-space: nowrap;">בערך ₪159,000</span>
+                    <span style="color: #c4c9d4;">מניות, בתקופה הגרועה ביותר מאז 1926</span><span style="font-weight: 700; white-space: nowrap;">בערך ₪281,000</span>
+                    <span>מניות, אם המדד יעלה 10% בשנה</span><span style="font-weight: 700; white-space: nowrap;">בערך ₪427,000</span>
+                  </div>
+                  <p style="margin: 12px 0 0; color: #a3a9b8; font-size: 0.86rem;">זה מה שקרה בעבר, לא הבטחה. כדי להפסיד ב‑30 שנה, השנים הבאות יצטרכו להיות גרועות מכל מה שקרה מאז 1926. הנתונים של מדד S&amp;P 500, אחרי עמלות ומס, בכסף של היום.</p>
+                </div>
+              </sc-if>
+            </sc-if>
+
+            <sc-if value="{{ s.yours }}" hint-placeholder-val="{{ false }}">
+              <span style="display: inline-flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; padding: 2px 8px; border: 2px dashed #f2c14e; border-radius: 8px;">
+                <span aria-disabled="true" style="display: inline-flex; align-items: center; gap: 6px; min-height: 32px; color: #6b7182; font-size: 0.92rem; font-weight: 600; cursor: default;">מה כדאי לשקול?<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+                <span style="padding: 0 6px; border-radius: 6px; background: #f2c14e; color: #0d0f14; font-size: 0.72rem; font-weight: 700;">לא בגרסה הראשונה: יופיע כשנכתוב את ההסבר</span>
+              </span>
+            </sc-if>
+          </div>
+          <div style="padding-top: 8px;">
+            <sc-if value="{{ s.changeable }}" hint-placeholder-val="{{ true }}">
+              <button type="button" aria-expanded="false" style="min-height: 40px; padding: 0 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e6e8ee; font: inherit; font-size: 0.9rem;">שינוי</button>
+            </sc-if>
+          </div>
+        </li>
+      </sc-for>
+    </ol>
+
+    <a href="#plan-h" style="display: inline-flex; align-items: center; gap: 8px; margin-top: 8px; min-height: 44px; padding: 0 18px; border-radius: 10px; background: #7b9bff; color: #0d0f14; font-weight: 700; text-decoration: none;">איך עושים את זה, צעד אחר צעד<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></svg></a>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"whyOpen":{"editor":"boolean","default":true},"$preview":{"width":1000,"height":1460}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const st = this.state || {};
+    const open = st.open === undefined ? (this.props.whyOpen ?? true) : st.open;
+    const toggle = () => this.setState({ open: !open });
+    const step = (kind, label, choice, other, last) => ({
+      open,
+      toggle,
+      whyLabel: open ? 'להסתיר את ההסבר' : 'למה זה ברור?',
+      chevron: open ? 'rotate(180deg)' : 'none',
+      label,
+      choice,
+      other,
+      stated: kind === 'stated',
+      yours: kind === 'yours',
+      settled: kind !== 'yours',
+      changeable: kind === 'decided',
+      nodeColor: kind === 'yours' ? 'transparent' : '#7b9bff',
+      lineColor: last ? 'transparent' : 'rgba(255,255,255,0.18)',
+    });
+    return {
+      open,
+      toggle: () => this.setState({ open: !open }),
+      whyLabel: open ? 'להסתיר את ההסבר' : 'למה זה ברור?',
+      chevron: open ? 'rotate(180deg)' : 'none',
+      steps: [
+        step('decided', 'כסף לחירום', 'יש לכם כבר כרית ביטחון', 'לכן כל ה‑₪500 הולכים למניות. הכרית שומרת שהוצאה פתאומית לא תכריח אתכם למכור מניות דווקא בירידה.', false),
+        step('stated', 'מניות או בטוח', 'מניות, במדד רחב', 'הכסף מחכה 30 שנה', false),
+        step('yours', 'איזה מדד', 'מדד מניות רחב', 'המספרים כאן לפי מדד S&P 500, כדוגמה, כי יש לו ההיסטוריה הארוכה ביותר. איזה מדד לקנות, ואם לפזר בין כמה, אתם בוחרים. האתר לא משווה בין מדדים.', false),
+        step('decided', 'המוצר', 'קרן סל', 'מתאים כשאין לכם קרן השתלמות שאפשר להוסיף לה. בקרן השתלמות הרווח פטור ממס אחרי 6 שנים, אבל היא פתוחה רק לעצמאים או דרך מעסיק.', false),
+        step('decided', 'איפה קונים', 'חשבון חדש באינטראקטיב', 'פותחים חשבון פעם אחת. בבנק לא צריך לפתוח כלום, אבל העמלות שם גבוהות יותר, ומשולמות כל שנה.', true),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הכסף שלכם: השדות והדוגמאות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 100%; box-sizing: border-box; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <section aria-labelledby="money-heading" style="position: relative; padding: 14px 16px 16px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 36px;">
+      <h2 id="money-heading" style="margin: 0; font-size: 1.05rem; white-space: nowrap;">הכסף שלכם</h2>
+      <sc-if value="{{ hasMenuButton }}" hint-placeholder-val="{{ true }}">
+        <button type="button" aria-expanded="{{ menuOpen }}" onClick="{{ toggleMenu }}" style="display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1d212c; color: #e6e8ee; font: inherit; font-size: 0.9rem;">דוגמאות<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+      </sc-if>
+    </div>
+
+    <sc-if value="{{ toggleMode }}" hint-placeholder-val="{{ false }}">
+      <div style="height: 76px; margin-top: 6px;">
+        <div role="radiogroup" aria-label="מה מוצג" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid rgba(255,255,255,0.16); border-radius: 10px; overflow: hidden;">
+          <button type="button" role="radio" aria-checked="{{ slotMine }}" onClick="{{ toMine }}" style="min-height: 38px; border: none; background: {{ mineBg }}; color: {{ mineFg }}; font: inherit; font-size: 0.9rem; font-weight: 600;">המספרים שלכם</button>
+          <button type="button" role="radio" aria-checked="{{ slotExample }}" onClick="{{ toExample }}" style="min-height: 38px; border: none; background: {{ exBg }}; color: {{ exFg }}; font: inherit; font-size: 0.9rem; font-weight: 600;">דוגמה</button>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 32px; margin-top: 4px; font-size: 0.85rem;">
+          <sc-if value="{{ slotExample }}" hint-placeholder-val="{{ false }}">
+            <button type="button" aria-expanded="{{ menuOpen }}" onClick="{{ toggleMenu }}" style="display: inline-flex; flex: 1; min-width: 0; align-items: center; gap: 4px; padding: 0; border: none; background: none; color: #c9d3ff; font: inherit; font-weight: 600; white-space: nowrap;"><span style="overflow: hidden; text-overflow: ellipsis;">{{ exName }}</span><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+            <button type="button" onClick="{{ copyExample }}" style="padding: 0; border: none; background: none; color: #9db4ff; font: inherit; font-weight: 600; white-space: nowrap;">להתחיל מהדוגמה</button>
+          </sc-if>
+          <sc-if value="{{ slotMine }}" hint-placeholder-val="{{ true }}">
+            <span style="color: #a3a9b8;">כאן המספרים שלכם. דוגמה לא משנה אותם.</span>
+          </sc-if>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ statusMode }}" hint-placeholder-val="{{ true }}">
+      <div style="display: flex; align-items: center; gap: 8px; height: 30px; margin-top: 2px; font-size: 0.85rem;">
+        <sc-if value="{{ statusMine }}" hint-placeholder-val="{{ false }}">
+          <span style="color: #a3a9b8;">המספרים שלכם</span>
+        </sc-if>
+        <sc-if value="{{ statusExample }}" hint-placeholder-val="{{ true }}">
+          <span style="white-space: nowrap; padding: 1px 10px; border: 1px solid rgba(123,155,255,0.6); border-radius: 999px; background: rgba(123,155,255,0.15);">דוגמה: {{ litName }}</span>
+          <sc-if value="{{ canGoBack }}" hint-placeholder-val="{{ false }}">
+            <button type="button" onClick="{{ back }}" style="display: inline-flex; align-items: center; gap: 4px; padding: 0; border: none; background: none; color: #9db4ff; font: inherit; font-weight: 600; white-space: nowrap;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path><path d="M3 3v5h5"></path></svg>חזרה למספרים שלכם</button>
+          </sc-if>
+          <sc-if value="{{ freshExample }}" hint-placeholder-val="{{ true }}">
+            <span style="color: #a3a9b8; white-space: nowrap;">שנו אותם לשלכם</span>
+          </sc-if>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ menuOpen }}" hint-placeholder-val="{{ false }}">
+      <div role="dialog" aria-label="דוגמאות" style="position: absolute; z-index: 10; top: {{ menuTop }}; left: 12px; width: 310px; box-sizing: border-box; padding: 8px; border: 1px solid rgba(255,255,255,0.16); border-radius: 12px; background: rgba(29,33,44,0.98); box-shadow: 0 12px 40px rgba(0,0,0,0.55);">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding: 2px 6px 6px;">
+          <span style="font-weight: 700;">לראות דוגמה</span>
+          <button type="button" aria-label="סגירה" onClick="{{ toggleMenu }}" style="width: 32px; height: 32px; padding: 0; border: none; border-radius: 8px; background: transparent; color: #a3a9b8; font: inherit; font-size: 1.1rem;">×</button>
+        </div>
+        <sc-for list="{{ menu }}" as="m" hint-placeholder-count="9">
+          <button type="button" onClick="{{ m.pick }}" style="display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 4px 8px; border: none; border-radius: 8px; background: {{ m.bg }}; color: #e6e8ee; font: inherit; text-align: start;">
+            <span style="display: flex; flex-direction: column;">
+              <span style="font-size: 0.9rem; font-weight: 600;">{{ m.name }}</span>
+              <span style="font-size: 0.78rem; color: #a3a9b8;">{{ m.numbers }}</span>
+            </span>
+            <sc-if value="{{ m.current }}" hint-placeholder-val="{{ false }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9db4ff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-label="מוצגת עכשיו"><path d="M20 6 9 17l-5-5"></path></svg></sc-if>
+          </button>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px;">
+      <label for="now" style="flex: 1; min-width: 0;">יש לי עכשיו</label>
+      <div style="flex: none; width: min(12rem, 55%); box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 37px; padding: 0 10px; border: 1px solid {{ fieldBorder }}; border-radius: 8px; background: {{ fieldBg }};">
+        <span aria-hidden="true" style="color: #8e95a5; font-size: 0.85rem;">₪</span>
+        <input id="now" type="text" value="{{ nowText }}" readOnly="{{ readOnly }}" onChange="{{ onNow }}" placeholder="—" dir="ltr" style="flex: 1; min-width: 0; width: 100%; padding: 0; border: none; background: transparent; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums;">
+      </div>
+    </div>
+
+    <label style="display: flex; align-items: center; gap: 8px; min-height: 32px; margin-top: 4px; font-size: 0.88rem; color: {{ investedColor }}; cursor: pointer;">
+      <input type="checkbox" checked="{{ invested }}" disabled="{{ checkboxOff }}" onChange="{{ onInvested }}" style="flex: none; width: 18px; height: 18px; margin: 0; accent-color: #7b9bff;">
+      <span>הכסף הזה כבר מושקע, בתיק בבנק שלי</span>
+    </label>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px;">
+      <label for="monthly" style="flex: 1; min-width: 0;">ואוסיף כל חודש</label>
+      <div style="flex: none; width: min(12rem, 55%); box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 37px; padding: 0 10px; border: 1px solid {{ fieldBorder }}; border-radius: 8px; background: {{ fieldBg }};">
+        <span aria-hidden="true" style="color: #8e95a5; font-size: 0.85rem;">₪</span>
+        <input id="monthly" type="text" value="{{ monthlyText }}" readOnly="{{ readOnly }}" onChange="{{ onMonthly }}" placeholder="—" dir="ltr" style="flex: 1; min-width: 0; width: 100%; padding: 0; border: none; background: transparent; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right; font-variant-numeric: tabular-nums;">
+      </div>
+    </div>
+
+    <fieldset style="min-width: 0; margin: 16px 0 0; padding: 0; border: none;">
+      <legend style="padding: 0; margin-bottom: 8px;">מתי תצטרכו את הכסף?</legend>
+      <div role="radiogroup" aria-label="מתי תצטרכו את הכסף?" style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px;">
+        <sc-for list="{{ kinds }}" as="k" hint-placeholder-count="4">
+          <button type="button" role="radio" aria-checked="{{ k.on }}" onClick="{{ k.pick }}" style="min-height: 40px; padding: 6px 8px; border: 1px solid {{ k.border }}; border-radius: 8px; background: {{ k.bg }}; color: {{ k.fg }}; font: inherit; font-size: 0.92rem; font-weight: 600;">{{ k.label }}</button>
+        </sc-for>
+      </div>
+      <div style="display: flex; align-items: center; height: 66px; box-sizing: border-box; margin-top: 8px; padding: 8px 10px; border: 1px solid rgba(255,255,255,0.10); border-radius: 10px; background: #1a1e27; font-size: 0.9rem;">
+        <sc-if value="{{ isDate }}" hint-placeholder-val="{{ true }}">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <label for="count">בעוד</label>
+            <input id="count" type="text" value="{{ countText }}" readOnly="{{ readOnly }}" onChange="{{ onCount }}" placeholder="—" dir="ltr" style="width: 56px; box-sizing: border-box; height: 36px; padding: 4px 8px; border: 1px solid {{ fieldBorder }}; border-radius: 8px; background: {{ fieldBg }}; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right;">
+            <span role="radiogroup" aria-label="יחידת זמן" style="display: inline-flex; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; overflow: hidden;">
+              <button type="button" role="radio" aria-checked="{{ inYears }}" onClick="{{ toYears }}" style="min-height: 34px; padding: 0 10px; border: none; background: {{ yearsBg }}; color: {{ yearsFg }}; font: inherit; font-size: 0.85rem;">שנים</button>
+              <button type="button" role="radio" aria-checked="{{ inMonths }}" onClick="{{ toMonths }}" style="min-height: 34px; padding: 0 10px; border: none; background: {{ monthsBg }}; color: {{ monthsFg }}; font: inherit; font-size: 0.85rem;">חודשים</button>
+            </span>
+          </div>
+        </sc-if>
+        <sc-if value="{{ isRetirement }}" hint-placeholder-val="{{ false }}">
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <label for="age">הגיל שלי היום</label>
+            <input id="age" type="text" value="{{ ageText }}" readOnly="{{ readOnly }}" onChange="{{ onAge }}" placeholder="—" dir="ltr" style="width: 46px; box-sizing: border-box; height: 36px; padding: 4px 8px; border: 1px solid {{ fieldBorder }}; border-radius: 8px; background: {{ fieldBg }}; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right;">
+            <label for="retire-at">גיל הפרישה</label>
+            <input id="retire-at" type="text" value="{{ retireText }}" readOnly="{{ readOnly }}" onChange="{{ onRetire }}" placeholder="—" dir="ltr" style="width: 46px; box-sizing: border-box; height: 36px; padding: 4px 8px; border: 1px solid {{ fieldBorder }}; border-radius: 8px; background: {{ fieldBg }}; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right;">
+          </div>
+        </sc-if>
+        <sc-if value="{{ isAnyDay }}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; color: #c4c9d4;">כמו כרית ביטחון: כסף שצריך להיות זמין כבר למחרת.</p>
+        </sc-if>
+        <sc-if value="{{ isUnknown }}" hint-placeholder-val="{{ false }}">
+          <p style="margin: 0; color: #c4c9d4;">בלי תאריך. התשובה תראה מה מתאים לטווחים שונים.</p>
+        </sc-if>
+      </div>
+    </fieldset>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px;">
+      <label for="bank" style="flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 8px;"><span>הבנק שלי</span><span style="color: #8e95a5; font-size: 0.85rem;">לא חובה</span></label>
+      <select id="bank" value="{{ bank }}" onChange="{{ onBank }}" style="flex: none; width: min(12rem, 55%); box-sizing: border-box; height: 37px; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #1d212c; color: #e6e8ee; font: inherit; font-size: 16px;">
+        <option value="">—</option>
+        <option value="hapoalim">בנק הפועלים</option>
+        <option value="leumi">בנק לאומי</option>
+        <option value="discount">בנק דיסקונט</option>
+        <option value="mizrahi">מזרחי טפחות</option>
+        <option value="beinleumi">הבינלאומי</option>
+        <option value="other">בנק אחר</option>
+      </select>
+    </div>
+
+    <sc-if value="{{ showIntro }}" hint-placeholder-val="{{ false }}">
+      <div style="margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+          <p style="margin: 0; font-weight: 600;">רוצים לראות דוגמה אחרת?</p>
+          <button type="button" onClick="{{ dismissIntro }}" style="padding: 0; border: none; background: none; color: #a3a9b8; font: inherit; font-size: 0.85rem;">לא צריך</button>
+        </div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px;">
+          <sc-for list="{{ menu }}" as="m" hint-placeholder-count="9">
+            <button type="button" aria-pressed="{{ m.current }}" onClick="{{ m.pick }}" style="min-height: 34px; padding: 4px 12px; border: 1px solid {{ m.chipBorder }}; border-radius: 999px; background: {{ m.chipBg }}; color: #e6e8ee; font: inherit; font-size: 0.88rem;">{{ m.name }}</button>
+          </sc-for>
+        </div>
+        <p style="margin: 10px 0 0; color: #a3a9b8; font-size: 0.82rem;">כשתקלידו את המספרים שלכם, הרשימה תתקפל לכפתור ״דוגמאות״ למעלה.</p>
+      </div>
+    </sc-if>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"examplesMode":{"editor":"enum","options":["menu","toggle","firstvisit"],"default":"menu"},"mineStart":{"editor":"boolean","default":false},"menuStartOpen":{"editor":"boolean","default":false},"start":{"editor":"enum","options":["goal","edited","salary","child","cushion","bonus","inheritance","retirement","unknown","existing"],"default":"goal"},"$preview":{"width":360,"height":540}}'>
+class Component extends DCLogic {
+  examples() {
+    const base = { now: 0, monthly: 0, kind: 'date', count: null, unit: 'years', age: null, retireAt: null, invested: false };
+    const v = (patch) => Object.assign({}, base, patch);
+    return [
+      { id: 'salary', name: 'חיסכון מהמשכורת', numbers: '₪500 בחודש, 30 שנה', v: v({ monthly: 500, count: 30 }) },
+      { id: 'child', name: 'לילד', numbers: '₪300 בחודש, 18 שנה', v: v({ monthly: 300, count: 18 }) },
+      { id: 'goal', name: 'לדירה או למטרה בתאריך', numbers: '₪100,000 ועוד ₪2,000 בחודש, 3 שנים', v: v({ now: 100000, monthly: 2000, count: 3 }) },
+      { id: 'cushion', name: 'כרית ביטחון', numbers: '₪30,000, לשעת חירום', v: v({ now: 30000, kind: 'anyDay' }) },
+      { id: 'bonus', name: 'בונוס', numbers: '₪15,000, 5 שנים', v: v({ now: 15000, count: 5 }) },
+      { id: 'inheritance', name: 'ירושה', numbers: '₪500,000, 15 שנה', v: v({ now: 500000, count: 15 }) },
+      { id: 'retirement', name: 'לפרישה', numbers: '₪3,000 בחודש, מגיל 45 עד 65', v: v({ monthly: 3000, kind: 'retirement', age: 45, retireAt: 65 }) },
+      { id: 'unknown', name: 'עוד לא יודעים', numbers: '₪3,000 בחודש, בלי תאריך', v: v({ monthly: 3000, kind: 'unknown' }) },
+      { id: 'existing', name: 'כבר יש לי תיק בבנק', numbers: '₪200,000 מושקעים, 20 שנה', v: v({ now: 200000, count: 20, invested: true }) },
+    ];
+  }
+
+  mineSeed() {
+    return { now: 20000, monthly: 1500, kind: 'date', count: 25, unit: 'years', age: null, retireAt: null, invested: false, bank: '' };
+  }
+
+  blank() {
+    return { now: null, monthly: null, kind: 'date', count: null, unit: 'years', age: null, retireAt: null, invested: false, bank: '' };
+  }
+
+  seed(start) {
+    const all = this.examples();
+    if (start === 'edited') {
+      const goal = all.find((e) => e.id === 'goal');
+      return Object.assign({}, goal.v, { monthly: 2500, bank: '' });
+    }
+    const found = all.find((e) => e.id === start) || all.find((e) => e.id === 'goal');
+    return Object.assign({}, found.v, { bank: '' });
+  }
+
+  months(x) {
+    if (x.count === null || x.count === undefined) return null;
+    return x.unit === 'months' ? x.count : x.count * 12;
+  }
+
+  invested(x) {
+    return !!x.invested && (x.now || 0) > 0;
+  }
+
+  same(a, b) {
+    if (a.now !== b.now || a.monthly !== b.monthly || a.kind !== b.kind) return false;
+    if (this.invested(a) !== this.invested(b)) return false;
+    if (a.kind === 'date') return this.months(a) === this.months(b);
+    if (a.kind === 'retirement') return a.age === b.age && a.retireAt === b.retireAt;
+    return true;
+  }
+
+  parse(text) {
+    const digits = String(text).replace(/[^0-9]/g, '');
+    return digits === '' ? null : Number(digits);
+  }
+
+  show(n) {
+    return n === null || n === undefined ? '' : n.toLocaleString('en-US');
+  }
+
+  renderVals() {
+    const mode = this.props.examplesMode ?? 'menu';
+    const mineStart = !!this.props.mineStart;
+    const start = this.props.start ?? 'goal';
+    const st = this.state || {};
+    const all = this.examples();
+    const byId = (id) => all.find((e) => e.id === id) || all[2];
+    const toggleMode = mode === 'toggle';
+
+    const v = st.v || (mineStart ? this.mineSeed() : this.seed(start));
+    const mine = st.mine !== undefined ? st.mine : null;
+    const menuOpen = st.menuOpen !== undefined ? st.menuOpen : !!this.props.menuStartOpen;
+    const introDone = st.introDone !== undefined ? st.introDone : mineStart;
+    const slot = st.slot || (mineStart ? 'mine' : 'example');
+    const exId = st.exId || (mineStart ? 'goal' : start === 'edited' ? 'goal' : start);
+    const own = st.own || (mineStart ? this.mineSeed() : this.blank());
+
+    const shown = toggleMode ? (slot === 'example' ? Object.assign({}, byId(exId).v, { bank: own.bank }) : own) : v;
+    const readOnly = toggleMode && slot === 'example';
+    const litExample = all.find((e) => this.same(shown, e.v));
+    const isExample = !!litExample;
+
+    const set = (patch) => {
+      if (readOnly) return;
+      if (toggleMode) {
+        this.setState({ own: Object.assign({}, own, patch) });
+        return;
+      }
+      this.setState({ v: Object.assign({}, v, patch), mine: null, introDone: true });
+    };
+    const pick = (e) => {
+      if (toggleMode) {
+        this.setState({ exId: e.id, slot: 'example', menuOpen: false });
+        return;
+      }
+      const keep = isExample ? mine : v;
+      this.setState({ v: Object.assign({}, e.v, { bank: v.bank }), mine: keep, menuOpen: false });
+    };
+
+    const tint = (on) => (on ? ['rgba(123,155,255,0.5)', 'rgba(123,155,255,0.12)'] : ['rgba(255,255,255,0.08)', '#1d212c']);
+    const [fieldBorder, fieldBg] = tint(toggleMode ? readOnly : isExample);
+    const sel = (on) => (on ? ['#7b9bff', '#0d0f14'] : ['transparent', '#c4c9d4']);
+
+    const kindLabels = [
+      ['date', 'בעוד זמן ידוע'],
+      ['retirement', 'בפרישה'],
+      ['anyDay', 'לשעת חירום'],
+      ['unknown', 'עוד אין תאריך'],
+    ];
+    const kinds = kindLabels.map(([id, label]) => {
+      const on = shown.kind === id;
+      return {
+        label,
+        on,
+        pick: () => set({ kind: id }),
+        bg: on ? '#7b9bff' : 'transparent',
+        fg: on ? '#0d0f14' : '#c4c9d4',
+        border: on ? '#7b9bff' : 'rgba(255,255,255,0.16)',
+      };
+    });
+
+    const currentId = toggleMode ? exId : litExample ? litExample.id : null;
+    const menu = all.map((e) => {
+      const current = currentId === e.id && (toggleMode || isExample);
+      return {
+        name: e.name,
+        numbers: e.numbers,
+        current,
+        pick: () => pick(e),
+        bg: current ? 'rgba(123,155,255,0.14)' : 'transparent',
+        chipBorder: current ? '#7b9bff' : 'rgba(255,255,255,0.16)',
+        chipBg: current ? 'rgba(123,155,255,0.15)' : '#1d212c',
+      };
+    });
+
+    const [yearsBg, yearsFg] = sel(shown.unit !== 'months');
+    const [monthsBg, monthsFg] = sel(shown.unit === 'months');
+    const [mineBg, mineFg] = sel(slot === 'mine');
+    const [exBg, exFg] = sel(slot === 'example');
+    const noNow = !((shown.now || 0) > 0);
+
+    return {
+      toggleMode,
+      statusMode: !toggleMode,
+      hasMenuButton: !toggleMode && !(mode === 'firstvisit' && !introDone),
+      menuOpen,
+      toggleMenu: () => this.setState({ menuOpen: !menuOpen }),
+      menuTop: toggleMode ? '118px' : '50px',
+      menu,
+      statusMine: !isExample,
+      statusExample: isExample,
+      litName: litExample ? litExample.name : '',
+      canGoBack: isExample && !!mine,
+      freshExample: isExample && !mine,
+      back: () => this.setState({ v: mine, mine: null }),
+      slotMine: slot === 'mine',
+      slotExample: slot === 'example',
+      toMine: () => this.setState({ slot: 'mine', menuOpen: false }),
+      toExample: () => this.setState({ slot: 'example' }),
+      mineBg, mineFg, exBg, exFg,
+      exName: byId(exId).name,
+      copyExample: () => this.setState({ own: Object.assign({}, shown), slot: 'mine' }),
+      readOnly,
+      fieldBorder,
+      fieldBg,
+      nowText: this.show(shown.now),
+      onNow: (event) => set({ now: this.parse(event.target.value) }),
+      monthlyText: this.show(shown.monthly),
+      onMonthly: (event) => set({ monthly: this.parse(event.target.value) }),
+      invested: !!shown.invested,
+      checkboxOff: noNow || readOnly,
+      investedColor: noNow ? '#8e95a5' : '#e6e8ee',
+      onInvested: (event) => set({ invested: event.target.checked }),
+      kinds,
+      isDate: shown.kind === 'date',
+      isRetirement: shown.kind === 'retirement',
+      isAnyDay: shown.kind === 'anyDay',
+      isUnknown: shown.kind === 'unknown',
+      countText: this.show(shown.count),
+      onCount: (event) => set({ count: this.parse(event.target.value) }),
+      inYears: shown.unit !== 'months',
+      inMonths: shown.unit === 'months',
+      toYears: () => set({ unit: 'years' }),
+      toMonths: () => set({ unit: 'months' }),
+      yearsBg, yearsFg, monthsBg, monthsFg,
+      ageText: this.show(shown.age),
+      onAge: (event) => set({ age: this.parse(event.target.value) }),
+      retireText: this.show(shown.retireAt),
+      onRetire: (event) => set({ retireAt: this.parse(event.target.value) }),
+      bank: shown.bank || '',
+      onBank: (event) => set({ bank: event.target.value }),
+      showIntro: mode === 'firstvisit' && !introDone,
+      dismissIntro: () => this.setState({ introDone: true }),
+    };
+  }
+}
+</script>
+</body>
+</html>

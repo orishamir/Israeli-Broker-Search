@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: עורכים מספר בטלפון</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="position: relative; width: 375px; height: 667px; overflow: hidden; box-sizing: border-box; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 4px 4px;">
+    <h1 style="margin: 0; font-size: 1.25rem; letter-spacing: -0.01em;">כמה יישאר לכם בסוף</h1>
+    <button type="button" aria-label="עוד: מילון המונחים, איך המספרים מחושבים, שיתוף" style="width: 44px; height: 44px; padding: 0; border: none; border-radius: 8px; background: transparent; color: #a3a9b8; display: grid; place-items: center;">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg>
+    </button>
+  </header>
+
+  <section aria-labelledby="facts-h" style="margin: 4px 12px 0; padding: 12px 14px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 44px;">
+      <h2 id="facts-h" style="margin: 0; font-size: 1rem;">הכסף שלכם</h2>
+      <button type="button" aria-expanded="true" style="min-height: 44px; padding: 0 14px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1d212c; color: #e6e8ee; font: inherit;">סיום</button>
+    </div>
+
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px;">
+      <label for="now" style="flex: 1; min-width: 0;">יש לי עכשיו</label>
+      <div style="flex: none; width: 55%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #1d212c;">
+        <span aria-hidden="true" style="color: #8e95a5; font-size: 0.85rem;">₪</span>
+        <input id="now" type="text" value="100,000" readonly="{{ true }}" dir="ltr" style="flex: 1; min-width: 0; width: 100%; padding: 0; border: none; background: transparent; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right;">
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px;">
+      <label for="monthly" style="flex: 1; min-width: 0;">ואוסיף כל חודש</label>
+      <div style="flex: none; width: 55%; box-sizing: border-box; display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 10px; border: 1px solid #7b9bff; border-radius: 8px; background: #1d212c; box-shadow: 0 0 0 3px rgba(123,155,255,0.25);">
+        <span aria-hidden="true" style="color: #8e95a5; font-size: 0.85rem;">₪</span>
+        <input id="monthly" type="text" value="2,500" readonly="{{ true }}" dir="ltr" style="flex: 1; min-width: 0; width: 100%; padding: 0; border: none; background: transparent; color: #e6e8ee; font: inherit; font-size: 16px; text-align: right;">
+      </div>
+    </div>
+
+    <fieldset style="min-width: 0; margin: 14px 0 0; padding: 0; border: none;">
+      <legend style="padding: 0; margin-bottom: 6px;">מתי תצטרכו את הכסף?</legend>
+      <div style="display: flex; flex-direction: column; gap: 6px; font-size: 0.95rem;">
+        <div style="display: flex; align-items: center; gap: 8px; min-height: 46px; box-sizing: border-box; padding: 4px 10px; border: 1px solid #7b9bff; border-radius: 10px; background: rgba(123,155,255,0.07);">
+          <label style="display: flex; align-items: center; gap: 8px;"><input type="radio" name="when" checked="{{ true }}" onChange="{{ noop }}" style="width: 18px; height: 18px; margin: 0; accent-color: #7b9bff;"><span>בעוד</span></label>
+          <span style="width: 52px; height: 36px; box-sizing: border-box; padding: 6px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: #1d212c; text-align: left;">3</span>
+          <span style="display: inline-flex; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; overflow: hidden; font-size: 0.88rem;"><span style="padding: 7px 10px; background: #7b9bff; color: #0d0f14;">שנים</span><span style="padding: 7px 10px; color: #a3a9b8;">חודשים</span></span>
+        </div>
+        <div style="display: flex; align-items: center; min-height: 46px; box-sizing: border-box; padding: 4px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+          <label style="display: flex; align-items: center; gap: 8px;"><input type="radio" name="when" checked="{{ false }}" onChange="{{ noop }}" style="width: 18px; height: 18px; margin: 0; accent-color: #7b9bff;"><span>בפרישה</span></label>
+        </div>
+        <div style="display: flex; align-items: center; min-height: 46px; box-sizing: border-box; padding: 4px 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;">
+          <label style="display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px;"><input type="radio" name="when" checked="{{ false }}" onChange="{{ noop }}" style="width: 18px; height: 18px; margin: 0; accent-color: #7b9bff;"><span>אם יקרה משהו, אולי כבר מחר</span></label>
+        </div>
+      </div>
+    </fieldset>
+  </section>
+
+  <div role="status" style="position: absolute; right: 0; bottom: 0; left: 0; box-sizing: border-box; display: flex; align-items: center; gap: 10px; padding: 10px 12px 12px; border-top: 1px solid rgba(255,255,255,0.16); background: rgba(29,33,44,0.98); box-shadow: 0 -12px 32px rgba(0,0,0,0.5);">
+    <div style="flex: 1; min-width: 0;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <span style="flex: none; padding: 0 8px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: #262b38; font-size: 0.75rem; font-weight: 600;">ההבדל קטן</span>
+        <span style="font-size: 0.92rem;">לא מניות</span>
+      </div>
+      <p style="margin: 2px 0 0; font-size: 1rem; font-weight: 700;">בערך ₪191,000 עד ₪192,755</p>
+      <p style="margin: 0; color: #a3a9b8; font-size: 0.8rem;">לפני השינוי: בערך ₪174,000 עד ₪174,934</p>
+    </div>
+    <button type="button" style="flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #262b38; color: #e6e8ee; font: inherit; font-size: 0.9rem;">לתשובה<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14"></path><path d="m19 12-7 7-7-7"></path></svg></button>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":667}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { noop: () => {} };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: אומרים מה כן, ולמה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 1000px; height: 1120px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 22px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <div>
+    <p style="margin: 0 0 10px; color: #a3a9b8; font-size: 0.85rem;">אותה דוגמה, בהצעה. שמות השורות החדשים, ״מניות או בטוח״ ו״המוצר״, כבר הוחלטו.</p>
+    <section style="padding: 18px 22px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <span style="padding: 2px 10px; border: 1px solid rgba(255,255,255,0.16); border-radius: 999px; background: #262b38; font-size: 0.85rem; font-weight: 600;">ההבדל קטן</span>
+        <span style="color: #a3a9b8; font-size: 0.9rem;">מה שחשוב ברור: דרך בטוחה. איזו מהן, תלוי במה שנוח לכם.</span>
+      </div>
+      <h2 style="margin: 14px 0 8px; font-size: 1.45rem;">דרך בטוחה, ואתם בוחרים איזו.</h2>
+      <p style="margin: 0; color: #c4c9d4;">הכסף נדרש בעוד 3 שנים, בתאריך שלא זז. כל הדרכים הבטוחות מסתיימות קרוב זו לזו, בכסף של היום ואחרי מס, ולכן הבחירה ביניהן היא לפי מה שנוח לכם.</p>
+      <div style="display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <span style="color: #a3a9b8; font-weight: 600;">מניות או בטוח</span>
+        <span><strong>בטוח.</strong> במניות, ב‑211 מתוך 1,134 תקופות של 3 שנים מאז 1926 היה נשאר בסוף פחות ממה שהופקד.</span>
+        <span style="padding: 1px 10px; border-radius: 999px; background: #262b38; font-size: 0.8rem; font-weight: 600;">ברור</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <span style="color: #a3a9b8; font-weight: 600;">המוצר</span>
+        <span style="font-weight: 600;">מה חשוב לכם יותר: הכי פשוט, או לדעת כבר היום כמה יהיה?</span>
+        <span style="padding: 1px 10px; border: 1px solid rgba(242,193,78,0.5); border-radius: 999px; color: #f2c14e; font-size: 0.8rem; font-weight: 600;">החלטה שלכם</span>
+      </div>
+    </section>
+  </div>
+
+  <section aria-labelledby="all-h" style="padding: 16px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <h3 id="all-h" style="margin: 0 0 10px; font-size: 1.1rem;">כל המקומות שאומרים ״לא מניות״ היום</h3>
+    <div role="table" style="display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1fr); font-size: 0.9rem;">
+      <span role="columnheader" style="padding: 6px 8px; color: #a3a9b8; font-size: 0.8rem; font-weight: 600;">איפה</span>
+      <span role="columnheader" style="padding: 6px 8px; color: #a3a9b8; font-size: 0.8rem; font-weight: 600;">היום</span>
+      <span role="columnheader" style="padding: 6px 8px; color: #a3a9b8; font-size: 0.8rem; font-weight: 600;">בהצעה</span>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="7">
+        <span role="cell" style="padding: 9px 8px; border-top: 1px solid rgba(255,255,255,0.08); font-weight: 600;">{{ r.where }}</span>
+        <span role="cell" style="padding: 9px 8px; border-top: 1px solid rgba(255,255,255,0.08); color: #a3a9b8;">{{ r.today }}</span>
+        <span role="cell" style="padding: 9px 8px; border-top: 1px solid rgba(255,255,255,0.08);">{{ r.next }}</span>
+      </sc-for>
+    </div>
+    <p style="margin: 10px 0 0; color: #a3a9b8; font-size: 0.82rem;">[N] ו‑[M] הם מספרים מההיסטוריה שהמנוע כבר מחשב לכל טווח (״ב‑N מתוך M תקופות״), לפי מדד S&amp;P 500, אחרי עמלות ומס, בכסף של היום.</p>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":1120}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const row = (where, today, next) => ({ where, today, next });
+    return {
+      rows: [
+        row('שורת הביטחון', 'מה שחשוב ברור: לא מניות. השאר תלוי במה שנוח לכם.', 'מה שחשוב ברור: דרך בטוחה. איזו מהן, תלוי במה שנוח לכם.'),
+        row('הכותרת, כשהדרכים הבטוחות קרובות', 'לא מניות. ובין הדרכים הבטוחות, אתם בוחרים.', 'דרך בטוחה, ואתם בוחרים איזו.'),
+        row('מתחת לכותרת, כשיש דרך בטוחה אחת', 'לא מניות, וזו הדרך הבטוחה היחידה כאן.', 'זו הדרך הבטוחה היחידה כאן.'),
+        row('מתחת לכותרת, כשדרך אחת משאירה יותר', 'לא מניות, ובין הדרכים הבטוחות אחת משאירה יותר מהאחרות בכל גרסה שבדקנו (ריבית בנק ישראל, אינפלציה).', 'בין הדרכים הבטוחות, זו משאירה יותר מהאחרות בכל גרסה שבדקנו (ריבית בנק ישראל, אינפלציה).'),
+        row('״מניות או בטוח״, טווח קצר או תאריך ידוע', 'בטוח, לא מניות: 3 שנים. גם אם התאריך יכול לזוז קצת, 3 שנים קצר מדי למניות לפי הכללים של האתר.', 'בטוח. במניות, ב‑[N] מתוך [M] תקופות של 3 שנים מאז 1926 היה נשאר בסוף פחות ממה שהופקד.'),
+        row('״מניות או בטוח״, לפי כלל 5 השנים', 'בטוח, לא מניות: לפי הכללים של האתר, מניות מתחילות מ‑5 שנים עם תאריך שיכול לזוז, ו‑4 שנים זה פחות.', 'בטוח. במניות, ב‑[N] מתוך [M] תקופות של 4 שנים מאז 1926 היה נשאר בסוף פחות ממה שהופקד.'),
+        row('״מניות או בטוח״, כסף לכל יום', 'בטוח: כסף שאולי תצטרכו בכל יום לא יכול לחכות שהבורסה תתאושש.', 'נשאר כמו שהוא: הוא כבר אומר מה כן, ולמה.'),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

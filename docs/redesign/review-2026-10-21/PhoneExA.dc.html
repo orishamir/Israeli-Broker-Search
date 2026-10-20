@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>אפשרות א בטלפון: רשימה מלמטה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="position: relative; width: 375px; height: 667px; overflow: hidden; box-sizing: border-box; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <header style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px 4px 4px;">
+    <h1 style="margin: 0; font-size: 1.25rem;">כמה יישאר לכם בסוף</h1>
+    <span aria-hidden="true" style="width: 44px; height: 44px; display: grid; place-items: center; color: #a3a9b8;"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5" r="2"></circle><circle cx="12" cy="12" r="2"></circle><circle cx="12" cy="19" r="2"></circle></svg></span>
+  </header>
+  <section style="margin: 4px 12px 0; padding: 10px 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <h2 style="margin: 0; font-size: 0.85rem; color: #a3a9b8; font-weight: 600;">הכסף שלכם</h2>
+      <span style="display: flex; gap: 6px;">
+        <span style="display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0 10px; border: 2px solid #f2c14e; border-radius: 8px; background: #1d212c; font-size: 0.85rem;">דוגמאות<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></span>
+        <span style="display: inline-flex; align-items: center; min-height: 36px; padding: 0 12px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: #1d212c; font-size: 0.85rem;">לשנות</span>
+      </span>
+    </div>
+    <p style="margin: 6px 0 0; font-size: 0.95rem;">₪20,000 עכשיו, ₪1,500 בחודש, בעוד 25 שנה</p>
+  </section>
+  <section style="margin: 12px 12px 0; padding: 14px 16px; border: 1px solid #7b9bff; border-radius: 12px; background: #151820;">
+    <span style="padding: 2px 10px; border-radius: 999px; background: #7b9bff; color: #0d0f14; font-size: 0.8rem; font-weight: 600;">כאן קשה לטעות</span>
+    <p style="margin: 14px 0 0; color: #c9d3ff; font-size: 0.85rem; font-weight: 600;">התוכנית שלכם</p>
+    <p style="margin: 2px 0 0; font-size: 1.3rem; font-weight: 700;">₪1,500 בחודש לקרן סל על מדד מניות רחב</p>
+  </section>
+
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0,0,0,0.55);"></div>
+  <div role="dialog" aria-label="לראות דוגמה" style="position: absolute; right: 0; bottom: 0; left: 0; box-sizing: border-box; padding: 8px 12px 14px; border-top: 1px solid rgba(255,255,255,0.16); border-radius: 16px 16px 0 0; background: #1d212c; box-shadow: 0 -12px 40px rgba(0,0,0,0.5);">
+    <div aria-hidden="true" style="width: 40px; height: 4px; margin: 0 auto 8px; border-radius: 2px; background: rgba(255,255,255,0.25);"></div>
+    <div style="display: flex; align-items: center; justify-content: space-between; padding: 0 4px 6px;">
+      <span style="font-weight: 700;">לראות דוגמה</span>
+      <span style="color: #a3a9b8; font-size: 0.82rem;">המספרים שלכם יחכו לכם</span>
+    </div>
+    <sc-for list="{{ items }}" as="m" hint-placeholder-count="7">
+      <div style="display: flex; flex-direction: column; min-height: 44px; justify-content: center; padding: 4px 8px; border-top: 1px solid rgba(255,255,255,0.06);">
+        <span style="font-size: 0.92rem; font-weight: 600;">{{ m.name }}</span>
+        <span style="font-size: 0.78rem; color: #a3a9b8;">{{ m.numbers }}</span>
+      </div>
+    </sc-for>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":667}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      items: [
+        { name: 'חיסכון מהמשכורת', numbers: '₪500 בחודש, 30 שנה' },
+        { name: 'לילד', numbers: '₪300 בחודש, 18 שנה' },
+        { name: 'לדירה או למטרה בתאריך', numbers: '₪100,000 ועוד ₪2,000 בחודש, 3 שנים' },
+        { name: 'כרית ביטחון', numbers: '₪30,000, לשעת חירום' },
+        { name: 'בונוס', numbers: '₪15,000, 5 שנים' },
+        { name: 'ירושה', numbers: '₪500,000, 15 שנה' },
+        { name: 'לפרישה', numbers: '₪3,000 בחודש, מגיל 45 עד 65' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

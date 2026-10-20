@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: עובדות עם שם</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 640px; height: 620px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 18px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <sc-for list="{{ cards }}" as="c" hint-placeholder-count="2">
+    <section style="padding: 18px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+      <span style="color: #a3a9b8; font-size: 0.85rem; font-weight: 600;">איך עושים את זה</span>
+      <h2 style="margin: 2px 0 10px; font-size: 1.25rem;">{{ c.name }}</h2>
+      <dl style="display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 16px; margin: 0; font-size: 0.92rem;">
+        <sc-for list="{{ c.facts }}" as="f" hint-placeholder-count="4">
+          <dt style="color: #a3a9b8;">{{ f.q }}</dt>
+          <dd style="margin: 0;">{{ f.a }}</dd>
+        </sc-for>
+      </dl>
+      <p style="margin: 12px 0 0; color: #a3a9b8; font-size: 0.82rem;">אחר כך, כמו היום: מה מחפשים באפליקציה, הצעדים, ואיפה לקנות.</p>
+    </section>
+  </sc-for>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":640,"height":620}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const f = (q, a) => ({ q, a });
+    return {
+      cards: [
+        {
+          name: 'קרן כספית',
+          facts: [
+            f('מה זה', 'קרן נאמנות שמלווה כסף לזמן קצר למדינה ולבנקים'),
+            f('כמה מרוויחה', 'בערך את ריבית בנק ישראל, פחות דמי הניהול'),
+            f('מתי אפשר למשוך', 'בכל יום מסחר'),
+            f('מטבע', 'שקלים'),
+          ],
+        },
+        {
+          name: 'אג״ח צמודה של מדינת ישראל',
+          facts: [
+            f('מה זה', 'הלוואה למדינת ישראל, שנסחרת בבורסה בתל אביב'),
+            f('כמה מרוויחה', 'תשואה שנקבעת ביום הקנייה, על גבי האינפלציה'),
+            f('מתי אפשר למשוך', 'נפדית ב‑[____]. אפשר למכור גם לפני, במחיר של אותו יום'),
+            f('מטבע', 'שקלים, צמודה למדד המחירים לצרכן'),
+          ],
+        },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

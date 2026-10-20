@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: החלטה עם שלוש אפשרויות בטלפון</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 375px; height: 700px; box-sizing: border-box; padding: 12px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <section aria-labelledby="way-q" style="padding: 14px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">
+      <span style="color: #a3a9b8; font-size: 0.85rem; font-weight: 600;">המוצר</span>
+      <span style="padding: 1px 9px; border: 1px solid rgba(242,193,78,0.5); border-radius: 999px; background: rgba(242,193,78,0.15); color: #f2c14e; font-size: 0.8rem; font-weight: 600;">החלטה שלכם</span>
+    </div>
+    <h3 id="way-q" style="margin: 4px 0 4px; font-size: 1.05rem;">איזו דרך בטוחה?</h3>
+    <p style="margin: 0 0 12px; color: #a3a9b8; font-size: 0.85rem;">ההבדל ביניהן עד ₪330 על פני 5 שנים, ותלוי בריבית. לכן זה עניין של מה שנוח לכם.</p>
+
+    <div role="group" aria-labelledby="way-q" style="display: flex; flex-direction: column; border: 1px solid rgba(255,255,255,0.12); border-radius: 10px; overflow: hidden;">
+      <sc-for list="{{ options }}" as="o" hint-placeholder-count="3">
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 12px; row-gap: 2px; padding: 12px; border-top: {{ o.divider }}; background: #1a1e27;">
+          <div style="min-width: 0;">
+            <p style="margin: 0; font-weight: 700;">{{ o.title }}</p>
+            <p style="margin: 1px 0 0; color: #c4c9d4; font-size: 0.85rem;">{{ o.product }}</p>
+            <p style="margin: 1px 0 0; color: #a3a9b8; font-size: 0.82rem;">{{ o.asks }}</p>
+          </div>
+          <div style="text-align: left;">
+            <p style="margin: 0; font-size: 1.1rem; font-weight: 700; white-space: nowrap;">{{ o.amount }}</p>
+            <p style="margin: 1px 0 0; color: #a3a9b8; font-size: 0.8rem; white-space: nowrap;">{{ o.certainty }}</p>
+          </div>
+          <button type="button" aria-pressed="false" style="grid-column: 1 / -1; margin-top: 8px; min-height: 40px; border: 1px solid rgba(255,255,255,0.16); border-radius: 8px; background: transparent; color: #e6e8ee; font: inherit; font-size: 0.9rem; font-weight: 600;">{{ o.button }}</button>
+        </div>
+      </sc-for>
+    </div>
+
+    <button type="button" aria-expanded="false" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 6px; padding: 0 4px; border: none; background: none; color: #7b9bff; font: inherit; font-size: 0.9rem;">עוד על שלוש האפשרויות<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"></path></svg></button>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":375,"height":700}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const first = 'none';
+    const rest = '1px solid rgba(255,255,255,0.08)';
+    return {
+      options: [
+        { title: 'לדעת מראש', product: 'אג״ח צמודה של מדינת ישראל', asks: 'חשבון ניירות ערך. מחזיקים עד הפדיון ב‑2031', amount: '₪16,030', certainty: 'ידוע כבר היום', button: 'לדעת מראש', divider: first },
+        { title: 'פיקדון ל‑5 שנים', product: 'בריבית קבועה, בבנק', asks: 'הכסף נעול עד 2031', amount: '₪15,960', certainty: 'ידוע כבר היום', button: 'פיקדון', divider: rest },
+        { title: 'הכי פשוט', product: 'קרן כספית', asks: 'באפליקציית הבנק. מוכרים בכל יום מסחר', amount: 'בערך ₪15,700', certainty: 'לפי הריבית', button: 'קרן כספית', divider: rest },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

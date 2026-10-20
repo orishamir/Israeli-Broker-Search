@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>הצעה: S&amp;P 500 רק כדוגמה</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 1000px; height: 1060px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 18px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <section aria-labelledby="rule-h" style="padding: 18px 20px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <h2 id="rule-h" style="margin: 0 0 12px; font-size: 1.25rem;">הכלל: S&amp;P 500 רק כדוגמה, אף פעם לא כמה שקונים</h2>
+    <div role="table" style="display: grid; grid-template-columns: 150px minmax(0, 1fr) minmax(0, 1.3fr); font-size: 0.92rem;">
+      <span role="columnheader" style="padding: 6px 8px; color: #a3a9b8; font-size: 0.8rem; font-weight: 600;">איפה</span>
+      <span role="columnheader" style="padding: 6px 8px; color: #a3a9b8; font-size: 0.8rem; font-weight: 600;">היום</span>
+      <span role="columnheader" style="padding: 6px 8px; color: #a3a9b8; font-size: 0.8rem; font-weight: 600;">בהצעה</span>
+      <sc-for list="{{ rows }}" as="r" hint-placeholder-count="6">
+        <span role="cell" style="padding: 10px 8px; border-top: 1px solid rgba(255,255,255,0.08); font-weight: 600;">{{ r.where }}</span>
+        <span role="cell" style="padding: 10px 8px; border-top: 1px solid rgba(255,255,255,0.08); color: #a3a9b8;">{{ r.today }}</span>
+        <span role="cell" style="padding: 10px 8px; border-top: 1px solid rgba(255,255,255,0.08);">{{ r.next }}</span>
+      </sc-for>
+    </div>
+  </section>
+
+  <section aria-labelledby="learn-h" style="align-self: flex-start; width: 560px; box-sizing: border-box; padding: 18px 20px; border: 1px solid rgba(255,255,255,0.16); border-radius: 14px; background: #1d212c; box-shadow: 0 12px 40px rgba(0,0,0,0.5);">
+    <p style="margin: 0;"><span style="padding: 0 6px; border-radius: 6px; background: #f2c14e; color: #0d0f14; font-size: 0.72rem; font-weight: 700;">טיוטה, לא בגרסה הראשונה</span></p>
+    <p style="margin: 6px 0 0; color: #a3a9b8; font-size: 0.8rem;">ההסבר שייפתח מ״מה כדאי לשקול?״. עד שנאשר אותו, הקישור לא מופיע באתר.</p>
+    <h3 id="learn-h" style="margin: 4px 0 10px; font-size: 1.15rem;">מה כדאי לשקול כשבוחרים מדד</h3>
+    <ul style="margin: 0; padding: 0 18px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem;">
+      <li>מדד רחב מחזיק הרבה חברות בבת אחת, כך שחברה אחת שנכשלת כמעט לא מורגשת.</li>
+      <li>מדד S&amp;P 500: 500 החברות הגדולות בארה״ב. יש לו ההיסטוריה הארוכה ביותר, ולכן המספרים באתר מחושבים לפיו.</li>
+      <li>מדד עולמי: חברות מהרבה מדינות, כולל ארה״ב. כך הכסף פחות תלוי בכלכלה של מדינה אחת.</li>
+      <li>אפשר גם לפזר בין כמה מדדים.</li>
+      <li>דמי הניהול, המטבע והמס משתנים גם בין קרנות על אותו מדד. את זה האתר כן משווה.</li>
+    </ul>
+    <p style="margin: 12px 0 0; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.10); color: #c4c9d4; font-size: 0.88rem;">איזה מדד מתאים לכם, האתר לא בודק, ולא משווה בין מדדים.</p>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":1060}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const row = (where, today, next) => ({ where, today, next });
+    return {
+      rows: [
+        row('כותרת התשובה', 'מדד S&P 500, לטווח של 30 שנים', 'מדד מניות רחב, לטווח של 30 שנים'),
+        row('התוכנית', 'קרן סל על מדד S&P 500, בארה״ב', 'קרן סל על מדד מניות רחב, ומתחת לסכום: ״החישוב לפי מדד S&P 500, כדוגמה למדד רחב״'),
+        row('המסלול', 'אין', 'שלב חדש, ״איזה מדד״, מסומן ״בחירה שלכם״ בעיגול ריק: האתר לא בוחר בו. אחר כך יבוא מתחתיו ״מה כדאי לשקול?״, שייפתח במקום כמו ״למה זה ברור?״'),
+        row('הגרף ו״איפה לקנות״', 'קרן סל על מדד S&P 500', 'קרן סל על מדד מניות רחב, ובכותרת הגרף: ״המניות לפי מדד S&P 500, לדוגמה״'),
+        row('״איך עושים את זה״', 'קרן סל על מדד S&P 500, בארה״ב', 'קרן סל על מדד מניות רחב. ב״מה מחפשים באפליקציה״: למשל VOO על מדד S&P 500, או קרן על מדד עולמי [____]. דוגמאות, לא המלצה'),
+        row('ההיסטוריה', '״באף אחת מ‑810 תקופות של 30 שנים מאז 1926...״', 'נשאר כמו שהוא, ומוסיפים ״הנתונים של מדד S&P 500״: זו ההיסטוריה שנמדדה, אז השם נכון כאן'),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

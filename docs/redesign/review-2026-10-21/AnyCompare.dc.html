@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>אפשרות א: להשוות</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@400;600;700&amp;display=swap">
+<style>body{margin:0;background:#0d0f14}</style>
+</helmet>
+<div dir="rtl" lang="he" style="width: 1000px; height: 720px; box-sizing: border-box; padding: 24px; display: flex; flex-direction: column; gap: 16px; background: #0d0f14; color: #e6e8ee; font-family: 'Segoe UI', 'Noto Sans Hebrew', Arial, sans-serif; font-size: 15px; line-height: 1.45; color-scheme: dark;">
+  <p style="margin: 0; color: #a3a9b8; font-size: 0.85rem;">אותה דוגמה. האתר משווה את כל המקומות שאפשר למשוך מהם למחרת, כמו שהוא כבר עושה בכל תשובה בטוחה אחרת.</p>
+
+  <section style="padding: 18px 22px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <h2 style="margin: 0 0 6px; font-size: 1.45rem;">דרך בטוחה, שאפשר למשוך ממנה כבר למחרת.</h2>
+    <p style="margin: 0;"><span style="padding: 0 6px; border-radius: 6px; background: #f2c14e; color: #0d0f14; font-size: 0.72rem; font-weight: 700;">הכותרת והתג לפי המספרים</span> <span style="color: #a3a9b8; font-size: 0.85rem;">אם דרך אחת משאירה יותר בכל גרסה, היא נכתבת כאן בשם והשאר לצידה. אם הן קרובות, הבחירה שלכם.</span></p>
+    <div style="display: grid; grid-template-columns: 110px minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.08);">
+      <span style="color: #a3a9b8; font-weight: 600;">מניות או בטוח</span>
+      <span><strong>בטוח.</strong> כסף שאולי תצטרכו בכל יום לא יכול לחכות שהבורסה תתאושש.</span>
+      <span style="padding: 1px 10px; border-radius: 999px; background: #262b38; font-size: 0.8rem; font-weight: 600;">ברור</span>
+    </div>
+  </section>
+
+  <section style="padding: 18px 22px; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; background: #151820;">
+    <h3 style="margin: 0; font-size: 1.15rem;">מה יהיה לכם, לדוגמה, בעוד שנה</h3>
+    <p style="margin: 2px 0 12px; color: #a3a9b8; font-size: 0.85rem;">בכסף של היום, אחרי עמלות ומס. מה שהפקדתם: ₪30,000. אם הכסף יישאר בעו״ש: ₪29,412.</p>
+    <sc-for list="{{ rows }}" as="r" hint-placeholder-count="3">
+      <div style="display: grid; grid-template-columns: 250px minmax(0, 1fr) 110px; gap: 10px; align-items: center; padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08);">
+        <div><strong>{{ r.name }}</strong><div style="color: #a3a9b8; font-size: 0.82rem;">{{ r.facts }}</div></div>
+        <div dir="ltr" style="position: relative; height: 24px;">
+          <sc-if value="{{ r.known }}" hint-placeholder-val="{{ true }}"><span style="position: absolute; top: 11px; left: 30%; width: 40%; height: 3px; background: #5fd4a0; border-radius: 2px;"></span><span style="position: absolute; top: 6px; left: 50%; width: 12px; height: 12px; border-radius: 50%; background: #5fd4a0;"></span></sc-if>
+          <sc-if value="{{ r.unknown }}" hint-placeholder-val="{{ false }}"><span style="position: absolute; top: 4px; left: 20%; width: 60%; height: 14px; border: 1px dashed #6b7182; border-radius: 4px;"></span></sc-if>
+        </div>
+        <strong style="white-space: nowrap; color: {{ r.color }};">{{ r.value }}</strong>
+      </div>
+    </sc-for>
+    <p style="margin: 8px 0 0; color: #a3a9b8; font-size: 0.85rem;">אין שורה למניות: הן לא מוצעות לכסף כזה. [₪—] הוא מספר שהמנוע עוד לא מחשב.</p>
+  </section>
+
+  <ul style="margin: 0; padding: 0 20px 0 0; display: flex; flex-direction: column; gap: 6px; font-size: 0.92rem; color: #c4c9d4;">
+    <li>כל שורה היא מקום אמיתי שאפשר לבחור, וכל אחד מהם אפשר למשוך ממנו כבר למחרת.</li>
+    <li>ההבדלים ביניהם הם לא רק כסף: פיקדון נשאר בבנק שלכם, קרן כספית קונים באפליקציה, ומק״מ צריך חשבון ניירות ערך.</li>
+    <li>כך גם נפתרת השאלה ״גרף או משפט״: יש מה להשוות, אז הגרף עונה על שאלה אמיתית.</li>
+  </ul>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1000,"height":720}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const row = (name, facts, value, known) => ({ name, facts, value, known, unknown: !known, color: known ? '#e6e8ee' : '#a3a9b8' });
+    return {
+      rows: [
+        row('קרן כספית', 'הריבית משתנה, קונים באפליקציה של בנק או בית השקעות', 'בערך ₪30,300', true),
+        row('פיקדון שאפשר למשוך בכל יום', 'הריבית משתנה, נשאר בבנק שלכם', '[₪—]', false),
+        row('מק״מ, מלווה קצר מועד של בנק ישראל', 'צריך חשבון ניירות ערך. מכירה לפני הפדיון במחיר של אותו יום', '[₪—]', false),
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>
