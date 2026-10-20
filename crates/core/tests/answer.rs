@@ -791,7 +791,15 @@ fn a_horizon_row_opens_exactly_what_it_showed() {
             ..situation.answers.clone()
         };
         let full = answer(&answers, &Choices::default(), &settings(), &DATA).unwrap();
-        assert!(!full.horizons.is_empty(), "{}", situation.id);
+        // Money that may be needed any day has no date to move (the
+        // review's N10): no rows, and the page holds no place for them.
+        assert_eq!(full.moves, !answers.needs_any_day, "{}", situation.id);
+        assert_eq!(
+            full.horizons.is_empty(),
+            answers.needs_any_day,
+            "{}",
+            situation.id
+        );
         for row in &full.horizons {
             let label = format!("{} at {} years", situation.id, row.years);
             assert_eq!(
@@ -1082,9 +1090,11 @@ fn hebrew_in(value: &serde_json::Value, out: &mut Vec<String>) {
     }
 }
 
-/// For retirement the answer gives the monthly pension as a range with whose
-/// coefficients it rests on, once; and the pension from work is said in the
-/// body, not asked.
+/// For retirement the answer gives the monthly pension as a range, once:
+/// the growth option's second amount while the place type is the
+/// visitor's, the card's otherwise. Whose coefficients it rests on, and on
+/// what terms, is in the provident fund's steps, not in the option (the
+/// review's N7). The pension from work is said in the body, not asked.
 #[test]
 fn retirement_gives_the_pension_and_counts_the_one_from_work() {
     let preset = situations()
@@ -1105,12 +1115,18 @@ fn retirement_gives_the_pension_and_counts_the_one_from_work() {
             .iter()
             .find(|option| option.pick == Pick::Flexibility(Flexibility::CanWait))
             .unwrap();
+        let also = growth_option
+            .also
+            .as_ref()
+            .expect("the pension is in the growth option");
+        assert_eq!(amounts_in(&also.he).len(), 2, "{}", also.he);
+        assert!(!also.he.contains("[₪—]"), "{}", also.he);
         assert!(
             growth_option
                 .facts
                 .iter()
-                .any(|fact| fact.he.contains("קצבה חודשית")),
-            "the pension is in the growth option"
+                .all(|fact| !fact.he.contains("מקדמי ההמרה") && !fact.he.contains("קצבה חודשית")),
+            "the terms aren't in the option"
         );
     }
     // Retirement draws the other accounts beside the provident fund, and
@@ -1143,10 +1159,20 @@ fn retirement_gives_the_pension_and_counts_the_one_from_work() {
         !steps.contains("מול המעסיק") && steps.contains("קופת גמל להשקעה"),
         "{steps}"
     );
-    let annuity = grown.annuity.as_ref().expect("a monthly pension");
-    assert!(!annuity.he.contains("[₪—]"), "{}", annuity.he);
-    assert_eq!(amounts_in(&annuity.he).len(), 2, "{}", annuity.he);
-    assert!(annuity.he.contains("מקדמי ההמרה"), "{}", annuity.he);
+    assert!(
+        steps.contains("מקדמי ההמרה"),
+        "the terms are in the steps: {steps}"
+    );
+    // Once: the option still shows it after the choice, so the card doesn't.
+    if let Some(place) = decision(&grown, LineKind::PlaceType) {
+        assert!(grown.annuity.is_none(), "said in the option");
+        assert!(place.options.iter().any(|option| option.also.is_some()));
+    } else {
+        let annuity = grown.annuity.as_ref().expect("a monthly pension");
+        assert!(!annuity.he.contains("[₪—]"), "{}", annuity.he);
+        assert_eq!(amounts_in(&annuity.he).len(), 2, "{}", annuity.he);
+        assert!(!annuity.he.contains("מקדמי ההמרה"), "{}", annuity.he);
+    }
     for answer in [&open, &grown] {
         assert!(answer.body.he.contains("קרן הפנסיה"), "{}", answer.body.he);
         assert!(
@@ -1265,7 +1291,8 @@ fn where_to_buy_names_each_provider_one_way() {
 /// The gain keeps the option not chosen (principle 4): before the way is
 /// chosen, the wrapper's two options; after the ETF, the study fund beside
 /// the ETF at the place that leaves most and at the visitor's bank (or, with
-/// no bank named, the dearest bank, said as such). Never more than three.
+/// no bank named, the bank that leaves most, said as such, as every other
+/// comparison measures from it: the review's N4). Never more than three.
 #[test]
 fn the_gain_keeps_the_option_not_chosen() {
     let study = Kind::Way(
@@ -1299,7 +1326,7 @@ fn the_gain_keeps_the_option_not_chosen() {
         let bank_row = &gain.rows[2].name.he;
         match bank {
             Some(_) => assert!(bank_row.contains("הבנק שלכם"), "{bank_row}"),
-            None => assert!(bank_row.contains("היקר"), "{bank_row}"),
+            None => assert!(bank_row.contains("הבנק הזול"), "{bank_row}"),
         }
     }
     for start in starts() {
@@ -1558,6 +1585,15 @@ fn assumed_figures_are_rounded_to_three() {
                 continue;
             };
             for option in &decision.options {
+                // Where to buy a bond is a choice between sums known to the
+                // shekel, said so (the review's N6).
+                let known = !option.rows.is_empty()
+                    && option.rows.iter().all(|row| {
+                        matches!(
+                            row,
+                            Kind::GovernmentBond { .. } | Kind::FixedDeposit | Kind::LinkedDeposit
+                        )
+                    });
                 let assumed = matches!(
                     option.pick,
                     Pick::Wrapper(_)
@@ -1565,7 +1601,7 @@ fn assumed_figures_are_rounded_to_three() {
                         | Pick::Cushion(_)
                         | Pick::Flexibility(_)
                         | Pick::SafeWay(SafeWay::MoneyMarketFund)
-                );
+                ) && !(known && matches!(option.pick, Pick::Account(_)));
                 if assumed {
                     for amount in amounts_in(&option.amount.he) {
                         assert!(three(amount), "{start:?}: {}", option.amount.he);
@@ -1854,6 +1890,186 @@ fn the_reviews_hebrew_is_fixed() {
         for text in he_texts(&answer) {
             assert!(!text.contains("למדד S&P"), "{text}");
             assert!(!text.contains("(אם אין לכם, פותחים אותו שם)") || text.contains("באפליקציה"));
+        }
+    }
+}
+
+// ─────────────────────────── The second pass's findings ───────────────────────────
+
+/// Whether a start is a portfolio already at a bank, whose place is a move.
+fn is_existing(start: &Answers) -> bool {
+    matches!(start.situation, Some(Situation::ExistingPortfolio { .. }))
+}
+
+/// N2: the visitor's bank, behind the best by no more than the margin that
+/// would make staying a question, is in the stated place and in the plan,
+/// named first, and the line never sends the visitor elsewhere alone; a
+/// bank further behind isn't. The bond is left out: through a bank it can
+/// leave no more than the money market fund in the same app.
+#[test]
+fn a_bank_within_the_margin_joins_the_stated_place() {
+    let mut joined = 0;
+    for (start, _, answer) in every_answer() {
+        if start.bank.is_none() || is_existing(&start) {
+            continue;
+        }
+        let Some(Line {
+            state: LineState::Stated { text, .. },
+            ..
+        }) = line(&answer, LineKind::Where)
+        else {
+            continue;
+        };
+        let Some(focus) = answer.focus else { continue };
+        let bought = matches!(focus, Kind::FixedDeposit)
+            || matches!(focus, Kind::Way(way) if way.vehicle == broker_fees::Vehicle::Brokerage);
+        if !bought {
+            continue;
+        }
+        let how = answer.how.iter().find(|how| how.row == focus).unwrap();
+        let rows = &how.where_to_buy.as_ref().unwrap().rows;
+        let (Some(best), Some(yours)) = (rows.first(), rows.iter().find(|row| row.yours)) else {
+            continue;
+        };
+        let margin = kind_margin(answer.outcome.deposited.today);
+        let joins = yours.tie != 0 && best.left.today - yours.left.today <= margin;
+        assert_eq!(
+            text.he.contains("הבנק שלכם ("),
+            joins,
+            "{start:?}: {}",
+            text.he
+        );
+        if joins {
+            joined += 1;
+            if let Some(plan) = &answer.plan {
+                assert!(plan.he.contains("בבנק שלכם ("), "{start:?}: {}", plan.he);
+            }
+        }
+    }
+    assert!(joined > 0, "the rule is checked on a bank that joins");
+}
+
+/// N4: until a bank is named, every comparison measures from the banks'
+/// range, and where one bank must stand in (a gain bar), it is the one that
+/// leaves most, as the difference's lower end is.
+#[test]
+fn without_a_bank_every_part_measures_from_the_same_banks() {
+    for (start, _, answer) in every_answer() {
+        if start.bank.is_some() {
+            continue;
+        }
+        for text in he_texts(&answer) {
+            assert!(!text.contains("היקר מבין"), "{start:?}: {text}");
+            assert!(!text.contains("לעומת בנק: בערך"), "{start:?}: {text}");
+            assert!(!text.contains("לעומת הבנק הזול"), "{start:?}: {text}");
+        }
+        if let Some(decision) = decision(&answer, LineKind::Where)
+            && decision.id == DecisionId::Account
+        {
+            let difference = decision.difference.as_ref().unwrap();
+            assert!(difference.he.contains("לפי הבנק"), "{}", difference.he);
+        }
+    }
+}
+
+/// N5: a one-letter preposition before Latin letters takes a hyphen ("ב‑IBI"),
+/// a range ends its sentence, and a provident fund is no קרן.
+#[test]
+fn the_second_passs_hebrew_is_fixed() {
+    for (start, _, answer) in every_answer() {
+        for text in he_texts(&answer) {
+            let chars: Vec<char> = text.chars().collect();
+            for at in 1..chars.len() {
+                let starts_word = at == 1 || !chars[at - 2].is_alphanumeric();
+                assert!(
+                    !(starts_word
+                        && "בלמוהכש".contains(chars[at - 1])
+                        && chars[at].is_ascii_alphabetic()),
+                    "{start:?}: {text}"
+                );
+            }
+            assert!(!text.contains("לפי הבנק יותר"), "{start:?}: {text}");
+            assert!(!text.contains("לפחות בערך"), "{start:?}: {text}");
+            assert!(!text.contains("בבנק: בבנק"), "{start:?}: {text}");
+        }
+        let Some(place) = decision(&answer, LineKind::PlaceType) else {
+            continue;
+        };
+        for option in &place.options {
+            if option.title.he.contains("קופת גמל") {
+                let said: Vec<&str> = option
+                    .facts
+                    .iter()
+                    .map(|fact| fact.he.as_ref())
+                    .chain(place.difference.iter().map(|text| text.he.as_ref()))
+                    .collect();
+                for text in said {
+                    assert!(!text.contains("הקרן הייתה"), "{text}");
+                    assert!(!text.contains("קרן על המדד"), "{text}");
+                }
+            }
+        }
+    }
+}
+
+/// N6: an option for a sum known in advance gives it as its row does, to
+/// the shekel.
+#[test]
+fn a_known_sum_has_one_precision() {
+    let mut checked = 0;
+    for (start, _, answer) in every_answer() {
+        for line in &answer.lines {
+            let LineState::Decision(decision) = &line.state else {
+                continue;
+            };
+            for option in &decision.options {
+                let known: Vec<&Row> = option
+                    .rows
+                    .iter()
+                    .filter_map(|id| answer.outcome.rows.iter().find(|row| row.id == *id))
+                    .filter(|row| {
+                        matches!(row.kind, Kind::GovernmentBond { .. } | Kind::FixedDeposit)
+                    })
+                    .collect();
+                if known.is_empty() || known.len() != option.rows.len() {
+                    continue;
+                }
+                assert!(
+                    !option.amount.he.contains("בערך"),
+                    "{start:?}: {}",
+                    option.amount.he
+                );
+                if option.pick == Pick::Account(Account::NewAccount) {
+                    checked += 1;
+                    assert_eq!(
+                        amounts_in(&option.amount.he),
+                        amounts_in(&known[0].amount.he),
+                        "{start:?}"
+                    );
+                }
+            }
+        }
+    }
+    assert!(checked > 0, "an account for a bond is checked");
+}
+
+/// N7: an option's second amount is one short line, in its own unit.
+#[test]
+fn an_options_second_amount_is_short() {
+    for (_, _, answer) in every_answer() {
+        for line in &answer.lines {
+            let LineState::Decision(decision) = &line.state else {
+                continue;
+            };
+            for option in &decision.options {
+                if let Some(also) = &option.also {
+                    assert!(also.he.chars().count() <= 60, "{}", also.he);
+                    assert_eq!(
+                        amounts_in(&also.he).len().clamp(1, 2),
+                        amounts_in(&also.he).len()
+                    );
+                }
+            }
         }
     }
 }

@@ -46,6 +46,10 @@ pub struct Context {
     pub bank: Option<Text>,
     /// A portfolio already at a bank, moved as it is.
     pub existing: bool,
+    /// For a provident fund at retirement: whose coefficients the pension
+    /// in the answer uses, and on what terms (the review's N7: the option
+    /// keeps the amount, the steps say how it was reckoned).
+    pub pension_terms: Option<Text>,
 }
 
 fn fixed(en: &'static str, he: &'static str) -> Text {
@@ -623,6 +627,15 @@ fn adds(ctx: &Context, lang: Lang) -> String {
     }
 }
 
+/// A sentence put after a colon: its first letter lowered in English.
+fn lowered_first(sentence: &str, lang: Lang) -> String {
+    let mut chars = sentence.chars();
+    match (lang, chars.next()) {
+        (Lang::En, Some(first)) => first.to_lowercase().chain(chars).collect(),
+        _ => sentence.to_owned(),
+    }
+}
+
 /// The steps of a fund company's way, each kind its own (the review's L14).
 fn fund_steps(ctx: &Context, vehicle: Vehicle) -> Vec<Text> {
     let track = fixed(
@@ -643,10 +656,20 @@ fn fund_steps(ctx: &Context, vehicle: Vehicle) -> Vec<Text> {
                 ),
                 Lang::He => format!("מפקידים {}, בהוראת קבע, עד התקרה השנתית.", adds(ctx, lang)),
             }),
-            fixed(
-                "Taking it out: as a monthly pension from 60, the gain is tax-free; all at once, 25% of the gain above inflation.",
-                "במשיכה: כקצבה חודשית מגיל 60 הרווח פטור ממס; בבת אחת, 25% מהרווח שמעבר לאינפלציה.",
-            ),
+            both(|lang| {
+                let out = lang.pick(
+                    "Taking it out: as a monthly pension from 60, the gain is tax-free; all at once, 25% of the gain above inflation.",
+                    "במשיכה: כקצבה חודשית מגיל 60 הרווח פטור ממס; בבת אחת, 25% מהרווח שמעבר לאינפלציה.",
+                );
+                match &ctx.pension_terms {
+                    Some(terms) => format!(
+                        "{out} {} {}",
+                        lang.pick("The pension in the answer:", "הקצבה שבתשובה:"),
+                        lowered_first(&terms[lang], lang)
+                    ),
+                    None => out.to_owned(),
+                }
+            }),
         ],
         Vehicle::SavingsPolicy => vec![
             fixed(

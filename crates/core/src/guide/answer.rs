@@ -220,6 +220,9 @@ pub struct Opt {
     pub title: Text,
     /// What it leaves, with how certain that is in words.
     pub amount: Text,
+    /// A second amount in another unit, under the first: the monthly
+    /// pension a provident fund's sum would pay (the review's N7).
+    pub also: Option<Text>,
     pub value: Option<Amount>,
     /// At most 3.
     pub facts: Vec<Text>,
@@ -420,6 +423,10 @@ pub struct Answer {
     pub how: Vec<How>,
     /// Only where fees or tax decide something on the page.
     pub gain: Option<Gain>,
+    /// Whether "what if the date moves?" has rows for this answer, worked out
+    /// or not: money that may be needed any day has no date to move (the
+    /// review's N10), so the page holds no place for the section.
+    pub moves: bool,
     pub horizons: Vec<HorizonRow>,
     /// For retirement: the monthly pension it could buy.
     pub annuity: Option<Text>,
@@ -1402,6 +1409,10 @@ struct Where {
     ties: Vec<u8>,
     yours: Option<usize>,
     range: Option<(Amount, Amount)>,
+    /// The visitor's bank is in the stated answer beside the tie group: it
+    /// needs no new account, and is behind by no more than the margin that
+    /// would make the account a question (the review's N2).
+    yours_joins: bool,
 }
 
 impl Where {
@@ -1414,6 +1425,42 @@ impl Where {
             ties,
             yours,
             range,
+            yours_joins: false,
+        }
+    }
+
+    /// Lets the visitor's bank join the stated answer when it is behind the
+    /// best by no more than `margin`, the margin between kinds: staying needs
+    /// no new account, so within it moving is no question, and the answer
+    /// mustn't send the visitor to open one (the review's N2).
+    fn join_yours(mut self, margin: Decimal) -> Self {
+        self.yours_joins = match (self.yours, self.best()) {
+            (Some(at), Some(best)) => {
+                self.ties[at] != 0 && best.left.today - self.places[at].left.today <= margin
+            }
+            _ => false,
+        };
+        self
+    }
+
+    /// The names the line and the plan give: the visitor's bank first when
+    /// it joins, then the tie group.
+    fn line_names(&self) -> Vec<Text> {
+        let yours = self
+            .yours
+            .filter(|_| self.yours_joins)
+            .map(|at| card::your_bank(&self.places[at].provider));
+        yours.into_iter().chain(self.tied_names()).collect()
+    }
+
+    /// How far apart the names the line gives are.
+    fn line_spread(&self) -> Decimal {
+        match self.yours.filter(|_| self.yours_joins) {
+            Some(at) => {
+                let high = self.tied().iter().map(|place| place.left.today).max();
+                high.map_or(Decimal::ZERO, |high| high - self.places[at].left.today)
+            }
+            None => self.spread(),
         }
     }
 
@@ -1540,6 +1587,7 @@ fn build(f: &Facts<'_>, parts: Parts) -> Answer {
     let gain = details
         .then(|| gain(f, &lines, chosen, where_info.as_ref()))
         .flatten();
+    let annuity = details.then(|| annuity(f, chosen, &lines)).flatten();
     Answer {
         confidence: Confidence {
             state,
@@ -1554,12 +1602,13 @@ fn build(f: &Facts<'_>, parts: Parts) -> Answer {
         focus,
         how,
         gain,
-        horizons: if parts == (Parts::All { horizons: true }) {
+        moves: !f.answers.needs_any_day,
+        horizons: if parts == (Parts::All { horizons: true }) && !f.answers.needs_any_day {
             horizons(f)
         } else {
             Vec::new()
         },
-        annuity: details.then(|| annuity(f, chosen)).flatten(),
+        annuity,
     }
 }
 
@@ -1651,6 +1700,7 @@ fn decision(
             pick: *pick,
             title: words.title,
             amount: words.amount,
+            also: words.also,
             value: *value,
             facts: words.facts.into_iter().take(3).collect(),
             fits_if: words.fits_if,
@@ -1755,7 +1805,9 @@ fn place_line(f: &Facts<'_>) -> Line {
                 safe_kinds: safe_kinds(f),
                 fund_range: fund_range.map(|(low, high)| (low.today, high.today)),
                 retirement: matches!(f.answers.horizon, Horizon::Retirement { .. }),
-                annuity: annuity_of(f, index.map(|index| index.lead)),
+                annuity: annuity_of(f, index.map(|index| index.lead))
+                    .as_ref()
+                    .map(card::annuity_also),
             });
             let safe_rows: Vec<RowId> = f
                 .safe
@@ -2050,11 +2102,14 @@ fn where_line(f: &Facts<'_>, chosen: Option<Chosen>) -> (Line, Option<WhereInfo>
             let Some(group) = f.safe.group(SafeWay::Deposit) else {
                 return (line(LineKind::Where, LineState::Waiting), None);
             };
+            // A deposit at another bank needs an account there, as a move
+            // to a house does: the same margin lets the visitor's bank join.
             let places = Where::new(
                 super::outcome::safe_places(&group.lead, f.data, f.bank),
                 f.provider_margin,
-            );
-            let tied = places.tied_names();
+            )
+            .join_yours(f.kind_margin);
+            let tied = places.line_names();
             let tied = if tied.is_empty() {
                 vec![group.lead.choice.provider.clone()]
             } else {
@@ -2063,14 +2118,15 @@ fn where_line(f: &Facts<'_>, chosen: Option<Chosen>) -> (Line, Option<WhereInfo>
             let yours = places.yours.map(|at| &places.places[at]);
             let text = card::where_deposit(&card::DepositWhere {
                 tied: &tied,
-                spread: places.spread(),
+                spread: places.line_spread(),
                 yours: yours.map(|place| &place.provider),
                 behind: yours
                     .zip(places.best())
                     .map(|(yours, best)| best.left.today - yours.left.today),
-                yours_tied: yours.is_some_and(|place| {
-                    places.tied().iter().any(|tied| std::ptr::eq(*tied, place))
-                }),
+                yours_tied: places.yours_joins
+                    || yours.is_some_and(|place| {
+                        places.tied().iter().any(|tied| std::ptr::eq(*tied, place))
+                    }),
             });
             (
                 line(
@@ -2161,18 +2217,28 @@ fn account_line(
         return (line(LineKind::Where, LineState::Waiting), None);
     };
     let tied = places.tied_names();
-    let spread = places.spread();
+    let best_left = best.left.today;
     let reference = places.reference();
     let gap = reference.map(|reference| best.left.today - reference.today);
     let yours_name = places.yours_name();
     let range = places.range.map(|(low, high)| (low.today, high.today));
     if moot || gap.is_none_or(|gap| gap <= f.kind_margin) {
+        let places = if moot {
+            places
+        } else {
+            places.join_yours(f.kind_margin)
+        };
+        let tied = places.line_names();
         let text = card::where_stated(&card::WhereFigures {
+            kind: row,
             tied: &tied,
-            spread,
+            spread: places.line_spread(),
+            best: best_left,
             gap,
             yours: yours_name.as_ref(),
+            joined: places.yours_joins,
             range,
+            margin: f.kind_margin,
             moot,
         });
         let pill = if tied.len() == 1 && (moot || gap.is_none()) {
@@ -2182,8 +2248,9 @@ fn account_line(
         };
         let info = WhereInfo {
             row,
+            // Joined, staying is as good as moving: no new account is asked for.
+            account: (!places.yours_joins).then_some(Account::NewAccount),
             places,
-            account: Some(Account::NewAccount),
             decided: false,
         };
         return (
@@ -2195,6 +2262,7 @@ fn account_line(
     let best_cost = best.cost_a_year;
     let yours_cost = places.yours.and_then(|at| places.places[at].cost_a_year);
     let words = card::account_decision(&card::AccountFigures {
+        kind: row,
         tied: &tied,
         best: best.left.today,
         best_cost,
@@ -2535,6 +2603,7 @@ fn how_of(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> How {
         account: info.and_then(|info| info.account),
         bank: f.bank.map(|bank| super::outcome::bank_name(f.data, bank)),
         existing: f.existing,
+        pension_terms: pension_terms(f, row.kind),
     };
     let tie = (row.kind == Kind::MoneyMarketFund)
         .then(|| {
@@ -2676,7 +2745,7 @@ fn plan_text(f: &Facts<'_>, chosen: Option<Chosen>, info: Option<&WhereInfo>) ->
         .and_then(|index| index.cushion)
         .filter(|_| f.arena == Some(Arena::Index))
         .map(|cushion| (cushion.target, cushion.fill));
-    let tied: Vec<Text> = info.map_or_default(|info| info.places.tied_names());
+    let tied: Vec<Text> = info.map_or_default(|info| info.places.line_names());
     let yours = info.and_then(|info| info.places.yours_name());
     let kind = match chosen {
         Chosen::Safe(way) => f.safe.group(way)?.lead.kind,
@@ -2718,13 +2787,14 @@ fn title_and_body(f: &Facts<'_>, state: ConfidenceState, open: bool) -> (Text, T
         open,
         retirement: matches!(f.answers.horizon, Horizon::Retirement { .. }),
         below_deposited: worst.is_some_and(|worst| worst < f.deposited.today),
+        lead: f.index.as_ref().map(|index| index.way(index.lead).way),
     })
 }
 
 /// The monthly pension the provident fund for investment would pay from the
 /// way at `at`, for retirement: nothing for another way, or for an age the
 /// payers' tables don't cover.
-fn annuity_of(f: &Facts<'_>, at: Option<usize>) -> Option<Text> {
+fn annuity_of(f: &Facts<'_>, at: Option<usize>) -> Option<crate::annuity::Estimate> {
     let Horizon::Retirement { age, retire_at } = f.answers.horizon else {
         return None;
     };
@@ -2737,25 +2807,44 @@ fn annuity_of(f: &Facts<'_>, at: Option<usize>) -> Option<Text> {
     let sum = index.left(at)?.today - index.offset();
     let today = f.settings.today?;
     let starts_in = today.year() + i32::try_from(retire_at - age).ok()?;
-    let estimate = crate::annuity::monthly(sum, retire_at, starts_in)?;
-    Some(card::annuity(&estimate, f.settings.index_return))
+    crate::annuity::monthly(sum, retire_at, starts_in)
+}
+
+/// Whose coefficients the pension of a provident fund's row rests on, and on
+/// what terms: said in its steps, not in the option (the review's N7).
+fn pension_terms(f: &Facts<'_>, kind: Kind) -> Option<Text> {
+    let Kind::Way(way) = kind else { return None };
+    let index = f.index.as_ref()?;
+    let at = index
+        .run
+        .ways
+        .iter()
+        .position(|outcome| outcome.way == way)?;
+    annuity_of(f, Some(at)).map(|estimate| estimate.assumes)
 }
 
 /// For retirement, once the money goes to the index: the pension of the way
-/// chosen. While the place type is still the visitor's, the pension is in
-/// the growth option instead (finding 11: an option's result isn't shown
-/// before it's chosen).
-fn annuity(f: &Facts<'_>, chosen: Option<Chosen>) -> Option<Text> {
+/// chosen. While the place type is the visitor's, chosen or not, the
+/// pension is the growth option's second amount instead (finding 11: an
+/// option's result isn't shown before it's chosen; principle 13: nor twice
+/// after).
+fn annuity(f: &Facts<'_>, chosen: Option<Chosen>, lines: &[Line]) -> Option<Text> {
     if f.arena != Some(Arena::Index) {
         return None;
     }
+    let asked = lines.iter().any(|line| {
+        matches!(&line.state, LineState::Decision(decision) if decision.id == DecisionId::PlaceType)
+    });
     let index = f.index.as_ref()?;
     let at = match chosen {
         Some(Chosen::Index(at)) => at,
         Some(Chosen::Safe(_)) => return None,
         None => index.lead,
     };
-    annuity_of(f, Some(at))
+    if asked && at == index.lead {
+        return None;
+    }
+    annuity_of(f, Some(at)).map(|estimate| card::annuity(&estimate, f.settings.index_return))
 }
 
 // ─────────────────────────── The gain ───────────────────────────
@@ -2789,11 +2878,13 @@ fn gain(
         let best = info.places.best()?;
         let named = info.places.yours.map(|at| &info.places.places[at]);
         let reference = named.or_else(|| {
-            // Until the bank is named: the banks' dearer end, said as such.
+            // Until the bank is named: the bank that leaves most, said as
+            // such, as the difference measures from it (the review's N4).
             info.places
                 .places
                 .iter()
-                .rfind(|place| place.bank.is_some())
+                .filter(|place| place.bank.is_some())
+                .max_by(|a, b| a.left.today.cmp(&b.left.today))
         })?;
         if best.cand == reference.cand {
             return None;
@@ -2812,8 +2903,8 @@ fn gain(
             let outcome = plan_outcome(cand, way.way, &index.run.base, base, rates)?;
             let label = match (place.yours, named.is_none() && place.cand == reference.cand) {
                 (true, _) => gain_words::your_bank(&place.provider),
-                (false, true) if f.existing => gain_words::dearest_branch(&place.provider),
-                (false, true) => gain_words::dearest_bank(&place.provider),
+                (false, true) if f.existing => gain_words::cheapest_branch(&place.provider),
+                (false, true) => gain_words::cheapest_bank(&place.provider),
                 (false, false) => place.provider.clone(),
             };
             let label = if unchosen.is_some() {

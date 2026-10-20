@@ -1040,6 +1040,8 @@ pub struct OptData {
     pub pick: guide::Pick,
     pub title: String,
     pub amount: String,
+    /// A second amount in its own unit (a pension a month), under the first.
+    pub also: Option<String>,
     pub value: Option<AmountData>,
     pub facts: Vec<String>,
     pub fits_if: Option<String>,
@@ -1225,6 +1227,8 @@ pub struct AnswerData {
     pub focus: Option<Kind>,
     pub how: Vec<HowData>,
     pub gain: Option<GainData>,
+    /// Whether the horizon section has rows to show, once worked out.
+    pub moves: bool,
     pub horizons: Vec<HorizonRowData>,
     pub annuity: Option<String>,
 }
@@ -1249,6 +1253,7 @@ fn decision_data(decision: &guide::Decision) -> DecisionData {
                 pick: option.pick,
                 title: said(&option.title),
                 amount: said(&option.amount),
+                also: option.also.as_ref().map(said),
                 value: option.value.map(AmountData::from),
                 facts: said_all(&option.facts),
                 fits_if: option.fits_if.as_ref().map(said),
@@ -1400,6 +1405,7 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                 .collect(),
             takeaway: said(&gain.takeaway),
         }),
+        moves: answer.moves,
         horizons: answer.horizons.iter().map(horizon_data).collect(),
         annuity: answer.annuity.as_ref().map(said),
     }

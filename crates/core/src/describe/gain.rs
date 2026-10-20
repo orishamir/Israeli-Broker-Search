@@ -57,23 +57,24 @@ pub fn your_bank(provider: &Text) -> Text {
     })
 }
 
-/// Until the visitor names their bank, the bank row is the banks' dearer
-/// end, and says so: "הבנק היקר מבין הבנקים: דיסקונט".
+/// Until the visitor names their bank, the bank row is the bank that leaves
+/// most, as every other comparison on the page measures from it (the
+/// review's N4), and says so: "הבנק הזול מבין הבנקים: לאומי".
 #[must_use]
-pub fn dearest_bank(provider: &Text) -> Text {
+pub fn cheapest_bank(provider: &Text) -> Text {
     both(|lang| match lang {
-        Lang::En => format!("The dearest bank: {}", &provider[lang]),
-        Lang::He => format!("הבנק היקר מבין הבנקים: {}", &provider[lang]),
+        Lang::En => format!("The cheapest bank: {}", &provider[lang]),
+        Lang::He => format!("הבנק הזול מבין הבנקים: {}", &provider[lang]),
     })
 }
 
-/// For a portfolio at a bank not named, the bank row is the dearest
+/// For a portfolio at a bank not named, the bank row is the cheapest
 /// branch price list, and says so.
 #[must_use]
-pub fn dearest_branch(provider: &Text) -> Text {
+pub fn cheapest_branch(provider: &Text) -> Text {
     both(|lang| match lang {
-        Lang::En => format!("The dearest branch price list: {}", &provider[lang]),
-        Lang::He => format!("תעריף הסניף היקר מבין הבנקים: {}", &provider[lang]),
+        Lang::En => format!("The cheapest branch price list: {}", &provider[lang]),
+        Lang::He => format!("תעריף הסניף הזול מבין הבנקים: {}", &provider[lang]),
     })
 }
 
