@@ -8,7 +8,7 @@ The previous plan of record (the guide and the workbench) was carried out on 202
 
 - principles 17 and 18, and the §2.8 amendment on "מדד";
 - no assumptions sheet and no override in the guide (the yearly return is a field on the stock row);
-- the visitor's bank asked in context;
+- the visitor's bank an optional fact among the questions ("הבנק שלי · לא חובה"), since asking it in where to buy failed the review;
 - above the horizon lines, the data decides between states A and C.
 
 The review against Part 1's checklist is `docs/redesign/review-2026-10-20.md`. The worked examples' structure holds, except for the deviations the review and the final report list.

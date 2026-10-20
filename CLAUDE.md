@@ -44,7 +44,7 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
 
 **The guide** (the default):
 
-- **What it takes:** the visitor's facts: what they have now, what they'll add each month, and when they'll need the money. Their bank is asked in context, in where to buy, only where it changes what's shown.
+- **What it takes:** the visitor's facts: what they have now, what they'll add each month, and when they'll need the money; and, if they like, their bank ("הבנק שלי · לא חובה"): where to buy measures from it, and without it from the banks' range.
 - **How it answers:** on up to four lines:
   - **קודם**, only when a step must come first;
   - **סוג המקום**;
@@ -66,7 +66,7 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
 
 - the answer card with the chip, the four lines and the one decision component;
 - the outcome chart, with the yearly return as a field on the stock row;
-- "איך עושים את זה" with the identity line, real names to search for (`examples.rs`) and where to buy against the visitor's bank, asked there;
+- "איך עושים את זה" with the identity line, real names to search for (`examples.rs`) and where to buy against the visitor's bank;
 - "כמה מהרווח נשאר אצלכם" and the horizon section.
 
 The guide has no assumptions sheet and no override: inflation and the rate are workbench levers. The old answer, the alternatives chart, the donut, the ladder and the follow‑up cards are gone. `docs/redesign/review-2026-10-20.md` is the review against Part 1.
@@ -168,12 +168,12 @@ The guide has no assumptions sheet and no override: inflation and the rate are w
   on). `App.svelte` is the header (title, glossary, about, share, the
   switch), the layout in `REDESIGN.md` §2.1's order, and the footer.
   - The guide's components: `Questions` (situation chips, the money and
-    horizon fields, the ages for retirement), `AnswerCard` (+ `AnswerLine`,
+    horizon fields, the ages for retirement, the optional bank), `AnswerCard` (+ `AnswerLine`,
     `Decision`: the one decision component), `OutcomeChart` (+ `outcome.ts`:
     rows as buttons, marks on one ₪ axis, labels placed in lanes, the
     return field), `HowTo` and `WhereToBuy` (+ `how.ts`: the identity line,
-    what to search for, the steps, places against the visitor's bank, the
-    bank asked there), `GainSplit` (+ `gain.ts`) and `HorizonSection`. The
+    what to search for, the steps, places against the visitor's bank),
+    `GainSplit` (+ `gain.ts`) and `HorizonSection`. The
     workbench's: `Workbench` (what to buy, the ways, the levers, "מה
     משווים" with `PlanSheet` and the editor), `Within` (+ `within.ts`: the
     full table, one component for both arenas with the columns the core
@@ -245,8 +245,8 @@ tests, then the browser tests) and `npm run lint` (prettier, eslint,
 stylelint, svelte-check). After a change to how the page behaves when used
 (charts, animations, inputs, loading, the worker's jobs), also
 `npm run test:perf`. After a change to the guide's rules, run
-`cargo mutants -p broker-fees -j 8 --timeout 180 --file 'crates/core/src/guide.rs' --file 'crates/core/src/guide/*.rs' --file crates/core/src/ways.rs --file crates/core/src/history.rs`
-(about 15 minutes; `--file` takes globs and repeats) and turn the surviving
+`cargo mutants -p broker-fees -j 8 --timeout 180 --profile mutants --file 'crates/core/src/guide.rs' --file 'crates/core/src/guide/*.rs' --file crates/core/src/ways.rs --file crates/core/src/history.rs`
+(`--file` takes globs and repeats; `--profile mutants`, in `Cargo.toml`, optimises the tests, which take minutes in a debug build and made every mutant time out) and turn the surviving
 mutants that matter into tests. It copies the tree for each job, so run it
 with no agents' worktrees under `.claude/worktrees` (they once made the
 tree 19 GB), and put `TMPDIR` on the big disk if `/tmp` fills up.
