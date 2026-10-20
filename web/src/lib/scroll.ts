@@ -68,8 +68,13 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean) {
       // Opened above (it depends on nothing below it): go up to it.
       scrollBy({ top: box.top - MARGIN * 4, behavior: behavior() })
     } else if (box.bottom > innerHeight - MARGIN) {
-      // Below the screen: up to the middle, but the chosen button stays.
-      const by = Math.min(box.top - innerHeight / 2, chosen - MARGIN)
+      // Below the screen: up to the middle, but the chosen button stays, if
+      // both fit on the screen. On a phone the options stack, and what lies
+      // between them can be taller than the screen: then the new question
+      // wins, since what was chosen is only above it (the review's X7).
+      const middle = box.top - innerHeight / 2
+      const keep = chosen - MARGIN
+      const by = box.bottom - keep <= innerHeight - MARGIN ? Math.min(middle, keep) : middle
       if (by > 0) scrollBy({ top: by, behavior: behavior() })
     }
   }

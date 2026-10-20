@@ -163,7 +163,7 @@ test('a row is read out with its name, figure and, for the index, the return and
     for (const row of outcome.rows.filter(({ excluded }) => !excluded)) {
       const label = rowLabel(row, words, 10)
       expect(label).toContain(row.name)
-      expect(label).toContain(shekels(row.value.today))
+      expect(label).toContain(row.amount)
       if (row.mark.type === 'market') {
         expect(label).toContain(words.worst)
         expect(label).toContain('10%')

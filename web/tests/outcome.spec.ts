@@ -1,7 +1,6 @@
 import { answerFor, situationAnswers } from './core'
 import type { AnswerData, Kind } from './core'
 import { chip, decide, expect, expectAnswerFor, situationName, test, type Page } from './fixtures'
-import { shekels } from '../src/lib/format'
 import { kindKey } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
 
@@ -91,9 +90,7 @@ test(
     await field.fill('6')
     const six = answerFor(answers, {}, { indexReturnPercent: 6 })
     const stock = six.outcome.rows.findIndex((row) => typeof row.id === 'object' && 'Way' in row.id)
-    await expect(rows(page).nth(stock).locator('.value')).toHaveText(
-      shekels(six.outcome.rows[stock].value.today),
-    )
+    await expect(rows(page).nth(stock).locator('.value')).toHaveText(six.outcome.rows[stock].amount)
     // It travels in the address, so a refresh keeps it.
     await expect.poll(() => page.evaluate(() => location.hash)).toContain('r=6')
   },

@@ -30,6 +30,7 @@ const row = (name: string, left: number, tie: number, extra: Partial<ProviderDat
   tie,
   versusYours: undefined,
   warning: undefined,
+  amount: `₪${left}`,
   ...extra,
 })
 

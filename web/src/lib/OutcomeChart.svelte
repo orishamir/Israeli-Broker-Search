@@ -206,7 +206,7 @@
             {/if}
           </span>
           <!-- An excluded option shows no end figure, only its reason (a note). -->
-          <span class="value num" aria-hidden="true">{row.excluded ? '' : shekels(row.value.today)}</span>
+          <span class="value num" aria-hidden="true">{row.excluded ? '' : row.amount}</span>
           {#each rowNotes[index] as note, at (at)}
             <p class="note">{note}</p>
           {/each}

@@ -6,7 +6,6 @@
   // range is the reference. The bank is asked once, with the visitor's facts
   // (`Questions`, §2.1), not again here (principle 7).
   import type { WhereToBuyData } from './core/core'
-  import { shekels } from './format'
   import { rangeText, tieGroups, versusText } from './how'
   import { t } from './text'
 
@@ -27,10 +26,7 @@
             <div class="row" class:yours={row.yours}>
               <span class="name">{row.yours ? t.yourBankRow(row.name) : row.name}</span>
               <span class="amount">
-                <bdi dir="ltr">{shekels(row.left.today)}</bdi>{#if row.warning}<span
-                    class="sign"
-                    aria-hidden="true">⚠</span
-                  >{/if}
+                <bdi>{row.amount}</bdi>{#if row.warning}<span class="sign" aria-hidden="true">⚠</span>{/if}
               </span>
               <span class="versus" class:reference={row.yours}><bdi dir="ltr">{versusText(row)}</bdi></span>
               {#if row.warning}<p class="warning">⚠ {row.warning}</p>{/if}

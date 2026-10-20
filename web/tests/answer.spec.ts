@@ -168,6 +168,14 @@ function opening(answers: AnswersInput, before: AnswerData) {
   })
 }
 
+/** The chosen button stays on the screen with the new question, wherever
+ * the two fit on one (on a phone, what lies between them can be taller). */
+async function expectChosenKeptWhereItFits(page: Page, pressed: Locator, question: Locator) {
+  const [button, asked] = [(await pressed.boundingBox())!, (await question.boundingBox())!]
+  if (asked.y + asked.height - button.y <= page.viewportSize()!.height - 24)
+    await expect(pressed).toBeInViewport()
+}
+
 // A choice can open a decision that depends on it (the review of 2026-10-20,
 // X7): the chosen option stays on the screen while the card changes around
 // it, and the new question comes into view, on a phone too.
@@ -188,7 +196,9 @@ test(
         await expect(pressed).toBeVisible()
         await expect(decisionGroup(page, fresh[0].decision)).toBeVisible()
         await expect(pressed).toBeInViewport()
-        await expect(answerLine(page, fresh[0].line).locator('.question')).toBeInViewport({ ratio: 1 })
+        const question = answerLine(page, fresh[0].line).locator('.question')
+        await expect(question).toBeInViewport({ ratio: 1 })
+        await expectChosenKeptWhereItFits(page, pressed, question)
         // Back to the first, for the next option.
         await chip(page, situationName('goal')).click()
         await chip(page, situationName(id)).click()

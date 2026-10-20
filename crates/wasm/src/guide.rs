@@ -1106,6 +1106,10 @@ pub struct RowData {
     pub tags: Vec<String>,
     pub mark: MarkData,
     pub value: AmountData,
+    /// `value` in words, rounded to how sure it is: what the row shows.
+    pub amount: String,
+    /// Its figure lies beyond the axis: drawn as an arrow at the edge.
+    pub tail: bool,
     pub active: bool,
     pub excluded: Option<String>,
     pub note: Option<String>,
@@ -1142,6 +1146,8 @@ pub struct ProviderData {
     pub tie: u8,
     /// "May cost more: …", marked ⚠ on the row.
     pub warning: Option<String>,
+    /// `left` in words, rounded as the chart's rows are.
+    pub amount: String,
 }
 
 #[derive(Debug, Serialize, Tsify)]
@@ -1292,6 +1298,7 @@ fn where_data(where_to_buy: &guide::WhereToBuy) -> WhereToBuyData {
                 yours: row.yours,
                 tie: row.tie,
                 warning: row.warning.as_ref().map(said),
+                amount: said(&row.amount),
             })
             .collect(),
         bank_range: where_to_buy
@@ -1348,6 +1355,8 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                     tags: said_all(&row.tags),
                     mark: mark_data(&row.mark),
                     value: row.value.into(),
+                    amount: said(&row.amount),
+                    tail: row.tail,
                     active: row.active,
                     excluded: row.excluded.as_ref().map(said),
                     note: row.note.as_ref().map(said),

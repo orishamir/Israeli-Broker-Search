@@ -5,7 +5,7 @@
 // every chart on the page does; its labels are Hebrew.
 
 import type { AnswerOutcomeData, Kind, OutcomeWordsData, RowData } from './core/core'
-import { compactShekelsApart, shekels } from './format'
+import { compactShekelsApart } from './format'
 import { kindKey } from './kinds'
 
 /** The axis, in today's ₪. */
@@ -276,7 +276,7 @@ export function rowLabel(row: RowData, words: OutcomeWordsData, percent: number)
   // An option the rules exclude has no end figure (the review's X12): a
   // beginner asked which ends highest would point at it. Its reason instead.
   if (row.excluded) return [...parts, row.excluded].join('. ')
-  parts.push(shekels(row.value.today))
+  parts.push(row.amount)
   if (mark.type === 'market' || mark.type === 'expected')
     parts[parts.length - 1] += ` ${words.ifItRises}${formatPercent(percent)}%\u00a0${words.perYear}`
   if (mark.type === 'market') {

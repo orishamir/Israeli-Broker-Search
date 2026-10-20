@@ -1,5 +1,13 @@
-import { answersWith, compareWays, decisionsOf, inputsOnPage, situationAnswers, ways } from './core'
-import type { AnswerData, AnswersInput, Choices, DecisionId, LineKind, Pick } from './core'
+import {
+  answerFor,
+  answersWith,
+  compareWays,
+  decisionsOf,
+  inputsOnPage,
+  situationAnswers,
+  ways,
+} from './core'
+import type { AnswerData, AnswersInput, Choices, DecisionId, Holdings, LineKind, Pick } from './core'
 import {
   answerCard,
   answerLine,
@@ -162,25 +170,47 @@ test(
   },
 )
 
-test('a portfolio at a bank: nothing opens, and what it holds is asked in the answer, after the place', async ({
+test('a portfolio at a bank: nothing opens, the place is said, and what it holds is asked on the way', async ({
   page,
 }) => {
   await chip(page, situationName('existing')).click()
   await expect(page.getByRole('dialog')).toHaveCount(0)
   const answers = situationAnswers('existing')
   const first = await expectShapeOnPage(page, answers)
-  expect(decisionsOf(first).some(({ decision }) => decision.id === 'Holdings')).toBe(false)
-  await decide(page, answers, {}, 'PlaceType', { Flexibility: 'CanWait' })
-  const wait = await expectShapeOnPage(page, { ...answers, flexibility: 'CanWait' })
-  // BUT-6: what the portfolio holds is the visitor's to say, never assumed.
-  expect(decisionsOf(wait).some(({ decision }) => decision.id === 'Holdings')).toBe(true)
+  // The money is already invested: the place's type isn't asked again, and
+  // what the portfolio holds is the visitor's to say, never assumed (BUT-6).
+  expect(shapeOf(first).PlaceType).toBe('stated')
+  expect(decisionsOf(first).find(({ decision }) => decision.id === 'Holdings')?.line).toBe('Way')
+  // Where waits for it; once said, the move is stated, and the choice stays.
+  expect(shapeOf(first).Where).toBe('waiting')
+  for (const pick of optionsOf(first, 'Holdings')) {
+    await decide(page, answers, {}, 'Holdings', pick)
+    const told = await expectShapeOnPage(page, answers, {
+      holdings: (pick as { Holdings: Holdings }).Holdings,
+    })
+    expect(shapeOf(told)).toEqual({ ...shapeOf(first), Where: 'stated' })
+  }
 })
 
-test('retirement: the card says the monthly pension the core estimates', async ({ page }) => {
+test('retirement: the answer says the monthly pension the core estimates, where the core puts it', async ({
+  page,
+}) => {
   await chip(page, situationName('retirement')).click()
-  const expected = await expectAnswerFor(page, situationAnswers('retirement'))
-  expect(expected.annuity, 'the core estimates a pension').toBeDefined()
-  await expect(answerCard(page).locator('.annuity')).toHaveText(expected.annuity!)
+  const answers = situationAnswers('retirement')
+  const first = await expectAnswerFor(page, answers)
+  // The pension the core estimates for the money grown in the index.
+  const pension = answerFor({ ...answers, flexibility: 'CanWait' }).annuity
+  expect(pension, 'the core estimates a pension').toBeDefined()
+  // Where the core says it: among what the growth option leaves while the
+  // place is open, on the card once it isn't; and the page shows it once.
+  const placeType = decisionsOf(first).find(({ decision }) => decision.id === 'PlaceType')
+  const growing = placeType?.decision.options.find(
+    ({ pick }) => JSON.stringify(pick) === '{"Flexibility":"CanWait"}',
+  )
+  const growth = growing?.facts ?? []
+  expect([...growth, first.annuity]).toContain(pension)
+  await expect(answerCard(page).getByText(pension!, { exact: true })).toBeVisible()
+  await expect(answerCard(page).locator('.annuity')).toHaveCount(Number(first.annuity !== undefined))
 })
 
 test('"I know what to buy": the S&P 500 in all its ways, with the fund\'s own cost and every chart', async ({
