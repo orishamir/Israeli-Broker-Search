@@ -745,7 +745,7 @@ contact sheet (`web/tests/CLAUDE.md`, "Recipes"), and only at the ones that chan
 - **Python:** the system Python has no Pillow: `uv run --with pillow python script.py`.
 - **Cargo:** the packages are `broker-fees` (the core) and `broker-fees-wasm` (the bindings), as in `cargo test -p broker-fees`.
 - **Permissions:** when the permission classifier blocked Bash and WebSearch, the user allowed them in `.claude/settings.local.json`.
-- **Killing processes:** `pkill -f <pattern>` kills the shell running it when the pattern appears in that command (exit code 144). Stop a server by its port instead: `fuser -k 4173/tcp`.
+- **Killing processes:** `pkill -f <pattern>` kills the shell running it when the pattern appears in that command (exit code 144). Stop a server by its port instead: `fuser -k 4173/tcp`. The same goes for waiting: `until ! pgrep -f "cargo mutants"; do sleep 30; done` matches its own shell and never ends (agents left four such loops running for hours). Run the command itself in the background, or match the process's name (`pgrep -x cargo-mutants`).
 - **Playwright's project flag:** `npx playwright test --project desktop tests/x.spec.ts` fails; write `--project=desktop`.
 - **Stale dev server:** an `npm run dev` server left running across a package upgrade served stale CSS, and Playwright reuses a server on 5173. Restart it: `fuser -k 5173/tcp`, then `npx vite --host 0.0.0.0 --port 5173`.
 - **Vitest:** it runs `.svelte.ts` modules against Svelte's server build unless `resolve.conditions: ['browser']` is set (`vitest.config.ts`). Effects then never run, and deriveds don't track.
