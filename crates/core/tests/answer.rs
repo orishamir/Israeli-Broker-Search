@@ -1412,8 +1412,14 @@ fn the_horizons_grow_with_the_years_and_change_arena_once() {
 // ─────────────────────────── The review's findings ───────────────────────────
 
 /// The starts the review's rules are checked on, and their answers with
-/// every choice.
+/// every choice: worked out once for all the tests that read them, since
+/// the grid takes seconds (and `cargo mutants` runs it for every mutant).
 fn every_answer() -> Vec<(Answers, Choices, Answer)> {
+    static ALL: LazyLock<Vec<(Answers, Choices, Answer)>> = LazyLock::new(work_out_every_answer);
+    ALL.clone()
+}
+
+fn work_out_every_answer() -> Vec<(Answers, Choices, Answer)> {
     let mut out = Vec::new();
     for start in starts() {
         for choices in every_choice() {

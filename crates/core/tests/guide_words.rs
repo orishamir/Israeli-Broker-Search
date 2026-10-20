@@ -389,7 +389,13 @@ fn the_check_finds_a_bare_index() {
 /// The redesigned answers the checks below read: every row of the safe
 /// and the index tables, with and without the visitor's bank, and with
 /// choices that open every line.
-fn many_redesigned_answers() -> Vec<Answer> {
+fn many_redesigned_answers() -> &'static [Answer] {
+    // Worked out once for both tests that read them: it takes seconds.
+    static ALL: LazyLock<Vec<Answer>> = LazyLock::new(work_out_many_redesigned_answers);
+    &ALL
+}
+
+fn work_out_many_redesigned_answers() -> Vec<Answer> {
     let mut dated = settings();
     dated.today = Some(time::macros::date!(2026 - 10 - 01));
     let picks = [
@@ -473,14 +479,14 @@ fn the_guide_names_the_index_it_means() {
 #[test]
 fn the_answer_card_names_the_index_it_means() {
     for answer in many_redesigned_answers() {
-        for unit in units(&answer) {
+        for unit in units(answer) {
             let parts: Vec<&str> = unit.iter().map(String::as_str).collect();
             assert!(
                 bare_index_in_unit(&parts).is_none(),
                 "the answer says a bare מדד: {unit:?}"
             );
         }
-        let value = serde_json::to_value(&answer).unwrap();
+        let value = serde_json::to_value(answer).unwrap();
         // Nor "a stock index", which doesn't say which: the answer is about
         // the S&P 500 (principle 14).
         let mut texts = Vec::new();

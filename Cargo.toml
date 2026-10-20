@@ -35,3 +35,10 @@ missing_panics_doc = "allow"
 [profile.release]
 lto = true
 codegen-units = 1
+
+# For `cargo mutants --profile mutants`: the guide's tests work out whole
+# answers, about 70 s each in a debug build, so every mutant timed out.
+[profile.mutants]
+inherits = "test"
+opt-level = 2
+debug = false
