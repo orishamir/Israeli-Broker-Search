@@ -120,7 +120,8 @@ for (const id of ['goal', 'bonus', 'salary', 'cushion']) {
         // Every mark of the band has its label.
         await expect(shown.locator('.marks .label')).toHaveCount(row.marks.length)
       }
-      for (const line of outcome.lines) await expect(chart(page).locator(`.line-label.${line.which}`)).toBeVisible()
+      for (const line of outcome.lines)
+        await expect(chart(page).locator(`.line-label.${line.which}`)).toBeVisible()
     },
   )
 }
@@ -179,7 +180,9 @@ test(
     await expect(bars).toHaveCount(gain.rows.length)
     for (const [index, row] of gain.rows.entries())
       for (const part of row.parts)
-        await expect(bars.nth(index).locator('.words, .beside').filter({ hasText: part.label })).toHaveCount(1)
+        await expect(bars.nth(index).locator('.words, .beside').filter({ hasText: part.label })).toHaveCount(
+          1,
+        )
     await expect(page.locator('section.gain .takeaway')).toBeVisible()
   },
 )
@@ -206,7 +209,9 @@ for (const id of ['goal', 'bonus', 'salary']) {
       const at = horizons.findIndex((row) => row.current)
       await expect(section.locator('tbody th .yours')).toHaveCount(1)
       await expect(section.locator('tbody th').nth(at).locator('.yours')).toHaveCount(1)
-      await expect(section.locator('td.amount .range')).toHaveCount(horizons.flatMap((row) => row.fits).length)
+      await expect(section.locator('td.amount .range')).toHaveCount(
+        horizons.flatMap((row) => row.fits).length,
+      )
       // What was deposited, by its date: a column, or under the date on a phone.
       await expect(section.locator('td.deposited:visible, .deposits-here:visible')).toHaveCount(
         horizons.length,

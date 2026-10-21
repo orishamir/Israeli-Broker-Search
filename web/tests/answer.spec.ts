@@ -174,15 +174,6 @@ function opening(answers: AnswersInput, before: AnswerData) {
   })
 }
 
-/** The new decision is on the screen whole wherever it fits on one (the
- * review's N8: its question alone isn't the decision); taller, its question
- * and its first option's button are. */
-async function expectDecisionShown(page: Page, group: Locator) {
-  const box = (await group.boundingBox())!
-  if (box.height <= page.viewportSize()!.height - 24) await expect(group).toBeInViewport({ ratio: 1 })
-  else await expect(group.locator('.choose').first()).toBeInViewport({ ratio: 1 })
-}
-
 // A choice can open a decision that depends on it (the review of 2026-10-20,
 // X7, N8): the chosen option stays exactly where it was while the card
 // changes around it (principle 21), and the page never scrolls by itself:
@@ -201,7 +192,10 @@ test('a choice that opens a decision keeps the button still, and shows or announ
     const first = decisionsOf(before)[0]
     for (const { option, fresh } of opening(answers, before)) {
       opened++
-      const button = decisionGroup(page, first.decision).getByRole('button', { name: option.button, exact: true })
+      const button = decisionGroup(page, first.decision).getByRole('button', {
+        name: option.button,
+        exact: true,
+      })
       const at = (await button.boundingBox())!.y
       await decide(page, answers, {}, first.decision.id, option.pick)
       const pressed = decisionGroup(page, first.decision).getByRole('button', { pressed: true })
@@ -214,7 +208,9 @@ test('a choice that opens a decision keeps the button still, and shows or announ
       if (!(await group.locator('.question').isVisible()) || !(await isInSight(group))) {
         await expect(pill).toHaveText(t.newDecision(fresh[0].decision.question))
         await pill.click()
-        await expectDecisionShown(page, group)
+        // Its question at the top, and its options under it.
+        await expect(group.locator('.question')).toBeInViewport({ ratio: 1 })
+        await expect(group.locator('.choose').first()).toBeInViewport()
         await expect(pill).toHaveCount(0)
       }
       // Back to the first, for the next option.

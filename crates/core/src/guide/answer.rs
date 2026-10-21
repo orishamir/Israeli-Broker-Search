@@ -1693,11 +1693,22 @@ impl Where {
     /// The names the line and the plan give: the visitor's bank first when
     /// it joins, then the tie group.
     fn line_names(&self) -> Vec<Text> {
-        let yours = self
+        // The visitor's bank is named as theirs, first, when it joins and
+        // also when it is in the tie itself (principle 15): "לאומי, …,
+        // הפועלים" read as if their bank were one more.
+        let at = self
             .yours
-            .filter(|_| self.yours_joins)
-            .map(|at| card::your_bank(&self.places[at].provider));
-        yours.into_iter().chain(self.tied_names()).collect()
+            .filter(|at| self.yours_joins || self.ties[*at] == 0);
+        let yours = at.map(|at| &self.places[at].provider);
+        yours
+            .map(card::your_bank)
+            .into_iter()
+            .chain(
+                self.tied_names()
+                    .into_iter()
+                    .filter(|name| Some(name) != yours),
+            )
+            .collect()
     }
 
     /// How far apart the names the line gives are.
@@ -3158,7 +3169,11 @@ fn plan_text(f: &Facts<'_>, chosen: Option<Chosen>, info: Option<&WhereInfo>) ->
         dated: f.dated,
         cushion,
         tied: &tied,
-        account: info.and_then(|info| info.account),
+        // "בחשבון חדש" only where the visitor chose it: a place the site
+        // states may hold an account they already have (principle 5).
+        account: info
+            .filter(|info| info.decided)
+            .and_then(|info| info.account),
         yours: yours.as_ref(),
         bank: f
             .bank

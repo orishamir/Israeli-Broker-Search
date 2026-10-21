@@ -1135,6 +1135,58 @@ fn the_difference_names_makam_as_makam() {
     assert!(seen > 0, "makam is in a difference");
 }
 
+/// The plan says "a new account" only where the visitor chose one: a place
+/// the site states may be where they already have an account (principle
+/// 5; the review of 2026-10-21, the apartment's bond).
+#[test]
+fn the_plan_says_new_account_only_when_chosen() {
+    let mut stated = 0;
+    for start in starts() {
+        for choices in every_choice() {
+            let account = choices.account;
+            let answer = answered(&start, choices);
+            let Some(plan) = &answer.plan else { continue };
+            let asked =
+                decision(&answer, LineKind::Where).is_some_and(|d| d.id == DecisionId::Account);
+            if plan.he.contains("בחשבון חדש") {
+                assert!(asked && account == Some(Account::NewAccount), "{}", plan.he);
+            }
+            stated += usize::from(!asked && plan.he.contains("בחשבון ניירות ערך"));
+        }
+    }
+    assert!(stated > 0, "a stated place is a securities account");
+}
+
+/// The visitor's bank, in the tie the line states, is named as theirs:
+/// the any-day deposit's tie listed Hapoalim as one more bank (principle 15).
+#[test]
+fn the_visitors_bank_in_a_tie_is_named_as_theirs() {
+    let cushion = situations()
+        .into_iter()
+        .find(|situation| situation.id == "cushion")
+        .unwrap();
+    let answers = Answers {
+        bank: Some(Bank::Hapoalim),
+        ..cushion.answers
+    };
+    let answer = answered(
+        &answers,
+        Choices {
+            safe_way: Some(SafeWay::Deposit),
+            ..Choices::default()
+        },
+    );
+    let Some(Line {
+        state: LineState::Stated { text, .. },
+        ..
+    }) = line(&answer, LineKind::Where)
+    else {
+        panic!("the place is stated");
+    };
+    assert!(text.he.contains("הבנק שלכם (הפועלים)"), "{}", text.he);
+    assert!(!text.he.contains(", הפועלים"), "{}", text.he);
+}
+
 /// "דרך בנק" is one row, a reference, only beside a place it is a
 /// reference for: where only banks hold it, the banks are listed.
 #[test]
