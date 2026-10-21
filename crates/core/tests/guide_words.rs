@@ -305,6 +305,7 @@ fn units(answer: &Answer) -> Vec<Vec<String>> {
                 units.extend(decision.difference.iter().map(|text| vec![he(text)]));
                 for option in &decision.options {
                     let mut card = vec![he(&option.title), he(&option.amount)];
+                    card.extend(option.basis.iter().map(he));
                     card.extend(option.facts.iter().map(he));
                     card.extend(option.fits_if.iter().map(he));
                     card.push(he(&option.button));

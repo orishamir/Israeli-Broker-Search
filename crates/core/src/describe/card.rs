@@ -40,6 +40,10 @@ pub struct DecisionWords {
 pub struct OptWords {
     pub title: Text,
     pub amount: Text,
+    /// What the amount rests on, under it in small: "בריבית של היום", "אם
+    /// מדד המניות הרחב יעלה 10% בשנה". Apart from the figure, so the figure
+    /// reads at a glance; how sure it is ("בערך") stays with the figure.
+    pub basis: Option<Text>,
     /// A second amount, in its own unit, under the first: the pension a
     /// provident fund's sum would pay.
     pub also: Option<Text>,
@@ -805,15 +809,10 @@ pub struct CushionFigures {
 pub fn cushion_decision(f: &CushionFigures) -> DecisionWords {
     let months = rough_months(f.months_to_fill);
     let left = |value: Option<Decimal>| {
-        both(move |lang| match value {
-            Some(value) => format!(
-                "{} {}",
-                roughly(value, lang),
-                if_index_rises(f.index_return, lang)
-            ),
-            None => String::new(),
-        })
+        both(move |lang| value.map(|value| roughly(value, lang)).unwrap_or_default())
     };
+    let rises =
+        |value: Option<Decimal>| value.map(|_| both(|lang| if_index_rises(f.index_return, lang)));
     let has_not_facts = if f.takes_all {
         vec![
             both(|lang| match lang {
@@ -857,6 +856,11 @@ pub fn cushion_decision(f: &CushionFigures) -> DecisionWords {
             }),
         ]
     };
+    // What having one asks: nothing, said so beside what "not yet" asks.
+    let stays = fixed(
+        "Nothing more: the cushion stays where it is.",
+        "לא דורש עוד כלום: הכרית נשארת איפה שהיא.",
+    );
     DecisionWords {
         question: fixed(
             "Do you already have 3 months of expenses set aside?",
@@ -870,6 +874,7 @@ pub fn cushion_decision(f: &CushionFigures) -> DecisionWords {
             OptWords {
                 title: fixed("I have a cushion", "יש לי כרית"),
                 amount: left(f.has),
+                basis: rises(f.has),
                 facts: vec![
                     both(|lang| match lang {
                         Lang::En => format!(
@@ -881,9 +886,9 @@ pub fn cushion_decision(f: &CushionFigures) -> DecisionWords {
                             shekels(f.monthly)
                         ),
                     }),
-                    fixed("The cushion stays where it is.", "הכרית נשארת איפה שהיא."),
+                    stays.clone(),
                 ],
-                asks: vec![],
+                asks: vec![stays],
                 fits_if: None,
                 also: None,
                 button: fixed("I have one", "יש לי"),
@@ -891,14 +896,7 @@ pub fn cushion_decision(f: &CushionFigures) -> DecisionWords {
             OptWords {
                 title: fixed("Not yet", "עוד לא"),
                 amount: if f.takes_all {
-                    both(|lang| match f.has_not {
-                        Some(value) => format!(
-                            "{} {}",
-                            roughly(value, lang),
-                            lang.pick("at today's rate", "בריבית של היום")
-                        ),
-                        None => String::new(),
-                    })
+                    both(|lang| f.has_not.map(|value| roughly(value, lang)).unwrap_or_default())
                 } else {
                     left(f.has_not)
                 },
@@ -906,6 +904,11 @@ pub fn cushion_decision(f: &CushionFigures) -> DecisionWords {
                 facts: has_not_facts,
                 fits_if: None,
                 also: None,
+                basis: if f.takes_all {
+                    f.has_not.map(|_| at_todays_rate())
+                } else {
+                    rises(f.has_not)
+                },
                 button: fixed("Not yet", "עוד לא"),
             },
         ],
@@ -978,6 +981,11 @@ fn bought_in_account() -> Text {
         "Bought in a securities account, at a bank or an investment house.",
         "נקנית בחשבון ניירות ערך, בבנק או בבית השקעות.",
     )
+}
+
+/// What a figure at today's rate rests on.
+fn at_todays_rate() -> Text {
+    fixed("at today's rate", "בריבית של היום")
 }
 
 fn if_index_rises(rate: Percent, lang: Lang) -> String {
@@ -1098,16 +1106,22 @@ pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
         })
     };
     let mut safe_facts = vec![safe_kinds_fact(&f.safe_kinds)];
-    // What the safe side asks: one more choice, where there are several.
-    let mut safe_asks = Vec::new();
-    if f.safe_kinds.len() > 1 {
-        let then = fixed(
+    // What the safe side asks: one more choice, where there are several;
+    // else nothing, said so, beside what growth asks (the phone's row
+    // "מה זה דורש" is never left blank).
+    let safe_asks = if f.safe_kinds.len() > 1 {
+        fixed(
             "After this choice you'll choose which safe way.",
             "אחרי הבחירה הזאת תבחרו איזו דרך בטוחה.",
-        );
-        safe_facts.push(then.clone());
-        safe_asks.push(then);
-    }
+        )
+    } else {
+        fixed(
+            "Nothing: the sum doesn't depend on the stock market.",
+            "לא דורש כלום: הסכום לא תלוי בבורסה.",
+        )
+    };
+    safe_facts.push(safe_asks.clone());
+    let safe_asks = vec![safe_asks];
     if f.retirement {
         // What the safe way gives up here (the review's X6): the provident
         // fund's pension, free of tax on the gain.
@@ -1193,35 +1207,33 @@ pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
                 asks: safe_asks,
                 fits_if: None,
                 also: None,
+                basis: None,
                 button: if f.no_date {
                     fixed("No, I may need it sooner", "לא, אולי אצטרך אותו קודם")
                 } else {
-                    fixed(
-                        "No, I'll need it exactly then",
-                        "לא, אצטרך את הכסף בדיוק אז",
-                    )
+                    fixed("No, I'll need it exactly then", "לא, אצטרך אותו בדיוק אז")
                 },
             },
             OptWords {
                 title: growth_title,
-                amount: both(|lang| match f.growth {
-                    Some(growth) => {
-                        format!(
-                            "{} {}",
-                            roughly(growth, lang),
-                            if f.lead.is_none_or(|lead| lead.vehicle == Vehicle::Brokerage) {
-                                it_rises(f.index_return, lang)
-                            } else {
-                                if_index_rises(f.index_return, lang)
-                            }
-                        )
-                    }
-                    None => String::new(),
+                amount: both(|lang| {
+                    f.growth
+                        .map(|growth| roughly(growth, lang))
+                        .unwrap_or_default()
                 }),
                 facts: growth_facts,
                 asks: growth_asks,
                 fits_if: None,
                 also: f.annuity.clone(),
+                basis: f.growth.map(|_| {
+                    both(|lang| {
+                        if f.lead.is_none_or(|lead| lead.vehicle == Vehicle::Brokerage) {
+                            it_rises(f.index_return, lang)
+                        } else {
+                            if_index_rises(f.index_return, lang)
+                        }
+                    })
+                }),
                 button: fixed("Yes, it can wait", "כן, אפשר לחכות"),
             },
         ],
@@ -1378,7 +1390,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
         .map(|option| match option.way {
             SafeWay::Deposit if option.kind == Kind::AnyDayDeposit => OptWords {
                 title: super::outcome::name(option.kind),
-                amount: both(|lang| format!("{} {}", roughly(option.left, lang), lang.pick("at today's rate", "בריבית של היום"))),
+                amount: both(|lang| roughly(option.left, lang)),
+                basis: Some(at_todays_rate()),
                 facts: vec![
                     fixed("It stays at your bank: nothing to open.", "נשאר בבנק שבו יש לכם חשבון: לא צריך לפתוח כלום."),
                     fixed("Can be taken out any day. The rate is variable, and the bank sets it.", "אפשר למשוך בכל יום. הריבית משתנה, והבנק קובע אותה."),
@@ -1391,7 +1404,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
             .asking_first(2),
             SafeWay::Bond if option.kind == Kind::TreasuryBill => OptWords {
                 title: super::outcome::name(option.kind),
-                amount: both(|lang| format!("{}, {}", shekels(option.left), lang.pick("known today, held to the end", "ידוע כבר היום, אם מחזיקים עד הסוף"))),
+                amount: Text::owned(shekels(option.left), shekels(option.left)),
+                basis: Some(fixed("known today, held to the end", "ידוע כבר היום, אם מחזיקים עד הסוף")),
                 facts: vec![
                     fixed("Bought in a securities account, at a bank or an investment house.", "נקנה בחשבון ניירות ערך, בבנק או בבית השקעות."),
                     fixed("Can be sold any trading day, at that day's price, which moves a little.", "אפשר למכור בכל יום מסחר, במחיר של אותו יום, שזז מעט."),
@@ -1408,7 +1422,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                 } else {
                     fixed("A money market fund", "קרן כספית")
                 },
-                amount: both(|lang| format!("{} {}", roughly(option.left, lang), lang.pick("at today's rate", "בריבית של היום"))),
+                amount: both(|lang| roughly(option.left, lang)),
+                basis: Some(at_todays_rate()),
                 facts: {
                     let mut facts = vec![
                         fixed("In the bank's app, or at any investment house.", "באפליקציה של הבנק, או בכל בית השקעות."),
@@ -1457,7 +1472,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                         Lang::En => format!("Known in advance: {}", name.en),
                         Lang::He => format!("ידוע מראש: {}", name.he),
                     }),
-                    amount: both(|lang| format!("{}, {}", shekels(option.left), &known[lang])),
+                    amount: Text::owned(shekels(option.left), shekels(option.left)),
+                    basis: Some(known),
                     facts,
                     asks: vec![],
                     fits_if: Some(fixed("Fits if: knowing today how much there will be matters to you.", "מתאים אם: חשוב לכם לדעת היום כמה יהיה בסוף.")),
@@ -1471,7 +1487,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                     Lang::En => format!("A fixed-rate deposit for {}", span(f.months, lang)),
                     Lang::He => format!("פיקדון בריבית קבועה ל\u{2011}{}", span(f.months, lang)),
                 }),
-                amount: both(|lang| format!("{}, {}", shekels(option.left), lang.pick("known today", "ידוע כבר היום"))),
+                amount: Text::owned(shekels(option.left), shekels(option.left)),
+                basis: Some(fixed("known today", "ידוע כבר היום")),
                 facts: vec![
                     fixed("Opened at a bank. At a bank other than yours, you open an account there first.", "נפתח בבנק. בבנק אחר משלכם צריך לפתוח שם חשבון."),
                     both(|lang| match lang {
@@ -1602,17 +1619,18 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
     let lead_name = super::outcome::name(Kind::Way(f.lead));
     // "המדד" refers back only to a title that names the index (§2.8): a
     // fund on a broad stock index, not a wrapper's stock track.
-    let amount = |left: Option<Decimal>, named: bool| {
-        both(move |lang| match left {
-            Some(left) if named => {
-                format!("{} {}", roughly(left, lang), it_rises(f.index_return, lang))
-            }
-            Some(left) => format!(
-                "{} {}",
-                roughly(left, lang),
-                if_index_rises(f.index_return, lang)
-            ),
-            None => String::new(),
+    let amount = |left: Option<Decimal>| {
+        both(move |lang| left.map(|left| roughly(left, lang)).unwrap_or_default())
+    };
+    let basis = |left: Option<Decimal>, named: bool| {
+        left.map(|_| {
+            both(move |lang| {
+                if named {
+                    it_rises(f.index_return, lang)
+                } else {
+                    if_index_rises(f.index_return, lang)
+                }
+            })
         })
     };
     let opens = if f.lead.vehicle == Vehicle::Brokerage {
@@ -1638,11 +1656,12 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
         options: vec![
             OptWords {
                 title: lead_name.clone(),
-                amount: amount(f.lead_left, f.lead.vehicle == Vehicle::Brokerage),
+                amount: amount(f.lead_left),
                 asks: vec![opens.clone()],
                 facts: vec![opens],
                 fits_if: Some(fixed("Fits if: you have no study fund you can add to.", "מתאים אם: אין לכם קרן השתלמות שאפשר להוסיף לה.")),
                 also: None,
+                basis: basis(f.lead_left, f.lead.vehicle == Vehicle::Brokerage),
                 button: both(|lang| {
                     let short = way_short(f.lead, lang);
                     let mut chars = short.chars();
@@ -1654,7 +1673,7 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
             },
             OptWords {
                 title: fixed("Study fund, stock track", "קרן השתלמות, במסלול מניות"),
-                amount: amount(f.study_left, false),
+                amount: amount(f.study_left),
                 facts: vec![
                     fixed("Only for the self-employed, or through an employer.", "רק לעצמאים, או דרך מעסיק."),
                     fixed("The gain is tax-free after 6 years.", "הרווח פטור ממס אחרי 6 שנים."),
@@ -1666,6 +1685,7 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
                     Lang::He => format!("מתאים אם: יש לכם קרן כזאת, ואפשר להוסיף לה {} בחודש.", shekels(f.monthly)),
                 })),
                 also: None,
+                basis: basis(f.study_left, false),
                 button: fixed("I have a study fund", "יש לי קרן השתלמות"),
             },
         ],
@@ -1826,6 +1846,7 @@ pub fn account_decision(f: &AccountFigures<'_>) -> DecisionWords {
                 facts: new_facts,
                 fits_if: None,
                 also: None,
+                basis: None,
                 button: fixed("Open an account", "לפתוח חשבון"),
             },
             OptWords {
@@ -1835,6 +1856,7 @@ pub fn account_decision(f: &AccountFigures<'_>) -> DecisionWords {
                 facts: bank_facts,
                 fits_if: None,
                 also: None,
+                basis: None,
                 button: fixed("Stay at the bank", "להישאר בבנק"),
             },
         ],
@@ -1894,6 +1916,12 @@ fn saves_words(saves: (Decimal, Decimal), lang: Lang) -> String {
 
 #[must_use]
 pub fn holdings_decision(f: &HoldingsFigures<'_>) -> DecisionWords {
+    // What each option asks: moving as they are, checking the funds' fees,
+    // looking in the app.
+    let checks = fixed(
+        "What to check: each fund's management fee, and the portfolio manager's fee.",
+        "מה לבדוק: דמי הניהול של כל קרן, ודמי ניהול התיק.",
+    );
     DecisionWords {
         question: fixed("What's in the portfolio?", "מה יש בתיק?"),
         why: fixed(
@@ -1941,8 +1969,10 @@ pub fn holdings_decision(f: &HoldingsFigures<'_>) -> DecisionWords {
                 asks: vec![],
                 fits_if: None,
                 also: None,
+                basis: None,
                 button: fixed("Index funds or shares", "קרנות מחקות או מניות"),
-            },
+            }
+            .asking_first(1),
             OptWords {
                 title: fixed(
                     "Managed funds, or portfolio management",
@@ -1957,14 +1987,12 @@ pub fn holdings_decision(f: &HoldingsFigures<'_>) -> DecisionWords {
                         "A fund's management fee is charged wherever it's held: moving alone doesn't lower it.",
                         "דמי הניהול של קרן נגבים בכל מקום שמחזיקים אותה: מעבר לבד לא מוריד אותם.",
                     ),
-                    fixed(
-                        "What to check: each fund's management fee, and the portfolio manager's fee.",
-                        "מה לבדוק: דמי הניהול של כל קרן, ודמי ניהול התיק.",
-                    ),
+                    checks.clone(),
                 ],
-                asks: vec![],
+                asks: vec![checks],
                 fits_if: None,
                 also: None,
+                basis: None,
                 button: fixed("Managed funds", "קרנות מנוהלות"),
             },
             OptWords {
@@ -1977,6 +2005,7 @@ pub fn holdings_decision(f: &HoldingsFigures<'_>) -> DecisionWords {
                 asks: vec![],
                 fits_if: None,
                 also: None,
+                basis: None,
                 button: fixed("Don't know", "לא יודעים"),
             }
             .asking_first(1),

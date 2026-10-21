@@ -658,9 +658,11 @@ Frames: `InputsCard.dc.html` (its `examplesMode` "menu" is the chosen design; "t
 - **The page never scrolls by itself** after a change (principles 21 and 22).
 - **While the fields are open,** a slim bar at the bottom of the screen shows the answer's chip and amount after the change, and "לפני השינוי: …" before it, with "לתשובה". The visitor sees what changed without leaving the field.
 - **A decision that opens below the screen** is announced by a pill at the bottom ("נפתחה החלטה: איזו דרך בטוחה?") that takes the visitor there when tapped. The button they pressed stays where it was.
-- **A decision is a comparison table:**
-  - two options are two columns, with the rows "מה יהיה בסוף", "מה זה דורש" and "מתאים אם", the difference right under them, and the rest behind "עוד על שתי האפשרויות";
-  - three or more options are one row each, with the amounts in one column at the end, to compare at a glance.
+- **A decision is a card per option, and the card is the choice** (amended 2026‑10‑21, the owner's review of the built table: its columns merged under tab‑like heads, "מה זה דורש" was blank for an option that asks nothing, and the buttons differed in height):
+  - each card opens with the visitor's answer and a radio's mark ("לא, אצטרך אותו בדיוק אז"), then "← בטוח", what it leaves (the figure, and what it rests on in small under it: "אם מדד המניות הרחב יעלה 10% בשנה"), then "מה זה דורש" and "מתאים אם"; a tap anywhere on the card chooses it;
+  - two options are two cards side by side, their rows at the same height across, the difference right under them, and the rest behind "עוד על שתי האפשרויות";
+  - three or more options are one card each, with the amounts in one column at the end, to compare at a glance;
+  - where one option says what it asks, or when it fits, every option does, if only "לא דורש כלום": a row is never blank.
 
 Settled details:
 

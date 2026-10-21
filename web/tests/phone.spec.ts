@@ -166,15 +166,21 @@ test('the pill goes at the visitor’s next change', { tag: '@touch' }, async ({
   await expect(pill(page)).toHaveCount(0)
 })
 
-/** Two options: a table whose columns are the options, the buttons side by side. */
+/** Two options: two cards side by side, each opening with its answer, and
+ * the same rows at the same height across, so they read as a table. A tap
+ * anywhere on a card chooses it. */
 async function expectColumns(group: Locator, decision: DecisionData) {
-  const table = group.locator('table.table')
-  await expect(table.locator('th[scope=col]')).toHaveText(decision.options.map((option) => option.title))
-  await expect(table.locator('.label th').first()).toHaveText(t.tableEnd)
-  const [a, b] = await Promise.all(
-    decision.options.map((option) => box(table.getByRole('button', { name: option.button, exact: true }))),
+  const cards = group.locator('.options.cards.columns .option')
+  await expect(cards.locator('.to')).toHaveText(decision.options.map((option) => `← ${option.title}`))
+  // Each card's parts, top to bottom: the same tops in both.
+  const [a, b] = await cards.evaluateAll((all) =>
+    all.map((card) => [card, ...card.children].map((each) => Math.round(each.getBoundingClientRect().top))),
   )
-  expect(a.y).toBeCloseTo(b.y, 0)
+  expect(a).toEqual(b)
+  const heights = await cards.evaluateAll((all) =>
+    all.map((card) => Math.round(card.getBoundingClientRect().height)),
+  )
+  expect(heights[0]).toBe(heights[1])
 }
 
 /** Three or more: a row each, the amounts in one column at the end. */
@@ -199,7 +205,21 @@ async function expectPhoneDecision(page: Page, decision: DecisionData) {
   await expect(group.locator('.rest-option').first()).toBeVisible()
 }
 
-test('two options are a table of two columns; three are a row each', { tag: '@touch' }, async ({ page }) => {
+test('a tap anywhere on an option card chooses it', { tag: '@touch' }, async ({ page }) => {
+  await pickExample(page, situationName('bonus'))
+  const first = decisionsOf(await expectAnswerFor(page, situationAnswers('bonus')))[0]
+  const group = decisionGroup(page, first.decision)
+  const option = first.decision.options[1]
+  const card = group.locator(`.option[data-pick='${JSON.stringify(option.pick)}']`)
+  // The amount, not the answer: the card's tap is the answer's button.
+  await card.locator('.end').tap({ force: true })
+  await expect(card.getByRole('button', { name: option.button, exact: true })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+})
+
+test('two options are two cards side by side; three are a row each', { tag: '@touch' }, async ({ page }) => {
   let shown = 0
   for (const id of ['goal', 'bonus', 'cushion', 'existing']) {
     await pickExample(page, situationName(id))

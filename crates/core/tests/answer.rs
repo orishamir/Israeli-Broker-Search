@@ -3467,6 +3467,85 @@ fn an_options_asks_are_its_facts_and_its_fits_is_its_fits_if() {
     }
 }
 
+/// Where one option says what it asks, every option of the decision does,
+/// if only that it asks nothing, and so with when it fits: the phone's rows
+/// "מה זה דורש" and "מתאים אם" are never blank beside an answer (the owner,
+/// 2026-10-21).
+#[test]
+fn where_one_option_says_what_it_asks_every_option_does() {
+    let mut seen = 0;
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            for line in &answer.lines {
+                let LineState::Decision(decision) = &line.state else {
+                    continue;
+                };
+                if decision.options.iter().any(|option| option.fits.is_some()) {
+                    assert!(
+                        decision.options.iter().all(|option| option.fits.is_some()),
+                        "{start:?}, {:?}: an option without \"מתאים אם\"",
+                        decision.id
+                    );
+                }
+                if decision.options.iter().all(|option| option.asks.is_empty()) {
+                    continue;
+                }
+                seen += 1;
+                for option in &decision.options {
+                    assert!(
+                        !option.asks.is_empty(),
+                        "{start:?}, {:?}: {} says nothing of what it asks",
+                        decision.id,
+                        option.title.he
+                    );
+                }
+            }
+        }
+    }
+    assert!(seen > 0);
+}
+
+/// An option's amount is the figure, with how sure it is ("בערך"); what it
+/// rests on (today's rate, a yearly return, held to the end) is its basis,
+/// said under it, and names no figure of its own.
+#[test]
+fn an_options_amount_is_the_figure_and_its_basis_is_apart() {
+    let mut based = 0;
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            for line in &answer.lines {
+                let LineState::Decision(decision) = &line.state else {
+                    continue;
+                };
+                for option in &decision.options {
+                    for words in ["בריבית של היום", "ידוע כבר היום", "יעלה"]
+                    {
+                        assert!(
+                            !option.amount.he.contains(words),
+                            "{:?}: {}",
+                            decision.id,
+                            option.amount.he
+                        );
+                    }
+                    if let Some(basis) = &option.basis {
+                        based += 1;
+                        assert!(!option.amount.he.is_empty(), "{:?}", decision.id);
+                        assert!(
+                            amounts_in(&basis.he).is_empty(),
+                            "{:?}: {}",
+                            decision.id,
+                            basis.he
+                        );
+                    }
+                }
+            }
+        }
+    }
+    assert!(based > 0);
+}
+
 // ─────────── The plan's amount, the path's words, the horizons ───────────
 
 /// The safe way a row stands for: the decision's option it comes from.

@@ -48,7 +48,7 @@ catch the bug:
   | address.svelte.ts (refresh, Back), the example label                                    | `address`    |
   | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)            | `app`        |
   | text.ts, text/\*.ts, index.html's language, anything right-to-left                      | `hebrew`     |
-  | the phone's flow: collapsed facts, AnswerBar, DecisionPill, scroll.ts, Decision's table | `phone`      |
+  | the phone's flow: collapsed facts, AnswerBar, DecisionPill, scroll.ts, Decision's cards | `phone`      |
 
   GainSplit and HorizonSection have no spec of their own: their states are
   in `layout`, their numbers unit-tested, a horizon row's click measured in

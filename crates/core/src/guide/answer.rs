@@ -223,6 +223,8 @@ pub struct Opt {
     pub title: Text,
     /// What it leaves, with how certain that is in words.
     pub amount: Text,
+    /// What the amount rests on (a rate, a yearly return), said under it.
+    pub basis: Option<Text>,
     /// A second amount in another unit, under the first: the monthly
     /// pension a provident fund's sum would pay (the review's N7).
     pub also: Option<Text>,
@@ -2002,6 +2004,7 @@ fn decision(
                 pick: *pick,
                 title: words.title,
                 amount: words.amount,
+                basis: words.basis,
                 also: words.also,
                 value: *value,
                 facts,
