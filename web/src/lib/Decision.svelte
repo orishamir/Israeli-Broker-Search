@@ -52,7 +52,11 @@
   const anyFits = $derived(decision.options.some((option) => option.fits !== undefined))
   /** The rows two cards share: the answer, where it leads, what it leaves,
    * and what it asks and when it fits, where any option says. */
-  const rows = $derived(3 + Number(anyAsks) + Number(anyFits))
+  /** Where the answer is the option's name ("קרן כספית"), "← קרן כספית"
+   * would only say it again. */
+  const titled = (option: OptData) => option.title !== option.button
+  const anyTitled = $derived(decision.options.some(titled))
+  const rows = $derived(2 + Number(anyTitled) + Number(anyAsks) + Number(anyFits))
   /** What the table leaves out, by option: its other facts, and, in rows,
    * when it fits. */
   const rest = $derived(
@@ -92,14 +96,18 @@
     <div class="options cards" class:columns class:rows={!columns} style:--rows={rows}>
       {#each decision.options as option (keyOf(option.pick))}
         <div
-          class="option card"
+          class="option tile"
           class:pressed={isPressed(option)}
           class:other={isOther(option)}
           data-pick={keyOf(option.pick)}
         >
           {@render choose(option, true)}
           {#if columns}
-            <h4 class="to"><span aria-hidden="true">←&nbsp;</span>{option.title}</h4>
+            {#if titled(option)}
+              <h4 class="to"><span aria-hidden="true">←&nbsp;</span>{option.title}</h4>
+            {:else if anyTitled}
+              <div class="to"></div>
+            {/if}
             <div class="end">{@render amount(option)}</div>
             {#if anyAsks}
               <div class="cell">
@@ -115,7 +123,9 @@
             {/if}
           {:else}
             <div class="main">
-              <h4 class="to"><span aria-hidden="true">←&nbsp;</span>{option.title}</h4>
+              {#if titled(option)}
+                <h4 class="to"><span aria-hidden="true">←&nbsp;</span>{option.title}</h4>
+              {/if}
               {#each option.asks as each, index (index)}<p class="asks">{each}</p>{/each}
             </div>
             <div class="end">{@render amount(option)}</div>
@@ -320,30 +330,35 @@
   .cards.rows {
     grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem);
   }
-  .card {
+  .tile {
     position: relative;
+    transition:
+      border-color var(--quick),
+      background var(--quick),
+      color var(--quick),
+      scale var(--quick);
     display: grid;
     gap: 0;
     padding: 10px;
   }
-  .columns .card {
+  .columns .tile {
     grid-row: 1 / span var(--rows);
     grid-template-rows: subgrid;
   }
-  .rows .card {
+  .rows .tile {
     grid-column: 1 / -1;
     grid-template-columns: subgrid;
     column-gap: 12px;
   }
-  .card:not(.pressed):hover {
+  .tile:not(.pressed):hover {
     border-color: var(--strong-border);
   }
-  .card:has(.choose:focus-visible) {
+  .tile:has(.choose:focus-visible) {
     box-shadow: var(--focus-ring);
   }
   /* The visitor's answer, a radio's mark before it; the whole card takes
      the tap. */
-  .card .choose {
+  .tile .choose {
     display: flex;
     align-items: flex-start;
     gap: 8px;
@@ -359,23 +374,35 @@
     font-weight: 700;
     line-height: 1.35;
   }
-  .rows .card .choose {
+  .rows .tile .choose {
     grid-column: 1 / -1;
   }
-  .card .choose::after {
+  /* Over the card's other parts: as grid items, they paint after it. */
+  .tile .choose::after {
     content: '';
     position: absolute;
+    z-index: 1;
     inset: 0;
     border-radius: var(--radius);
   }
-  .card .choose:hover,
-  .card .choose[aria-pressed='true'],
-  .card .choose[aria-pressed='true']:hover {
+  .tile .choose:hover,
+  .tile .choose[aria-pressed='true'],
+  .tile .choose[aria-pressed='true']:hover {
     background: none;
     color: inherit;
   }
-  .card .choose:focus-visible {
+  .tile .choose:focus-visible {
     outline: none;
+  }
+  /* The card sinks, not its answer: a scaled button would hold its own
+     tap (a transform is the containing block of its ::after), and the tap
+     would end on the amount under it. */
+  .tile .choose:active {
+    scale: none;
+  }
+  .tile:has(.choose:active) {
+    scale: 0.98;
+    transition-duration: 60ms;
   }
   .mark {
     flex: none;
@@ -402,20 +429,20 @@
     font-weight: 700;
     line-height: 1.35;
   }
-  .card .end {
+  .tile .end {
     display: grid;
     align-content: start;
     gap: 6px;
     padding: 4px 0 8px;
   }
-  .card .amount {
+  .tile .amount {
     font-size: 1rem;
   }
-  .card .basis {
+  .tile .basis {
     margin-top: -6px;
     font-size: 0.78rem;
   }
-  .card .also {
+  .tile .also {
     margin-top: -2px;
     font-size: 0.82rem;
   }
@@ -442,10 +469,10 @@
     display: grid;
     align-content: start;
     gap: 4px;
-    padding-bottom: 2px;
+    padding-block: 8px 2px;
   }
   .rows .main .to {
-    padding-bottom: 0;
+    padding: 0;
   }
   .rows .end {
     text-align: end;
@@ -454,6 +481,7 @@
   /* Above the card's tap, so its field takes the pointer. */
   .rows .extra {
     position: relative;
+    z-index: 2;
     grid-column: 1 / -1;
   }
   .rest-option.other {

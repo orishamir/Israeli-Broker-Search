@@ -171,7 +171,10 @@ test('the pill goes at the visitor’s next change', { tag: '@touch' }, async ({
  * anywhere on a card chooses it. */
 async function expectColumns(group: Locator, decision: DecisionData) {
   const cards = group.locator('.options.cards.columns .option')
-  await expect(cards.locator('.to')).toHaveText(decision.options.map((option) => `← ${option.title}`))
+  // Where it leads, unless the answer is its name already.
+  await expect(cards.locator('h4.to')).toHaveText(
+    decision.options.filter((option) => option.title !== option.button).map((option) => `← ${option.title}`),
+  )
   // Each card's parts, top to bottom: the same tops in both.
   const [a, b] = await cards.evaluateAll((all) =>
     all.map((card) => [card, ...card.children].map((each) => Math.round(each.getBoundingClientRect().top))),
@@ -206,17 +209,21 @@ async function expectPhoneDecision(page: Page, decision: DecisionData) {
 }
 
 test('a tap anywhere on an option card chooses it', { tag: '@touch' }, async ({ page }) => {
-  await pickExample(page, situationName('bonus'))
-  const first = decisionsOf(await expectAnswerFor(page, situationAnswers('bonus')))[0]
+  // The salary: two decisions, so one made leaves the lines, the other open.
+  await pickExample(page, situationName('salary'))
+  const first = decisionsOf(await expectAnswerFor(page, situationAnswers('salary')))[0]
   const group = decisionGroup(page, first.decision)
-  const option = first.decision.options[1]
-  const card = group.locator(`.option[data-pick='${JSON.stringify(option.pick)}']`)
-  // The amount, not the answer: the card's tap is the answer's button.
-  await card.locator('.end').tap({ force: true })
-  await expect(card.getByRole('button', { name: option.button, exact: true })).toHaveAttribute(
-    'aria-pressed',
-    'true',
-  )
+  for (const option of first.decision.options) {
+    const card = group.locator(`.option[data-pick='${JSON.stringify(option.pick)}']`)
+    // The amount, not the answer: the card's tap is the answer's button.
+    await card.scrollIntoViewIfNeeded()
+    const end = await box(card.locator('.end'))
+    await page.touchscreen.tap(end.x + end.width / 2, end.y + end.height / 2)
+    await expect(card.getByRole('button', { name: option.button, exact: true })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    )
+  }
 })
 
 test('two options are two cards side by side; three are a row each', { tag: '@touch' }, async ({ page }) => {
