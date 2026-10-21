@@ -9,9 +9,8 @@ use rust_decimal::Decimal;
 
 use super::card::{about, both, joined_to};
 use super::reasons::shekels;
-use crate::describe::format_money;
 use crate::guide::{Amount, Flexibility};
-use crate::{Lang, Percent, Text, ils};
+use crate::{Lang, Percent, Text};
 
 /// A figure rounded as [`about`] rounds it, for the bars' labels: to three
 /// significant figures (principle 13).
@@ -97,14 +96,40 @@ pub fn way_at(way: crate::ways::Way, place: &Text) -> Text {
 pub struct Part {
     pub kept: Decimal,
     pub tax: Decimal,
-    /// Fees and the product's own cost.
+    /// The broker's and the manager's fees, apart from the fund's own cost
+    /// (§4.7: the bars draw it as a part of its own).
     pub fees: Decimal,
+    pub product: Decimal,
 }
 
 impl Part {
     fn total(self) -> Decimal {
-        self.kept + self.tax + self.fees
+        self.kept + self.tax + self.fees + self.product
     }
+}
+
+/// A gain part's name on the bar (§4.7).
+#[must_use]
+pub fn part_label(which: crate::guide::GainPartKind) -> Text {
+    use crate::guide::GainPartKind;
+    match which {
+        GainPartKind::Kept => Text::new("Yours", "נשאר לכם"),
+        GainPartKind::Tax => Text::new("Tax", "מס"),
+        GainPartKind::Fees => Text::new("Fees", "עמלות"),
+        GainPartKind::Fund => Text::new("The fund itself", "הקרן עצמה"),
+    }
+}
+
+/// A gain part's amount, already rounded: "₪292,000".
+#[must_use]
+pub fn part_amount(today: Decimal) -> Text {
+    both(|_| shekels(today))
+}
+
+/// Beside a row whose gain pays no tax.
+#[must_use]
+pub fn untaxed() -> Text {
+    Text::new("tax-free", "פטורה ממס")
 }
 
 /// "2.7 times", or nothing where the ratio is too near 1 to say.
@@ -201,29 +226,32 @@ pub fn takeaway(first_name: &Text, first: Part, second_name: &Text, second: Part
 
 // ─────────────────────────── The horizons ───────────────────────────
 
-/// The answer about the date a row is for, while the visitor hasn't given
-/// it: the words of the place type's own buttons (principle 7).
+/// The answer about the date a fit is for, while the visitor hasn't given
+/// it (§4.10), before what fits: "אם תצטרכו בדיוק אז:".
 #[must_use]
 pub fn condition(flexibility: Flexibility) -> Text {
     match flexibility {
-        Flexibility::Fixed => Text::new(
-            "If you'll need the money exactly then",
-            "אם תצטרכו את הכסף בדיוק אז",
-        ),
-        Flexibility::CanWait => Text::new(
-            "If it can wait another year or two",
-            "אם תוכלו לחכות עוד שנה\u{2011}שנתיים",
-        ),
+        Flexibility::Fixed => Text::new("If you'll need it exactly then:", "אם תצטרכו בדיוק אז:"),
+        Flexibility::CanWait => Text::new("If you can wait:", "אם תוכלו לחכות:"),
     }
 }
 
-/// A row's deposits by then, in today's money: "תפקידו ₪28,600".
+/// A row's date: "בעוד 5 שנים".
+#[must_use]
+pub fn when(months: u32) -> Text {
+    both(|lang| format!("{} {}", lang.pick("In", "בעוד"), super::reasons::span(months, lang)))
+}
+
+/// On the visitor's own row.
+#[must_use]
+pub fn your_date() -> Text {
+    Text::new("Your date", "התאריך שלכם")
+}
+
+/// A row's deposits by then, in today's money, under "הפקדתם": "₪28,600".
 #[must_use]
 pub fn deposits(deposited: Amount) -> Text {
-    both(|lang| match lang {
-        Lang::En => format!("You'll put in {}", about(deposited.today)),
-        Lang::He => format!("תפקידו {}", about(deposited.today)),
-    })
+    both(|_| about(deposited.today))
 }
 
 /// Several ways the visitor chooses between: "קרן כספית, פיקדון בריבית
@@ -287,39 +315,13 @@ pub fn range_note(of: RangeOf) -> Text {
             "לפי הדרך שתבחרו והריבית",
         ),
         RangeOf::Past => Text::new(
-            "From the worst stretch since 1926 to the middle one, after fees and tax",
-            "מהתקופה הגרועה ביותר מאז 1926 ועד האמצעית, אחרי עמלות ומס",
+            "From the worst stretch since 1926 to the middle one, after fees and tax, by the S&P 500 index as an example",
+            "מהתקופה הגרועה ביותר מאז 1926 ועד האמצעית, אחרי עמלות ומס, לפי מדד S&P\u{a0}500 כדוגמה",
         ),
         RangeOf::Expected(rate) => both(|lang| match lang {
-            Lang::En => format!("If the S&P 500 index rises {rate} a year"),
-            Lang::He => format!("אם מדד S&P\u{a0}500 יעלה {rate} בשנה"),
+            Lang::En => format!("If the broad stock index rises {rate} a year"),
+            Lang::He => format!("אם מדד המניות הרחב יעלה {rate} בשנה"),
         }),
     }
 }
 
-/// "₪1.06" to the shekel, always with its agorot: "₪1.00".
-fn agorot(amount: Decimal) -> String {
-    let mut amount = amount.round_dp(2);
-    amount.rescale(2);
-    format!("₪{amount}")
-}
-
-/// "על כל ₪1 שתפקידו: ₪0.32 עד ₪1.17".
-#[must_use]
-pub fn per_shekel(low: Decimal, high: Decimal) -> Text {
-    both(|lang| {
-        let one = format_money(ils(Decimal::ONE));
-        let figure = if high - low < Decimal::new(1, 2) {
-            agorot(low)
-        } else {
-            match lang {
-                Lang::En => format!("{} to {}", agorot(low), agorot(high)),
-                Lang::He => format!("{} עד {}", agorot(low), agorot(high)),
-            }
-        };
-        match lang {
-            Lang::En => format!("On every {one} you put in: {figure}"),
-            Lang::He => format!("על כל {one} שתפקידו: {figure}"),
-        }
-    })
-}

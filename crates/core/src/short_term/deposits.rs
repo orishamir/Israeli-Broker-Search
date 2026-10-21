@@ -306,6 +306,112 @@ pub fn kind() -> Kind {
     }
 }
 
+// ─────────────────────────── Any day ───────────────────────────
+
+/// A bank's deposit that can be taken out any day, at its average variable
+/// rate on daily deposits (`policies/deposit-rates.py`, sheet L7.6.2a).
+fn any_day(name: Text, short_name: Text, big: bool, rate: Percent) -> Place {
+    Place {
+        compared_at_first: big,
+        description: t(
+            "A deposit that can be taken out any day (פיקדון יומי): the rate is variable, \
+             set by the bank and moving with the Bank of Israel's, and more money can be \
+             added any day.",
+            "פיקדון שאפשר למשוך ממנו בכל יום (פיקדון יומי): הריבית משתנה, הבנק קובע אותה והיא זזה עם ריבית בנק ישראל, ואפשר להוסיף כסף בכל יום.",
+        ),
+        name,
+        short_name,
+        pays: Pays::AnyDay(rate),
+        caveats: Vec::new(),
+    }
+}
+
+/// The banks' deposits that can be taken out any day, as the Bank of Israel
+/// published their variable rates for September 2026, the daily term. A
+/// bank with no published rate (Discount, the Bank of Jerusalem) isn't
+/// listed: it isn't compared, as a fixed deposit's missing term isn't.
+#[must_use]
+pub fn any_day_kind() -> Kind {
+    let figures = kav_hamashve();
+    // As `policies/deposit-rates.py` prints them, its second table.
+    let average = Place {
+        name: AVERAGE,
+        short_name: AVERAGE,
+        description: t(
+            "What households got on average for deposits they can take out any day, at all \
+             the banks together.",
+            "מה שמשקי בית קיבלו בממוצע על פיקדונות שאפשר למשוך מהם בכל יום, בכל הבנקים יחד.",
+        ),
+        pays: Pays::AnyDay(Percent(dec!(0.72))),
+        caveats: Vec::new(),
+        compared_at_first: true,
+    };
+    let banks = vec![
+        any_day(t("Bank Hapoalim", "בנק הפועלים"), t("Hapoalim", "הפועלים"), true, Percent(dec!(0.76))),
+        any_day(t("Bank Leumi", "בנק לאומי"), t("Leumi", "לאומי"), true, Percent(dec!(0.95))),
+        any_day(
+            t("Mizrahi-Tefahot Bank", "בנק מזרחי\u{2011}טפחות"),
+            t("Mizrahi", "מזרחי"),
+            true,
+            Percent(dec!(0.86)),
+        ),
+        any_day(
+            t("First International Bank", "הבנק הבינלאומי"),
+            t("First International", "הבינלאומי"),
+            true,
+            Percent(dec!(0.66)),
+        ),
+        any_day(t("Bank Yahav", "בנק יהב"), t("Yahav", "יהב"), false, Percent(dec!(0.02))),
+        any_day(t("Mercantile Bank", "בנק מרכנתיל"), t("Mercantile", "מרכנתיל"), false, Percent(dec!(0.12))),
+        any_day(t("Bank Massad", "בנק מסד"), t("Massad", "מסד"), false, Percent(dec!(0.76))),
+        any_day(t("One Zero", "וואן זירו"), t("One Zero", "וואן זירו"), false, Percent(dec!(0.92))),
+    ];
+    Kind {
+        name: t(
+            "Deposit you can take out any day",
+            "פיקדון שאפשר למשוך בכל יום",
+        ),
+        description: t(
+            "Money left at your bank in a deposit you can take out any day (פיקדון יומי). The \
+             rate is variable: the bank sets it, and it moves with the Bank of Israel's. It \
+             suits money you may need tomorrow and want to keep at your bank. The downside: \
+             it usually pays well below a money market fund.",
+            "כסף שמשאירים בבנק בפיקדון שאפשר למשוך ממנו בכל יום (פיקדון יומי). הריבית משתנה: הבנק קובע אותה, והיא זזה עם ריבית בנק ישראל. מתאים לכסף שאולי תצטרכו מחר ורוצים להשאיר בבנק. החיסרון: בדרך כלל הוא משלם הרבה פחות מקרן כספית.",
+        ),
+        data_of: DATA_OF,
+        checked: checked(),
+        source: figures.clone(),
+        caveats: vec![
+            Caveat::published(t(
+                "Each bank's rate is the average on the variable-rate, unlinked shekel deposits \
+                 for a day that households opened with it in September 2026, as it reports them \
+                 to the Bank of Israel: what depositors got on average, not a rate on offer.",
+                "הריבית של כל בנק היא הממוצע על הפיקדונות היומיים בריבית משתנה, בשקלים ולא צמודים, שמשקי בית פתחו בו בספטמבר 2026, כפי שהבנק מדווח לבנק ישראל: מה שמפקידים קיבלו בממוצע, ולא ריבית שמוצעת לכם.",
+            ))
+            .sources(&[&figures, &the_figures()]),
+            Caveat::reading(
+                t(
+                    "The rate was published while the Bank of Israel's was 3.25%. It is taken \
+                     to move with that rate point for point: a variable rate is set against it.",
+                    "הריבית פורסמה כשריבית בנק ישראל הייתה 3.25%. ההנחה היא שהיא זזה יחד איתה, נקודה בנקודה: ריבית משתנה נקבעת מולה.",
+                ),
+                t(
+                    "the Bank of Israel's figures, which group deposits by a fixed or variable rate",
+                    "נתוני בנק ישראל, שמקבצים את הפיקדונות לפי ריבית קבועה או משתנה",
+                ),
+            )
+            .source(&the_figures()),
+            Caveat::published(t(
+                "The interest is taxed at 15%, all of it (the Income Tax Ordinance, section \
+                 125ג(ג)(1)).",
+                "על הריבית משלמים מס של 15%, על כולה (פקודת מס הכנסה, סעיף 125ג(ג)(1)).",
+            ))
+            .source(&section_125c()),
+        ],
+        places: std::iter::once(average).chain(banks).collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -313,9 +419,12 @@ mod tests {
     /// The Bank of Israel publishes a month's figures about the 10th of the
     /// next: September's on 11 October 2026. Fails once the month after
     /// `DATA_OF` has been out about five days, so a stale rate can't rank the
-    /// banks unnoticed: run `policies/deposit-rates.py`.
+    /// banks unnoticed: run `policies/deposit-rates.py`. The deposits that
+    /// can be taken out any day are of the same month, from the same file.
     #[test]
     fn the_rates_are_no_more_than_a_month_behind() {
+        assert_eq!(any_day_kind().data_of, DATA_OF);
+        assert_eq!(kind().data_of, DATA_OF);
         let (TariffDate::Month(month) | TariffDate::Day(month)) = DATA_OF;
         let today = time::OffsetDateTime::now_utc().date();
         let index = |date: Date| date.year() * 12 + i32::from(u8::from(date.month()));

@@ -56,6 +56,8 @@ pub(super) fn deposited_in_todays_money(
 pub(super) fn kind_of(pays: Pays) -> Kind {
     match pays {
         Pays::Fixed(_) => Kind::FixedDeposit,
+        Pays::AnyDay(_) => Kind::AnyDayDeposit,
+        Pays::TreasuryBill => Kind::TreasuryBill,
         Pays::TheRateLess(_) => Kind::MoneyMarketFund,
         Pays::GovernmentBond(linkage) => Kind::GovernmentBond {
             linked: linkage == Linkage::CpiLinked,
@@ -149,13 +151,20 @@ pub(super) fn price(
         .collect();
     // A bond is bought through a broker, so the places that matter are the
     // brokers' accounts, not the two bonds.
-    if let Kind::GovernmentBond { linked } = kind {
-        let linkage = if linked {
-            Linkage::CpiLinked
-        } else {
-            Linkage::Unlinked
-        };
-        if let Ok(brokers) = short_term::government_bonds::broker_ranking(linkage, scenario) {
+    let brokers = match kind {
+        Kind::GovernmentBond { linked } => Some(short_term::government_bonds::broker_ranking(
+            if linked {
+                Linkage::CpiLinked
+            } else {
+                Linkage::Unlinked
+            },
+            scenario,
+        )),
+        Kind::TreasuryBill => Some(short_term::government_bonds::bill_ranking(scenario)),
+        _ => None,
+    };
+    if let Some(Ok(brokers)) = brokers {
+        {
             places_ranked = brokers
                 .into_iter()
                 .map(|(via, after_tax)| Ranked {

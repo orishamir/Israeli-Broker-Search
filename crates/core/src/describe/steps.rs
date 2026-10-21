@@ -390,6 +390,54 @@ pub fn steps_for(recommendation: &Recommendation, lang: Lang) -> Vec<Step> {
                 ),
             );
         }
+        Kind::AnyDayDeposit => {
+            w.add(
+                ("Open the deposit", "פותחים פיקדון"),
+                (
+                    "In your bank's app or branch, open a deposit you can take out any day \
+                     (a daily deposit, פיקדון יומי). The rate is variable: ask what it is \
+                     today."
+                        .to_owned(),
+                    "באפליקציה או בסניף של הבנק שלכם פותחים פיקדון שאפשר למשוך ממנו בכל יום (פיקדון יומי). הריבית משתנה: שאלו כמה היא היום."
+                        .to_owned(),
+                ),
+            );
+            w.add(
+                ("Take it out when you need it", "מושכים כשצריך"),
+                (
+                    "The money can be taken out any day. The interest pays 15%, all of it."
+                        .to_owned(),
+                    "אפשר למשוך את הכסף בכל יום. על הריבית משלמים 15%, על כולה.".to_owned(),
+                ),
+            );
+        }
+        Kind::TreasuryBill => {
+            w.add(
+                ("Open a trading account", "פותחים חשבון מסחר"),
+                (
+                    format!(
+                        "Open it with {}, on the plan {}. {offer}",
+                        named(provider),
+                        named(plan)
+                    ),
+                    format!(
+                        "פותחים ב{}, במסלול {}. {offer}",
+                        named(provider),
+                        named(plan)
+                    ),
+                ),
+            );
+            w.add(
+                ("Buy makam", "קונים מק״מ"),
+                (
+                    "Buy makam (מק״מ) repaid in about a year. It can be sold any trading day, \
+                     at that day's price. The discount pays 15%."
+                        .to_owned(),
+                    "קונים מק״מ שנפרע בעוד כשנה. אפשר למכור אותו בכל יום מסחר, במחיר של אותו יום. על ההנחה משלמים 15%."
+                        .to_owned(),
+                ),
+            );
+        }
         Kind::FixedDeposit | Kind::LinkedDeposit => {
             let linked = rec.kind == Kind::LinkedDeposit;
             let dated = month_year();

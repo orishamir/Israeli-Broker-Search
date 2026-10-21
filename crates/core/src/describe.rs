@@ -29,6 +29,7 @@ pub mod card;
 pub mod gain;
 pub mod how;
 pub mod outcome;
+pub mod path;
 pub mod reasons;
 mod steps;
 
@@ -4005,6 +4006,23 @@ impl short_term::Place {
                 Lang::En => format!("The Bank of Israel's rate, less {fee} a year"),
                 Lang::He => format!("ריבית בנק ישראל, פחות {fee} בשנה"),
             }),
+            short_term::Pays::AnyDay(rate) => Some(match lang {
+                Lang::En => format!(
+                    "A variable rate the bank sets: {rate} a year while the Bank of Israel's was {}",
+                    short_term::TODAYS_RATE
+                ),
+                Lang::He => format!(
+                    "ריבית משתנה שהבנק קובע: {rate} בשנה כשריבית בנק ישראל הייתה {}",
+                    short_term::TODAYS_RATE
+                ),
+            }),
+            short_term::Pays::TreasuryBill => Some(
+                lang.pick(
+                    "The Bank of Israel's yield for a year, fixed when the bill is bought",
+                    "התשואה של בנק ישראל לשנה, שנקבעת ביום קניית המק״מ",
+                )
+                .to_owned(),
+            ),
         }
     }
 }
@@ -4024,14 +4042,18 @@ impl short_term::NotOffered {
                 .to_owned(),
             (short_term::NotOffered::TooLong, Lang::He) => "הבנק המרכזי לא מפרסם ריביות לפיקדונות ארוכים מ\u{2011}5 שנים.".to_owned(),
             (short_term::NotOffered::BondTooShort, Lang::En) => "The Bank of Israel's yield \
-                 curve starts at one year. For less, the state sells makam (Bank of Israel \
-                 bills), which isn't compared here."
+                 curve starts at one year. For less, the Bank of Israel sells makam (its \
+                 bills), which is compared here only for money that may be needed any day."
                 .to_owned(),
-            (short_term::NotOffered::BondTooShort, Lang::He) => "עקום התשואות של בנק ישראל מתחיל משנה. לתקופה קצרה יותר המדינה מוכרת מק״מ, שלא מושווה כאן.".to_owned(),
+            (short_term::NotOffered::BondTooShort, Lang::He) => "עקום התשואות של בנק ישראל מתחיל משנה. לתקופה קצרה יותר בנק ישראל מוכר מק״מ, שמושווה כאן רק לכסף שאולי תצטרכו בכל יום.".to_owned(),
             (short_term::NotOffered::BondTooLong, Lang::En) => "The Bank of Israel's yield \
                  curve ends at 15 years: it publishes no yield for a longer wait."
                 .to_owned(),
             (short_term::NotOffered::BondTooLong, Lang::He) => "עקום התשואות של בנק ישראל נגמר ב\u{2011}15 שנים: הוא לא מפרסם תשואה לתקופה ארוכה יותר.".to_owned(),
+            (short_term::NotOffered::BillTooLong, Lang::En) => "Makam is repaid within a \
+                 year: a longer wait would buy it again at yields nobody knows yet."
+                .to_owned(),
+            (short_term::NotOffered::BillTooLong, Lang::He) => "מק״מ נפרע בתוך שנה: לתקופה ארוכה יותר היו קונים אותו שוב, בתשואות שעוד לא ידועות.".to_owned(),
             (short_term::NotOffered::NoBrokerPlan, Lang::En) => "No bank or investment house \
                  opens an account with a first deposit this small."
                 .to_owned(),
@@ -4063,6 +4085,7 @@ impl short_term::NotOffered {
             short_term::NotOffered::BondTooLong => {
                 lang.pick("Over 15 years", "יותר מ\u{2011}15 שנים")
             }
+            short_term::NotOffered::BillTooLong => lang.pick("Over a year", "יותר משנה"),
             short_term::NotOffered::NoBrokerPlan => {
                 lang.pick("First deposit too small", "ההפקדה הראשונה קטנה מדי")
             }

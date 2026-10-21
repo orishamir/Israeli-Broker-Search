@@ -39,7 +39,8 @@ const REDEMPTION_IS_FREE: bool = true;
 const LONGEST_YEARS: u32 = 15;
 
 /// The shortest, in years: the curve starts at one year. A shorter wait is
-/// makam (Bank of Israel bills), which isn't modelled.
+/// makam (Bank of Israel bills), which only the any-day comparison holds
+/// ([`makam_kind`]), at the curve's one-year end.
 const SHORTEST_YEARS: u32 = 1;
 
 // The yields are rewritten by `policies/yield-curve.py --write`.
@@ -174,7 +175,15 @@ fn plans() -> &'static [(Text, Plan)] {
 /// brokers' fees are worked out by the long-term simulation on one yearly
 /// return, so that return is the one that ends with the same money before
 /// fees; the simulation's own flat-return growth then carries the fees.
-fn compared(linkage: Linkage, scenario: &Scenario) -> Result<simulation::Comparison, NotOffered> {
+///
+/// For makam (`bill`): a wait of up to a year, every deposit at the curve's
+/// one-year yield (a bill is a shekel bond repaid within a year, its yield
+/// the curve's shortest).
+fn compared_as(
+    linkage: Linkage,
+    scenario: &Scenario,
+    bill: bool,
+) -> Result<simulation::Comparison, NotOffered> {
     let months = scenario.months;
     let curve = |remaining: u32| {
         let remaining = remaining.max(SHORTEST_MONTHS);
@@ -189,6 +198,8 @@ fn compared(linkage: Linkage, scenario: &Scenario) -> Result<simulation::Compari
     // The curve is asked about the whole wait first, so a wait outside it is
     // refused whatever the deposits' own waits.
     match yield_for_months(linkage, months) {
+        _ if bill && months > SHORTEST_MONTHS => return Err(NotOffered::BillTooLong),
+        _ if bill => {}
         Err(OutsideTheCurve::TooShort) => return Err(NotOffered::BondTooShort),
         Err(OutsideTheCurve::TooLong) => return Err(NotOffered::BondTooLong),
         Ok(_) => {}
@@ -253,7 +264,24 @@ pub fn broker_ranking(
     linkage: Linkage,
     scenario: &Scenario,
 ) -> Result<Vec<(Via, Decimal)>, NotOffered> {
-    let comparison = compared(linkage, scenario)?;
+    ranking(linkage, scenario, false)
+}
+
+/// [`broker_ranking`] for makam.
+///
+/// # Errors
+///
+/// A wait over a year, or no plan that opens with the first deposit.
+pub fn bill_ranking(scenario: &Scenario) -> Result<Vec<(Via, Decimal)>, NotOffered> {
+    ranking(Linkage::Unlinked, scenario, true)
+}
+
+fn ranking(
+    linkage: Linkage,
+    scenario: &Scenario,
+    bill: bool,
+) -> Result<Vec<(Via, Decimal)>, NotOffered> {
+    let comparison = compared_as(linkage, scenario, bill)?;
     let plans = plans();
     let tax = super::Pays::GovernmentBond(linkage).tax();
     let mut ranked: Vec<(Via, Decimal)> = comparison
@@ -302,8 +330,17 @@ fn ended(outcome: &simulation::Outcome, months: u32) -> Vec<Decimal> {
 /// Each deposit earns the yield for the wait that's left when it's made
 /// (never less than a year's), the curve being taken to stay as it is.
 pub(super) fn run(linkage: Linkage, scenario: &Scenario) -> Result<Run, NotOffered> {
+    run_as(linkage, scenario, false)
+}
+
+/// [`run`] for makam: up to a year, at the curve's one-year yield.
+pub(super) fn run_bill(scenario: &Scenario) -> Result<Run, NotOffered> {
+    run_as(Linkage::Unlinked, scenario, true)
+}
+
+fn run_as(linkage: Linkage, scenario: &Scenario, bill: bool) -> Result<Run, NotOffered> {
     let months = scenario.months;
-    let comparison = compared(linkage, scenario)?;
+    let comparison = compared_as(linkage, scenario, bill)?;
     let plans = plans();
     let best = comparison
         .plans
@@ -576,6 +613,68 @@ pub fn kind() -> Kind {
             .sources(&[&excellence_tariff(), &leumi_tariff()]),
         ],
         places: vec![unlinked, linked],
+    }
+}
+
+/// Makam (מק״מ), for money that may be needed any day (REDESIGN.md §4.9): a
+/// Bank of Israel bill, held for up to a year at the curve's one-year
+/// yield, taxed like a shekel bond, in the cheapest account.
+#[must_use]
+pub fn makam_kind() -> Kind {
+    let curve = yield_curve();
+    let place = Place {
+        name: t("Makam (a Bank of Israel bill)", "מק״מ"),
+        short_name: t("Makam", "מק״מ"),
+        description: t(
+            "A short-term loan to the Bank of Israel (מלווה קצר מועד), repaid within a year: \
+             bought at a discount, it pays its full sum on a set day. Bought in a securities \
+             account on the Tel Aviv Stock Exchange, and sold any trading day at that day's \
+             price.",
+            "הלוואה קצרה לבנק ישראל (מלווה קצר מועד), שנפרעת בתוך שנה: קונים אותו בהנחה, והוא משלם את מלוא הסכום ביום קבוע. קונים אותו בחשבון ניירות ערך בבורסה בתל אביב, ומוכרים בכל יום מסחר במחיר של אותו יום.",
+        ),
+        pays: Pays::TreasuryBill,
+        caveats: vec![
+            Caveat::reading(
+                t(
+                    "Makam is taken to earn the Bank of Israel's yield for a year, the shortest \
+                     on its curve: a bill repaid sooner earns the yield of its own wait, which \
+                     the curve doesn't give.",
+                    "המק״מ נלקח כמרוויח את התשואה של בנק ישראל לשנה, הקצרה ביותר בעקום שלו: מק״מ שנפרע מוקדם יותר מרוויח את התשואה לתקופה שלו, שהעקום לא נותן.",
+                ),
+                t(
+                    "the Bank of Israel's yield curve, which starts at a year",
+                    "עקום התשואות של בנק ישראל, שמתחיל משנה",
+                ),
+            )
+            .source(&curve),
+            Caveat::published(t(
+                "Taxed at 15% of the discount, as interest (the Income Tax Ordinance, section \
+                 125ג(א) counts a discount as interest).",
+                "מס של 15% על ההנחה, כמו על ריבית (פקודת מס הכנסה, סעיף 125ג(א) מחשיב דמי ניכיון כריבית).",
+            ))
+            .sources(&[&funds::income_tax_ordinance(), &tax_on_interest()]),
+            Caveat::not_counted(t(
+                "Sold before it is repaid, makam fetches the day's price, which moves a little \
+                 with interest rates. The model holds it to the end of the wait.",
+                "אם מוכרים לפני הפדיון, המק״מ נמכר במחיר של אותו יום, שזז מעט עם הריבית. המודל מחזיק אותו עד סוף התקופה.",
+            )),
+        ],
+        compared_at_first: false,
+    };
+    Kind {
+        name: t("Makam", "מק״מ"),
+        description: t(
+            "Makam (מלווה קצר מועד) is a bill the Bank of Israel sells and repays within a \
+             year. It earns about the Bank of Israel's rate, known on the day you buy, and can \
+             be sold any trading day at that day's price, which moves a little. It takes a \
+             securities account at a bank or an investment house.",
+            "מק״מ (מלווה קצר מועד) הוא נייר שבנק ישראל מוכר ופורע בתוך שנה. הוא מרוויח בערך את ריבית בנק ישראל, שידועה ביום הקנייה, ואפשר למכור אותו בכל יום מסחר במחיר של אותו יום, שזז מעט. צריך בשבילו חשבון ניירות ערך בבנק או בבית השקעות.",
+        ),
+        data_of: data_of(),
+        checked: checked(),
+        source: curve,
+        caveats: Vec::new(),
+        places: vec![place],
     }
 }
 
