@@ -29,9 +29,11 @@
    * stock note of its own (a date past the history) stays by its range. */
   const stockNote = $derived.by(() => {
     const notes = rows.flatMap((row) => row.fits.filter(isStocks).map((fit) => fit.rangeNote))
-    const counts = new Map<string, number>()
-    for (const note of notes) counts.set(note, (counts.get(note) ?? 0) + 1)
-    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0]
+    const count = (note: string) => notes.filter((each) => each === note).length
+    return notes.reduce<string | undefined>(
+      (most, note) => (most === undefined || count(note) > count(most) ? note : most),
+      undefined,
+    )
   })
   const noteFor = (fit: HorizonFitData) => (isStocks(fit) && fit.rangeNote === stockNote ? '' : fit.rangeNote)
 
@@ -198,11 +200,12 @@
   }
 
   /* A line's words are its button, drawn as text. */
+  /* As tall as a finger needs, even for a one-line name. */
   .row {
     display: block;
-    inline-size: 100%;
+    inline-size: calc(100% + 8px);
     block-size: auto;
-    min-block-size: 0;
+    min-block-size: 44px;
     margin: -4px;
     padding: 4px;
     border: none;
@@ -213,13 +216,13 @@
     text-align: start;
   }
 
-  .row:hover:not(:disabled) {
-    background: var(--accent-tint);
-  }
-
   .row:disabled {
     opacity: 1;
     cursor: default;
+  }
+
+  .row:hover:not(:disabled) {
+    background: var(--accent-tint);
   }
 
   .condition,

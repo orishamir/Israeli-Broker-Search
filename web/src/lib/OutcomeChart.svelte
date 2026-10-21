@@ -18,6 +18,7 @@
   import {
     assumedText,
     at,
+    canvasMeasure,
     fieldRow,
     isFocused,
     LANE,
@@ -53,13 +54,7 @@
 
   // Labels are measured on a canvas in the labels' own font.
   const LABEL_FONT_PX = 12
-  let context: CanvasRenderingContext2D | null = null
-  const measure = (text: string): number => {
-    context ??= document.createElement('canvas').getContext('2d')
-    if (!context) return text.length * 7
-    context.font = `${LABEL_FONT_PX}px ${getComputedStyle(document.documentElement).fontFamily}`
-    return Math.ceil(context.measureText(text).width) + 6
-  }
+  const measure = canvasMeasure(LABEL_FONT_PX)
 
   const percent = $derived(app.yearlyReturnPercent ?? 0)
   const span: Span = $derived({ min: outcome?.axis[0] ?? 0, max: outcome?.axis[1] ?? 1 })
@@ -92,7 +87,7 @@
     </div>
 
     <!-- The lines' amounts, for a screen reader; drawn beside the lines. -->
-    <ul class="sr-only">
+    <ul class="visually-hidden">
       {#each outcome.lines as line (line.which)}<li>{line.label} {line.amount}</li>{/each}
     </ul>
 
@@ -236,17 +231,6 @@
     margin: 0;
     color: var(--weak);
   }
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    margin: -1px;
-    padding: 0;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
   /* ── The rows: the name with its amount and facts, then the track; on a
      narrow card the track goes under them ── */
   .rows {
@@ -278,10 +262,6 @@
   }
   .row.lines {
     padding-block: 0;
-  }
-  .row .track {
-    grid-row: 1;
-    grid-column: 2;
   }
   /* The whole row is the button; what's drawn over it lets the pointer
      through, except the return's field. */
@@ -384,6 +364,8 @@
   /* ── The track: everything on it is placed by outcome.ts ── */
   .track {
     position: relative;
+    grid-row: 1;
+    grid-column: 2;
     display: block;
     align-self: center;
     height: var(--track-height);
@@ -561,7 +543,7 @@
     .rows {
       --value-column: auto;
     }
-    .row .track {
+    .track {
       grid-row: 2;
       grid-column: 1;
     }

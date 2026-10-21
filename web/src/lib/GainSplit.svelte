@@ -10,6 +10,7 @@
   import { GAIN_COLORS, GAIN_LANE, gainBars } from './gain'
   import { HeldWhileTyping } from './held.svelte'
   import { glideHeight } from './motion'
+  import { canvasMeasure } from './outcome'
   import { t } from './text'
 
   let { app }: { app: AppState } = $props()
@@ -17,29 +18,36 @@
   const held = new HeldWhileTyping(() => app.answer?.gain)
   const gain = $derived(held.current)
 
-  /** The bars' width, px. */
+  /** The bars' width, px, from a box of no height above them. It's taken
+   * in the next frame: set in the observer's own turn, the bars it draws
+   * made the page report a ResizeObserver loop on a phone (CLAUDE.md,
+   * Traps). */
   let width = $state(0)
-  let list: HTMLElement | null = $state(null)
+  let sizer: HTMLElement | null = $state(null)
   $effect(() => {
+    const list = sizer
     if (!list) return
+    let frame = 0
     const observer = new ResizeObserver(([entry]) => {
       const next = Math.round(entry.contentRect.width)
-      if (next > 0 && next !== width) width = next
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => {
+        if (next > 0 && next !== width) width = next
+      })
     })
     observer.observe(list)
-    return () => observer.disconnect()
+    return () => {
+      cancelAnimationFrame(frame)
+      observer.disconnect()
+    }
   })
 
   const FONT_PX = 12
-  let context: CanvasRenderingContext2D | null = null
-  const measure = (text: string): number => {
-    context ??= document.createElement('canvas').getContext('2d')
-    if (!context) return text.length * 7
-    context.font = `600 ${FONT_PX}px ${getComputedStyle(document.documentElement).fontFamily}`
-    return Math.ceil(context.measureText(text).width) + 6
-  }
+  const measure = canvasMeasure(FONT_PX, 600)
 
-  const bars = $derived(gain ? gainBars(gain.rows, width || 400, measure) : [])
+  // Drawn once the width is known: guessed, the words beside a bar could
+  // stick out past a phone's screen and widen the page.
+  const bars = $derived(gain && width > 0 ? gainBars(gain.rows, width, measure) : [])
   const BAR = 22
   const share = (fraction: number) => `${(fraction * 100).toFixed(3)}%`
 </script>
@@ -49,7 +57,8 @@
     <div>
       <h2 id="gain-title">{t.gainTitle}</h2>
       <p class="lead">{gain.lead}</p>
-      <ul class="bars" bind:this={list}>
+      <div class="sizer" aria-hidden="true" bind:this={sizer}></div>
+      <ul class="bars">
         {#each bars as bar, at (at)}
           <li>
             <span class="name"
@@ -111,6 +120,10 @@
   .lead {
     margin: 0 0 12px;
     color: var(--weak);
+  }
+
+  .sizer {
+    block-size: 0;
   }
 
   .bars {

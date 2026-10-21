@@ -24,7 +24,8 @@ export const GAIN_COLORS: Record<GainPartKind, string> = {
 }
 
 /** A part's words: "עמלות ₪2,090". */
-export const partText = (part: { label: string; amount: string }): string => `${part.label} ${part.amount}`
+export const partText = (part: { label: string; amount: string }): string =>
+  `${part.label}\u00a0${part.amount}`
 
 /** Padding inside a part around its words, px. */
 const INSIDE = 12

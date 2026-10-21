@@ -75,7 +75,7 @@ export const when = (page: Page, name: string) =>
   page.getByRole('radiogroup', { name: t.whenTitle }).getByText(name, { exact: true })
 
 /** The results table's rows, best first. */
-export const rows = (page: Page) => page.locator('tbody tr')
+export const rows = (page: Page) => page.locator('section.within tbody tr')
 
 /** The row of the plan called `name` (its plan name, not its broker's). */
 export const row = (page: Page, name: string) =>

@@ -57,6 +57,28 @@ export function ticks(span: Span, width: number, gap = 84): Tick[] {
 export const tickLabelX = (tick: Tick, width: number, labelWidth: number): number =>
   Math.min(Math.max(0, tick.at * width - labelWidth / 2), Math.max(0, width - labelWidth))
 
+// ── Measuring labels ──
+
+/** A label's width, px, measured on a canvas in the page's font (`weight`,
+ * `px`), and remembered: the font is read once, and a text measured once
+ * is never measured again, so drawing many labels forces no style work
+ * after each write to the page. Falls back to a guess without a canvas. */
+export function canvasMeasure(px: number, weight = 400): (text: string) => number {
+  let context: CanvasRenderingContext2D | null | undefined
+  const widths = new Map<string, number>()
+  return (text) => {
+    const known = widths.get(text)
+    if (known !== undefined) return known
+    if (context === undefined) {
+      context = document.createElement('canvas').getContext('2d')
+      if (context) context.font = `${weight} ${px}px ${getComputedStyle(document.documentElement).fontFamily}`
+    }
+    const width = context ? Math.ceil(context.measureText(text).width) + 6 : text.length * 7
+    widths.set(text, width)
+    return width
+  }
+}
+
 // ── Labels that don't collide ──
 
 /** A label to place: its box's width, the point it belongs to (px from the
@@ -132,7 +154,8 @@ export interface Measures {
 }
 
 /** A band mark's label: its name and short amount, "הגרועה בעבר ₪281 אלף". */
-export const markText = (mark: { label: string; amount: string }): string => `${mark.label} ${mark.amount}`
+export const markText = (mark: { label: string; amount: string }): string =>
+  `${mark.label}\u00a0${mark.amount}`
 
 /** Where a band mark's label may go, best first, and the order they're
  * placed in: the return the figure assumes first, then the ends, then the
@@ -243,7 +266,7 @@ export function lineLabels(
   measure: (text: string) => number,
 ): (Placed & { top: number; at: number })[] {
   const wanted = lines.map((line) => {
-    const text = `${line.label} ${line.amount}`
+    const text = `${line.label}\u00a0${line.amount}`
     const labelWidth = measure(text)
     const share = clamp(at(span, line.value.today))
     const fits = share * width + LINE_GAP + labelWidth <= width
@@ -293,7 +316,7 @@ export function fieldRow(rows: RowData[]): number {
 
 /** The return label's plain text: "10% בשנה". */
 export const assumedText = (percent: number, words: OutcomeWordsData): string =>
-  `${formatPercent(percent)}% ${words.perYear}`
+  `${formatPercent(percent)}%\u00a0${words.perYear}`
 
 const formatPercent = (percent: number) =>
   new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(percent)
@@ -308,7 +331,7 @@ export function rowLabel(row: RowData, words: OutcomeWordsData, percent: number)
   if (row.excluded) return [...parts, row.excluded].join('. ')
   parts.push(row.amount)
   if (mark.type === 'market' || mark.type === 'expected')
-    parts[parts.length - 1] += ` ${words.ifItRises}${formatPercent(percent)}% ${words.perYear}`
+    parts[parts.length - 1] += ` ${words.ifItRises}${formatPercent(percent)}%\u00a0${words.perYear}`
   for (const each of row.marks) if (each.which !== 'Assumed') parts.push(`${each.label}: ${each.amount}`)
   return parts.join('. ')
 }
