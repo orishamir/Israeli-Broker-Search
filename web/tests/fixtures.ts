@@ -216,9 +216,20 @@ export const decisionGroup = (page: Page, decision: DecisionData) =>
 export async function expectAnswerFor(page: Page, answers: AnswersInput, choices: Choices = {}) {
   const expected = answerFor(answers, choices)
   const card = answerCard(page)
-  await expect(card.locator('#answer-title')).toHaveText(expected.title)
+  // Every decision made: the card is the plan, its sentence the heading,
+  // and the decisions are steps of the path, closed (§4.5).
+  const planned = expected.plan !== undefined && expected.planAmount !== undefined
+  await expect(card.locator('#answer-title')).toHaveText(planned ? expected.plan! : expected.title)
   await expect(card.locator('.confidence .chip')).toHaveText(t.confidenceChip[expected.confidence.state])
-  await expect(card.getByRole('group')).toHaveCount(decisionsOf(expected).length)
+  if (planned) await expect(card.locator('.plan .amount')).toHaveText(expected.planAmount!.amount)
+  else {
+    // Held on the path after a change there: only the open decisions are
+    // asked, each in its step; on the lines, every decision is.
+    const onPath = (await card.locator('.path').count()) > 0
+    await expect(card.getByRole('group')).toHaveCount(
+      onPath ? expected.openDecisions : decisionsOf(expected).length,
+    )
+  }
   return expected
 }
 
@@ -235,7 +246,12 @@ export async function decide(
   if (!found) throw new Error(`the answer asks no ${id}`)
   const option = found.decision.options.find((each) => JSON.stringify(each.pick) === JSON.stringify(pick))
   if (!option) throw new Error(`${id} has no option ${JSON.stringify(pick)}`)
-  await decisionGroup(page, found.decision).getByRole('button', { name: option.button, exact: true }).click()
+  // On the plan, the decision is a step: "שינוי" opens it again in place.
+  const group = decisionGroup(page, found.decision)
+  const step = answerCard(page).locator(`[data-step="${id}"] button.change`)
+  await expect(group.or(step).first()).toBeVisible()
+  if (!(await group.isVisible())) await step.click()
+  await group.getByRole('button', { name: option.button, exact: true }).click()
   return found.decision
 }
 

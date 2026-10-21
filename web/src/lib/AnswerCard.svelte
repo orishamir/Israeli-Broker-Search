@@ -32,6 +32,8 @@
   let before = $state<string | undefined>()
   let shown: string | undefined
   let heard = $state('')
+  /** The plan's height, last shown: the held path keeps its place. */
+  let planHeight = $state(0)
   $effect(() => {
     const amount = planned ? answer?.planAmount?.amount : undefined
     const held = app.pathHeld
@@ -72,7 +74,7 @@
       </div>
       {#if onPath && planned && answer.planAmount}
         {@const amount = answer.planAmount}
-        <div class="plan">
+        <div class="plan" bind:offsetHeight={planHeight}>
           <p class="plan-label">{t.thePlan}</p>
           <h2 id="answer-title" class="plan-sentence">{answer.plan}</h2>
           <div class="amount-row">
@@ -81,19 +83,23 @@
             {#if before}<p class="before">{t.beforeChange(before)}</p>{/if}
           </div>
           <p class="basis">
-            {amount.basis}{#if amount.example}{' '}<span class="example">{amount.example}</span>{/if}
+            {amount.basis}{#if amount.example}<span class="example">{amount.example}</span>{/if}
           </p>
           {#if answer.annuity}<p class="annuity">{answer.annuity}</p>{/if}
         </div>
+      {:else if onPath}
+        <!-- Held on the path, a decision open: as tall as the plan was, so
+             the step being used doesn't move (principle 21). -->
+        <div class="held" style:min-height={planHeight ? `${planHeight}px` : undefined}>
+          <h2 id="answer-title">{answer.title}</h2>
+          {#if answer.openDecisions > 0}<p class="left">{t.decisionsLeft(answer.openDecisions)}</p>{/if}
+        </div>
       {:else}
         <h2 id="answer-title">{answer.title}</h2>
-        {#if !onPath}<p class="body">{answer.body}</p>{/if}
+        <p class="body">{answer.body}</p>
         {#if answer.annuity}<p class="annuity">{answer.annuity}</p>{/if}
       {/if}
       {#if onPath}
-        {#if !planned && answer.openDecisions > 0}
-          <p class="left">{t.decisionsLeft(answer.openDecisions)}</p>
-        {/if}
         <Path {app} steps={answer.path} />
         {#if planned}
           <a class="to-how" href="#how-heading" onclick={toHow}
@@ -239,6 +245,10 @@
     font-size: 0.92rem;
     line-height: 1.55;
   }
+  /* A sentence of its own after the basis: the space is the margin's. */
+  .example {
+    margin-inline-start: 0.3em;
+  }
   @container (max-width: 34rem) {
     .plan-sentence {
       font-size: 1.45rem;
@@ -249,6 +259,7 @@
     .example {
       display: block;
       margin-top: 4px;
+      margin-inline-start: 0;
     }
   }
   .to-how {
@@ -267,6 +278,11 @@
   .state-A .to-how {
     background: var(--accent);
     color: var(--on-accent);
+  }
+  .held {
+    display: grid;
+    align-content: start;
+    gap: 10px;
   }
   .left {
     margin: 0;

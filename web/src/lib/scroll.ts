@@ -51,10 +51,13 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean) {
     removeEventListener('wheel', stop)
     removeEventListener('touchstart', stop)
     removeEventListener('keydown', stop)
+    removeEventListener('pointerdown', stop)
   }
   addEventListener('wheel', stop, { passive: true })
   addEventListener('touchstart', stop, { passive: true })
   addEventListener('keydown', stop)
+  // The next thing the visitor presses is theirs to keep still.
+  addEventListener('pointerdown', stop)
 
   const revealNew = () => {
     const opened = [...openDecisions()].find((line) => !before.has(line))
@@ -117,10 +120,13 @@ export function holdStill(find: () => Element | null, fresh: () => boolean) {
     removeEventListener('wheel', stop)
     removeEventListener('touchstart', stop)
     removeEventListener('keydown', stop)
+    removeEventListener('pointerdown', stop)
   }
   addEventListener('wheel', stop, { passive: true })
   addEventListener('touchstart', stop, { passive: true })
   addEventListener('keydown', stop)
+  // The next thing the visitor presses is theirs to keep still.
+  addEventListener('pointerdown', stop)
   const frame = () => {
     if (stopped) return
     const now = performance.now()

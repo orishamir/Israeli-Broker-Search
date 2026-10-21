@@ -17,6 +17,7 @@ beforeEach(() => {
     'ResizeObserver',
     class {
       observe() {}
+      unobserve() {}
       disconnect() {}
     },
   )
@@ -141,7 +142,8 @@ test('the plan shows once every decision is made, and the count until then', asy
 })
 
 const steps = (card: HTMLElement) => [...card.querySelectorAll<HTMLElement>('.path .step')]
-const stepOf = (card: HTMLElement, key: string) => card.querySelector<HTMLElement>(`.path [data-step="${key}"]`)!
+const stepOf = (card: HTMLElement, key: string) =>
+  card.querySelector<HTMLElement>(`.path [data-step="${key}"]`)!
 
 /** The salary with every decision made, the cushion already there. */
 async function salaryPlanned() {
@@ -204,7 +206,8 @@ test('"למה זה ברור?" opens its explanation in place, and closes it', as
   expect(button.getAttribute('aria-expanded')).toBe('true')
   expect(button.textContent).toBe(t.whyClearHide)
   const clear = step.whyClear!
-  for (const words of [clear.lead, clear.count, clear.crises, clear.past]) expect(why.textContent).toContain(words)
+  for (const words of [clear.lead, clear.count, clear.crises, clear.past])
+    expect(why.textContent).toContain(words)
   expect([...why.querySelectorAll('dd')].map((each) => each.textContent)).toEqual(
     clear.amounts.map((figure) => figure.amount),
   )

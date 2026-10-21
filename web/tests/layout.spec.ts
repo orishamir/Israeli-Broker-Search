@@ -28,8 +28,10 @@ import {
   tickBrokers,
   tickPlan,
   workbench,
+  answerCard,
   type Page,
 } from './fixtures'
+import type { AnswersInput } from './core'
 import { t } from '../src/lib/text'
 
 // Runs on every device in playwright.config.ts, including the layout-only
@@ -258,6 +260,25 @@ test(
     await decide(page, salary, {}, 'Cushion', { Cushion: 'HasNot' })
     await expect(page.locator('#expenses')).toBeVisible()
     await checkLayout(page, 'the cushion not yet, with its field')
+  },
+)
+
+test(
+  'the plan and its path: a step opened again, and why it is clear',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await pickExample(page, situationName('salary'))
+    const salary = situationAnswers('salary')
+    await decide(page, salary, {}, 'Cushion', { Cushion: 'Has' })
+    const has: AnswersInput = { ...salary, cushion: { kind: 'has' } }
+    await decide(page, has, {}, 'Wrapper', { Wrapper: 'Anyone' })
+    await decide(page, has, { wrapper: 'Anyone' }, 'Account', { Account: 'NewAccount' })
+    await expectAnswerFor(page, has, { wrapper: 'Anyone', account: 'NewAccount' })
+    await checkLayout(page, 'the plan, its path')
+    await answerCard(page).locator('.path button.why').click()
+    await checkLayout(page, 'why it is clear, open')
+    await answerCard(page).locator('.path [data-step="Wrapper"] button.change').click()
+    await checkLayout(page, 'a step opened again')
   },
 )
 

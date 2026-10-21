@@ -43,10 +43,22 @@ const optionsOf = (data: AnswerData, id: DecisionId): Pick[] =>
     .find(({ decision }) => decision.id === id)!
     .decision.options.map(({ pick }) => pick)
 
+/** The plan's path shows a step for each of the core's, in its order. */
+async function expectPathOnPage(page: Page, expected: AnswerData) {
+  const steps = answerCard(page).locator('.path .step')
+  await expect(steps).toHaveCount(expected.path.length)
+  for (const [at, step] of expected.path.entries())
+    await expect(steps.nth(at).locator('.choice')).toHaveText(step.choice)
+  return expected
+}
+
 /** The page shows the core's answer line by line: a decision as its group,
  * a waiting line as waiting, a stated line as the core's sentence. */
 async function expectShapeOnPage(page: Page, answers: AnswersInput, choices: Choices = {}) {
   const expected = await expectAnswerFor(page, answers, choices)
+  // Every decision made, the card is the plan, and the lines are the
+  // path's steps, one for each in its order (§4.5).
+  if (expected.plan !== undefined) return expectPathOnPage(page, expected)
   await expect(answerCard(page).locator('.line')).toHaveCount(expected.lines.length)
   for (const line of expected.lines) {
     const shown = answerLine(page, line.kind)
