@@ -83,7 +83,7 @@ The guide has no assumptions sheet and no override: inflation and the rate are w
 - the any‑day comparison (`AnyDayDeposit`, `TreasuryBill`);
 - the horizon's dates around the visitor's date.
 
-The tests for the mutants missed on 2026‑10‑21 (`docs/redesign/mutants-missed-2026-10-21.txt`) are still to write.
+The mutants missed on 2026‑10‑21 have their tests (`crates/core/tests/answer.rs`, "Mutants missed on 2026-10-21", and `guide.rs`); those left are equality moves, texts, and mutants that change no answer the data can reach.
 
 **The engine.** The fee model is Rust compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 
