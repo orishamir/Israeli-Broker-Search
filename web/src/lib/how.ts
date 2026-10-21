@@ -36,9 +36,14 @@ export function versusText(row: ProviderData): string {
   return `${rounded > 0 ? '+' : '−'}${shekels(Math.abs(rounded))}`
 }
 
-/** "₪189,130–₪190,551" */
-export const rangeText = ([low, high]: [number, number]): string =>
-  Math.round(low) === Math.round(high) ? shekels(low) : `${shekels(low)}–${shekels(high)}`
+/** A sentence that opens with where it's about, "באינטראקטיב: בין …",
+ * cut after that opening, to set it in bold. */
+export function leadOf(sentence: string): { lead: string; rest: string } {
+  const colon = sentence.indexOf(': ')
+  return colon < 0
+    ? { lead: '', rest: sentence }
+    : { lead: sentence.slice(0, colon + 1), rest: sentence.slice(colon + 1) }
+}
 
 /** The marks the core uses for what the research hasn't filled yet
  * (principle 16): a bond series' number, a fund's name. */

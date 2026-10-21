@@ -484,7 +484,7 @@ export const en = {
   planUpdated: (amount: string) => `The plan changed: ${amount}`,
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
   // (The chart's words about money are the core's: `outcomeWords`.)
-  outcomeReturnLabel: 'The yearly return the figures assume for the S&P 500 index',
+  outcomeReturnLabel: 'The yearly return the figures assume for the broad stock index',
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label.
   howHeading: 'How to do it',
@@ -497,20 +497,19 @@ export const en = {
   sameAmount: 'The same',
   tie: 'A tie',
   yourBankRow: (name: string) => `Your bank: ${name}`,
-  throughABank: 'Through a bank',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'How much of the gain stays with you',
-  gainKept: 'Stays with you',
-  gainTax: 'Tax',
-  gainFees: 'Fees and management fees',
-  gainProduct: 'The fund’s own cost',
   gainBarLabel: (name: string, parts: string) => `${name}: ${parts}`,
   horizonsTitle: 'And if the date moves?',
   horizonsLead:
-    'The same deposits for another date: what the answer above would be then. Everything in today’s money.',
+    'The same deposits, for another date: what the answer would be then. Everything in today’s money, after fees and tax.',
   horizonsIn: (years: number) => `In ${years === 1 ? 'a year' : `${years} years`}`,
-  horizonsYours: 'Your date',
   horizonsOpen: (when: string) => `${when}: show the answer for this date`,
+  horizonsWhen: 'When',
+  horizonsWhat: 'What fits then',
+  horizonsAmount: 'How much',
+  horizonsDeposited: 'Deposited',
+  horizonsStockRange: 'The range of stocks:',
   // P2: the questions card (REDESIGN.md §4.2): "when", the examples, the status line.
   moneyTitle: 'Your money',
   examplesButton: 'Examples',

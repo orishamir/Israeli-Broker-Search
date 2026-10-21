@@ -235,7 +235,7 @@ export function expectedRows(inputs: Inputs) {
 
 /** The workbench's table as the page shows it, in the same shape. */
 export async function rowsOnPage(page: Page) {
-  const rows = await page.locator('tbody tr').all()
+  const rows = await page.locator('section.within tbody tr').all()
   return Promise.all(
     rows.map(async (row) => ({
       name: await row.locator('.names > span').first().textContent(),
@@ -254,7 +254,7 @@ export async function rowsOnPage(page: Page) {
 export function rowOf(page: Page, englishLabel: string) {
   const { plan, broker } = listed(englishLabel)
   return page
-    .locator('tbody tr')
+    .locator('section.within tbody tr')
     .filter({ has: page.getByText(plan.name, { exact: true }) })
     .filter({ has: page.getByText(broker.name, { exact: true }) })
 }

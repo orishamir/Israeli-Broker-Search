@@ -71,7 +71,10 @@ export const wayColor = (index: number): string => PLAN_COLORS[index % PLAN_COLO
 // (the dataviz skill's validator, `--pairs all`, on the page's surface
 // #151820: normal vision ΔE ≥ 15.1, contrast ≥ 3:1; color-blind ΔE ≥ 8.4).
 // The money-market fund was a lilac beside the index's magenta, too near
-// in hue (the review of 2026-10-20, X17): it is a light green now.
+// in hue (the review of 2026-10-20, X17): it is a light green now. The
+// any-day deposit (a pale yellow) and makam (a violet) came with §4.9;
+// with them the nine are still told apart in every pair (normal vision
+// ΔE ≥ 15.1, color-blind ≥ 8.0, contrast ≥ 3:1).
 // Thirteen kinds can't all be told apart, and the other holdings of the
 // S&P 500 are never drawn beside each other in the guide (the workbench
 // colors its ways by `wayColor`), so they share the index's magenta. The
@@ -84,6 +87,8 @@ export const KIND_COLORS: Record<string, string> = {
   MoneyMarketFund: '#9fe07a',
   FixedDeposit: '#4682cc',
   LinkedDeposit: '#39b7cb',
+  AnyDayDeposit: '#fdfda5',
+  TreasuryBill: '#b583fc',
   'GovernmentBond:linked': '#ca9d33',
   GovernmentBond: '#419363',
   StudyFundTrack: '#e54e3c',

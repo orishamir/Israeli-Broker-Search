@@ -1,4 +1,4 @@
-import { answerFor, situationAnswers } from './core'
+import { answer, answerFor, guideSettings, situationAnswers } from './core'
 import type { AnswerData, Kind } from './core'
 import { pickExample, decide, expect, expectAnswerFor, situationName, test, type Page } from './fixtures'
 import { kindKey } from '../src/lib/kinds'
@@ -10,7 +10,7 @@ import { t } from '../src/lib/text'
 // in place. Where each mark goes is a unit test (`outcome.test.svelte.ts`).
 
 const chart = (page: Page) => page.locator('section.outcome')
-const rows = (page: Page) => chart(page).locator('.row:not(.axis)')
+const rows = (page: Page) => chart(page).locator('.row:not(.axis, .lines)')
 const rowPress = (page: Page, at: number) => rows(page).nth(at).locator('button.press')
 const howHeading = (page: Page) => page.locator('#how-heading')
 
@@ -95,3 +95,124 @@ test(
     await expect.poll(() => page.evaluate(() => location.hash)).toContain('r=6')
   },
 )
+
+const isStock = (kind: Kind) => typeof kind === 'object' && 'Way' in kind
+
+for (const id of ['goal', 'bonus', 'salary', 'cushion']) {
+  test(
+    `the chart of "${id}": each row's amount by its name, its facts in words, the band's marks and the lines labelled with their amounts`,
+    { tag: '@phone' },
+    async ({ page }) => {
+      await pickExample(page, situationName(id))
+      const expected = await expectAnswerFor(page, situationAnswers(id))
+      const outcome = expected.outcome
+      await expect(chart(page).locator('.caption')).toHaveText(outcome.caption)
+      await expect(rows(page)).toHaveCount(outcome.rows.length)
+      for (const [at, row] of outcome.rows.entries()) {
+        const shown = rows(page).nth(at)
+        await expect(shown.locator('.name')).toHaveText(row.name)
+        await expect(shown.locator('.value')).toHaveText(row.amount)
+        await expect(shown.locator('.facts')).toHaveText(row.facts)
+        // Facts are words, not pills.
+        await expect(shown.locator('.tag')).toHaveCount(0)
+        for (const mark of row.marks)
+          await expect(shown.locator('.label').filter({ hasText: mark.label })).toContainText(mark.amount)
+      }
+      for (const line of outcome.lines)
+        await expect(chart(page).locator(`.line-label.${line.which}`)).toHaveText(
+          `${line.label}\u00a0${line.amount}`,
+        )
+    },
+  )
+}
+
+// Only what the visitor could choose (§4.6, §4.9): no stock row, so no
+// return to set.
+test('money needed any day: only its own options, with no stock row and no return to set', async ({
+  page,
+}) => {
+  await pickExample(page, situationName('cushion'))
+  const expected = await expectAnswerFor(page, situationAnswers('cushion'))
+  expect(expected.outcome.rows.some((row) => isStock(row.id))).toBe(false)
+  await expect(rows(page)).toHaveCount(expected.outcome.rows.length)
+  await expect(page.locator('#outcome-return')).toHaveCount(0)
+  await expect(chart(page).locator('.line-label')).toHaveCount(2)
+})
+
+test('how to do it: the facts as labelled rows, the same questions in the same order for every product', async ({
+  page,
+}) => {
+  const expected = await expectAnswerFor(page, situationAnswers('goal'))
+  const questions = expected.how[0].facts.map(({ question }) => question)
+  expect(questions).toHaveLength(4)
+  const withHow = expected.outcome.rows.flatMap((row, at) => {
+    const how = howOf(expected, row.id)
+    return how ? [{ at, how }] : []
+  })
+  expect(withHow.length).toBeGreaterThan(1)
+  for (const { at, how } of withHow) {
+    expect(how.facts.map(({ question }) => question)).toEqual(questions)
+    await rowPress(page, at).click()
+    const facts = page.locator('section.how dl.facts')
+    await expect(facts.locator('dt')).toHaveText(questions)
+    await expect(facts.locator('dd')).toHaveText(how.facts.map(({ answer }) => answer))
+  }
+})
+
+test(
+  'where to buy: one row through a bank, as a range, and the difference in words; the gain named part by part',
+  { tag: '@phone' },
+  async ({ page }) => {
+    await pickExample(page, situationName('salary'))
+    const expected = await expectAnswerFor(page, situationAnswers('salary'))
+    const at = expected.outcome.rows.findIndex((row) => isStock(row.id))
+    await rowPress(page, at).click()
+    const where = howOf(expected, expected.outcome.rows[at].id)!.whereToBuy!
+    expect(where.reference, 'no bank named: the banks as one reference row').toBeDefined()
+    const shown = page.locator('section.how .where')
+    await expect(shown.locator('.row.reference .amount')).toHaveText(where.reference!.amount)
+    await expect(shown.locator('.difference')).toHaveText(where.difference!)
+    // The gain: every part's name and amount, on its bar or beside it.
+    const gain = expected.gain!
+    const bars = page.locator('section.gain .bars li')
+    await expect(bars).toHaveCount(gain.rows.length)
+    for (const [index, row] of gain.rows.entries())
+      for (const part of row.parts)
+        await expect(
+          bars.nth(index).locator('.words, .beside').filter({ hasText: part.label }),
+        ).toContainText(part.amount)
+    await expect(page.locator('section.gain .takeaway')).toHaveText(gain.takeaway)
+  },
+)
+
+for (const id of ['goal', 'bonus', 'salary']) {
+  test(
+    `the horizon of "${id}": dates around the visitor's, theirs marked, what fits, how much, what was deposited`,
+    { tag: '@phone' },
+    async ({ page }) => {
+      await pickExample(page, situationName(id))
+      await expectAnswerFor(page, situationAnswers(id))
+      const horizons = answer({
+        answers: situationAnswers(id),
+        choices: {},
+        settings: guideSettings(),
+        horizons: true,
+      }).horizons!
+      const section = page.locator('section.horizons')
+      await expect(section).not.toHaveAttribute('aria-busy', 'true')
+      await expect(section.locator('tbody tr')).toHaveCount(horizons.flatMap((row) => row.fits).length)
+      await expect(section.locator('tbody th .when')).toHaveText(horizons.map((row) => row.when))
+      const yours = horizons.filter((row) => row.current)
+      expect(yours).toHaveLength(1)
+      await expect(section.locator('tbody th .yours')).toHaveText([yours[0].label!])
+      await expect(section.locator('td.amount .range')).toHaveText(
+        horizons.flatMap((row) => row.fits.map((fit) => fit.range)),
+      )
+      // What was deposited, by its date: a column, or under the date on a phone.
+      await expect(section.locator('td.deposited:visible, .deposits-here:visible')).toHaveCount(
+        horizons.length,
+      )
+      await expect(section.getByText(/על כל ₪1/)).toHaveCount(0)
+    },
+  )
+}

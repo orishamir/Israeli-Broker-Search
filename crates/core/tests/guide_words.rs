@@ -318,6 +318,11 @@ fn units(answer: &Answer) -> Vec<Vec<String>> {
         let mut unit = vec![he(&row.name)];
         unit.extend(row.tags.iter().map(he));
         unit.extend(row.note.iter().map(he));
+        // A stock row's return field is said in the row's own words: "אם
+        // המדד יעלה" only where its name names the index (§4.6).
+        if matches!(row.id, Kind::Way(_)) {
+            unit.push(he(&broker_fees::describe::outcome::return_lead(row.id)));
+        }
         units.push(unit);
         let mut rest = Vec::new();
         hebrew_strings(&serde_json::to_value(&row.mark).unwrap(), &mut rest);

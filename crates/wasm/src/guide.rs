@@ -1149,6 +1149,9 @@ pub struct RowData {
     pub value: AmountData,
     /// `value` in words, rounded to how sure it is: what the row shows.
     pub amount: String,
+    /// On a stock row, the words before its yearly return's field: "אם
+    /// המדד יעלה" (§4.6).
+    pub return_lead: Option<String>,
     /// Its figure lies beyond the axis: drawn as an arrow at the edge.
     pub tail: bool,
     pub active: bool,
@@ -1526,6 +1529,8 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                         .collect(),
                     value: row.value.into(),
                     amount: said(&row.amount),
+                    return_lead: matches!(row.id, Kind::Way(_))
+                        .then(|| said(&broker_fees::describe::outcome::return_lead(row.id))),
                     tail: row.tail,
                     active: row.active,
                     excluded: row.excluded.as_ref().map(said),

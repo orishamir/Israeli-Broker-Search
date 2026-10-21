@@ -238,7 +238,7 @@ function referenceRows(answers: AnswersInput, choices: Choices) {
   const where = expected.how.find((how) => kindKey(how.row) === kindKey(expected.focus!))!.whereToBuy!
   return [
     ...where.rows.filter((row) => row.yours).map((row) => t.yourBankRow(row.name)),
-    ...(where.bankRange ? [t.throughABank] : []),
+    ...(where.reference ? [`${where.reference.name} (${where.reference.note})`] : []),
   ]
 }
 
@@ -258,14 +258,14 @@ test('the bank is asked with the facts, optional, and where to buy follows it', 
   for (const bank of banks()) {
     await field.selectOption(bank.bank)
     await expectAnswerFor(page, { ...goal, bank: bank.bank }, choices)
-    await expect(where.locator('.row.yours .name')).toHaveText(
+    await expect(where.locator('.row.yours .name, .row.reference .name')).toHaveText(
       referenceRows({ ...goal, bank: bank.bank }, choices),
     )
   }
   // Another bank names none, as no answer does, and the menu says what was picked.
   await field.selectOption('other')
   await expect(field).toHaveValue('other')
-  await expect(where.locator('.row.yours .name')).toHaveText(
+  await expect(where.locator('.row.yours .name, .row.reference .name')).toHaveText(
     referenceRows({ ...goal, bank: undefined }, choices),
   )
   // An example keeps the bank: it is the visitor's, not the example's.

@@ -98,7 +98,14 @@ test('every kind and way the core lists has a key that reads back', () => {
   for (const { way: each } of core.ways()) {
     expect(kindByKey(kindKey({ Way: each }))).toEqual({ Way: each })
   }
-  for (const kind of ['MoneyMarketFund', 'FixedDeposit', 'LinkedDeposit', 'CurrentAccount'] as const) {
+  for (const kind of [
+    'MoneyMarketFund',
+    'FixedDeposit',
+    'LinkedDeposit',
+    'AnyDayDeposit',
+    'TreasuryBill',
+    'CurrentAccount',
+  ] as const) {
     expect(kindByKey(kindKey(kind))).toBe(kind)
   }
   expect(kindByKey(kindKey({ GovernmentBond: { linked: false } }))).toEqual({
