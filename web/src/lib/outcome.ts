@@ -1,10 +1,11 @@
-// The outcome chart's layout (REDESIGN.md §2.6), as pure functions so it's
-// tested without a browser: where each mark sits on the shared ₪ axis, the
-// axis's ticks, and where each label goes so none covers another. The
-// component only draws what these return. The track runs left to right, as
-// every chart on the page does; its labels are Hebrew.
+// The outcome chart's layout (REDESIGN.md §2.6, amended by §4.6), as pure
+// functions so it's tested without a browser: where each mark sits on the
+// shared ₪ axis, the axis's ticks, and where each label goes so none covers
+// another, the band's marks' and the reference lines' alike. The component
+// only draws what these return. The track runs left to right, as every
+// chart on the page does; its labels are Hebrew.
 
-import type { AnswerOutcomeData, Kind, OutcomeWordsData, RowData } from './core/core'
+import type { AnswerOutcomeData, BandMarkKind, Kind, OutcomeWordsData, RowData } from './core/core'
 import { compactShekelsApart } from './format'
 import { kindKey } from './kinds'
 
@@ -56,6 +57,28 @@ export function ticks(span: Span, width: number, gap = 84): Tick[] {
 export const tickLabelX = (tick: Tick, width: number, labelWidth: number): number =>
   Math.min(Math.max(0, tick.at * width - labelWidth / 2), Math.max(0, width - labelWidth))
 
+// ── Measuring labels ──
+
+/** A label's width, px, measured on a canvas in the page's font (`weight`,
+ * `px`), and remembered: the font is read once, and a text measured once
+ * is never measured again, so drawing many labels forces no style work
+ * after each write to the page. Falls back to a guess without a canvas. */
+export function canvasMeasure(px: number, weight = 400): (text: string) => number {
+  let context: CanvasRenderingContext2D | null | undefined
+  const widths = new Map<string, number>()
+  return (text) => {
+    const known = widths.get(text)
+    if (known !== undefined) return known
+    if (context === undefined) {
+      context = document.createElement('canvas').getContext('2d')
+      if (context) context.font = `${weight} ${px}px ${getComputedStyle(document.documentElement).fontFamily}`
+    }
+    const width = context ? Math.ceil(context.measureText(text).width) + 6 : text.length * 7
+    widths.set(text, width)
+    return width
+  }
+}
+
 // ── Labels that don't collide ──
 
 /** A label to place: its box's width, the point it belongs to (px from the
@@ -103,10 +126,8 @@ export function place(wanted: Wanted[], width: number, gap = 8): Placed[] {
 
 // ── A row ──
 
-/** Heights, px: a lane of labels, the lane that holds the return's field,
- * and the band the marks are drawn in. */
+/** Heights, px: a lane of labels, and the band the marks are drawn in. */
 export const LANE = 16
-export const FIELD_LANE = 32
 export const MARKS = 26
 /** Room for the arrow at a bar's cut end, px. */
 export const ARROW = 10
@@ -127,44 +148,53 @@ export interface RowLayout {
 export interface Measures {
   /** The width of a label's text, px. */
   text: (text: string) => number
-  /** The width of the return's label: the field and "בשנה" after it, or
-   * the plain "10% בשנה" where the row has no field. */
-  assumed: number
-  /** The plain return label's text, "10% בשנה". */
+  /** The plain return label's text, "10% בשנה", for a row whose figure
+   * assumes a return but has no band (`expected`). */
   assumedText: string
 }
 
+/** A band mark's label: its name and short amount, "הגרועה בעבר ₪281 אלף". */
+export const markText = (mark: { label: string; amount: string }): string =>
+  `${mark.label}\u00a0${mark.amount}`
+
+/** Where a band mark's label may go, best first, and the order they're
+ * placed in: the return the figure assumes first, then the ends, then the
+ * median, which goes below when the others take the lane above. */
+const BAND: Record<BandMarkKind, { order: number; lanes: number[] }> = {
+  Assumed: { order: 0, lanes: [0, 1] },
+  Worst: { order: 1, lanes: [0, 1] },
+  Best: { order: 2, lanes: [0, 1] },
+  Median: { order: 3, lanes: [1, 0] },
+}
+
+const ALIGN: Record<BandMarkKind, Wanted['align']> = {
+  Assumed: 'center',
+  Worst: 'start',
+  Best: 'end',
+  Median: 'center',
+}
+
 /** Where a row's marks and labels go on a track `width` px wide. */
-export function layoutRow(
-  row: RowData,
-  span: Span,
-  width: number,
-  words: OutcomeWordsData,
-  measures: Measures,
-  withField: boolean,
-): RowLayout {
+export function layoutRow(row: RowData, span: Span, width: number, measures: Measures): RowLayout {
   const mark = row.mark
   const value = at(span, row.value.today)
   const wanted: Wanted[] = []
   const layout: Omit<RowLayout, 'labels' | 'middle' | 'height'> = { ticks: [] }
-  const assumedLabel = (fraction: number) => {
-    if (!inside(fraction)) return
-    wanted.push({
-      key: 'assumed',
-      text: measures.assumedText,
-      width: measures.assumed,
-      anchor: fraction * width,
-      align: 'center',
-      lanes: [1],
-    })
-  }
   switch (mark.type) {
     case 'known':
       layout.dot = clamp(value)
       break
     case 'expected':
       layout.dot = clamp(value)
-      assumedLabel(value)
+      if (inside(value))
+        wanted.push({
+          key: 'assumed',
+          text: measures.assumedText,
+          width: measures.text(measures.assumedText),
+          anchor: value * width,
+          align: 'center',
+          lanes: [1],
+        })
       break
     case 'rateRange': {
       layout.dot = clamp(value)
@@ -178,53 +208,37 @@ export function layoutRow(
       const median = at(span, mark.median.today)
       if (inside(assumed)) layout.ticks.push({ role: 'assumed', at: assumed })
       if (inside(median)) layout.ticks.push({ role: 'median', at: median })
-      const amount = compactShekelsApart([mark.worst.today, mark.median.today, mark.best.today])
-      const label = (key: string, word: string, figure: number) => {
-        const text = `${word}: ${amount(figure)}`
-        return { key, text, width: measures.text(text) }
-      }
-      assumedLabel(assumed)
-      wanted.push({
-        ...label('worst', words.worst, mark.worst.today),
-        anchor: ends.from * width + (ends.cutLow ? ARROW : 0),
-        align: 'start',
-        lanes: [0, 1],
-      })
-      wanted.push({
-        ...label('best', words.best, mark.best.today),
-        anchor: ends.to * width - (ends.cutHigh ? ARROW : 0),
-        align: 'end',
-        lanes: [0, 1],
-      })
-      if (inside(median))
+      const sorted = [...row.marks].sort((a, b) => BAND[a.which].order - BAND[b.which].order)
+      for (const each of sorted) {
+        const text = markText(each)
+        // An end past the axis is labelled at its cut, beside the arrow.
+        const anchor =
+          each.which === 'Worst'
+            ? ends.from * width + (ends.cutLow ? ARROW : 0)
+            : each.which === 'Best'
+              ? ends.to * width - (ends.cutHigh ? ARROW : 0)
+              : clamp(at(span, each.value.today)) * width
         wanted.push({
-          ...label('median', words.median, mark.median.today),
-          anchor: median * width,
-          align: 'center',
-          lanes: [1, 0],
+          key: each.which.toLowerCase(),
+          text,
+          width: measures.text(text),
+          anchor,
+          align: ALIGN[each.which],
+          lanes: BAND[each.which].lanes,
         })
+      }
       break
     }
   }
   const placed = place(wanted, width)
   const above = placed.some(({ lane }) => lane === 0) ? LANE : 0
   const below = Math.max(0, ...placed.map(({ lane }) => lane))
-  // Lane 1 is taller where the field sits in it.
-  const laneHeight = (lane: number) =>
-    lane === 1 && withField && wanted.some(({ key }) => key === 'assumed') ? FIELD_LANE : LANE
-  const topOf = (lane: number) => {
-    if (lane === 0) return 0
-    let top = above + MARKS
-    for (let each = 1; each < lane; each++) top += laneHeight(each)
-    return top
-  }
-  let height = above + MARKS
-  for (let lane = 1; lane <= below; lane++) height += laneHeight(lane)
+  const topOf = (lane: number) => (lane === 0 ? 0 : above + MARKS + (lane - 1) * LANE)
   return {
     ...layout,
     labels: placed.map((label) => ({ ...label, top: topOf(label.lane) })),
     middle: above + MARKS / 2,
-    height,
+    height: above + MARKS + below * LANE,
   }
 }
 
@@ -232,6 +246,47 @@ const clamp = (fraction: number) => Math.min(1, Math.max(0, fraction))
 
 function bar(kind: 'rate' | 'market', low: number, high: number) {
   return { kind, from: clamp(low), to: clamp(high), cutLow: low < 0, cutHigh: high > 1 }
+}
+
+// ── The reference lines ──
+
+/** The lines' labels always take this many lanes, so the rows under them
+ * never move when the labels change places (principle 21). */
+export const LINE_LANES = 2
+/** From a line to its label, px. */
+const LINE_GAP = 6
+
+/** "הפקדתם ₪136,000" and "בעו״ש ₪99,400", each beside its line: it starts
+ * there and runs right, or ends there where it would run off the track;
+ * the second takes the lane below when they'd meet. */
+export function lineLabels(
+  lines: AnswerOutcomeData['lines'],
+  span: Span,
+  width: number,
+  measure: (text: string) => number,
+): (Placed & { top: number; at: number })[] {
+  const wanted = lines.map((line) => {
+    const text = `${line.label}\u00a0${line.amount}`
+    const labelWidth = measure(text)
+    const share = clamp(at(span, line.value.today))
+    const fits = share * width + LINE_GAP + labelWidth <= width
+    const label: Wanted = {
+      key: line.which,
+      text,
+      width: labelWidth,
+      anchor: fits ? share * width + LINE_GAP : share * width - LINE_GAP,
+      align: fits ? 'start' : 'end',
+      lanes: [0, 1],
+    }
+    return { label, share }
+  })
+  return place(
+    wanted.map(({ label }) => label),
+    width,
+  ).map((label, index) => {
+    const lane = Math.min(label.lane, LINE_LANES - 1)
+    return { ...label, lane, top: lane * LANE, at: wanted[index].share }
+  })
 }
 
 // ── What the rows say ──
@@ -253,12 +308,10 @@ export function notes(rows: RowData[]): string[][] {
   })
 }
 
-/** The one row whose return label is a field: the first that has the label
- * and that the rules don't leave out (the same number is set in one place). */
+/** The one row whose return is a field: the first stock row the rules
+ * don't leave out (the same number is set in one place). */
 export function fieldRow(rows: RowData[]): number {
-  return rows.findIndex(
-    (row) => !row.excluded && (row.mark.type === 'market' || row.mark.type === 'expected'),
-  )
+  return rows.findIndex((row) => !row.excluded && row.returnLead !== undefined)
 }
 
 /** The return label's plain text: "10% בשנה". */
@@ -268,10 +321,10 @@ export const assumedText = (percent: number, words: OutcomeWordsData): string =>
 const formatPercent = (percent: number) =>
   new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(percent)
 
-/** What a screen reader says for a row's button: the row's name, its tags,
+/** What a screen reader says for a row's button: the row's name, its facts,
  * its figure, and for the index the return it assumes and the past's range. */
 export function rowLabel(row: RowData, words: OutcomeWordsData, percent: number): string {
-  const parts = [row.name, ...row.tags]
+  const parts = [row.name, row.facts].filter(Boolean)
   const mark = row.mark
   // An option the rules exclude has no end figure (the review's X12): a
   // beginner asked which ends highest would point at it. Its reason instead.
@@ -279,21 +332,8 @@ export function rowLabel(row: RowData, words: OutcomeWordsData, percent: number)
   parts.push(row.amount)
   if (mark.type === 'market' || mark.type === 'expected')
     parts[parts.length - 1] += ` ${words.ifItRises}${formatPercent(percent)}%\u00a0${words.perYear}`
-  if (mark.type === 'market') {
-    const amount = compactShekelsApart([mark.worst.today, mark.median.today, mark.best.today])
-    parts.push(
-      `${words.worst}: ${amount(mark.worst.today)}`,
-      `${words.median}: ${amount(mark.median.today)}`,
-      `${words.best}: ${amount(mark.best.today)}`,
-    )
-  }
+  for (const each of row.marks) if (each.which !== 'Assumed') parts.push(`${each.label}: ${each.amount}`)
   return parts.join('. ')
-}
-
-/** Which keys the legend shows: a mark's only when a row draws it. */
-export function legendKeys(outcome: AnswerOutcomeData): { known: boolean; market: boolean } {
-  const types = new Set(outcome.rows.map(({ mark }) => mark.type))
-  return { known: types.has('known') || types.has('rateRange'), market: types.has('market') }
 }
 
 /** Whether `row` is the one `focused` names. */

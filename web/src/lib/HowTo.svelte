@@ -1,6 +1,7 @@
 <script lang="ts">
   // "איך עושים את זה" (REDESIGN.md §2.1 item 4, §2.8): the row the visitor
-  // chose above or tapped in the chart: its name, the identity line, what to
+  // chose above or tapped in the chart: its name, its facts as labelled rows
+  // (§4.8: מה זה, כמה מרוויחה, מתי אפשר למשוך, מטבע), what to
   // search for in the app, the steps (or why the rules leave it out, with a
   // way to compare it anyway), and where to buy it. An empty state until a
   // row is chosen.
@@ -30,12 +31,15 @@
     {#if !how}
       <p class="empty">{t.howEmpty}</p>
     {:else}
-      {#if how.identity.length > 0}
-        <ul class="identity">
-          {#each how.identity as part, at (at)}
-            <li>{part}</li>
+      {#if how.facts.length > 0}
+        <!-- One fact per row beside the question it answers, the same
+             questions in the same order for every product (§4.8). -->
+        <dl class="facts">
+          {#each how.facts as fact (fact.question)}
+            <dt>{fact.question}</dt>
+            <dd>{fact.answer}</dd>
           {/each}
-        </ul>
+        </dl>
       {/if}
       {#if how.search}
         <div class="search">
@@ -93,19 +97,18 @@
   .empty {
     color: var(--weak);
   }
-  .identity {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
+  .facts {
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: 6px 16px;
     margin: 0;
-    padding: 0;
-    list-style: none;
+    font-size: 0.92rem;
   }
-  .identity li {
-    padding: 5px 12px;
-    border: 1px solid var(--strong-border);
-    border-radius: 999px;
-    font-size: 0.9rem;
+  .facts dt {
+    color: var(--weak);
+  }
+  .facts dd {
+    margin: 0;
   }
   .search {
     display: flex;

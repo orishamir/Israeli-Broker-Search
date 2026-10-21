@@ -3,6 +3,7 @@ import { beforeEach, expect, test, vi } from 'vitest'
 import { AppState } from './app.svelte'
 import * as core from './core/core'
 import type { AnswerOutcomeData } from './core/core'
+import { kindColor } from './colors'
 import { shekels } from './format'
 import {
   assumedText,
@@ -10,8 +11,10 @@ import {
   fieldRow,
   LANE,
   layoutRow,
-  legendKeys,
+  LINE_LANES,
+  lineLabels,
   MARKS,
+  markText,
   notes,
   place,
   rowLabel,
@@ -38,7 +41,7 @@ function charts(): [string, AnswerOutcomeData][] {
       app = new AppState({})
     })
     flushSync()
-    app.setSituation(situation.id)
+    app.pickExample(situation.id)
     flushSync()
     const answer = app.answer ?? core.answer({ ...app.answerRequest, horizons: false })
     return [situation.id, answer.outcome]
@@ -99,18 +102,9 @@ test('labels never cover each other, and stay inside the track', () => {
 test('every row of every situation is laid out without collisions, at phone and desktop widths', () => {
   for (const [id, outcome] of charts()) {
     const span = { min: outcome.axis[0], max: outcome.axis[1] }
-    const field = fieldRow(outcome.rows)
-    for (const width of [260, 320, 480, 760]) {
-      outcome.rows.forEach((row, index) => {
-        const plain = assumedText(10, words)
-        const layout = layoutRow(
-          row,
-          span,
-          width,
-          words,
-          { text: measure, assumed: index === field ? 110 : measure(plain), assumedText: plain },
-          index === field,
-        )
+    for (const width of [260, 288, 320, 343, 375, 480, 760]) {
+      outcome.rows.forEach((row) => {
+        const layout = layoutRow(row, span, width, { text: measure, assumedText: assumedText(10, words) })
         const where = `${id} ${row.name} at ${width}px`
         for (const [i, a] of layout.labels.entries()) {
           expect(a.x, where).toBeGreaterThanOrEqual(0)
@@ -129,10 +123,13 @@ test('every row of every situation is laid out without collisions, at phone and 
           // A tail past the axis is cut, with its label saying how far.
           expect(bar.cutLow).toBe(mark.worst.today < span.min)
           expect(bar.cutHigh).toBe(mark.best.today > span.max)
-          const keys = layout.labels.map(({ key }) => key)
-          expect(keys).toContain('worst')
-          expect(keys).toContain('best')
+          // Every mark on the band is labelled with its amount (§4.6).
+          expect(row.marks.map(({ which }) => which).sort()).toEqual(['Assumed', 'Best', 'Median', 'Worst'])
+          const texts = layout.labels.map(({ text }) => text)
+          for (const each of row.marks) expect(texts, where).toContain(markText(each))
+          for (const each of row.marks) expect(markText(each)).toContain(each.amount)
           // Every tick drawn is labelled.
+          const keys = layout.labels.map(({ key }) => key)
           for (const tick of layout.ticks) expect(keys, where).toContain(tick.role)
         }
         if (mark.type === 'rateRange') {
@@ -143,6 +140,44 @@ test('every row of every situation is laid out without collisions, at phone and 
       })
     }
   }
+})
+
+test('the two lines are labelled with their amounts, apart, on the track, in two lanes kept for them', () => {
+  for (const [id, outcome] of charts()) {
+    expect(outcome.lines.map(({ which }) => which)).toEqual(['Deposited', 'CurrentAccount'])
+    const span = { min: outcome.axis[0], max: outcome.axis[1] }
+    for (const width of [260, 320, 375, 760]) {
+      const labels = lineLabels(outcome.lines, span, width, measure)
+      const where = `${id} at ${width}px`
+      expect(labels.map(({ text }) => text)).toEqual(
+        outcome.lines.map((line) => `${line.label}\u00a0${line.amount}`),
+      )
+      for (const label of labels) {
+        expect(label.x, where).toBeGreaterThanOrEqual(0)
+        expect(label.x + label.width, where).toBeLessThanOrEqual(width + 1e-9)
+        expect(label.lane).toBeLessThan(LINE_LANES)
+        // Beside its own line: it starts or ends a few px from it.
+        const line = label.at * width
+        expect(
+          Math.min(Math.abs(label.x - line), Math.abs(label.x + label.width - line)),
+          where,
+        ).toBeLessThan(12)
+      }
+      expect(overlap(labels[0], labels[1], 0), where).toBe(false)
+    }
+  }
+})
+
+test('money needed any day draws only its own options, with no stock row', () => {
+  const [, outcome] = charts().find(([id]) => id === 'cushion')!
+  expect(outcome.rows.length).toBeGreaterThan(1)
+  expect(outcome.rows.every((row) => row.mark.type !== 'market' && row.marks.length === 0)).toBe(true)
+  expect(fieldRow(outcome.rows)).toBe(-1)
+  expect(outcome.lines).toHaveLength(2)
+})
+
+test('every row has a colour of its own kind', () => {
+  for (const [, outcome] of charts()) for (const row of outcome.rows) expect(kindColor(row.id)).toMatch(/^#/)
 })
 
 test('the past’s losses are said once, and the return is set in one place only', () => {
@@ -165,7 +200,8 @@ test('a row is read out with its name, figure and, for the index, the return and
       expect(label).toContain(row.name)
       expect(label).toContain(row.amount)
       if (row.mark.type === 'market') {
-        expect(label).toContain(words.worst)
+        for (const each of row.marks.filter(({ which }) => which !== 'Assumed'))
+          expect(label).toContain(each.label)
         expect(label).toContain('10%')
       }
     }
@@ -180,12 +216,5 @@ test('an excluded row is read out with its reason, and no figure', () => {
     const label = rowLabel(row, words, 10)
     expect(label).toContain(row.excluded)
     expect(label).not.toContain(shekels(row.value.today))
-  }
-})
-
-test('the legend keys only the marks drawn', () => {
-  for (const [, outcome] of charts()) {
-    const keys = legendKeys(outcome)
-    expect(keys.market).toBe(outcome.rows.some(({ mark }) => mark.type === 'market'))
   }
 })

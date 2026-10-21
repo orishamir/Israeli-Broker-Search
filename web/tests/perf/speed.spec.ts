@@ -152,7 +152,12 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const monthly = page.locator('#monthly')
   const horizon = page.locator('#horizon')
   const horizonRows = page.locator('section.horizons button.row')
-  const horizonRow = (years: number) => horizonRows.filter({ hasText: t.horizonsIn(years) }).first()
+  const horizonRow = (years: number) =>
+    page
+      .locator('section.horizons tbody tr')
+      .filter({ hasText: t.horizonsIn(years) })
+      .locator('button.row')
+      .first()
   const chartRows = page.locator('section.outcome .row:not(.axis) button.press')
   const options = page.locator('section.answer .decision button.choose')
   const returnField = page.locator('#outcome-return')
@@ -363,12 +368,14 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       label: 'guide: a horizon row, and back (ms)',
       budget: budgets.view,
       measure: async () => {
+        // The rows are built around the date (§4.10): 5 years shows 3, and
+        // 3 years shows 5 again.
         await chip('bonus').click()
-        await expect(horizonRow(1)).toBeVisible()
+        await expect(horizonRow(3)).toBeVisible()
         const time = await typical(
           page,
           thereAndBack(
-            () => horizonRow(1).click(),
+            () => horizonRow(3).click(),
             () => horizonRow(5).click(),
           ),
         )
@@ -565,7 +572,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
             measure: () =>
               typical(page, async () => {
                 // The first four rows: there are always at least that many.
-                for (let index = 0; index < 4; index++) await page.locator('tbody tr').nth(index).hover()
+                for (let index = 0; index < 4; index++)
+                  await page.locator('section.within tbody tr').nth(index).hover()
                 await page.mouse.move(0, 0)
               }),
           },

@@ -474,7 +474,7 @@ export const he: Text = {
   planUpdated: (amount: string) => `התוכנית עודכנה: ${amount}`,
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
   // (The chart's words about money are the core's: `outcomeWords`.)
-  outcomeReturnLabel: 'התשואה השנתית שהחישוב מניח למדד S&P 500',
+  outcomeReturnLabel: 'התשואה השנתית שהחישוב מניח למדד המניות הרחב',
   // W4: how to do it and where to buy (§2.8, §2.9): the empty state, the
   //     reference row's label.
   howHeading: 'איך עושים את זה',
@@ -487,19 +487,18 @@ export const he: Text = {
   sameAmount: 'אותו סכום',
   tie: 'תיקו',
   yourBankRow: (name: string) => `הבנק שלכם: ${name}`,
-  throughABank: 'דרך בנק',
   // W5: the gain split and the horizons (§2.7, §2.9): headings, columns.
   gainTitle: 'כמה מהרווח נשאר אצלכם',
-  gainKept: 'נשאר לכם',
-  gainTax: 'מס',
-  gainFees: 'עמלות ודמי ניהול',
-  gainProduct: 'העלות של הקרן עצמה',
   gainBarLabel: (name, parts) => `${name}: ${parts}`,
   horizonsTitle: 'ואם התאריך יזוז?',
-  horizonsLead: 'אותן הפקדות לתאריך אחר: מה הייתה התשובה למעלה אז. הכול בכסף של היום.',
+  horizonsLead: 'אותן הפקדות, לתאריך אחר: מה הייתה התשובה אז. הכול בכסף של היום, אחרי עמלות ומס.',
   horizonsIn: (years) => `בעוד ${yearsText(years)}`,
-  horizonsYours: 'התאריך שלכם',
   horizonsOpen: (when) => `${when}: להציג את התשובה לתאריך הזה`,
+  horizonsWhen: 'מתי',
+  horizonsWhat: 'מה מתאים אז',
+  horizonsAmount: 'כמה יהיה',
+  horizonsDeposited: 'הפקדתם',
+  horizonsStockRange: 'טווח של מניות:',
   // P2: the questions card (REDESIGN.md §4.2): "מתי", the examples, the status line.
   moneyTitle: 'הכסף שלכם',
   examplesButton: 'דוגמאות',

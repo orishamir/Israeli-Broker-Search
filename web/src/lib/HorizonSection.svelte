@@ -1,13 +1,14 @@
 <script lang="ts">
-  // "ואם התאריך יזוז?" (REDESIGN.md §2.9): the same deposits at 1, 3, 5, 10
-  // and 20 years, each row what the answer would be with the date there
-  // (`app.horizons`, from the core: the worker's job after the answer's, so
-  // the card above never waits for it; until the first rows come, the
-  // section holds their place, empty and marked busy). Where the visitor hasn't said
-  // whether the date can move and that decides the place, a row for each
-  // answer, with the answer in words. A row's click moves the date there,
-  // and gives that answer about the date if the row is for one, so the
-  // answer above becomes exactly the row.
+  // "ואם התאריך יזוז?" (REDESIGN.md §2.9, amended by §4.10): the same
+  // deposits at dates around the visitor's (`app.horizons`, from the core:
+  // the worker's job after the answer's, so the card above never waits for
+  // it; until the first rows come, the section holds their place, empty and
+  // marked busy). A table: מתי, with the visitor's own row marked "התאריך
+  // שלכם"; מה מתאים אז, one line per answer about the date where that
+  // decides it ("אם תצטרכו בדיוק אז:", "אם תוכלו לחכות:"); כמה יהיה; and
+  // הפקדתם. The stocks' range is said once, under the table. A line's
+  // button moves the date there, and gives that answer about the date if
+  // the line is for one, so the answer above becomes exactly the line.
   import type { AppState } from './app.svelte'
   import type { HorizonFitData, HorizonRowData } from './core/core'
   import { HeldWhileTyping } from './held.svelte'
@@ -18,33 +19,30 @@
   let { app }: { app: AppState } = $props()
 
   const held = new HeldWhileTyping(() => app.horizons)
-  /** One line per fit, as before the core grouped them by date (§4.10's
-   * table is P5's to build). */
-  type Flat = HorizonFitData & Pick<HorizonRowData, 'months' | 'when' | 'current' | 'deposits'>
-  const rows: Flat[] = $derived(
-    (held.current ?? []).flatMap((row) =>
-      row.fits.map((fit) => ({
-        ...fit,
-        months: row.months,
-        when: row.when,
-        current: row.current,
-        deposits: row.deposits,
-      })),
-    ),
-  )
-  /** Before the first rows: the five dates' places, empty. */
+  const rows = $derived(held.current ?? [])
+  /** Before the first rows: their places, empty. */
   const pending = $derived(held.current === undefined)
-  /** One sum put in once is the same at every date: said once, above the rows. */
-  const sharedDeposits = $derived(
-    rows.length > 0 && rows.every((row) => row.deposits === rows[0].deposits) ? rows[0].deposits : undefined,
-  )
+
+  const isStocks = (fit: HorizonFitData) => typeof fit.kind === 'object' && 'Way' in fit.kind
+  /** The note every stock range shares (the past's stretches, by the S&P
+   * 500 as the example): said once, under the table (principle 13). A
+   * stock note of its own (a date past the history) stays by its range. */
+  const stockNote = $derived.by(() => {
+    const notes = rows.flatMap((row) => row.fits.filter(isStocks).map((fit) => fit.rangeNote))
+    const count = (note: string) => notes.filter((each) => each === note).length
+    return notes.reduce<string | undefined>(
+      (most, note) => (most === undefined || count(note) > count(most) ? note : most),
+      undefined,
+    )
+  })
+  const noteFor = (fit: HorizonFitData) => (isStocks(fit) && fit.rangeNote === stockNote ? '' : fit.rangeNote)
 
   /** Already the answer above: the visitor's date, with nothing to answer. */
-  const isShown = (row: Flat) => row.current && row.flexibility === undefined
+  const isShown = (row: HorizonRowData, fit: HorizonFitData) => row.current && fit.flexibility === undefined
 
-  function open(row: Flat) {
+  function open(row: HorizonRowData, fit: HorizonFitData) {
     app.setHorizonMonths(row.months)
-    if (row.flexibility !== undefined) app.choose({ Flexibility: row.flexibility })
+    if (fit.flexibility !== undefined) app.choose({ Flexibility: fit.flexibility })
     // The answer is above the section: bring it into view. (Not its column:
     // on a phone that has no box of its own, `display: contents`.)
     showAnswer()
@@ -62,44 +60,62 @@
   >
     <div>
       <h2 id="horizons-title">{t.horizonsTitle}</h2>
-      <p class="lead">{sharedDeposits ? `${t.horizonsLead} ${sharedDeposits}.` : t.horizonsLead}</p>
+      <p class="lead">{t.horizonsLead}</p>
       {#if pending}
-        <ul class="rows" aria-hidden="true">
-          {#each [1, 3, 5, 10, 20] as years (years)}<li class="placeholder"></li>{/each}
-        </ul>
+        <div class="placeholder" aria-hidden="true"></div>
+      {:else}
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">{t.horizonsWhen}</th>
+              <th scope="col">{t.horizonsWhat}</th>
+              <th scope="col">{t.horizonsAmount}</th>
+              <th scope="col" class="deposited">{t.horizonsDeposited}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each rows as row (row.months)}
+              {#each row.fits as fit, index (`${row.months}-${fit.flexibility ?? ''}`)}
+                {@const shown = isShown(row, fit)}
+                {@const note = noteFor(fit)}
+                <tr class:first={index === 0} class:current={row.current}>
+                  {#if index === 0}
+                    <th scope="row" rowspan={row.fits.length}>
+                      <span class="when">{row.when}</span>
+                      {#if row.label}<span class="yours">{row.label}</span>{/if}
+                      <!-- On a phone the deposits go under the date: four columns don't fit. -->
+                      <span class="deposits-here">{t.horizonsDeposited} {row.deposits}</span>
+                    </th>
+                  {/if}
+                  <td class="what">
+                    <button
+                      type="button"
+                      class="row"
+                      disabled={shown}
+                      aria-current={shown ? 'true' : undefined}
+                      aria-label={t.horizonsOpen(
+                        [row.when, fit.condition, fit.name, fit.range].filter(Boolean).join(', '),
+                      )}
+                      onclick={() => open(row, fit)}
+                    >
+                      {#if fit.condition}<span class="condition">{fit.condition}</span>{/if}
+                      <span class="name">{fit.name}</span>
+                    </button>
+                  </td>
+                  <td class="amount">
+                    <span class="range">{fit.range}</span>
+                    {#if note}<span class="note">{note}</span>{/if}
+                  </td>
+                  {#if index === 0}
+                    <td class="deposited" rowspan={row.fits.length}>{row.deposits}</td>
+                  {/if}
+                </tr>
+              {/each}
+            {/each}
+          </tbody>
+        </table>
+        {#if stockNote}<p class="footnote">{t.horizonsStockRange} {stockNote}.</p>{/if}
       {/if}
-      <ul class="rows">
-        {#each rows as row, at (`${row.months}-${row.flexibility ?? ''}`)}
-          {@const again = at > 0 && rows[at - 1].months === row.months}
-          <li class:again>
-            <button
-              type="button"
-              class="row"
-              class:current={row.current}
-              disabled={isShown(row)}
-              aria-current={isShown(row) ? 'true' : undefined}
-              aria-label={t.horizonsOpen(
-                [row.when, row.condition, row.name, row.range].filter(Boolean).join(', '),
-              )}
-              onclick={() => open(row)}
-            >
-              <span class="when" class:hidden={again}>
-                {row.when}
-                {#if row.current}<span class="yours">{t.horizonsYours}</span>{/if}
-              </span>
-              <span class="what">
-                {#if row.condition}<span class="condition">{row.condition}</span>{/if}
-                <span class="name">{row.name}</span>
-                {#if !sharedDeposits}<span class="deposits">{row.deposits}</span>{/if}
-              </span>
-              <span class="outcome">
-                <span class="range">{row.range}</span>
-                <span class="note">{row.rangeNote}</span>
-              </span>
-            </button>
-          </li>
-        {/each}
-      </ul>
     </div>
   </section>
 {/if}
@@ -122,38 +138,78 @@
     color: var(--weak);
   }
 
-  .rows {
-    display: grid;
-    margin: 0;
-    padding: 0;
-    list-style: none;
+  /* Four dates' height, while the rows are being worked out. */
+  .placeholder {
+    block-size: 16rem;
   }
 
-  li {
+  table {
+    inline-size: 100%;
+    border-collapse: collapse;
+    font-size: 0.92rem;
+  }
+
+  thead th {
+    padding: 6px 8px;
+    color: var(--weak);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: start;
+  }
+
+  tr.first {
     border-block-start: 1px solid var(--border);
   }
 
-  /* The second answer of the same date reads as part of the first. */
-  /* A row's height, while the rows are being worked out. */
-  li.placeholder {
-    block-size: 4.2rem;
+  tbody th,
+  td {
+    padding: 8px;
+    vertical-align: top;
+    text-align: start;
   }
 
-  li.again {
-    border-block-start: 1px dashed var(--border);
+  tbody th {
+    font-weight: 600;
   }
 
-  /* A whole row is a button, drawn as a row. */
+  tr.current th {
+    /* The start edge, right in a right-to-left page. */
+    box-shadow: inset -3px 0 0 var(--accent);
+  }
+
+  .deposits-here {
+    display: none;
+    margin-block-start: 4px;
+    color: var(--weak);
+    font-size: 0.78rem;
+    font-weight: 400;
+  }
+
+  .when,
+  .yours,
+  .condition,
+  .name,
+  .range,
+  .note {
+    display: block;
+  }
+
+  .yours {
+    color: var(--accent);
+    font-size: 0.78rem;
+  }
+
+  /* A line's words are its button, drawn as text. */
+  /* As tall as a finger needs, even for a one-line name. */
   .row {
-    display: grid;
-    grid-template-columns: 7rem minmax(0, 1fr) minmax(0, 1fr);
-    gap: 4px 16px;
-    align-items: start;
-    inline-size: 100%;
+    display: block;
+    inline-size: calc(100% + 8px);
     block-size: auto;
-    padding: 10px 8px;
+    min-block-size: 44px;
+    margin: -4px;
+    padding: 4px;
     border: none;
-    border-radius: 0;
+    border-radius: 4px;
     background: none;
     color: var(--text);
     font: inherit;
@@ -169,35 +225,10 @@
     background: var(--accent-tint);
   }
 
-  .row.current {
-    /* The start edge, right in a right-to-left page. */
-    box-shadow: inset -3px 0 0 var(--accent);
-  }
-
-  .when {
-    display: grid;
-    gap: 2px;
+  .condition,
+  .note {
     color: var(--weak);
-  }
-
-  .when.hidden {
-    visibility: hidden;
-  }
-
-  .yours {
-    color: var(--accent);
-    font-size: 0.75rem;
-  }
-
-  .what,
-  .outcome {
-    display: grid;
-    gap: 2px;
-  }
-
-  .condition {
-    color: var(--weak);
-    font-size: 0.85rem;
+    font-size: 0.82rem;
   }
 
   .name,
@@ -205,19 +236,39 @@
     font-weight: 600;
   }
 
-  .deposits,
-  .note {
+  .range,
+  .deposited {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .deposited {
     color: var(--weak);
-    font-size: 0.85rem;
+    white-space: nowrap;
+  }
+
+  .footnote {
+    margin: 10px 0 0;
+    color: var(--weak);
+    font-size: 0.82rem;
   }
 
   @container (width < 34rem) {
-    .row {
-      grid-template-columns: minmax(0, 1fr);
+    table {
+      font-size: 0.85rem;
     }
 
-    .when.hidden {
+    tbody th,
+    td,
+    thead th {
+      padding-inline: 4px;
+    }
+
+    .deposited {
       display: none;
+    }
+
+    .deposits-here {
+      display: block;
     }
   }
 </style>
