@@ -6,13 +6,28 @@
 // ANSWERS (the guide's questions; `$state`, edit freely, e.g. bind:value)
 //   app.answers: AnswersInput        situation, now, monthly, horizon, flexibility,
 //                                    cushion, needsAnyDay (null amounts = empty field)
-//   app.situationId: string?         the chip chosen (SituationData.id)
-//   app.situations: SituationData[]  the chips, in the core's order
-//   app.setSituation(id)             fills the answers from a chip, clears the choices;
-//                                    a 'workbench' chip turns the switch on
+//   app.situationId: string?         the example last put on screen (SituationData.id)
+//   app.situations: SituationData[]  the core's situations, in its order
+//   app.setSituation(id)             fills the fields from an example, clears the choices;
+//                                    a 'workbench' one turns the switch on
 //   app.knowsWhatToBuy()             the "אני יודע / יודעת מה אני רוצה לקנות" link: switch on
-//   app.setHorizonMonths(m) / setHorizonRetirement(age, retireAt)
+//
+// THE QUESTIONS CARD (REDESIGN.md §4.2; the fields and examples are `examples.ts`'s)
+//   app.fields: Fields               every field on screen, nothing else
+//   app.when: When; app.setWhen(when)   "מתי": 'date' | 'retirement' | 'anyDay' | 'unknown';
+//        only 'anyDay' sets `needsAnyDay`. The date's and the ages' fields keep their
+//        numbers while another answer is chosen (`datedMonths`, `ageToday`, `retireAt`).
+//   app.setHorizonMonths(m | null) / setHorizonRetirement(age | null, retireAt | null)
+//   app.horizonUnit: Unit            the unit the date's field is shown in
+//   app.invested; app.setInvested(b) "הכסף הזה כבר מושקע, בתיק בבנק שלי"
 //   app.horizonMonths: number | undefined
+//   app.examples: SituationData[]    the "דוגמאות" list
+//   app.exampleOnScreen: SituationData | undefined   the example whose numbers the
+//        fields hold now (principle 19): marked exactly while they do
+//   app.pickExample(id)              puts an example on screen; the visitor's own
+//        numbers (if theirs were on screen) are kept, until they change a field
+//   app.canGoBack: boolean; app.backToYours()   "↺ חזרה למספרים שלכם": puts them back
+//        exactly, whichever examples were tried since; the bank stays as chosen
 //   app.banks: BankChoice[]; app.setBank(bank | undefined)   the visitor's bank (optional,
 //                                    asked in context, in where-to-buy)
 //
@@ -110,6 +125,16 @@ import type {
   WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
+import {
+  exampleAnswers,
+  examplesOf,
+  fieldsOf,
+  horizonOf,
+  sameFields,
+  type Fields,
+  type When,
+} from './examples'
+import { defaultUnit, type Unit } from './horizon'
 import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
 import { arenaOf, wayByKey, wayKey } from './kinds'
@@ -271,6 +296,19 @@ const NOT_AT_FIRST: Product[] = ['StudyFundTrack', 'SavingsPolicyTrack']
 
 export type EditorView = 'simple' | 'full'
 
+/** What the visitor had on screen before trying an example: everything
+ * "↺ חזרה למספרים שלכם" puts back. */
+interface Stash {
+  answers: AnswersInput
+  choices: Choices
+  situationId: string | undefined
+  when: When
+  datedMonths: number | null
+  ageToday: number | null
+  retireAt: number | null
+  horizonUnit: Unit
+}
+
 type RatesStatus =
   { kind: 'downloading' } | { kind: 'downloaded'; date: string } | { kind: 'failed'; error: string }
 
@@ -362,6 +400,45 @@ export class AppState {
   /** What the visitor chose on the answer: the decisions that aren't facts
    * about the money (those stay in `answers`). */
   choices = $state<Choices>({})
+
+  // ── The questions card (REDESIGN.md §4.2) ──
+  /** "מתי תצטרכו את הכסף?": the answer chosen of the four. */
+  when = $state<When>('date')
+  /** The date's field and the ages' fields. Each keeps its numbers while
+   * another answer of "מתי" is chosen, so trying one and coming back
+   * loses nothing (principle 22). Null while empty. */
+  datedMonths = $state<number | null>(null)
+  ageToday = $state<number | null>(null)
+  retireAt = $state<number | null>(null)
+  /** The unit the date's field is shown in: what reads best, until chosen. */
+  horizonUnit = $state<Unit>('years')
+  /** Whether the money now is already invested: the existing portfolio. */
+  invested: boolean = $derived(typeof this.answers.situation === 'object')
+  /** Every field on screen, and nothing else. */
+  fields: Fields = $derived({
+    now: this.answers.now,
+    monthly: this.answers.monthly,
+    when: this.when,
+    months: this.datedMonths,
+    age: this.ageToday,
+    retireAt: this.retireAt,
+    invested: this.invested,
+  })
+  /** The "דוגמאות" list, and the fields each example fills. */
+  readonly examples: SituationData[] = examplesOf(this.situations)
+  private readonly exampleFields = this.examples.map((example) => ({
+    example,
+    fields: fieldsOf(example.answers),
+  }))
+  /** The example whose numbers the fields hold: marked exactly while they
+   * do, whichever way they came to hold them (principle 19). */
+  exampleOnScreen: SituationData | undefined = $derived(
+    this.exampleFields.find(({ fields }) => sameFields(fields, this.fields))?.example,
+  )
+  /** The visitor's own numbers, kept while examples are tried. */
+  private stash = $state.raw<Stash | undefined>()
+  /** "↺ חזרה למספרים שלכם" is offered. */
+  canGoBack: boolean = $derived(this.exampleOnScreen !== undefined && this.stash !== undefined)
   /** The row tapped in the outcome chart, over the answer's own focus. */
   private tappedRow = $state.raw<Kind | undefined>()
   /** The first visit's apartment scenario is on screen as an example, until
@@ -879,20 +956,96 @@ export class AppState {
     if (next.length > 0) this.chosenWays = next
   }
 
-  /** A chip: fills the answers with the situation's. */
+  /** An example: fills the fields on screen with the situation's, and
+   * nothing else (principle 19): no decision answered in advance, no flag
+   * the fields don't show. The visitor's own bank stays. */
   setSituation(id: string) {
     const situation = this.situations.find((each) => each.id === id)
     if (!situation) return
     this.situationId = id
-    // A chip is the money's facts: the visitor's own bank stays.
-    const bank = this.answers.bank
-    this.answers = { ...($state.snapshot(situation.answers) as AnswersInput), bank }
-    // A portfolio at a bank is at the bank the visitor named.
-    if (typeof this.answers.situation === 'object') this.answers.situation = { ExistingPortfolio: { bank } }
+    this.answers = exampleAnswers($state.snapshot(situation) as SituationData, this.answers.bank)
+    // The date's field keeps the example's months while it isn't shown.
+    const { horizon } = situation.answers
+    if (typeof horizon === 'object' && 'Months' in horizon) this.datedMonths = horizon.Months
+    this.readFields()
     this.choices = {}
     this.tappedRow = undefined
     this.chosenThing = undefined
     if (situation.workbench) this.expert = true
+  }
+
+  /** Picks an example from the "דוגמאות" list. If the fields held the
+   * visitor's own numbers, they are kept for "↺ חזרה למספרים שלכם"; if
+   * they held another example's, what was kept stays (principle 22). */
+  pickExample(id: string) {
+    if (!this.exampleOnScreen) this.stash = this.yours()
+    this.setSituation(id)
+  }
+
+  /** "↺ חזרה למספרים שלכם": the visitor's own numbers, exactly as they
+   * were, with the bank as it is now. */
+  backToYours() {
+    const { stash } = this
+    if (!stash) return
+    const { bank } = this.answers
+    this.answers = { ...stash.answers, bank }
+    if (typeof this.answers.situation === 'object') this.answers.situation = { ExistingPortfolio: { bank } }
+    this.choices = stash.choices
+    this.situationId = stash.situationId
+    this.when = stash.when
+    this.datedMonths = stash.datedMonths
+    this.ageToday = stash.ageToday
+    this.retireAt = stash.retireAt
+    this.horizonUnit = stash.horizonUnit
+    this.tappedRow = undefined
+    this.stash = undefined
+  }
+
+  private yours(): Stash {
+    return {
+      answers: $state.snapshot(this.answers) as AnswersInput,
+      choices: $state.snapshot(this.choices) as Choices,
+      situationId: this.situationId,
+      when: this.when,
+      datedMonths: this.datedMonths,
+      ageToday: this.ageToday,
+      retireAt: this.retireAt,
+      horizonUnit: this.horizonUnit,
+    }
+  }
+
+  /** After the answers were set whole (an example, a link, an address):
+   * the fields follow them. The date's and the ages' fields keep their
+   * numbers where the answers have none. */
+  private readFields() {
+    const fields = fieldsOf(this.answers)
+    this.when = fields.when
+    if (fields.months !== null) {
+      this.datedMonths = fields.months
+      this.horizonUnit = defaultUnit(fields.months)
+    }
+    if (fields.when === 'retirement') {
+      this.ageToday = fields.age
+      this.retireAt = fields.retireAt
+    }
+    this.writeHorizon()
+  }
+
+  /** The horizon the core is asked, from the fields of "מתי". */
+  private writeHorizon() {
+    this.answers.horizon = horizonOf(this.fields)
+    this.answers.needsAnyDay = this.when === 'anyDay'
+  }
+
+  /** "מתי תצטרכו את הכסף?": one of the four answers. */
+  setWhen(when: When) {
+    this.when = when
+    this.writeHorizon()
+  }
+
+  /** "הכסף הזה כבר מושקע, בתיק בבנק שלי": the portfolio is at the visitor's bank. */
+  setInvested(invested: boolean) {
+    this.answers.situation = invested ? { ExistingPortfolio: { bank: this.answers.bank } } : undefined
   }
 
   /** "אני יודע / יודעת מה אני רוצה לקנות ולהשוות": the switch on, the workbench's. */
@@ -904,26 +1057,20 @@ export class AppState {
    * existing-portfolio situation, it is also the bank the portfolio is at. */
   setBank(bank: Bank | undefined) {
     this.answers.bank = bank
-    if (this.situationId === 'existing' || typeof this.answers.situation === 'object')
-      this.answers.situation = { ExistingPortfolio: { bank } }
+    if (this.invested) this.answers.situation = { ExistingPortfolio: { bank } }
   }
 
-  // ── Package I: the bank's branch plan, ticked ──
-  /** The years field. For a retirement the ages stay and the years are the
-   * gap between them, so typing years moves the age of retiring; an empty
-   * field changes nothing. Otherwise an empty field is a date not known yet. */
+  /** The date's field ("בעוד"): an empty one is no date yet, which the
+   * core can't work out, not a date not known ("עוד אין תאריך" says that). */
   setHorizonMonths(months: number | null) {
-    const { horizon } = this.answers
-    if (typeof horizon === 'object' && 'Retirement' in horizon) {
-      if (months === null) return
-      const { age } = horizon.Retirement
-      this.answers.horizon = { Retirement: { age, retire_at: age + Math.round(months / 12) } }
-      return
-    }
-    this.answers.horizon = months === null ? 'Unknown' : { Months: months }
+    this.datedMonths = months
+    this.writeHorizon()
   }
-  setHorizonRetirement(age: number, retireAt: number) {
-    this.answers.horizon = { Retirement: { age, retire_at: retireAt } }
+  /** The ages' fields ("בפרישה"). */
+  setHorizonRetirement(age: number | null, retireAt: number | null) {
+    this.ageToday = age
+    this.retireAt = retireAt
+    this.writeHorizon()
   }
 
   // ── Sheets and dialogs ──
@@ -1180,6 +1327,7 @@ export class AppState {
    * the last results stay, faded, under it. */
   inputError: string | undefined = $derived.by(() => {
     if (unreadable.size > 0) return t.notANumber
+    if (this.when === 'retirement' && (this.ageToday === null || this.retireAt === null)) return t.fillAges
     if (this.answered?.error) return this.answered.error
     if (this.latest && 'error' in this.latest) return this.latest.error
     if (this.latestWays && 'error' in this.latestWays) return this.latestWays.error
@@ -1239,6 +1387,11 @@ export class AppState {
     return encode(this.sharedState())
   }
 
+  /** The fields of the example last put on screen, which a link names. */
+  private get fromExample(): Fields | undefined {
+    return this.exampleFields.find(({ example }) => example.id === this.situationId)?.fields
+  }
+
   private sharedState(): Shared {
     const { answers } = this
     const ticked = this.plans.filter((plan) => this.selected.has(plan.id))
@@ -1249,7 +1402,10 @@ export class AppState {
       horizon: $state.snapshot(answers.horizon) as Horizon,
       flexibility: answers.flexibility,
       cushion: $state.snapshot(answers.cushion),
-      needsAnyDay: answers.needsAnyDay || undefined,
+      // A link names the example it came from; where the fields no longer
+      // say what that example does, it says so.
+      needsAnyDay: answers.needsAnyDay ? true : this.fromExample?.when === 'anyDay' ? false : undefined,
+      invested: this.invested ? true : this.fromExample?.invested ? false : undefined,
       expert: this.expert || undefined,
       plans: ticked.filter((plan) => plan.key.kind === 'listed').map((plan) => plan.englishLabel),
       yours: ticked.flatMap((plan) => (plan.yours ? [plan.yours] : [])),
@@ -1324,7 +1480,9 @@ export class AppState {
     if (shared.horizon !== undefined) this.answers.horizon = shared.horizon
     if (shared.flexibility !== undefined) this.answers.flexibility = shared.flexibility
     if (shared.cushion !== undefined) this.answers.cushion = shared.cushion
-    if (shared.needsAnyDay) this.answers.needsAnyDay = true
+    if (shared.needsAnyDay !== undefined) this.answers.needsAnyDay = shared.needsAnyDay
+    if (shared.invested !== undefined) this.setInvested(shared.invested)
+    this.readFields()
     if (shared.choices) this.choices = { ...shared.choices }
     if (shared.expert) this.expert = true
     this.chosenThing = shared.thing
@@ -1378,6 +1536,11 @@ export class AppState {
     this.loadRates()
     $effect(() => {
       if (this.exampleShown && this.address() !== this.exampleKey) this.exampleShown = false
+    })
+    // Once the visitor changes a field, what is on screen is theirs: there
+    // is nothing to go back to.
+    $effect(() => {
+      if (!this.exampleOnScreen) this.stash = undefined
     })
     $effect(() => save('your-plans-v1', this.yourPlans))
     $effect(() => save('editor-view-v2', this.editorView))

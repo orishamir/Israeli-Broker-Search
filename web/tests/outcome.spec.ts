@@ -1,6 +1,6 @@
 import { answerFor, situationAnswers } from './core'
 import type { AnswerData, Kind } from './core'
-import { chip, decide, expect, expectAnswerFor, situationName, test, type Page } from './fixtures'
+import { pickExample, decide, expect, expectAnswerFor, situationName, test, type Page } from './fixtures'
 import { kindKey } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
 
@@ -81,7 +81,7 @@ test(
   'the stock row’s yearly return is set in place, and the row follows it',
   { tag: '@phone' },
   async ({ page }) => {
-    await chip(page, situationName('salary')).click()
+    await pickExample(page, situationName('salary'))
     const answers = situationAnswers('salary')
     await expectAnswerFor(page, answers)
     const field = page.locator('#outcome-return')

@@ -502,6 +502,38 @@ export const en = {
   horizonsIn: (years: number) => `In ${years === 1 ? 'a year' : `${years} years`}`,
   horizonsYours: 'Your date',
   horizonsOpen: (when: string) => `${when}: show the answer for this date`,
+  // P2: the questions card (REDESIGN.md §4.2): "when", the examples, the status line.
+  moneyTitle: 'Your money',
+  examplesButton: 'Examples',
+  examplesTitle: 'See an example',
+  examplesWait: 'Your numbers will wait for you',
+  exampleShownNow: 'Shown now',
+  exampleOf: (name: string) => `Example: ${name}`,
+  yourNumbers: 'Your numbers',
+  makeThemYours: 'Change them to yours',
+  backToYours: 'Back to your numbers',
+  alreadyInvested: 'This money is already invested, in a portfolio at my bank',
+  whenTitle: 'When will you need the money?',
+  whenDate: 'In a known time',
+  whenRetirement: 'At retirement',
+  whenAnyDay: 'For an emergency',
+  whenUnknown: 'No date yet',
+  whenIn: 'In',
+  whenAgeToday: 'My age today',
+  whenRetireAt: 'Retirement age',
+  whenAnyDaySentence: 'Like a safety cushion: money that must be there by the next day.',
+  whenUnknownSentence: 'No date. The answer will show what fits different spans.',
+  fillAges: 'Fill in your age today and the age you retire at.',
+  exampleMoney: (now: string | undefined, monthly: string | undefined, invested: boolean) =>
+    now && monthly
+      ? `${now} and ${monthly} a month`
+      : now
+        ? `${now}${invested ? ' invested' : ''}`
+        : `${monthly ?? '₪0'} a month`,
+  exampleIn: (months: number) =>
+    months % 12 === 0 ? `${months / 12} year${months === 12 ? '' : 's'}` : `${months} months`,
+  exampleRetirement: (age: number, retireAt: number) => `from age ${age} to ${retireAt}`,
+  exampleNoDate: 'no date',
 }
 
 export type Text = typeof en

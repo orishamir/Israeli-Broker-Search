@@ -490,4 +490,36 @@ export const he: Text = {
   horizonsIn: (years) => `בעוד ${yearsText(years)}`,
   horizonsYours: 'התאריך שלכם',
   horizonsOpen: (when) => `${when}: להציג את התשובה לתאריך הזה`,
+  // P2: the questions card (REDESIGN.md §4.2): "מתי", the examples, the status line.
+  moneyTitle: 'הכסף שלכם',
+  examplesButton: 'דוגמאות',
+  examplesTitle: 'לראות דוגמה',
+  examplesWait: 'המספרים שלכם יחכו לכם',
+  exampleShownNow: 'מוצגת עכשיו',
+  exampleOf: (name) => `דוגמה: ${name}`,
+  yourNumbers: 'המספרים שלכם',
+  makeThemYours: 'שנו אותם לשלכם',
+  backToYours: 'חזרה למספרים שלכם',
+  alreadyInvested: 'הכסף הזה כבר מושקע, בתיק בבנק שלי',
+  whenTitle: 'מתי תצטרכו את הכסף?',
+  whenDate: 'בעוד זמן ידוע',
+  whenRetirement: 'בפרישה',
+  whenAnyDay: 'לשעת חירום',
+  whenUnknown: 'עוד אין תאריך',
+  whenIn: 'בעוד',
+  whenAgeToday: 'הגיל שלי היום',
+  whenRetireAt: 'גיל הפרישה',
+  whenAnyDaySentence: 'כמו כרית ביטחון: כסף שצריך להיות זמין כבר למחרת.',
+  whenUnknownSentence: 'בלי תאריך. התשובה תראה מה מתאים לטווחים שונים.',
+  fillAges: 'מלאו את הגיל שלכם היום ואת גיל הפרישה.',
+  // "₪100,000 ועוד ₪2,000 בחודש, 3 שנים", "₪200,000 מושקעים, 20 שנה".
+  exampleMoney: (now, monthly, invested) =>
+    now && monthly
+      ? `${now} ועוד ${monthly} בחודש`
+      : now
+        ? `${now}${invested ? ' מושקעים' : ''}`
+        : `${monthly ?? '₪0'} בחודש`,
+  exampleIn: (months) => (months % 12 === 0 ? yearsText(months / 12) : monthsText(months)),
+  exampleRetirement: (age, retireAt) => `מגיל ${age} עד ${retireAt}`,
+  exampleNoDate: 'בלי תאריך',
 }

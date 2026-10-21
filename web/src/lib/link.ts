@@ -32,7 +32,10 @@ export interface Shared {
   horizon?: Horizon
   flexibility?: Flexibility
   cushion?: CushionInput
+  /** Said (true or false) whenever it isn't what the situation's example sets. */
   needsAnyDay?: boolean
+  /** The money now is already invested, at the visitor's bank; said like `needsAnyDay`. */
+  invested?: boolean
   /** The switch. The inputs below are in a link only when it is on, or the
    * yearly return isn't the usual. */
   expert?: boolean
@@ -87,6 +90,7 @@ const BANK = 'bk'
 const FLEXIBILITY = 'fx'
 const CUSHION = 'cu'
 const ANY_DAY = 'ad'
+const INVESTED = 'iv'
 const SAFE_WAY = 'sw'
 const WRAPPER = 'wr'
 const ACCOUNT = 'ac'
@@ -137,7 +141,8 @@ export function encode(shared: Shared): string {
   else if (cushion) {
     set(CUSHION, cushion.monthlyExpenses === null ? 'n' : `n:${cushion.monthlyExpenses}`)
   }
-  if (shared.needsAnyDay) set(ANY_DAY, 1)
+  if (shared.needsAnyDay !== undefined) set(ANY_DAY, shared.needsAnyDay ? 1 : 0)
+  if (shared.invested !== undefined) set(INVESTED, shared.invested ? 1 : 0)
   const choices = shared.choices
   if (choices) {
     set(SAFE_WAY, keyOf(SAFE_WAYS, choices.safeWay))
@@ -206,7 +211,12 @@ export function decode(hash: string): Shared {
   const flexibility = among(FLEXIBILITY, ['fixed', 'wait'])
   if (flexibility) shared.flexibility = flexibility === 'fixed' ? 'Fixed' : 'CanWait'
   shared.cushion = cushionIn(params.get(CUSHION))
-  if (params.get(ANY_DAY) === '1') shared.needsAnyDay = true
+  const yesOrNo = (key: string): boolean | undefined => {
+    const text = params.get(key)
+    return text === '1' ? true : text === '0' ? false : undefined
+  }
+  shared.needsAnyDay = yesOrNo(ANY_DAY)
+  shared.invested = yesOrNo(INVESTED)
   const choices: Choices = defined({
     safeWay: valueOf(SAFE_WAYS, params.get(SAFE_WAY)),
     wrapper: valueOf(WRAPPERS, params.get(WRAPPER)),

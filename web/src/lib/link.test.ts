@@ -22,6 +22,7 @@ const shared: Shared = {
   flexibility: 'CanWait',
   cushion: { kind: 'hasNot', monthlyExpenses: 7_000 },
   needsAnyDay: true,
+  invested: false,
   choices: { safeWay: 'Bond', wrapper: 'StudyFund', account: 'YourBank', holdings: 'Managed' },
   expert: true,
   thing: 'sp500',

@@ -248,10 +248,12 @@ test('learn cards stack, go back, and close', () => {
   expect(app.glossary.length).toBeGreaterThan(0)
 })
 
-test('typing years for a retirement keeps the ages: the years are the gap between them', async () => {
+// A retirement is said by the two ages alone (REDESIGN.md §4.2): the date's
+// field isn't on screen, and the years are the gap between them.
+test('a retirement is the two ages, and the years are the gap between them', async () => {
   const app = start()
   app.setSituation('retirement')
-  app.setHorizonMonths(18 * 12)
+  app.setHorizonRetirement(45, 63)
   flushSync()
   await vi.waitFor(() => expect(app.answerFresh).toBe(true))
   expect(app.answers.horizon).toEqual({ Retirement: { age: 45, retire_at: 63 } })
