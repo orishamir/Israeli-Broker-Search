@@ -738,6 +738,9 @@ fn above_the_lines_the_worst_past_decides_the_state() {
             (dec!(20_000), dec!(0)),
             (dec!(0), dec!(1000)),
             (dec!(50_000), dec!(2000)),
+            // Near the line: stated against the safe ways at today's rate,
+            // asked against them half a point up.
+            (dec!(300_000), dec!(1000)),
         ] {
             grid.push(Answers {
                 bank: None,
@@ -3431,5 +3434,281 @@ fn an_options_asks_are_its_facts_and_its_fits_is_its_fits_if() {
         DecisionId::Account,
     ] {
         assert!(asked.contains(&id), "{id:?} never says what it asks");
+    }
+}
+
+// ─────────────────────────── Mutants missed on 2026-10-21 ───────────────────────────
+
+/// The guide offers no override of its own (the owner, 2026-10-19): a safe
+/// kind the workbench picked leaves the guide's answer as it was.
+#[test]
+fn the_workbenchs_safe_kind_leaves_the_guide_as_it_is() {
+    for start in [salary(), apartment(), bonus()] {
+        let plain = answered(&start, Choices::default());
+        for kind in [Kind::MoneyMarketFund, Kind::FixedDeposit] {
+            let mut workbench = settings();
+            workbench.overrides = Overrides {
+                arena: None,
+                kind: Some(kind),
+            };
+            let overridden =
+                answer_with(&start, &Choices::default(), &workbench, &DATA, false).unwrap();
+            assert_eq!(
+                outcome_of(&overridden),
+                outcome_of(&plain),
+                "{kind:?} on {start:?}"
+            );
+            assert_eq!(overridden.title, plain.title, "{kind:?} on {start:?}");
+        }
+    }
+}
+
+/// A portfolio is moved as it is: whatever its size, the place is compared
+/// on what it holds, an index fund in Tel Aviv through a brokerage account,
+/// in the answer and at every date around it.
+#[test]
+fn a_portfolio_is_compared_on_the_index_funds_it_holds() {
+    let held = |kind: Kind| {
+        matches!(kind, Kind::Way(way) if way.vehicle == broker_fees::Vehicle::Brokerage
+            && way.product == broker_fees::Product::IsraeliIndexFund)
+    };
+    let mut checked = 0;
+    for bank in [None, Some(Bank::Leumi)] {
+        for (now, monthly) in [
+            (dec!(20_000), dec!(0)),
+            (dec!(20_000), dec!(2000)),
+            (dec!(200_000), dec!(0)),
+            (dec!(1_000_000), dec!(2000)),
+        ] {
+            for (months, cushion) in [
+                (60, None),
+                (240, None),
+                // The monthly money waits in a fund first: a run of its own.
+                (
+                    60,
+                    Some(Cushion::HasNot {
+                        monthly_expenses: None,
+                    }),
+                ),
+            ] {
+                let start = Answers {
+                    situation: Some(Situation::ExistingPortfolio { bank }),
+                    cushion,
+                    ..answers(now, monthly, months)
+                };
+                let choices = Choices {
+                    holdings: Some(Holdings::IndexFunds),
+                    ..Choices::default()
+                };
+                let answer = answer(&start, &choices, &settings(), &DATA).unwrap();
+                let focus = answer.focus.expect("the move is focused");
+                assert!(held(focus), "{focus:?} for {start:?}");
+                for row in &answer.horizons {
+                    for fit in &row.fits {
+                        if matches!(fit.kind, Kind::Way(_)) {
+                            assert!(held(fit.kind), "{:?} at {} months", fit.kind, row.months);
+                            checked += 1;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(checked > 0, "some date around the answer holds the index");
+}
+
+/// The date the outcome is at is the visitor's when they gave one, and an
+/// example ("לדוגמה") when they didn't, or the money may be needed any day.
+#[test]
+fn the_outcome_is_at_the_visitors_date() {
+    for (start, months) in [(salary(), 360), (apartment(), 36), (bonus(), 60)] {
+        let answer = answered(&start, Choices::default());
+        let year = (2026 + months / 12).to_string();
+        let date = &answer.outcome.date.he;
+        assert!(date.contains(&year), "{date}");
+        assert!(!date.contains("לדוגמה"), "{date}");
+    }
+    let mut any_day = apartment();
+    any_day.needs_any_day = true;
+    let no_date = Answers {
+        horizon: Horizon::Unknown,
+        cushion: Some(Cushion::Has),
+        ..salary()
+    };
+    for start in [any_day, no_date] {
+        let answer = answered(&start, Choices::default());
+        let date = &answer.outcome.date.he;
+        assert!(date.contains("לדוגמה"), "{date}");
+    }
+}
+
+/// A clear answer points below exactly while something below is still the
+/// visitor's to answer: a decision open, or a line waiting for one.
+#[test]
+fn a_clear_card_points_below_only_while_something_is_open() {
+    let (mut open_seen, mut closed_seen) = (0, 0);
+    // With the cushion answered, every line can be.
+    let mut all = every_answer();
+    for start in starts() {
+        let start = Answers {
+            cushion: Some(Cushion::Has),
+            ..start
+        };
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            all.push((start.clone(), choices, answer));
+        }
+    }
+    for (start, _, answer) in all {
+        if answer.confidence.state != ConfidenceState::A || is_existing(&start) {
+            continue;
+        }
+        let open = answer.open_decisions > 0
+            || answer
+                .lines
+                .iter()
+                .any(|line| line.state == LineState::Waiting);
+        if open {
+            open_seen += 1;
+        } else {
+            closed_seen += 1;
+        }
+        assert_eq!(
+            answer.body.he.contains("למטה"),
+            open,
+            "{}: {start:?}",
+            answer.body.he
+        );
+        // The index's note for the other case is never the one shown.
+        let other = broker_fees::describe::card::chip_note(
+            ConfidenceState::A,
+            Some(Arena::Index),
+            !open,
+            false,
+        );
+        assert_ne!(answer.confidence.note, other, "{start:?}");
+    }
+    assert!(
+        open_seen > 0 && closed_seen > 0,
+        "{open_seen} {closed_seen}"
+    );
+}
+
+/// A way stated as clear stays ahead in every version the site checks: with
+/// the inflation or the index's return a version tries as the setting, the
+/// same way leads.
+#[test]
+fn a_clear_way_leads_in_every_version_checked() {
+    let mut clear = 0;
+    let mut grid: Vec<Answers> = [
+        (dec!(500_000), dec!(0), 180),
+        (dec!(50_000), dec!(0), 120),
+        (dec!(200_000), dec!(0), 240),
+        (dec!(1_000_000), dec!(0), 120),
+    ]
+    .into_iter()
+    .map(|(now, monthly, months)| answers(now, monthly, months))
+    .collect();
+    grid.push(Answers {
+        horizon: Horizon::Retirement {
+            age: 30,
+            retire_at: 67,
+        },
+        ..answers(dec!(100_000), dec!(3000), 0)
+    });
+    for start in grid {
+        for bank in [None, Some(Bank::Hapoalim)] {
+            let start = Answers {
+                flexibility: Some(Flexibility::CanWait),
+                cushion: Some(Cushion::Has),
+                bank,
+                ..start.clone()
+            };
+            let answer = answered(&start, Choices::default());
+            let Some(LineState::Stated {
+                pill: Pill::Clear, ..
+            }) = line(&answer, LineKind::Way).map(|line| &line.state)
+            else {
+                continue;
+            };
+            clear += 1;
+            // `robust::INFLATIONS` and `INDEX_RETURNS`.
+            let mut versions = Vec::new();
+            for inflation in [dec!(1), dec!(3)] {
+                let mut moved = settings();
+                moved.inflation = broker_fees::Percent(inflation);
+                versions.push(moved);
+            }
+            for index_return in [dec!(5), dec!(10)] {
+                let mut moved = settings();
+                moved.index_return = broker_fees::Percent(index_return);
+                versions.push(moved);
+            }
+            for version in &versions {
+                let there =
+                    answer_with(&start, &Choices::default(), version, &DATA, false).unwrap();
+                assert_eq!(
+                    there.focus, answer.focus,
+                    "{start:?} at {}% inflation, {}% return",
+                    version.inflation.0, version.index_return.0
+                );
+            }
+        }
+    }
+    assert!(clear > 0, "some way is clear");
+}
+
+/// The visitor's bank is the one they named, wherever "your bank" is said:
+/// the row marked as theirs, the difference against it, the app a fund is
+/// bought in.
+#[test]
+fn your_bank_is_the_one_named() {
+    let mut said = 0;
+    for (start, _, answer) in every_answer() {
+        let Some(bank) = start.bank.filter(|_| !is_existing(&start)) else {
+            continue;
+        };
+        let name = bank.short_name();
+        for how in &answer.how {
+            let Some(places) = &how.where_to_buy else {
+                continue;
+            };
+            for row in places.rows.iter().filter(|row| row.yours) {
+                assert!(row.name.en.starts_with(name), "{} for {name}", row.name.en);
+                said += 1;
+            }
+            for text in places.difference.iter().chain(&places.note) {
+                if text.en.contains("your bank (") {
+                    let yours = format!("your bank ({name})");
+                    assert!(text.en.contains(&yours), "{}", text.en);
+                    said += 1;
+                }
+                if text.en.contains("'s app") {
+                    let app = format!("{name}'s app");
+                    assert!(text.en.contains(&app), "{}", text.en);
+                    said += 1;
+                }
+            }
+        }
+    }
+    assert!(said > 0);
+}
+
+/// Each row of where to buy is a place of its own: no plan is listed twice.
+#[test]
+fn where_to_buy_lists_each_plan_once() {
+    for (start, choices, answer) in every_answer() {
+        for how in &answer.how {
+            let Some(places) = &how.where_to_buy else {
+                continue;
+            };
+            let names: Vec<&str> = places.rows.iter().map(|row| &*row.name.en).collect();
+            let unique: HashSet<&str> = names.iter().copied().collect();
+            assert_eq!(
+                unique.len(),
+                names.len(),
+                "{names:?} for {start:?} {choices:?}"
+            );
+        }
     }
 }
