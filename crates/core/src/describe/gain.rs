@@ -239,7 +239,13 @@ pub fn condition(flexibility: Flexibility) -> Text {
 /// A row's date: "בעוד 5 שנים".
 #[must_use]
 pub fn when(months: u32) -> Text {
-    both(|lang| format!("{} {}", lang.pick("In", "בעוד"), super::reasons::span(months, lang)))
+    both(|lang| {
+        format!(
+            "{} {}",
+            lang.pick("In", "בעוד"),
+            super::reasons::span(months, lang)
+        )
+    })
 }
 
 /// On the visitor's own row.
@@ -324,4 +330,3 @@ pub fn range_note(of: RangeOf) -> Text {
         }),
     }
 }
-

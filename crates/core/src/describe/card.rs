@@ -402,10 +402,7 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
                 "A broad stock index for {}, by the site's rules.",
                 when(lang)
             ),
-            (_, Lang::He) => format!(
-                "מדד מניות רחב ל\u{2011}{}, לפי הכללים של האתר.",
-                when(lang)
-            ),
+            (_, Lang::He) => format!("מדד מניות רחב ל\u{2011}{}, לפי הכללים של האתר.", when(lang)),
         });
         let body = both(|lang| {
             let direction = match (f.state, lang) {
@@ -462,7 +459,8 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
             "A safe way, and you choose which.",
             "דרך בטוחה, ואתם בוחרים איזו.",
         );
-        let body = both(|lang| match lang {
+        let body = both(|lang| {
+            match lang {
             _ if f.any_day => lang
                 .pick(
                     "Money you may need any day: every way here can be taken out the next day, and they all end close to each other, in today's money and after tax, so the choice between them is about what suits you.",
@@ -487,6 +485,7 @@ pub fn title_and_body(f: &TitleFigures) -> (Text, Text) {
                     ""
                 }
             ),
+        }
         });
         (title, body)
     };
@@ -1174,7 +1173,11 @@ pub fn place_type_decision(f: &PlaceTypeFigures) -> DecisionWords {
                         format!(
                             "{} {}",
                             roughly(growth, lang),
-                            it_rises(f.index_return, lang)
+                            if f.lead.is_none_or(|lead| lead.vehicle == Vehicle::Brokerage) {
+                                it_rises(f.index_return, lang)
+                            } else {
+                                if_index_rises(f.index_return, lang)
+                            }
                         )
                     }
                     None => String::new(),
@@ -1196,7 +1199,13 @@ pub fn safe_way_stated(kind: Kind, months: Option<u32>, only: bool) -> Text {
     let name = super::outcome::name(kind);
     // Money that may be needed any day has no term to say.
     let Some(months) = months else {
-        return both(|lang| format!("{}: {}", &name[lang], &super::path::safe_way_why(only)[lang]));
+        return both(|lang| {
+            format!(
+                "{}: {}",
+                &name[lang],
+                &super::path::safe_way_why(only)[lang]
+            )
+        });
     };
     both(|lang| {
         let when = span(months, lang);
@@ -1332,10 +1341,10 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                 title: super::outcome::name(option.kind),
                 amount: both(|lang| format!("{} {}", roughly(option.left, lang), lang.pick("at today's rate", "בריבית של היום"))),
                 facts: vec![
-                    fixed("It stays at your bank: nothing to open.", "נשאר בבנק שלכם: לא צריך לפתוח כלום."),
+                    fixed("It stays at your bank: nothing to open.", "נשאר בבנק שבו יש לכם חשבון: לא צריך לפתוח כלום."),
                     fixed("Can be taken out any day. The rate is variable, and the bank sets it.", "אפשר למשוך בכל יום. הריבית משתנה, והבנק קובע אותה."),
                 ],
-                fits_if: Some(fixed("Fits if: keeping the money at your bank matters to you.", "מתאים אם: חשוב לכם שהכסף יישאר בבנק שלכם.")),
+                fits_if: Some(fixed("Fits if: keeping the money at your bank matters to you.", "מתאים אם: חשוב לכם שהכסף יישאר בבנק שבו יש לכם חשבון.")),
                 also: None,
                 button: fixed("A deposit", "פיקדון"),
             },
@@ -1343,7 +1352,7 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                 title: super::outcome::name(option.kind),
                 amount: both(|lang| format!("{}, {}", shekels(option.left), lang.pick("known today, held to the end", "ידוע כבר היום, אם מחזיקים עד הסוף"))),
                 facts: vec![
-                    bought_in_account(),
+                    fixed("Bought in a securities account, at a bank or an investment house.", "נקנה בחשבון ניירות ערך, בבנק או בבית השקעות."),
                     fixed("Can be sold any trading day, at that day's price, which moves a little.", "אפשר למכור בכל יום מסחר, במחיר של אותו יום, שזז מעט."),
                 ],
                 fits_if: Some(fixed("Fits if: you have a securities account, or will open one.", "מתאים אם: יש לכם חשבון ניירות ערך, או שתפתחו אחד.")),
@@ -1536,9 +1545,18 @@ pub(crate) fn way_short(way: Way, lang: Lang) -> &'static str {
 #[must_use]
 pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
     let lead_name = super::outcome::name(Kind::Way(f.lead));
-    let amount = |left: Option<Decimal>| {
+    // "המדד" refers back only to a title that names the index (§2.8): a
+    // fund on a broad stock index, not a wrapper's stock track.
+    let amount = |left: Option<Decimal>, named: bool| {
         both(move |lang| match left {
-            Some(left) => format!("{} {}", roughly(left, lang), it_rises(f.index_return, lang)),
+            Some(left) if named => {
+                format!("{} {}", roughly(left, lang), it_rises(f.index_return, lang))
+            }
+            Some(left) => format!(
+                "{} {}",
+                roughly(left, lang),
+                if_index_rises(f.index_return, lang)
+            ),
             None => String::new(),
         })
     };
@@ -1565,7 +1583,7 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
         options: vec![
             OptWords {
                 title: lead_name.clone(),
-                amount: amount(f.lead_left),
+                amount: amount(f.lead_left, f.lead.vehicle == Vehicle::Brokerage),
                 facts: vec![opens],
                 fits_if: Some(fixed("Fits if: you have no study fund you can add to.", "מתאים אם: אין לכם קרן השתלמות שאפשר להוסיף לה.")),
                 also: None,
@@ -1580,7 +1598,7 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
             },
             OptWords {
                 title: fixed("Study fund, stock track", "קרן השתלמות, במסלול מניות"),
-                amount: amount(f.study_left),
+                amount: amount(f.study_left, false),
                 facts: vec![
                     fixed("Only for the self-employed, or through an employer.", "רק לעצמאים, או דרך מעסיק."),
                     fixed("The gain is tax-free after 6 years.", "הרווח פטור ממס אחרי 6 שנים."),
@@ -2229,7 +2247,9 @@ pub fn where_difference(
 pub fn where_title(yours: bool, existing: bool, name: &Text) -> Text {
     if !existing {
         return both(|lang| match (yours, lang) {
-            (true, Lang::En) => format!("Where to buy {}, against your bank", name.en.to_lowercase()),
+            (true, Lang::En) => {
+                format!("Where to buy {}, against your bank", name.en.to_lowercase())
+            }
             (true, Lang::He) => format!("איפה לקנות {}, לעומת הבנק שלכם", name.he),
             (false, Lang::En) => format!("Where to buy {}", name.en.to_lowercase()),
             (false, Lang::He) => format!("איפה לקנות {}", name.he),
@@ -2412,10 +2432,9 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
         let to_it = match lang {
             Lang::En => {
                 let mut chars = name.en.chars();
-                let lowered: String = chars
-                    .next()
-                    .map(|first| first.to_lowercase().chain(chars).collect())
-                    .unwrap_or_default();
+                let lowered: String = chars.next().map_or_else(String::new, |first| {
+                    first.to_lowercase().chain(chars).collect()
+                });
                 format!("to {lowered}")
             }
             Lang::He => joined_to('ל', &name.he),
@@ -2443,7 +2462,7 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
         };
         let at = names(f.tied, lang);
         let in_at = names_after('ב', f.tied, lang);
-        let to_at = names_after('ל', f.tied, lang);
+        let to_places = names_after('ל', f.tied, lang);
         let through = |lang: Lang| {
             f.yours.or(f.bank).map_or_else(
                 || lang.pick("a bank", "בנק").to_owned(),
@@ -2452,7 +2471,7 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
         };
         let main = match (f.kind, f.holdings, f.account, lang) {
             (_, Some(Holdings::IndexFunds), Some(Account::NewAccount), Lang::En) => format!("Move the holdings as they are to {at}: no sale, no tax."),
-            (_, Some(Holdings::IndexFunds), Some(Account::NewAccount), Lang::He) => format!("מעבירים את הניירות כמו שהם {to_at}: בלי מכירה ובלי מס."),
+            (_, Some(Holdings::IndexFunds), Some(Account::NewAccount), Lang::He) => format!("מעבירים את הניירות כמו שהם {to_places}: בלי מכירה ובלי מס."),
             (_, Some(Holdings::IndexFunds), _, Lang::En) => "Keep the portfolio where it is: moving saves little here.".to_owned(),
             (_, Some(Holdings::IndexFunds), _, Lang::He) => "משאירים את התיק איפה שהוא: כאן מעבר לא חוסך הרבה.".to_owned(),
             (_, Some(Holdings::Managed), _, Lang::En) => "Check each fund's management fee and the manager's fee before moving: moving alone doesn't lower them.".to_owned(),
@@ -2502,10 +2521,9 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
         match lang {
             Lang::En if !pre.is_empty() => {
                 let mut chars = main.chars();
-                let rest: String = chars
-                    .next()
-                    .map(|first| first.to_lowercase().chain(chars).collect())
-                    .unwrap_or_default();
+                let rest: String = chars.next().map_or_else(String::new, |first| {
+                    first.to_lowercase().chain(chars).collect()
+                });
                 pre + &rest
             }
             _ => pre + &main,

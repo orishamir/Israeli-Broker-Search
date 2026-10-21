@@ -50,11 +50,12 @@ pub fn name(kind: Kind) -> Text {
                 "Provident fund for investment, stock track",
                 "קופת גמל להשקעה, במסלול מניות",
             ),
-            (_, Vehicle::StudyFund) => fixed("Study fund, stock track", "קרן השתלמות, במסלול מניות"),
-            (_, Vehicle::SavingsPolicy) => fixed(
-                "Savings policy, stock track",
-                "פוליסת חיסכון, במסלול מניות",
-            ),
+            (_, Vehicle::StudyFund) => {
+                fixed("Study fund, stock track", "קרן השתלמות, במסלול מניות")
+            }
+            (_, Vehicle::SavingsPolicy) => {
+                fixed("Savings policy, stock track", "פוליסת חיסכון, במסלול מניות")
+            }
             (
                 Product::IsraeliIndexFund
                 | Product::StudyFundTrack
@@ -125,13 +126,13 @@ pub fn tags(kind: Kind, arena: Option<Arena>) -> Vec<Text> {
         ],
         Kind::AnyDayDeposit => vec![
             fixed("The rate changes", "הריבית משתנה"),
-            fixed("Stays at your bank", "נשאר בבנק שלכם"),
+            fixed(
+                "Stays at the bank you bank with",
+                "נשאר בבנק שבו יש לכם חשבון",
+            ),
         ],
         Kind::TreasuryBill => vec![
-            fixed(
-                "Takes a securities account",
-                "צריך חשבון ניירות ערך",
-            ),
+            fixed("Takes a securities account", "צריך חשבון ניירות ערך"),
             fixed(
                 "Sold before repayment at that day's price",
                 "מכירה לפני הפדיון במחיר של אותו יום",
@@ -151,7 +152,10 @@ pub fn tags(kind: Kind, arena: Option<Arena>) -> Vec<Text> {
                 "רק לעצמאים או דרך מעסיק",
             )],
             Vehicle::Brokerage if arena == Some(Arena::Safe) => {
-                vec![rises_and_falls, fixed("Not for a fixed date", "לא לתאריך קבוע")]
+                vec![
+                    rises_and_falls,
+                    fixed("Not for a fixed date", "לא לתאריך קבוע"),
+                ]
             }
             Vehicle::Brokerage => match trades_in(kind) {
                 Some(place) => vec![place, rises_and_falls],

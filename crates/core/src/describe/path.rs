@@ -6,6 +6,11 @@
 //! chosen option's "מתאים אם" or main fact, then what the other would have
 //! given besides money. The amounts stay in the decision, under "שינוי".
 
+#![allow(
+    clippy::format_push_string,
+    reason = "sentences built a clause at a time"
+)]
+
 use rust_decimal::Decimal;
 use time::Date;
 
@@ -31,7 +36,10 @@ fn step(choice: Text, hinge: Text) -> StepWords {
 
 /// "ב‑2056", or "בעוד 30 שנה" with no date of the visitor's.
 fn in_year(today: Option<Date>, months: u32, dated: bool, lang: Lang) -> String {
-    match today.filter(|_| dated).and_then(|today| end_date(today, months)) {
+    match today
+        .filter(|_| dated)
+        .and_then(|today| end_date(today, months))
+    {
         Some(end) => format!("{}{}", lang.pick("in ", "ב\u{2011}"), end.year()),
         None => format!("{} {}", lang.pick("in", "בעוד"), span(months, lang)),
     }
@@ -39,7 +47,10 @@ fn in_year(today: Option<Date>, months: u32, dated: bool, lang: Lang) -> String 
 
 /// "2056", or "בעוד 30 שנה".
 fn year(today: Option<Date>, months: u32, dated: bool, lang: Lang) -> String {
-    match today.filter(|_| dated).and_then(|today| end_date(today, months)) {
+    match today
+        .filter(|_| dated)
+        .and_then(|today| end_date(today, months))
+    {
         Some(end) => end.year().to_string(),
         None => format!("{} {}", lang.pick("in", "בעוד"), span(months, lang)),
     }
@@ -104,7 +115,12 @@ pub fn cushion_has(monthly: Decimal, product: &Text) -> StepWords {
 /// "קודם כרית ביטחון": the cushion's sum first, then the plan's product; or,
 /// where it takes all the time there is, every shekel to it.
 #[must_use]
-pub fn cushion_first(target: Decimal, monthly: Decimal, product: &Text, takes_all: bool) -> StepWords {
+pub fn cushion_first(
+    target: Decimal,
+    monthly: Decimal,
+    product: &Text,
+    takes_all: bool,
+) -> StepWords {
     step(
         fixed("A safety cushion first", "קודם כרית ביטחון"),
         both(|lang| match (lang, takes_all) {
@@ -219,7 +235,10 @@ pub fn stocks_chosen(today: Option<Date>, months: u32, dated: bool, no_date: boo
 /// A portfolio at a bank: the place isn't asked.
 #[must_use]
 pub fn existing_stated(line: &Text) -> StepWords {
-    step(fixed("What's in the portfolio", "מה שכבר בתיק"), line.clone())
+    step(
+        fixed("What's in the portfolio", "מה שכבר בתיק"),
+        line.clone(),
+    )
 }
 
 // ─────────────────────────── המוצר ───────────────────────────
@@ -356,10 +375,13 @@ pub fn safe_fund() -> StepWords {
 #[must_use]
 pub fn safe_any_day_deposit() -> StepWords {
     step(
-        fixed("A deposit you can take out any day", "פיקדון שאפשר למשוך בכל יום"),
+        fixed(
+            "A deposit you can take out any day",
+            "פיקדון שאפשר למשוך בכל יום",
+        ),
         fixed(
             "It stays at your bank, and can be taken out any day. Its rate changes, and is usually lower.",
-            "נשאר בבנק שלכם, ואפשר למשוך ממנו בכל יום. הריבית משתנה, ובדרך כלל נמוכה יותר.",
+            "נשאר בבנק שבו יש לכם חשבון, ואפשר למשוך ממנו בכל יום. הריבית משתנה, ובדרך כלל נמוכה יותר.",
         ),
     )
 }
@@ -434,7 +456,10 @@ pub fn holdings_index_funds() -> StepWords {
 #[must_use]
 pub fn holdings_managed() -> StepWords {
     step(
-        fixed("Managed funds, or portfolio management", "קרנות מנוהלות, או ניהול תיקים"),
+        fixed(
+            "Managed funds, or portfolio management",
+            "קרנות מנוהלות, או ניהול תיקים",
+        ),
         fixed(
             "A fund's management fee is charged wherever it's held. With index funds or shares, moving would have saved on fees.",
             "דמי הניהול של קרן נגבים בכל מקום שמחזיקים אותה. בקרנות מחקות או במניות, מעבר היה חוסך בעמלות.",
@@ -548,12 +573,10 @@ pub fn why_clear(f: &WhyFigures) -> WhyWords {
     let lead = both(|lang| {
         let years = span(f.months, lang);
         match (lang, f.below) {
-            (Lang::En, 0) => format!(
-                "A loss after {years} is very unlikely: in the past it never happened."
-            ),
-            (Lang::He, 0) => format!(
-                "הפסד אחרי {years} הוא מאוד לא סביר: בעבר זה לא קרה אף פעם."
-            ),
+            (Lang::En, 0) => {
+                format!("A loss after {years} is very unlikely: in the past it never happened.")
+            }
+            (Lang::He, 0) => format!("הפסד אחרי {years} הוא מאוד לא סביר: בעבר זה לא קרה אף פעם."),
             (Lang::En, _) => format!(
                 "In stocks, a loss after {years} happened in the past: in {below} of {windows} stretches."
             ),
@@ -709,7 +732,10 @@ pub fn plan_amount(
         }
     };
     let when = both(|lang| {
-        let at = match today.filter(|_| dated).and_then(|today| end_date(today, months)) {
+        let at = match today
+            .filter(|_| dated)
+            .and_then(|today| end_date(today, months))
+        {
             Some(end) => format!("{}{}", lang.pick("In ", "ב\u{2011}"), end.year()),
             None if dated => format!("{} {}", lang.pick("In", "בעוד"), span(months, lang)),
             None => format!(
@@ -737,10 +763,7 @@ pub fn plan_amount(
             "In today's money, after tax. You'll put in about {}.",
             about(deposited)
         ),
-        Lang::He => format!(
-            "בכסף של היום, אחרי מס. תפקידו בערך {}.",
-            about(deposited)
-        ),
+        Lang::He => format!("בכסף של היום, אחרי מס. תפקידו בערך {}.", about(deposited)),
     });
     let example = matches!(sureness, Sureness::Index(..)).then(|| {
         fixed(

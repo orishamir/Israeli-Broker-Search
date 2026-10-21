@@ -948,14 +948,20 @@ mod tests {
     }
 
     /// The funds first, the shorter list, then the banks' deposits, then the
-    /// state's bonds.
+    /// state's bonds and bills.
     #[test]
     fn the_kinds_are_the_funds_the_deposits_then_the_bonds() {
         let kinds = kinds();
         let names: Vec<&str> = kinds.iter().map(|kind| kind.name.en.as_ref()).collect();
         assert_eq!(
             names,
-            ["Money market fund", "Fixed-rate deposit", "Government bond"]
+            [
+                "Money market fund",
+                "Fixed-rate deposit",
+                "Deposit you can take out any day",
+                "Government bond",
+                "Makam"
+            ]
         );
     }
 }

@@ -353,9 +353,9 @@ fn card_of(kind: Kind) -> Option<Term> {
         Kind::LinkedDeposit => Some(Term::CpiLinkedDeposit),
         Kind::GovernmentBond { .. } => Some(Term::GovernmentBond),
         Kind::TreasuryBill => Some(Term::Makam),
-        Kind::AnyDayDeposit => None,
+
         Kind::Way(way) => way.product.card(),
-        Kind::CurrentAccount => None,
+        Kind::AnyDayDeposit | Kind::CurrentAccount => None,
     }
 }
 
@@ -1431,6 +1431,10 @@ fn where_data(where_to_buy: &guide::WhereToBuy) -> WhereToBuyData {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "one field of the answer after another"
+)]
 fn answer_data(answer: &guide::Answer) -> AnswerData {
     AnswerData {
         confidence: ConfidenceData {

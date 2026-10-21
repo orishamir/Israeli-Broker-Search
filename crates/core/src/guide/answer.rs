@@ -15,7 +15,9 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
 use crate::describe::how::Fact;
-use crate::describe::{card, gain as gain_words, how as how_words, outcome as row_words, path as path_words};
+use crate::describe::{
+    card, gain as gain_words, how as how_words, outcome as row_words, path as path_words,
+};
 use crate::history::{self, DepositsBand};
 use crate::ways::WayOutcome;
 use crate::{Text, Vehicle};
@@ -771,8 +773,8 @@ struct Group {
 
 fn safe_way_of(kind: Kind) -> SafeWay {
     match kind {
-        Kind::GovernmentBond { .. } => SafeWay::Bond,
-        Kind::FixedDeposit | Kind::LinkedDeposit => SafeWay::Deposit,
+        Kind::GovernmentBond { .. } | Kind::TreasuryBill => SafeWay::Bond,
+        Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit => SafeWay::Deposit,
         _ => SafeWay::MoneyMarketFund,
     }
 }
@@ -1752,6 +1754,10 @@ enum Parts {
     ForAHorizonRow,
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the lines, the chart, the plan and the path, in the card's order"
+)]
 fn build(f: &Facts<'_>, parts: Parts) -> Answer {
     let details = parts != Parts::ForAHorizonRow;
     let mut lines: Vec<Line> = Vec::new();
@@ -1816,7 +1822,10 @@ fn build(f: &Facts<'_>, parts: Parts) -> Answer {
                 which: RefLineKind::Deposited,
                 label: row_words::deposited_line(),
                 value: f.deposited,
-                amount: Text::owned(card::about(f.deposited.today), card::about(f.deposited.today)),
+                amount: Text::owned(
+                    card::about(f.deposited.today),
+                    card::about(f.deposited.today),
+                ),
             },
             RefLine {
                 which: RefLineKind::CurrentAccount,
@@ -2117,7 +2126,11 @@ fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen
         return (line(LineKind::Way, LineState::Waiting), None);
     };
     if groups.len() < 2 || safe_standing == Standing::Clear {
-        let text = card::safe_way_stated(first.lead.kind, (!f.answers.needs_any_day).then_some(f.months), groups.len() < 2);
+        let text = card::safe_way_stated(
+            first.lead.kind,
+            (!f.answers.needs_any_day).then_some(f.months),
+            groups.len() < 2,
+        );
         return (
             line(
                 LineKind::Way,
@@ -2939,6 +2952,10 @@ fn how_of(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> How {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "the places, the banks as one row, the difference and the notes"
+)]
 fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBuy {
     let built: Option<Where> = match (info, row.kind) {
         (None, Kind::Way(way)) => f.index.as_ref().and_then(|index| {
@@ -2952,7 +2969,13 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
                 f.provider_margin,
             ))
         }),
-        (None, kind @ (Kind::GovernmentBond { .. } | Kind::FixedDeposit)) => f
+        (
+            None,
+            kind @ (Kind::GovernmentBond { .. }
+            | Kind::FixedDeposit
+            | Kind::AnyDayDeposit
+            | Kind::TreasuryBill),
+        ) => f
             .safe
             .groups
             .iter()
@@ -2998,7 +3021,14 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
     let also_name = also.map(|also| super::safe::joined(&also.choice.provider, &also.choice.plan));
     // Until the visitor names a bank, the banks are one row, the reference
     // point (§4.7): from the dearest to the cheapest.
-    let banks_as_one = yours.is_none() && places.range.is_some() && !f.existing;
+    // (A deposit is at a bank whichever it is: its places stay the banks.)
+    let banks_as_one = yours.is_none()
+        && places.range.is_some()
+        && !f.existing
+        && !matches!(
+            row.kind,
+            Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit
+        );
     let mut shown: Vec<Provider> = Vec::new();
     for (place, tie) in places.places.iter().zip(&places.ties) {
         let keep = *tie <= 1 && shown.len() < 4 || place.yours;
@@ -3043,13 +3073,27 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
         }
     });
     let difference = where_difference(f, row, places);
+    // The tie the rows show: with the banks as one row, the houses'.
+    let note = {
+        let tied: Vec<Decimal> = shown
+            .iter()
+            .filter(|row| row.tie == 0)
+            .map(|row| row.left.today)
+            .collect();
+        let spread = tied
+            .iter()
+            .max()
+            .zip(tied.iter().min())
+            .map_or(Decimal::ZERO, |(high, low)| high - low);
+        card::where_note(tied.len(), spread)
+    };
     WhereToBuy {
         title: card::where_title(yours.is_some(), f.existing, &row.name),
         rows: shown,
         bank_range: if yours.is_none() { places.range } else { None },
         reference,
         difference,
-        note: card::where_note(places.tied().len(), places.spread()),
+        note,
         asks_bank,
         unlock: lead_index
             .and_then(|index| index.unlock.as_ref())
@@ -3175,6 +3219,10 @@ fn annuity(f: &Facts<'_>, chosen: Option<Chosen>, lines: &[Line]) -> Option<Text
 
 /// Only where fees or tax decide something on the page: the account or the
 /// move (fees), the study fund (tax), or retirement's way out (tax).
+#[allow(
+    clippy::too_many_lines,
+    reason = "each decision fees or tax decide, then the bars' parts"
+)]
 fn gain(
     f: &Facts<'_>,
     lines: &[Line],
@@ -3355,23 +3403,18 @@ fn plan_amount(
                 None => (row_value, None),
             }
         }
-        Some(info) if info.account == Some(Account::YourBank) => (
-            info.places
-                .reference()
-                .unwrap_or(row_value),
-            None,
-        ),
-        Some(info) if info.account == Some(Account::NewAccount) => (
-            info.places.best().map_or(row_value, |best| best.left),
-            None,
-        ),
+        Some(info) if info.account == Some(Account::YourBank) => {
+            (info.places.reference().unwrap_or(row_value), None)
+        }
+        Some(info) if info.account == Some(Account::NewAccount) => {
+            (info.places.best().map_or(row_value, |best| best.left), None)
+        }
         _ => (row_value, None),
     };
     let sureness = match kind {
-        Kind::Way(way) => path_words::Sureness::Index(
-            f.settings.index_return,
-            way.vehicle == Vehicle::Brokerage,
-        ),
+        Kind::Way(way) => {
+            path_words::Sureness::Index(f.settings.index_return, way.vehicle == Vehicle::Brokerage)
+        }
         kind if row_words::known(kind) => path_words::Sureness::Known,
         _ => path_words::Sureness::Rate,
     };
@@ -3410,7 +3453,9 @@ fn path(
         let step = match &line.state {
             LineState::Waiting => continue,
             LineState::Decision(decision) => {
-                let Some(pick) = decision.chosen else { continue };
+                let Some(pick) = decision.chosen else {
+                    continue;
+                };
                 let words = decision_step(f, decision, pick, &product, info);
                 PathStep {
                     line: Some(line.kind),
@@ -3502,7 +3547,9 @@ fn decision_step(
                 (Kind::MoneyMarketFund, [other]) if pair && row_words::known(*other) => {
                     path_words::simplest_fund(*other, &row_words::name(*other))
                 }
-                (kind, [other]) if pair && *other == Kind::MoneyMarketFund && row_words::known(kind) => {
+                (kind, [other])
+                    if pair && *other == Kind::MoneyMarketFund && row_words::known(kind) =>
+                {
                     path_words::known_in_advance(&row_words::name(kind))
                 }
                 (Kind::MoneyMarketFund, _) => path_words::safe_fund(),
@@ -3519,7 +3566,7 @@ fn decision_step(
             &lead_way.map_or_else(|| Text::new("", ""), card::way_short_text),
         ),
         Pick::Account(Account::NewAccount) => path_words::new_account(&card::in_names(
-            &info.map(|info| info.places.tied_names()).unwrap_or_default(),
+            &info.map_or_else(Vec::new, |info| info.places.tied_names()),
         )),
         Pick::Account(Account::YourBank) => path_words::your_bank(f.bank.is_some()),
         Pick::Holdings(Holdings::IndexFunds) => path_words::holdings_index_funds(),
@@ -3547,16 +3594,15 @@ fn stated_step(
         },
         LineKind::Way => {
             let name = plan_kind(f, chosen).map_or_else(|| Text::new("", ""), row_words::name);
-            let why = match chosen {
-                Some(Chosen::Safe(_)) => path_words::safe_way_why(f.safe.groups.len() < 2),
-                _ => {
-                    let tied = f.index.as_ref().and_then(|index| {
-                        let next = index.next?;
-                        (way_standing(f, index) == Standing::Tie)
-                            .then(|| row_words::full_name(Kind::Way(index.way(next).way)))
-                    });
-                    path_words::index_way_why(tied.as_ref())
-                }
+            let why = if let Some(Chosen::Safe(_)) = chosen {
+                path_words::safe_way_why(f.safe.groups.len() < 2)
+            } else {
+                let tied = f.index.as_ref().and_then(|index| {
+                    let next = index.next?;
+                    (way_standing(f, index) == Standing::Tie)
+                        .then(|| row_words::full_name(Kind::Way(index.way(next).way)))
+                });
+                path_words::index_way_why(tied.as_ref())
             };
             (path_words::way_stated(&name, why), None)
         }
@@ -3623,7 +3669,11 @@ fn why_clear(f: &Facts<'_>) -> Option<WhyClear> {
         crises: words.crises,
         amounts: vec![
             figure(path_words::deposited_label(), stock, deposited),
-            figure(path_words::safe_label(&safe_name), safe.lead.kind, safe.lead.left),
+            figure(
+                path_words::safe_label(&safe_name),
+                safe.lead.kind,
+                safe.lead.left,
+            ),
             figure(path_words::worst_label(since), stock, worst),
             figure(
                 path_words::assumed_label(f.settings.index_return),
@@ -3638,7 +3688,12 @@ fn why_clear(f: &Facts<'_>) -> Option<WhyClear> {
 /// Where to buy's difference (§4.7): the best places against the banks'
 /// range, or the visitor's bank once named. None where a bank is the best.
 fn where_difference(f: &Facts<'_>, row: &Row, places: &Where) -> Option<Text> {
-    if f.existing {
+    // A deposit's places are all banks: the line says how they stand.
+    let deposit = matches!(
+        row.kind,
+        Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit
+    );
+    if f.existing || deposit {
         return None;
     }
     let best = places.best()?;
@@ -3656,12 +3711,14 @@ fn where_difference(f: &Facts<'_>, row: &Row, places: &Where) -> Option<Text> {
             let gap = best.left.today - places.places[at].left.today;
             ((gap, gap), Some(places.places[at].provider.clone()))
         }
-        (None, Some((low, high))) => ((best.left.today - high.today, best.left.today - low.today), None),
+        (None, Some((low, high))) => (
+            (best.left.today - high.today, best.left.today - low.today),
+            None,
+        ),
         (None, None) => return None,
     };
-    (gap.1 > Decimal::ZERO).then(|| {
-        card::where_difference(Some(row.kind), &names, gap, yours.as_ref(), f.months)
-    })
+    (gap.1 > Decimal::ZERO)
+        .then(|| card::where_difference(Some(row.kind), &names, gap, yours.as_ref(), f.months))
 }
 
 // ─────────────────────────── The horizons ───────────────────────────
@@ -3756,8 +3813,8 @@ fn dates_around(horizon: Horizon) -> Vec<(Horizon, bool)> {
         }
         dates.push(before);
     }
-    let last = *list.last().unwrap_or(&240);
-    let after = if months >= last {
+    let longest = *list.last().unwrap_or(&240);
+    let after = if months >= longest {
         Some(months + 5 * 12)
     } else {
         list.iter().copied().find(|&date| date > months)
@@ -4240,6 +4297,8 @@ mod tests {
             kind: Kind::MoneyMarketFund,
             name: Text::new("", ""),
             tags: Vec::new(),
+            facts: Text::new("", ""),
+            marks: Vec::new(),
             mark,
             value: Amount {
                 today: value,

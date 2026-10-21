@@ -2165,9 +2165,14 @@ mod short_term_economics {
                     "{}: {fee}",
                     place.name.en
                 ),
+                Pays::AnyDay(rate) => assert!(
+                    rate.0 > dec!(0) && rate.0 < dec!(10),
+                    "{}: {rate}",
+                    place.name.en
+                ),
                 // Its yields are checked against the Bank of Israel's in
                 // real_tariffs.rs.
-                Pays::GovernmentBond(_) => {}
+                Pays::GovernmentBond(_) | Pays::TreasuryBill => {}
             }
         }
     }
@@ -2246,9 +2251,10 @@ mod short_term_economics {
                 let outcome = simulate(&place, &scenario);
                 match place.pays {
                     Pays::Fixed(_) => prop_assert_eq!(outcome, Err(NotOffered::TakesOneSum), "{}", place.name.en),
-                    Pays::TheRateLess(_) => prop_assert!(outcome.is_ok(), "{}", place.name.en),
-                    // A bond takes monthly money, but is offered only for waits of 1 to 15 years.
-                    Pays::GovernmentBond(_) => {}
+                    Pays::TheRateLess(_) | Pays::AnyDay(_) => prop_assert!(outcome.is_ok(), "{}", place.name.en),
+                    // A bond takes monthly money, but is offered only for waits of 1 to 15
+                    // years; makam for up to a year.
+                    Pays::GovernmentBond(_) | Pays::TreasuryBill => {}
                 }
             }
         }

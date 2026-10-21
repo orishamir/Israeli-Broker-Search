@@ -269,7 +269,7 @@ pub(super) fn safe_places(priced: &Priced, data: &Data, yours: Option<Bank>) -> 
     use strum::IntoEnumIterator;
     let banks_by_name = |name: &Text| -> Option<Bank> {
         match priced.kind {
-            Kind::GovernmentBond { .. } => data
+            Kind::GovernmentBond { .. } | Kind::TreasuryBill => data
                 .brokers
                 .iter()
                 .filter(|broker| broker.kind == BrokerKind::Bank)
@@ -285,7 +285,7 @@ pub(super) fn safe_places(priced: &Priced, data: &Data, yours: Option<Bank>) -> 
     // by its short name and its plan ("לאומי · אונליין"), a bank's deposit
     // by the bank's short name. The banks' average is no place to buy.
     let named = |name: &Text| -> Option<(Text, Text)> {
-        if let Kind::GovernmentBond { .. } = priced.kind {
+        if let Kind::GovernmentBond { .. } | Kind::TreasuryBill = priced.kind {
             let provider = provider_of(name);
             let short = data
                 .brokers

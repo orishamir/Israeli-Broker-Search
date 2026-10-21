@@ -331,6 +331,7 @@ fn any_day(name: Text, short_name: Text, big: bool, rate: Percent) -> Place {
 /// bank with no published rate (Discount, the Bank of Jerusalem) isn't
 /// listed: it isn't compared, as a fixed deposit's missing term isn't.
 #[must_use]
+#[allow(clippy::too_many_lines, reason = "the banks' data")]
 pub fn any_day_kind() -> Kind {
     let figures = kav_hamashve();
     // As `policies/deposit-rates.py` prints them, its second table.
@@ -347,8 +348,18 @@ pub fn any_day_kind() -> Kind {
         compared_at_first: true,
     };
     let banks = vec![
-        any_day(t("Bank Hapoalim", "בנק הפועלים"), t("Hapoalim", "הפועלים"), true, Percent(dec!(0.76))),
-        any_day(t("Bank Leumi", "בנק לאומי"), t("Leumi", "לאומי"), true, Percent(dec!(0.95))),
+        any_day(
+            t("Bank Hapoalim", "בנק הפועלים"),
+            t("Hapoalim", "הפועלים"),
+            true,
+            Percent(dec!(0.76)),
+        ),
+        any_day(
+            t("Bank Leumi", "בנק לאומי"),
+            t("Leumi", "לאומי"),
+            true,
+            Percent(dec!(0.95)),
+        ),
         any_day(
             t("Mizrahi-Tefahot Bank", "בנק מזרחי\u{2011}טפחות"),
             t("Mizrahi", "מזרחי"),
@@ -361,10 +372,30 @@ pub fn any_day_kind() -> Kind {
             true,
             Percent(dec!(0.66)),
         ),
-        any_day(t("Bank Yahav", "בנק יהב"), t("Yahav", "יהב"), false, Percent(dec!(0.02))),
-        any_day(t("Mercantile Bank", "בנק מרכנתיל"), t("Mercantile", "מרכנתיל"), false, Percent(dec!(0.12))),
-        any_day(t("Bank Massad", "בנק מסד"), t("Massad", "מסד"), false, Percent(dec!(0.76))),
-        any_day(t("One Zero", "וואן זירו"), t("One Zero", "וואן זירו"), false, Percent(dec!(0.92))),
+        any_day(
+            t("Bank Yahav", "בנק יהב"),
+            t("Yahav", "יהב"),
+            false,
+            Percent(dec!(0.02)),
+        ),
+        any_day(
+            t("Mercantile Bank", "בנק מרכנתיל"),
+            t("Mercantile", "מרכנתיל"),
+            false,
+            Percent(dec!(0.12)),
+        ),
+        any_day(
+            t("Bank Massad", "בנק מסד"),
+            t("Massad", "מסד"),
+            false,
+            Percent(dec!(0.76)),
+        ),
+        any_day(
+            t("One Zero", "וואן זירו"),
+            t("One Zero", "וואן זירו"),
+            false,
+            Percent(dec!(0.92)),
+        ),
     ];
     Kind {
         name: t(

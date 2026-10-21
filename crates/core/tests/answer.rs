@@ -227,17 +227,26 @@ fn the_apartment_asks_only_the_way() {
     // (§2.5 gives B; the data agrees on 2026-10-19.)
     assert_ne!(answer.confidence.state, ConfidenceState::A);
     assert!(way.difference.is_some());
-    // The stock row stays, dimmed, with its reason; its how says why and
-    // gives no steps.
-    let stock = answer
-        .outcome
-        .rows
-        .iter()
-        .find(|row| matches!(row.kind, Kind::Way(_)))
-        .expect("the index is drawn beside");
-    assert!(stock.excluded.is_some() && !stock.active);
-    let how = answer.how.iter().find(|how| how.row == stock.id).unwrap();
-    assert!(how.not_offered.is_some() && how.steps.is_empty());
+    // Only options the visitor could choose get a row (§4.6): no stock
+    // row; the place type's line says why, with the past's count (§4.4).
+    assert!(
+        answer
+            .outcome
+            .rows
+            .iter()
+            .all(|row| !matches!(row.kind, Kind::Way(_)))
+    );
+    let Some(LineState::Stated { text, .. }) =
+        line(&answer, LineKind::PlaceType).map(|line| &line.state)
+    else {
+        panic!("the place type is stated");
+    };
+    assert!(text.he.starts_with("בטוח."), "{}", text.he);
+    assert!(
+        text.he.contains("מתוך") && text.he.contains("מאז 1926"),
+        "{}",
+        text.he
+    );
     for choice in [SafeWay::MoneyMarketFund, SafeWay::Bond] {
         let chosen = answered(
             &apartment(),
@@ -631,19 +640,75 @@ fn the_horizons_follow_the_date_answer() {
     let full =
         |answers: &Answers| answer(answers, &Choices::default(), &settings(), &DATA).unwrap();
     let open = full(&bonus());
-    let five: Vec<&HorizonRow> = open.horizons.iter().filter(|row| row.years == 5).collect();
-    assert_eq!(five.len(), 2, "5 years differs by the answer");
+    let five = open
+        .horizons
+        .iter()
+        .find(|row| row.months == 60)
+        .expect("5 years");
+    assert_eq!(five.fits.len(), 2, "5 years differs by the answer");
     let fixed = full(&Answers {
         flexibility: Some(Flexibility::Fixed),
         ..bonus()
     });
-    assert_eq!(fixed.horizons.len(), HORIZON_YEARS.len());
+    assert!(fixed.horizons.iter().all(|row| row.fits.len() == 1));
     assert!(
         fixed
             .horizons
             .iter()
-            .all(|row| row.low.today <= row.high.today)
+            .flat_map(|row| &row.fits)
+            .all(|fit| fit.low.today <= fit.high.today)
     );
+}
+
+/// The dates of "ואם התאריך יזוז?" are built around the visitor's (§4.10):
+/// the list's closest date before it, 5 years (or 1) when earlier still,
+/// the visitor's own, and the next date after it, or from 20 years on the
+/// visitor's date plus 5 years. Dates the engine didn't compute before,
+/// such as 35 years, are worked out too.
+#[test]
+fn the_horizon_dates_are_built_around_the_visitors() {
+    let months_of = |months: u32| -> Vec<(u32, bool)> {
+        answer(
+            &answers(dec!(10_000), dec!(500), months),
+            &Choices::default(),
+            &settings(),
+            &DATA,
+        )
+        .unwrap()
+        .horizons
+        .iter()
+        .map(|row| (row.months, row.current))
+        .collect()
+    };
+    assert_eq!(
+        months_of(360),
+        [(60, false), (240, false), (360, true), (420, false)]
+    );
+    assert_eq!(
+        months_of(120),
+        [(12, false), (60, false), (120, true), (240, false)]
+    );
+    assert_eq!(months_of(36), [(12, false), (36, true), (60, false)]);
+    assert_eq!(
+        months_of(44),
+        [(12, false), (36, false), (44, true), (60, false)]
+    );
+    // 35 years is past the history: its figure is the expected return's.
+    let far = answer(
+        &answers(dec!(10_000), dec!(500), 360),
+        &Choices::default(),
+        &settings(),
+        &DATA,
+    )
+    .unwrap();
+    let last = far.horizons.last().unwrap();
+    assert_eq!(last.months, 420);
+    assert!(last.fits.iter().all(|fit| fit.low.today > Decimal::ZERO));
+    assert!(last.deposited.today > far.outcome.deposited.today);
+    // The visitor's own row is marked, and only it.
+    for row in &far.horizons {
+        assert_eq!(row.label.is_some(), row.current);
+    }
 }
 
 /// The history run on one sum is the band's own: the money-weighted rate of
@@ -755,17 +820,18 @@ fn the_margins_are_the_owners() {
     assert_eq!(provider_margin(dec!(400_000)), dec!(1000));
 }
 
-/// The date `years` away as the page's years field sets it.
-fn moved(answers: &Answers, row: &HorizonRow) -> Answers {
+/// The date `months` away as the page's fields set it, with the answer about
+/// the date a fit is for.
+fn moved(answers: &Answers, months: u32, flexibility: Option<Flexibility>) -> Answers {
     Answers {
         horizon: match answers.horizon {
             Horizon::Retirement { age, .. } => Horizon::Retirement {
                 age,
-                retire_at: age + row.years,
+                retire_at: age + months / 12,
             },
-            Horizon::Months(_) | Horizon::Unknown => Horizon::Months(row.years * 12),
+            Horizon::Months(_) | Horizon::Unknown => Horizon::Months(months),
         },
-        flexibility: row.flexibility.or(answers.flexibility),
+        flexibility: flexibility.or(answers.flexibility),
         ..answers.clone()
     }
 }
@@ -780,7 +846,7 @@ fn ends(row: &Row) -> (Amount, Amount) {
 }
 
 /// §2.9's check: a horizon row is exactly what the answer shows once the
-/// date moves there (and, for a row of one answer about the date, once
+/// date moves there (and, for a fit of one answer about the date, once
 /// that answer is given): the way it settles on, or one it leaves to the
 /// visitor, and figures its chart draws.
 #[test]
@@ -801,104 +867,102 @@ fn a_horizon_row_opens_exactly_what_it_showed() {
             situation.id
         );
         for row in &full.horizons {
-            let label = format!("{} at {} years", situation.id, row.years);
             assert_eq!(
                 row.current,
-                moved(&answers, row).horizon == answers.horizon,
-                "{label}"
+                moved(&answers, row.months, None).horizon == answers.horizon,
+                "{} at {} months",
+                situation.id,
+                row.months
             );
-            assert!(row.low.today <= row.high.today, "{label}");
-            assert_eq!(
-                row.condition.is_some(),
-                row.flexibility.is_some(),
-                "{label}"
-            );
-            let opened = answered(&moved(&answers, row), Choices::default());
-            match opened.focus {
-                Some(focus) => assert_eq!(row.kind, focus, "{label}"),
-                None => assert!(
-                    opened
-                        .outcome
-                        .rows
+            for fit in &row.fits {
+                let label = format!(
+                    "{} at {} months, {:?}",
+                    situation.id, row.months, fit.flexibility
+                );
+                assert!(fit.low.today <= fit.high.today, "{label}");
+                assert_eq!(
+                    fit.condition.is_some(),
+                    fit.flexibility.is_some(),
+                    "{label}"
+                );
+                let opened = answered(
+                    &moved(&answers, row.months, fit.flexibility),
+                    Choices::default(),
+                );
+                match opened.focus {
+                    Some(focus) => assert_eq!(fit.kind, focus, "{label}"),
+                    None => assert!(
+                        opened
+                            .outcome
+                            .rows
+                            .iter()
+                            .any(|shown| shown.kind == fit.kind && shown.active),
+                        "{label}: {:?}",
+                        fit.kind
+                    ),
+                }
+                let rows = &opened.outcome.rows;
+                let open_way = decision(&opened, LineKind::Way).filter(|way| way.chosen.is_none());
+                let spanned: Vec<&Row> = match (opened.focus, open_way) {
+                    (Some(focus), _) => rows.iter().filter(|shown| shown.id == focus).collect(),
+                    (None, Some(way)) => way
+                        .options
                         .iter()
-                        .any(|shown| shown.kind == row.kind && shown.active),
-                    "{label}: {:?}",
-                    row.kind
-                ),
+                        .filter(|option| option.pick != Pick::Wrapper(Wrapper::StudyFund))
+                        .flat_map(|option| &option.rows)
+                        .filter_map(|id| rows.iter().find(|shown| shown.id == *id))
+                        .collect(),
+                    (None, None) => rows
+                        .iter()
+                        .filter(|shown| shown.active && shown.excluded.is_none())
+                        .filter(|shown| shown.kind.arena() == fit.kind.arena())
+                        .collect(),
+                };
+                let low = spanned.iter().map(|shown| ends(shown).0.today).min();
+                let high = spanned.iter().map(|shown| ends(shown).1.today).max();
+                assert_eq!(low, Some(fit.low.today), "{label}: the lowest it spans");
+                assert_eq!(high, Some(fit.high.today), "{label}: the highest it spans");
+                assert_eq!(row.deposited, opened.outcome.deposited, "{label}");
             }
-            let drawn: Vec<(Amount, Amount)> = opened.outcome.rows.iter().map(ends).collect();
-            assert!(drawn.iter().any(|(low, _)| *low == row.low), "{label}: low");
-            assert!(
-                drawn.iter().any(|(_, high)| *high == row.high),
-                "{label}: high"
-            );
-            // The range is what the opened answer leaves to it: the focused
-            // row, or the options of the way still open (a study fund only
-            // for those who have one), or the lit rows of its arena.
-            let rows = &opened.outcome.rows;
-            let open_way = decision(&opened, LineKind::Way).filter(|way| way.chosen.is_none());
-            let spanned: Vec<&Row> = match (opened.focus, open_way) {
-                (Some(focus), _) => rows.iter().filter(|shown| shown.id == focus).collect(),
-                (None, Some(way)) => way
-                    .options
-                    .iter()
-                    .filter(|option| option.pick != Pick::Wrapper(Wrapper::StudyFund))
-                    .flat_map(|option| &option.rows)
-                    .filter_map(|id| rows.iter().find(|shown| shown.id == *id))
-                    .collect(),
-                (None, None) => rows
-                    .iter()
-                    .filter(|shown| shown.active && shown.excluded.is_none())
-                    .filter(|shown| shown.kind.arena() == row.kind.arena())
-                    .collect(),
-            };
-            let low = spanned.iter().map(|shown| ends(shown).0.today).min();
-            let high = spanned.iter().map(|shown| ends(shown).1.today).max();
-            assert_eq!(low, Some(row.low.today), "{label}: the lowest it spans");
-            assert_eq!(high, Some(row.high.today), "{label}: the highest it spans");
-            assert_eq!(row.deposited, opened.outcome.deposited, "{label}");
-            let per = |amount: Amount| (amount.today / row.deposited.today).round_dp(2);
-            assert_eq!(row.per_shekel, (per(row.low), per(row.high)), "{label}");
         }
     }
 }
 
 /// Where the visitor hasn't said whether the date can move, a date where it
-/// decides the place has a row for each answer; once said, one row a date.
+/// decides the place has a fit for each answer; once said, one a date.
 #[test]
 fn a_date_where_flexibility_decides_has_both_rows_until_answered() {
     let full =
         |answers: &Answers| answer(answers, &Choices::default(), &settings(), &DATA).unwrap();
     let open = full(&bonus());
-    for years in HORIZON_YEARS {
-        let rows = open
-            .horizons
-            .iter()
-            .filter(|row| row.years == years)
-            .count();
+    for row in &open.horizons {
         let at = answered(
             &Answers {
-                horizon: Horizon::Months(years * 12),
+                horizon: Horizon::Months(row.months),
                 ..bonus()
             },
             Choices::default(),
         );
         let decides = decision(&at, LineKind::PlaceType).is_some();
-        assert_eq!(rows, if decides { 2 } else { 1 }, "{years} years");
+        assert_eq!(
+            row.fits.len(),
+            if decides { 2 } else { 1 },
+            "{} months",
+            row.months
+        );
     }
     let can_wait = full(&Answers {
         flexibility: Some(Flexibility::CanWait),
         ..bonus()
     });
-    assert_eq!(can_wait.horizons.len(), HORIZON_YEARS.len());
     assert!(
         can_wait
             .horizons
             .iter()
-            .all(|row| row.flexibility.is_none())
+            .flat_map(|row| &row.fits)
+            .all(|fit| fit.flexibility.is_none())
     );
 }
-
 /// The takeaway names the part that makes most of the difference, as the
 /// bars' own figures say: here fees for the account, tax for the study fund.
 #[test]
@@ -1318,7 +1382,7 @@ fn where_to_buy_names_each_provider_one_way() {
                     assert_ne!(name, average);
                     let provider = name.split("\u{a0}· ").next().unwrap();
                     match how.row {
-                        Kind::FixedDeposit | Kind::LinkedDeposit => {
+                        Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit => {
                             assert!(deposits.iter().any(|bank| bank == name), "{name}");
                         }
                         _ => assert!(
@@ -1405,13 +1469,36 @@ fn the_outcome_holds_the_current_account_and_both_arenas() {
                 outcome.current_account.nominal, outcome.deposited.nominal,
                 "{start:?}: a current account leaves the deposits as they are"
             );
-            for arena in [Arena::Safe, Arena::Index] {
+            // Both lines are drawn, with their amounts (§4.6).
+            assert_eq!(outcome.lines.len(), 2);
+            assert_eq!(outcome.lines[0].value, outcome.deposited);
+            assert_eq!(outcome.lines[1].value, outcome.current_account);
+            // Only options the visitor could choose get a row (§4.6): the
+            // safe side always, the stocks unless the rules leave them out.
+            assert!(outcome.rows.iter().all(|row| row.excluded.is_none()));
+            assert!(
+                outcome
+                    .rows
+                    .iter()
+                    .any(|row| row.kind.arena() == Some(Arena::Safe)),
+                "{start:?} {choices:?}: the safe side is drawn"
+            );
+            let stocks_left_out = start.needs_any_day
+                || matches!(
+                    line(&answer, LineKind::PlaceType).map(|line| &line.state),
+                    Some(LineState::Stated { text, .. }) if text.en.starts_with("Safe")
+                );
+            let stocks_drawn = outcome
+                .rows
+                .iter()
+                .any(|row| row.kind.arena() == Some(Arena::Index));
+            if !stocks_left_out {
+                assert!(stocks_drawn, "{start:?} {choices:?}: stocks are drawn");
+            }
+            if start.needs_any_day {
                 assert!(
-                    outcome
-                        .rows
-                        .iter()
-                        .any(|row| row.kind.arena() == Some(arena)),
-                    "{start:?} {choices:?}: {arena:?} is drawn"
+                    !stocks_drawn,
+                    "{start:?}: no stock row for money needed any day"
                 );
             }
         }
@@ -1434,19 +1521,22 @@ fn the_horizons_grow_with_the_years_and_change_arena_once() {
         let horizons = answer(&start, &Choices::default(), &settings(), &DATA)
             .unwrap()
             .horizons;
-        assert_eq!(horizons.len(), HORIZON_YEARS.len(), "{start:?}");
-        let arenas: Vec<Option<Arena>> = horizons.iter().map(|row| row.kind.arena()).collect();
+        assert!(horizons.iter().all(|row| row.fits.len() == 1), "{start:?}");
+        let arenas: Vec<Option<Arena>> = horizons
+            .iter()
+            .map(|row| row.fits[0].kind.arena())
+            .collect();
         assert_eq!(arenas.first(), Some(&Some(Arena::Safe)), "{start:?}");
         assert_eq!(arenas.last(), Some(&Some(Arena::Index)), "{start:?}");
         assert!(arenas.windows(2).filter(|pair| pair[0] != pair[1]).count() <= 1);
         for pair in horizons.windows(2) {
-            if pair[0].kind.arena() == pair[1].kind.arena() {
+            let (before, after) = (&pair[0].fits[0], &pair[1].fits[0]);
+            if before.kind.arena() == after.kind.arena() {
                 assert!(
-                    pair[1].low.today >= pair[0].low.today
-                        && pair[1].high.today >= pair[0].high.today,
-                    "{} years leaves less than {}",
-                    pair[1].years,
-                    pair[0].years
+                    after.low.today >= before.low.today && after.high.today >= before.high.today,
+                    "{} months leaves less than {}",
+                    pair[1].months,
+                    pair[0].months
                 );
             }
         }
@@ -2319,7 +2409,7 @@ fn where_to_buy_shows_the_ties_and_measures_from_your_bank() {
             let existing = is_existing(&start);
             assert_eq!(
                 place.title,
-                broker_fees::describe::card::where_title(yours.is_some(), existing),
+                broker_fees::describe::card::where_title(yours.is_some(), existing, &how.name),
                 "{label}: the title says what the rows are measured from"
             );
             for row in &place.rows {
@@ -2347,13 +2437,32 @@ fn where_to_buy_shows_the_ties_and_measures_from_your_bank() {
             if how.row == Kind::MoneyMarketFund {
                 assert!(place.rows.is_empty() && place.note.is_some(), "{label}");
             }
+            // The banks are one row until one is named (§4.7).
+            if let Some(reference) = &place.reference {
+                assert!(place.rows.iter().all(|row| !row.yours), "{label}");
+                assert_eq!(
+                    Some((reference.low, reference.high)),
+                    place.bank_range,
+                    "{label}"
+                );
+            }
+            let best = place
+                .rows
+                .first()
+                .map(|row| row.left.today)
+                .into_iter()
+                .chain(
+                    place
+                        .reference
+                        .as_ref()
+                        .map(|reference| reference.high.today),
+                )
+                .max();
             let widens = start.bank.is_none()
                 && how.row != Kind::MoneyMarketFund
-                && place
-                    .rows
-                    .first()
+                && best
                     .zip(place.bank_range)
-                    .is_some_and(|(best, (low, _))| best.left.today - low.today > margin);
+                    .is_some_and(|(best, (low, _))| best - low.today > margin);
             assert_eq!(place.asks_bank, widens, "{label}");
             asked += usize::from(place.asks_bank);
             not_asked += usize::from(start.bank.is_none() && place.bank_range.is_some() && !widens);
@@ -2380,11 +2489,18 @@ fn every_rows_places_hold_its_figure() {
             ) {
                 continue;
             }
-            let places = &how.where_to_buy.as_ref().unwrap().rows;
+            let place = how.where_to_buy.as_ref().unwrap();
+            let places = &place.rows;
+            let ends = place
+                .reference
+                .as_ref()
+                .map(|reference| [reference.low.today, reference.high.today]);
             assert!(
                 places
                     .iter()
-                    .any(|place| (place.left.today - row.value.today).abs() < dec!(0.01)),
+                    .map(|place| place.left.today)
+                    .chain(ends.into_iter().flatten())
+                    .any(|left| (left - row.value.today).abs() < dec!(0.01)),
                 "{start:?} {choices:?} {:?}: {} among {:?}",
                 row.kind,
                 row.value.today,
@@ -2697,7 +2813,14 @@ fn even_less_than_was_put_in_only_when_it_was() {
 #[test]
 fn a_safe_answer_is_clear_when_its_way_is() {
     let mut clear = 0;
-    for (start, choices, answer) in every_answer() {
+    // Monthly money for 10 months: a fund alone (a deposit takes one sum).
+    let short = answers(dec!(0), dec!(1000), 10);
+    let extra = (
+        short.clone(),
+        Choices::default(),
+        answered(&short, Choices::default()),
+    );
+    for (start, choices, answer) in every_answer().into_iter().chain([extra]) {
         let safe = answer
             .outcome
             .rows
@@ -2794,4 +2917,301 @@ fn the_gain_is_drawn_only_where_fees_or_tax_decide() {
         }
     }
     assert!(retirements > 0);
+}
+
+// ─────────────────────────── Part 4 ───────────────────────────
+
+/// The lines' names (§4.1).
+#[test]
+fn the_lines_are_named_by_what_they_decide() {
+    let answer = answered(&salary(), Choices::default());
+    let labels: Vec<&str> = answer.lines.iter().map(|line| &*line.label.he).collect();
+    for label in &labels {
+        assert!(
+            ["כסף לחירום", "מניות או בטוח", "המוצר", "איפה קונים"].contains(label),
+            "{label}"
+        );
+    }
+    assert!(labels.contains(&"מניות או בטוח"));
+}
+
+/// Money that may be needed any day (§4.9) compares every place it can be
+/// taken from the next day, ranked like any safe answer, over a year as an
+/// example: no stock row, no term the visitor never gave.
+#[test]
+fn money_needed_any_day_compares_what_can_be_taken_out_the_next_day() {
+    for bank in [None, Some(Bank::Hapoalim)] {
+        let any_day = Answers {
+            horizon: Horizon::Unknown,
+            needs_any_day: true,
+            bank,
+            ..answers(dec!(30_000), dec!(0), 0)
+        };
+        let answer = answered(&any_day, Choices::default());
+        let kinds: Vec<Kind> = answer.outcome.rows.iter().map(|row| row.kind).collect();
+        assert!(kinds.len() >= 2, "{kinds:?}");
+        for kind in &kinds {
+            assert!(
+                [
+                    Kind::MoneyMarketFund,
+                    Kind::AnyDayDeposit,
+                    Kind::TreasuryBill
+                ]
+                .contains(kind),
+                "{kind:?}"
+            );
+        }
+        assert!(kinds.contains(&Kind::MoneyMarketFund));
+        // Ranked: the rows go by what they leave.
+        let values: Vec<Decimal> = answer
+            .outcome
+            .rows
+            .iter()
+            .map(|row| row.value.today)
+            .collect();
+        assert!(
+            values.windows(2).all(|pair| pair[0] >= pair[1]),
+            "{values:?}"
+        );
+        assert!(
+            answer.outcome.title.he.contains("בעוד שנה"),
+            "{}",
+            answer.outcome.title.he
+        );
+        assert!(!answer.outcome.caption.he.contains("S&P"));
+        for line in &answer.lines {
+            if let LineState::Stated { text, .. } = &line.state {
+                assert!(!text.he.contains("לטווח"), "{}", text.he);
+            }
+        }
+        // The title and the chip follow the numbers.
+        let stated = is_stated(&answer, LineKind::Way);
+        assert_eq!(stated, answer.confidence.state == ConfidenceState::A);
+        // Each says what else differs: where it's kept, what it asks.
+        for row in &answer.outcome.rows {
+            assert!(!row.facts.he.is_empty(), "{:?}", row.kind);
+        }
+    }
+}
+
+/// The plan (§4.5): once every decision is made, its amount, the date and
+/// how sure; for stocks, what the figures were measured on.
+#[test]
+fn the_plan_has_its_amount() {
+    for (start, choices, answer) in every_answer() {
+        assert_eq!(
+            answer.plan.is_some(),
+            answer.plan_amount.is_some(),
+            "{start:?} {choices:?}"
+        );
+        let Some(amount) = &answer.plan_amount else {
+            continue;
+        };
+        let stocks = answer
+            .focus
+            .is_some_and(|focus| matches!(focus, Kind::Way(_)));
+        assert_eq!(amount.example.is_some(), stocks, "{start:?} {choices:?}");
+        assert!(amount.basis.he.contains("בכסף של היום, אחרי מס"));
+        assert!(amount.value.today > Decimal::ZERO);
+    }
+}
+
+/// "איך הגעתם לזה" (§4.5): a step for each line, in the answer's order;
+/// a decided step opens its decision again, a stated one carries its pill;
+/// "איזה מדד" follows the place type wherever the money goes to stocks,
+/// the visitor's call outside the site.
+#[test]
+fn the_path_is_the_lines_in_order() {
+    let mut why = 0;
+    for (start, choices, answer) in every_answer() {
+        let label = format!("{start:?} {choices:?}");
+        if answer.plan.is_none() {
+            assert!(answer.path.is_empty(), "{label}");
+            continue;
+        }
+        let lines: Vec<LineKind> = answer.lines.iter().map(|line| line.kind).collect();
+        let stepped: Vec<LineKind> = answer.path.iter().filter_map(|step| step.line).collect();
+        assert_eq!(stepped, lines, "{label}");
+        for step in &answer.path {
+            let line = step.line.and_then(|kind| line(&answer, kind));
+            match (step.kind, line.map(|line| &line.state)) {
+                (StepKind::Visitor, Some(LineState::Decision(decision))) => {
+                    assert_eq!(step.reopens, Some(decision.id), "{label}");
+                    assert!(decision.chosen.is_some(), "{label}");
+                }
+                (StepKind::Site, Some(LineState::Stated { pill, .. })) => {
+                    assert_eq!(step.pill, Some(*pill), "{label}");
+                    assert!(step.reopens.is_none());
+                }
+                (StepKind::Outside, None) => assert_eq!(step.label.he, "איזה מדד"),
+                (kind, state) => panic!("{label}: {kind:?} for {state:?}"),
+            }
+            assert!(
+                !step.choice.he.is_empty() && !step.hinge.he.is_empty(),
+                "{label}: {step:?}"
+            );
+
+            if let Some(clear) = &step.why_clear {
+                why += 1;
+                assert_eq!(step.kind, StepKind::Site);
+                assert_eq!(step.line, Some(LineKind::PlaceType));
+                assert_eq!(clear.amounts.len(), 4, "{label}");
+                assert!(clear.count.he.contains("מאז 1926"), "{}", clear.count.he);
+                assert!(clear.past.he.contains("לא הבטחה"));
+                assert!(clear.past.he.contains("S&P"));
+            }
+        }
+        let stocks = answer.lines.iter().any(|line| line.kind == LineKind::Way)
+            && answer
+                .focus
+                .is_some_and(|focus| matches!(focus, Kind::Way(_)))
+            && !is_existing(&start);
+        let outside = answer
+            .path
+            .iter()
+            .position(|step| step.kind == StepKind::Outside);
+        assert_eq!(outside.is_some(), stocks, "{label}");
+        if let Some(at) = outside {
+            assert_eq!(
+                answer.path[at - 1].line,
+                Some(LineKind::PlaceType),
+                "{label}"
+            );
+        }
+    }
+    assert!(why > 0, "some place type is stated with its explanation");
+}
+
+/// "למה זה ברור?" for 30 years of stocks (§4.5): every period since 1926,
+/// none ended below what was deposited, and the worst left more than the
+/// safe way; the four amounts in order, from the engine.
+#[test]
+fn why_stocks_are_clear_over_thirty_years() {
+    let thirty = Answers {
+        cushion: Some(Cushion::Has),
+        bank: None,
+        ..salary()
+    };
+    let answer = answered(
+        &thirty,
+        Choices {
+            wrapper: Some(Wrapper::Anyone),
+            account: Some(Account::NewAccount),
+            ..Choices::default()
+        },
+    );
+    let step = answer
+        .path
+        .iter()
+        .find(|step| step.why_clear.is_some())
+        .expect("the place type is stated");
+    let clear = step.why_clear.as_ref().unwrap();
+    let values: Vec<Decimal> = clear
+        .amounts
+        .iter()
+        .map(|figure| figure.value.today)
+        .collect();
+    // Deposited < the safe way < the worst stretch < the yearly return.
+    assert!(
+        values.windows(2).all(|pair| pair[0] < pair[1]),
+        "{values:?}"
+    );
+    let stock = answer
+        .outcome
+        .rows
+        .iter()
+        .find(|row| matches!(row.kind, Kind::Way(_)))
+        .unwrap();
+    let Mark::Market { worst, assumed, .. } = &stock.mark else {
+        panic!("the market's range");
+    };
+    assert_eq!(values[2], worst.today);
+    assert_eq!(values[3], assumed.today);
+    assert!(clear.count.he.contains("810"), "{}", clear.count.he);
+    assert_eq!(step.hinge.he.replace('\u{a0}', " "), "הכסף מחכה 30 שנים.");
+}
+
+/// The outcome chart (§4.6): each mark on a stock band labelled with its
+/// amount, lowest first; the reference lines with theirs; the facts as one
+/// line; the caption names the S&P 500 only where stocks are drawn.
+#[test]
+fn the_chart_labels_every_mark() {
+    for (start, choices, answer) in every_answer() {
+        let label = format!("{start:?} {choices:?}");
+        let stocks = answer
+            .outcome
+            .rows
+            .iter()
+            .any(|row| matches!(row.kind, Kind::Way(_)));
+        assert_eq!(answer.outcome.caption.he.contains("S&P"), stocks, "{label}");
+        for row in &answer.outcome.rows {
+            assert!(!row.facts.he.is_empty() || row.tags.is_empty(), "{label}");
+            match &row.mark {
+                Mark::Market { .. } => {
+                    assert_eq!(row.marks.len(), 4, "{label}");
+                    let values: Vec<Decimal> =
+                        row.marks.iter().map(|mark| mark.value.today).collect();
+                    assert!(values.windows(2).all(|pair| pair[0] <= pair[1]), "{label}");
+                    assert!(row.marks.iter().all(|mark| mark.amount.he.starts_with('₪')));
+                }
+                _ => assert!(row.marks.is_empty(), "{label}"),
+            }
+        }
+    }
+}
+
+/// Where to buy (§4.7): until a bank is named, "דרך בנק" is one row from the
+/// dearest bank to the cheapest, and the difference is said against it.
+#[test]
+fn where_to_buy_measures_from_the_banks_as_one_row() {
+    let mut said = 0;
+    for (start, choices, answer) in every_answer() {
+        for how in &answer.how {
+            let Some(place) = &how.where_to_buy else {
+                continue;
+            };
+            if let Some(reference) = &place.reference {
+                assert!(start.bank.is_none(), "{start:?}");
+                assert!(reference.low.today <= reference.high.today);
+                assert_eq!(reference.name.he, "דרך בנק");
+            }
+            if let Some(difference) = &place.difference {
+                said += 1;
+                let against = if start.bank.is_some() {
+                    "בבנק שלכם"
+                } else {
+                    "דרך בנק"
+                };
+                assert!(
+                    difference.he.contains(against),
+                    "{start:?} {choices:?}: {}",
+                    difference.he
+                );
+            }
+        }
+    }
+    assert!(said > 0);
+}
+
+/// The gain's parts (§4.7): each with its name and amount, the fund's own
+/// cost a part of its own; together the gain.
+#[test]
+fn the_gain_parts_are_named_and_add_up() {
+    let mut seen = 0;
+    for (_, _, answer) in every_answer() {
+        let Some(gain) = &answer.gain else { continue };
+        for row in &gain.rows {
+            seen += 1;
+            let sum: Decimal = row.parts.iter().map(|part| part.value.today).sum();
+            let whole = row.kept.today + row.tax.today + row.fees.today + row.product.today;
+            assert_eq!(sum, whole);
+            assert_eq!(row.note.is_some(), row.tax.today.is_zero());
+            assert!(
+                row.parts
+                    .iter()
+                    .any(|part| part.which == GainPartKind::Fund)
+            );
+        }
+    }
+    assert!(seen > 0);
 }

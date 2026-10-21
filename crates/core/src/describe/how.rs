@@ -178,7 +178,7 @@ pub fn identity(ctx: &Context) -> Vec<Text> {
         Kind::AnyDayDeposit => vec![
             fixed(
                 "A deposit at your bank that you can take out any day",
-                "פיקדון בבנק שלכם, שאפשר למשוך ממנו בכל יום",
+                "פיקדון בבנק שבו יש לכם חשבון, שאפשר למשוך ממנו בכל יום",
             ),
             fixed(
                 "Opened in the bank's app or at a branch",
@@ -330,14 +330,8 @@ pub fn facts(ctx: &Context) -> Vec<Fact> {
     let out = |answer: Text| row(fixed("When you can take it out", "מתי אפשר למשוך"), answer);
     let currency = |answer: Text| row(fixed("Currency", "מטבע"), answer);
     let shekels_only = || fixed("Shekels", "שקלים");
-    let index_earns = fixed(
-        "Like the index: rises and falls",
-        "כמו המדד: עולה ויורד",
-    );
-    let track_earns = fixed(
-        "Like the track: rises and falls",
-        "כמו המסלול: עולה ויורד",
-    );
+    let index_earns = fixed("Like the index: rises and falls", "כמו המדד: עולה ויורד");
+    let track_earns = fixed("Like the track: rises and falls", "כמו המסלול: עולה ויורד");
     let with_the_dollar = fixed(
         "Shekels; rises and falls with the shares and with the dollar",
         "שקלים; עולה ויורדת עם המניות ועם הדולר",
@@ -392,7 +386,10 @@ pub fn facts(ctx: &Context) -> Vec<Fact> {
                 "A short-term loan to the Bank of Israel (מלווה קצר מועד), traded on the Tel Aviv Stock Exchange",
                 "מלווה קצר מועד של בנק ישראל, שנסחר בבורסה בתל אביב",
             )),
-            earns(fixed("A yield set on the day you buy", "תשואה שנקבעת ביום הקנייה")),
+            earns(fixed(
+                "A yield set on the day you buy",
+                "תשואה שנקבעת ביום הקנייה",
+            )),
             out(fixed(
                 "Repaid within a year. It can be sold any trading day, at that day's price, which moves a little",
                 "נפדה בתוך שנה. אפשר למכור בכל יום מסחר, במחיר של אותו יום, שזז מעט",
@@ -430,9 +427,12 @@ pub fn facts(ctx: &Context) -> Vec<Fact> {
         Kind::AnyDayDeposit => vec![
             what(fixed(
                 "A deposit at your bank that you can take out any day",
-                "פיקדון בבנק שלכם, שאפשר למשוך ממנו בכל יום",
+                "פיקדון בבנק שבו יש לכם חשבון, שאפשר למשוך ממנו בכל יום",
             )),
-            earns(fixed("A variable rate the bank sets", "ריבית משתנה, שהבנק קובע")),
+            earns(fixed(
+                "A variable rate the bank sets",
+                "ריבית משתנה, שהבנק קובע",
+            )),
             out(fixed("Any day", "בכל יום")),
             currency(shekels_only()),
         ],
@@ -528,10 +528,9 @@ pub fn facts(ctx: &Context) -> Vec<Fact> {
             (Vehicle::Brokerage, Product::UsFund) => vec![
                 what(both(|lang| match lang {
                     Lang::En => format!("{}, traded on a US exchange", holds("A US ETF", "").en),
-                    Lang::He => format!(
-                        "{}, שנסחרת בבורסה בארה״ב",
-                        holds("", "קרן סל אמריקאית").he
-                    ),
+                    Lang::He => {
+                        format!("{}, שנסחרת בבורסה בארה״ב", holds("", "קרן סל אמריקאית").he)
+                    }
                 })),
                 earns(index_earns),
                 out(fixed("Any trading day", "בכל יום מסחר")),
@@ -655,7 +654,7 @@ pub fn search(ctx: &Context, cheapest_funds: Option<&FundTie>) -> Option<Slot> {
         }))),
         Kind::AnyDayDeposit => Some(plain(fixed(
             "daily deposit (פיקדון יומי), at your bank",
-            "פיקדון יומי, בבנק שלכם",
+            "פיקדון יומי, בבנק שבו יש לכם חשבון",
         ))),
         Kind::TreasuryBill => Some(plain(fixed(
             "makam (מק״מ), the series repaid in about a year",
@@ -1147,7 +1146,7 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
         Kind::AnyDayDeposit => {
             steps.push(fixed(
                 "In your bank's app or at a branch, open a deposit you can take out any day (a daily deposit, פיקדון יומי). The rate is variable: ask what it is today.",
-                "באפליקציה של הבנק שלכם או בסניף, פותחים פיקדון שאפשר למשוך ממנו בכל יום (פיקדון יומי). הריבית משתנה: שאלו כמה היא היום.",
+                "באפליקציה של הבנק או בסניף, פותחים פיקדון שאפשר למשוך ממנו בכל יום (פיקדון יומי). הריבית משתנה: שאלו כמה היא היום.",
             ));
             steps.extend(buying(
                 ctx,
@@ -1170,7 +1169,9 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
             steps.extend(buying(
                 ctx,
                 both(|lang| match lang {
-                    Lang::En => format!("Search for makam (מק״מ) repaid in about a year, and buy {now} of it."),
+                    Lang::En => format!(
+                        "Search for makam (מק״מ) repaid in about a year, and buy {now} of it."
+                    ),
                     Lang::He => format!("מחפשים מק״מ שנפדה בעוד כשנה, וקונים ב\u{2011}{now}."),
                 }),
                 both(|lang| match lang {
@@ -1207,25 +1208,23 @@ pub fn steps(ctx: &Context) -> Vec<Text> {
                         Lang::He => format!("בכל חודש קונים ממנה עוד ב\u{2011}{monthly}."),
                     }),
                 ));
-                steps.push(both(|lang| {
-                    match (end(ctx), ctx.flexibility, lang) {
-                        (Some(_), Some(Flexibility::CanWait), Lang::En) => format!(
-                            "Don't touch it until {}. If the market is down then, wait a year or two.",
-                            year(ctx, lang)
-                        ),
-                        (Some(_), Some(Flexibility::CanWait), Lang::He) => format!(
-                            "לא נוגעים עד {}. אם הבורסה תהיה אז בירידה, מחכים שנה\u{2011}שנתיים.",
-                            year(ctx, lang)
-                        ),
-                        (Some(_), _, Lang::En) => format!("Don't touch it until {}.", year(ctx, lang)),
-                        (Some(_), _, Lang::He) => format!("לא נוגעים עד {}.", year(ctx, lang)),
-                        (None, _, _) => lang
-                            .pick(
-                                "Don't touch it until you need the money.",
-                                "לא נוגעים עד שצריך את הכסף.",
-                            )
-                            .to_owned(),
-                    }
+                steps.push(both(|lang| match (end(ctx), ctx.flexibility, lang) {
+                    (Some(_), Some(Flexibility::CanWait), Lang::En) => format!(
+                        "Don't touch it until {}. If the market is down then, wait a year or two.",
+                        year(ctx, lang)
+                    ),
+                    (Some(_), Some(Flexibility::CanWait), Lang::He) => format!(
+                        "לא נוגעים עד {}. אם הבורסה תהיה אז בירידה, מחכים שנה\u{2011}שנתיים.",
+                        year(ctx, lang)
+                    ),
+                    (Some(_), _, Lang::En) => format!("Don't touch it until {}.", year(ctx, lang)),
+                    (Some(_), _, Lang::He) => format!("לא נוגעים עד {}.", year(ctx, lang)),
+                    (None, _, _) => lang
+                        .pick(
+                            "Don't touch it until you need the money.",
+                            "לא נוגעים עד שצריך את הכסף.",
+                        )
+                        .to_owned(),
                 }));
                 steps.push(index_tax(way.product));
             } else {
