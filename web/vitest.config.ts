@@ -13,6 +13,9 @@ export default defineConfig({
     // A test of a module with runes is itself a `.svelte.ts` module.
     include: ['src/**/*.test.ts', 'src/**/*.test.svelte.ts'],
     environment: 'jsdom',
+    // The answer card's tests work out several answers in-line with the real
+    // core; on GitHub's runners one took 5.6 s, past the default 5.
+    testTimeout: 30_000,
     setupFiles: ['src/test-setup.ts'],
     coverage: {
       include: ['src/**/*.ts', 'src/**/*.svelte'],
