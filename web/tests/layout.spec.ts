@@ -271,7 +271,7 @@ test(
     await checkLayout(page, 'how to do it, empty')
     await decide(page, goal, {}, 'SafeWay', { SafeWay: 'Bond' })
     const where = page.locator('section.how .where')
-    await expect(where.locator('.row.yours').first()).toBeVisible()
+    await expect(where.locator('.row.reference').first()).toBeVisible()
     await checkLayout(page, 'where to buy, from the banks’ range')
     await page.locator('#bank').selectOption(banks()[3].bank)
     await expect(page.locator('#bank')).toHaveValue(banks()[3].bank)

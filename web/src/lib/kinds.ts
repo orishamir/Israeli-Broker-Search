@@ -25,6 +25,8 @@ export function kindByKey(key: string): Kind | undefined {
     key === 'MoneyMarketFund' ||
     key === 'FixedDeposit' ||
     key === 'LinkedDeposit' ||
+    key === 'AnyDayDeposit' ||
+    key === 'TreasuryBill' ||
     key === 'CurrentAccount'
   )
     return key

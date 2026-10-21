@@ -77,6 +77,26 @@ pub fn name(kind: Kind) -> Text {
     }
 }
 
+/// The words before the yearly return's field on a stock row (§4.6):
+/// "אם המדד יעלה" where the row's name names the index it refers back to
+/// (a fund on a broad stock index), else the index in full (a fund's stock
+/// track names no index: §2.8's amendment).
+#[must_use]
+pub fn return_lead(kind: Kind) -> Text {
+    let wrapped = matches!(
+        kind,
+        Kind::Way(way) if matches!(
+            way.vehicle,
+            Vehicle::InvestmentGemel | Vehicle::StudyFund | Vehicle::SavingsPolicy
+        )
+    );
+    if wrapped {
+        fixed("If the broad stock index rises", "אם מדד המניות הרחב יעלה")
+    } else {
+        fixed("If the index rises", "אם המדד יעלה")
+    }
+}
+
 /// Where a fund on an exchange trades, as its facts and a full name say it.
 fn trades_in(kind: Kind) -> Option<Text> {
     let Kind::Way(way) = kind else { return None };

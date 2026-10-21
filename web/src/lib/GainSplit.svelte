@@ -1,12 +1,13 @@
 <script lang="ts">
-  // "כמה מהרווח נשאר אצלכם" (REDESIGN.md §2.7): shown only where fees or tax
-  // decide something on the page (`app.answer.gain`). The lead gives the
-  // deposits, which the bars don't draw; one bar per option on one ₪ scale,
-  // the gain only, every part named with its amount under the bar; then
-  // the takeaway. All from the core, in today's money.
+  // "כמה מהרווח נשאר אצלכם" (REDESIGN.md §2.7, amended by §4.7): shown only
+  // where fees or tax decide something on the page (`app.answer.gain`). The
+  // lead gives the deposits, which the bars don't draw; one bar per option
+  // on one ₪ scale, the gain only, every part named with its amount on it or
+  // beside it (`gain.ts`), "הקרן עצמה" in a colour of its own; then the
+  // sentence saying where the difference mostly comes from. All from the
+  // core, in today's money.
   import type { AppState } from './app.svelte'
-  import { shekels } from './format'
-  import { GAIN_COLORS, gainBars, type GainPartId } from './gain'
+  import { GAIN_COLORS, GAIN_LANE, gainBars } from './gain'
   import { HeldWhileTyping } from './held.svelte'
   import { glideHeight } from './motion'
   import { t } from './text'
@@ -15,14 +16,32 @@
 
   const held = new HeldWhileTyping(() => app.answer?.gain)
   const gain = $derived(held.current)
-  const bars = $derived(gain ? gainBars(gain.rows) : [])
 
-  const partName: Record<GainPartId, string> = {
-    kept: t.gainKept,
-    tax: t.gainTax,
-    fees: t.gainFees,
-    product: t.gainProduct,
+  /** The bars' width, px. */
+  let width = $state(0)
+  let list: HTMLElement | null = $state(null)
+  $effect(() => {
+    if (!list) return
+    const observer = new ResizeObserver(([entry]) => {
+      const next = Math.round(entry.contentRect.width)
+      if (next > 0 && next !== width) width = next
+    })
+    observer.observe(list)
+    return () => observer.disconnect()
+  })
+
+  const FONT_PX = 12
+  let context: CanvasRenderingContext2D | null = null
+  const measure = (text: string): number => {
+    context ??= document.createElement('canvas').getContext('2d')
+    if (!context) return text.length * 7
+    context.font = `600 ${FONT_PX}px ${getComputedStyle(document.documentElement).fontFamily}`
+    return Math.ceil(context.measureText(text).width) + 6
   }
+
+  const bars = $derived(gain ? gainBars(gain.rows, width || 400, measure) : [])
+  const BAR = 22
+  const share = (fraction: number) => `${(fraction * 100).toFixed(3)}%`
 </script>
 
 {#if gain}
@@ -30,35 +49,48 @@
     <div>
       <h2 id="gain-title">{t.gainTitle}</h2>
       <p class="lead">{gain.lead}</p>
-      <ul class="bars">
+      <ul class="bars" bind:this={list}>
         {#each bars as bar, at (at)}
           <li>
-            <span class="name">{bar.name}</span>
+            <span class="name"
+              >{bar.name}{#if bar.note}&nbsp;<span class="note">{bar.note}</span>{/if}</span
+            >
             <span
-              class="bar"
+              class="track"
               role="img"
               aria-label={t.gainBarLabel(
                 bar.name,
-                bar.parts.map((part) => `${partName[part.id]} ${shekels(part.value)}`).join(', '),
+                [...bar.segments.map(({ text }) => text), ...bar.undrawn].join(', '),
               )}
+              style:block-size="{(bar.above + bar.below) * GAIN_LANE + BAR}px"
             >
-              {#each bar.segments as segment (segment.id)}
+              {#each bar.segments as segment (segment.which)}
                 <span
-                  class="segment {segment.id}"
-                  style:--color={GAIN_COLORS[segment.id]}
-                  style:inline-size="{segment.width * 100}%"
-                ></span>
+                  class="segment"
+                  aria-hidden="true"
+                  style:--color={GAIN_COLORS[segment.which]}
+                  style:inset-block-start="{bar.above * GAIN_LANE}px"
+                  style:inset-inline-start={share(segment.from)}
+                  style:inline-size={share(segment.width)}
+                  >{#if segment.inside}<span class="words">{segment.text}</span>{/if}</span
+                >
+              {/each}
+              {#each bar.beside as label (label.key)}
+                <span
+                  class="beside"
+                  aria-hidden="true"
+                  style:--color={GAIN_COLORS[label.which]}
+                  style:inset-block-start="{label.lane === 0
+                    ? 0
+                    : bar.above * GAIN_LANE + BAR + (label.lane - 1) * GAIN_LANE + 2}px"
+                  style:inset-inline-start="{label.x}px"
+                  style:inline-size="{label.width}px">{label.text}</span
+                >
               {/each}
             </span>
-            <span class="parts" aria-hidden="true">
-              {#each bar.parts as part (part.id)}
-                <span class="part">
-                  <span class="swatch {part.id}" style:--color={GAIN_COLORS[part.id]}></span>
-                  {partName[part.id]}
-                  <bdi class="amount" dir="ltr">{shekels(part.value)}</bdi>
-                </span>
-              {/each}
-            </span>
+            {#if bar.undrawn.length > 0}
+              <span class="undrawn">{bar.undrawn.join(' · ')}</span>
+            {/if}
           </li>
         {/each}
       </ul>
@@ -83,7 +115,7 @@
 
   .bars {
     display: grid;
-    gap: 16px;
+    gap: 14px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -98,16 +130,31 @@
     font-weight: 600;
   }
 
-  .bar {
-    display: flex;
-    gap: 2px;
-    block-size: 20px;
+  .note {
+    color: var(--weak);
+    font-size: 0.85rem;
+    font-weight: 400;
   }
 
+  .track {
+    position: relative;
+    display: block;
+  }
+
+  /* Parts are 2 px apart: each loses a pixel on either side. */
   .segment {
+    position: absolute;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    block-size: 22px;
     min-inline-size: 2px;
+    border-inline: 1px solid var(--surface);
     background: var(--color);
-    transition: inline-size var(--settle);
+    transition:
+      inline-size var(--settle),
+      inset-inline-start var(--settle);
   }
 
   .segment:first-child {
@@ -115,45 +162,31 @@
     border-end-start-radius: 4px;
   }
 
-  .segment:last-child {
-    border-start-end-radius: 4px;
-    border-end-end-radius: 4px;
+  .words {
+    color: #0d0f14;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
   }
 
-  /* The fund's own cost is a fee too: the fees' hue, hatched. */
-  .product {
-    background: repeating-linear-gradient(
-      45deg,
-      var(--color) 0 3px,
-      color-mix(in srgb, var(--color) 35%, var(--surface)) 3px 6px
-    );
+  /* A part too narrow for its words: they sit beside it, with a short
+     stroke of its colour under them, so they are read as its. */
+  .beside {
+    position: absolute;
+    box-sizing: border-box;
+    color: var(--text);
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+    white-space: nowrap;
+    border-block-end: 2px solid var(--color);
+    transition: inset-inline-start var(--settle);
   }
 
-  .parts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px 16px;
+  .undrawn {
     color: var(--weak);
     font-size: 0.85rem;
-  }
-
-  .part {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .swatch {
-    flex: none;
-    inline-size: 12px;
-    block-size: 12px;
-    border-radius: 3px;
-    background: var(--color);
-  }
-
-  .amount {
-    color: var(--text);
-    font-variant-numeric: tabular-nums;
   }
 
   .takeaway {
@@ -161,7 +194,8 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .segment {
+    .segment,
+    .beside {
       transition: none;
     }
   }

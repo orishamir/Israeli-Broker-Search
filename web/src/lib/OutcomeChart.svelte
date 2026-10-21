@@ -1,15 +1,17 @@
 <script lang="ts">
-  // "מה יהיה לכם ב‑…" (REDESIGN.md §2.6): every option as a row on one ₪
-  // axis, in today's money and after tax, beside what was put in (solid) and
-  // the current account (dashed). The rows are the list of options: a tap
-  // shows the row's "איך עושים את זה" (`app.focusRow`); it never changes
-  // the answer. Rows the visitor's choices leave out dim. The index's row
-  // carries the return its figure assumes, which can be set right there.
-  // Where everything goes is `outcome.ts`'s.
+  // "מה יהיה לכם ב‑…" (REDESIGN.md §2.6, amended by §4.6): every option the
+  // visitor could choose as a row on one ₪ axis, in today's money and after
+  // tax, through which run what was put in (solid) and the current account
+  // (dashed), each labelled with its amount. A row has its name with its
+  // amount beside it, its facts in plain words, and its marks; a stock
+  // row's band labels every mark with its amount, and the first stock row
+  // carries the return its figures assume, as a field: "אם המדד יעלה [10]%
+  // בשנה". The rows are the list of options: a tap shows the row's "איך
+  // עושים את זה" (`app.focusRow`); it never changes the answer. Rows the
+  // visitor's choices leave out dim. Where everything goes is `outcome.ts`'s.
   import type { AppState } from './app.svelte'
   import { kindColor } from './colors'
   import * as core from './core/core'
-  import { shekels } from './format'
   import { HeldWhileTyping } from './held.svelte'
   import { kindKey } from './kinds'
   import NumberField from './NumberField.svelte'
@@ -18,8 +20,10 @@
     at,
     fieldRow,
     isFocused,
+    LANE,
     layoutRow,
-    legendKeys,
+    LINE_LANES,
+    lineLabels,
     notes,
     rowLabel,
     ticks,
@@ -56,76 +60,65 @@
     context.font = `${LABEL_FONT_PX}px ${getComputedStyle(document.documentElement).fontFamily}`
     return Math.ceil(context.measureText(text).width) + 6
   }
-  /** The field's box, px, and the gap before "בשנה". */
-  const FIELD_WIDTH = 66
-  const FIELD_GAP = 6
 
   const percent = $derived(app.yearlyReturnPercent ?? 0)
   const span: Span = $derived({ min: outcome?.axis[0] ?? 0, max: outcome?.axis[1] ?? 1 })
+  const track = $derived(width || 400)
   const field = $derived(outcome ? fieldRow(outcome.rows) : -1)
   const plain = $derived(assumedText(percent, words))
-  const layouts = $derived.by(() => {
-    if (!outcome) return []
-    const track = width || 400
-    return outcome.rows.map((row, index) =>
-      layoutRow(
-        row,
-        span,
-        track,
-        words,
-        {
-          text: measure,
-          assumed: index === field ? FIELD_WIDTH + FIELD_GAP + measure(words.perYear) : measure(plain),
-          assumedText: plain,
-        },
-        index === field,
-      ),
-    )
-  })
+  const layouts = $derived(
+    outcome
+      ? outcome.rows.map((row) => layoutRow(row, span, track, { text: measure, assumedText: plain }))
+      : [],
+  )
   const rowNotes = $derived(outcome ? notes(outcome.rows) : [])
-  const keys = $derived(outcome ? legendKeys(outcome) : { known: false, market: false })
-  const axisTicks = $derived(ticks(span, width || 400))
-  const deposited = $derived(outcome ? at(span, outcome.deposited.today) : 0)
-  const cash = $derived(outcome ? at(span, outcome.currentAccount.today) : 0)
+  const axisTicks = $derived(ticks(span, track))
+  const lines = $derived(outcome ? lineLabels(outcome.lines, span, track, measure) : [])
   const share = (fraction: number) => `${(Math.min(1, Math.max(0, fraction)) * 100).toFixed(3)}%`
+  const lineAt = (which: core.RefLineKind) =>
+    share(at(span, outcome?.lines.find((line) => line.which === which)?.value.today ?? span.min))
 </script>
+
+{#snippet refs()}
+  <span class="ref deposited" style:inset-inline-start={lineAt('Deposited')}></span>
+  <span class="ref cash" style:inset-inline-start={lineAt('CurrentAccount')}></span>
+{/snippet}
 
 {#if outcome && outcome.rows.length > 0}
   <section class="card outcome" class:stale={app.stale} aria-labelledby="outcome-title">
     <div class="heading">
       <h2 id="outcome-title">{outcome.title}</h2>
-      <p class="subtitle">{words.subtitle}</p>
+      <p class="caption">{outcome.caption}</p>
     </div>
 
-    <ul class="legend">
-      <li>
-        <span class="sample line deposited" aria-hidden="true"></span>
-        {words.deposited}:&nbsp;<strong class="num">{shekels(outcome.deposited.today)}</strong>
-      </li>
-      <li>
-        <span class="sample line cash" aria-hidden="true"></span>
-        {words.currentAccount}:&nbsp;<strong class="num">{shekels(outcome.currentAccount.today)}</strong>
-      </li>
-      {#if keys.known}
-        <li><span class="sample known" aria-hidden="true"></span>{words.known}</li>
-      {/if}
-      {#if keys.market}
-        <li><span class="sample range" aria-hidden="true"></span>{words.market}</li>
-      {/if}
+    <!-- The lines' amounts, for a screen reader; drawn beside the lines. -->
+    <ul class="sr-only">
+      {#each outcome.lines as line (line.which)}<li>{line.label} {line.amount}</li>{/each}
     </ul>
 
     <div class="rows" role="list">
+      <div class="row lines" aria-hidden="true">
+        <span class="track" dir="ltr" style:--track-height="{LINE_LANES * LANE + 6}px">
+          {@render refs()}
+          {#each lines as label (label.key)}
+            <span
+              class="line-label {label.key}"
+              style:top="{label.top}px"
+              style:inset-inline-start="{label.x}px"
+              style:width="{label.width}px"><bdi dir="rtl">{label.text}</bdi></span
+            >
+          {/each}
+        </span>
+      </div>
       {#each outcome.rows as row, index (kindKey(row.id))}
         {@const layout = layouts[index]}
         {@const focused = isFocused(row, app.focusedRow)}
-        {@const color = kindColor(row.id)}
         <div
           class="row"
           role="listitem"
           class:dim={!row.active && !focused}
           class:focused
-          style:--kind={color}
-          style:--track-height="{layout.height}px"
+          style:--kind={kindColor(row.id)}
         >
           <!-- The row's button lies under its content, which lets the pointer
                through: a field can't sit inside a button, and the return's does. -->
@@ -136,18 +129,35 @@
             aria-label={rowLabel(row, words, percent)}
             onclick={() => app.focusRow(row.id)}
           ></button>
-          <span class="name" aria-hidden="true">
-            <span class="titled"><span class="swatch"></span><span>{row.name}</span></span>
-            {#if row.tags.length > 0}
-              <span class="tags">
-                {#each row.tags as tag, at (at)}<span class="tag">{tag}</span>{/each}
-              </span>
-            {/if}
+          <span class="head">
+            <span class="titled" aria-hidden="true"
+              ><span class="swatch"></span><span class="name">{row.name}</span></span
+            >
+            <!-- An excluded option shows no end figure, only its reason (a note). -->
+            <span class="value num" aria-hidden="true">{row.excluded ? '' : row.amount}</span>
+            <span class="sub">
+              {#if row.facts}<span class="facts" aria-hidden="true">{row.facts}</span>{/if}
+              {#if index === field}
+                <span class="return">
+                  <span aria-hidden="true">{row.returnLead}</span>
+                  <span class="box">
+                    <NumberField
+                      id="outcome-return"
+                      suffix="%"
+                      step={0.5}
+                      label={t.outcomeReturnLabel}
+                      bind:value={app.yearlyReturnPercent}
+                    />
+                  </span>
+                  <span aria-hidden="true">{words.perYear}</span>
+                </span>
+              {/if}
+            </span>
           </span>
-          <span class="track" dir="ltr">
+          <!-- The lines run the row's whole height, behind its marks. -->
+          <span class="refs" dir="ltr" aria-hidden="true">{@render refs()}</span>
+          <span class="track" dir="ltr" style:--track-height="{layout.height}px">
             <span class="marks" aria-hidden="true">
-              <span class="ref deposited" style:inset-inline-start={share(deposited)}></span>
-              <span class="ref cash" style:inset-inline-start={share(cash)}></span>
               {#if layout.bar}
                 <span
                   class="bar {layout.bar.kind}"
@@ -170,43 +180,16 @@
                 ></span>
               {/if}
               {#each layout.labels as label (label.key)}
-                {#if !(label.key === 'assumed' && index === field)}
-                  <!-- Placed in the track's left-to-right terms; the words inside read right to left. -->
-                  <span
-                    class="label {label.key}"
-                    style:top="{label.top}px"
-                    style:inset-inline-start="{label.x}px"
-                    style:width="{label.width}px"><bdi dir="rtl">{label.text}</bdi></span
-                  >
-                {/if}
-              {/each}
-            </span>
-            {#if index === field}
-              {@const label = layout.labels.find(({ key }) => key === 'assumed')}
-              {#if label}
-                <!-- Left to right on the track: "בשנה" first, so the field reads first. -->
+                <!-- Placed in the track's left-to-right terms; the words inside read right to left. -->
                 <span
-                  class="return"
+                  class="label {label.key}"
                   style:top="{label.top}px"
                   style:inset-inline-start="{label.x}px"
-                  style:width="{label.width}px"
+                  style:width="{label.width}px"><bdi dir="rtl">{label.text}</bdi></span
                 >
-                  <span aria-hidden="true">{words.perYear}</span>
-                  <span class="box" dir="rtl" style:width="{FIELD_WIDTH}px">
-                    <NumberField
-                      id="outcome-return"
-                      suffix="%"
-                      step={0.5}
-                      label={t.outcomeReturnLabel}
-                      bind:value={app.yearlyReturnPercent}
-                    />
-                  </span>
-                </span>
-              {/if}
-            {/if}
+              {/each}
+            </span>
           </span>
-          <!-- An excluded option shows no end figure, only its reason (a note). -->
-          <span class="value num" aria-hidden="true">{row.excluded ? '' : row.amount}</span>
           {#each rowNotes[index] as note, at (at)}
             <p class="note">{note}</p>
           {/each}
@@ -219,7 +202,7 @@
             <span class="axis-mark" style:inset-inline-start={share(tick.at)}></span>
             <span
               class="axis-tick"
-              style:inset-inline-start="{tickLabelX(tick, width || 400, labelWidth)}px"
+              style:inset-inline-start="{tickLabelX(tick, track, labelWidth)}px"
               style:width="{labelWidth}px">{tick.label}</span
             >
           {/each}
@@ -231,8 +214,6 @@
 
 <style>
   .outcome {
-    /* On the card, not the rows: the legend's sample uses it too (unset
-       there, its line wasn't drawn at all). */
     --reference: color-mix(in srgb, var(--text) 75%, transparent);
 
     display: flex;
@@ -251,74 +232,38 @@
   h2 {
     margin: 0;
   }
-  .subtitle {
+  .caption {
     margin: 0;
     color: var(--weak);
   }
-
-  /* ── The legend ── */
-  .legend {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 20px;
-    margin: 0;
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
     padding: 0;
-    list-style: none;
-    font-size: 0.875rem;
-  }
-  .legend li {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  .sample {
-    flex: none;
-  }
-  .sample.line {
-    width: 0;
-    height: 18px;
-  }
-  .sample.deposited,
-  .ref.deposited {
-    border-inline-start: 2px solid var(--reference);
-  }
-  .sample.cash,
-  .ref.cash {
-    border-inline-start: 2px dashed var(--weak);
-  }
-  .sample.known {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    background: var(--text);
-  }
-  .sample.range {
-    box-sizing: border-box;
-    width: 30px;
-    height: 10px;
-    border: 1.5px solid var(--text);
-    border-radius: 5px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 
-  /* ── The rows: the name, the track, the amount; on a narrow card the
-     track goes under the name and the amount ── */
+  /* ── The rows: the name with its amount and facts, then the track; on a
+     narrow card the track goes under them ── */
   .rows {
-    --name-column: 15rem;
-    --value-column: 7.5rem;
+    --head-column: 21rem;
+    --value-column: 8.5rem;
 
     display: flex;
     flex-direction: column;
-    border-top: 1px solid var(--border);
   }
   .row {
     --row-background: var(--surface);
 
     position: relative;
     display: grid;
-    grid-template-columns: var(--name-column) minmax(0, 1fr) var(--value-column);
-    align-items: center;
-    min-height: 56px;
-    padding-block: 8px;
+    grid-template-columns: var(--head-column) minmax(0, 1fr);
+    align-items: start;
+    padding-block: 10px;
     border-bottom: 1px solid var(--border);
     background: var(--row-background);
     transition:
@@ -330,6 +275,13 @@
   }
   .row.focused {
     --row-background: var(--raised);
+  }
+  .row.lines {
+    padding-block: 0;
+  }
+  .row .track {
+    grid-row: 1;
+    grid-column: 2;
   }
   /* The whole row is the button; what's drawn over it lets the pointer
      through, except the return's field. */
@@ -354,24 +306,29 @@
   .press[aria-pressed='true'] {
     box-shadow: inset -3px 0 0 var(--strong-border);
   }
-  .name,
+  .head,
   .track,
-  .value,
   .note {
     position: relative;
     pointer-events: none;
   }
-  .name {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+  /* Name and amount on the first line, the amount in a column of its own
+     width so a new amount never rewraps the name (principle 21); the facts
+     and the return's field on the second. */
+  .head {
+    grid-row: 1;
+    grid-column: 1;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--value-column);
+    gap: 4px 10px;
+    align-items: baseline;
     padding-inline: 12px;
-    font-weight: 600;
   }
   .titled {
     display: flex;
     align-items: baseline;
     gap: 8px;
+    font-weight: 700;
   }
   .swatch {
     flex: none;
@@ -380,31 +337,46 @@
     border-radius: 50%;
     background: var(--kind);
   }
-  .tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-  .tag {
-    padding: 1px 8px;
-    border-radius: 999px;
-    background: var(--raised-strong);
-    color: var(--weak);
-    font-size: 0.8125rem;
-    font-weight: 400;
-  }
   .value {
-    padding-inline: 12px;
     font-weight: 700;
     text-align: end;
+    white-space: nowrap;
   }
   .num {
     font-variant-numeric: tabular-nums;
   }
+  .sub {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 4px 12px;
+    color: var(--weak);
+    font-size: 0.85rem;
+  }
+  .sub:empty {
+    display: none;
+  }
+  .return {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text);
+    white-space: nowrap;
+    pointer-events: auto;
+  }
+  .return .box {
+    flex: none;
+    width: 4.75rem;
+  }
+  .return .box :global(input) {
+    padding-block: 4px;
+  }
   .note {
     grid-column: 1 / -1;
     margin: 0;
-    padding: 4px 12px 0;
+    padding: 6px 12px 0;
     color: var(--weak);
     font-size: 0.875rem;
   }
@@ -413,12 +385,22 @@
   .track {
     position: relative;
     display: block;
+    align-self: center;
     height: var(--track-height);
     margin-inline: 8px;
   }
   .marks {
     position: absolute;
     inset: 0;
+  }
+  .refs {
+    position: relative;
+    grid-row: 1;
+    grid-column: 2;
+    align-self: stretch;
+    margin-block: -10px;
+    margin-inline: 8px;
+    pointer-events: none;
   }
   .ref {
     position: absolute;
@@ -427,6 +409,30 @@
     width: 0;
     margin-inline-start: -1px;
     transition: inset-inline-start var(--settle);
+  }
+  .ref.deposited {
+    border-inline-start: 2px solid var(--reference);
+  }
+  .ref.cash {
+    border-inline-start: 2px dashed var(--weak);
+  }
+  .line-label {
+    position: absolute;
+    box-sizing: border-box;
+    padding-inline: 3px;
+    border-radius: 3px;
+    background: var(--surface);
+    color: var(--weak);
+    font-size: 12px;
+    line-height: 16px;
+    white-space: nowrap;
+    text-align: center;
+    transition:
+      inset-inline-start var(--settle),
+      top var(--settle);
+  }
+  .line-label.Deposited {
+    color: var(--text);
   }
   .bar,
   .tick,
@@ -484,14 +490,14 @@
   .tick.assumed {
     width: 4px;
     height: 24px;
-    background: var(--kind);
+    background: var(--text);
     box-shadow: 0 0 0 2px var(--row-background);
   }
   .tick.median {
     width: 2px;
     height: 18px;
     margin-inline-start: -1px;
-    background: var(--text);
+    background: color-mix(in srgb, var(--text) 60%, transparent);
   }
   .dot {
     box-sizing: border-box;
@@ -522,35 +528,12 @@
     font-weight: 600;
   }
 
-  /* The return's field sits on the track, over the row's button: only it
-     takes the pointer. */
-  .return {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    height: 32px;
-    font-size: 13px;
-    font-weight: 600;
-    pointer-events: auto;
-    transition: inset-inline-start var(--settle);
-  }
-  .return .box {
-    flex: none;
-  }
-  .return .box :global(input) {
-    padding-block: 4px;
-  }
-
   /* ── The axis ── */
   .axis {
-    min-height: 0;
     padding-block: 0;
     border-bottom: 0;
   }
   .axis .track {
-    grid-column: 2;
     height: 26px;
   }
   .axis-mark {
@@ -573,26 +556,26 @@
 
   @container (width < 40rem) {
     .row {
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1fr);
     }
-    .name {
-      grid-row: 1;
+    .rows {
+      --value-column: auto;
+    }
+    .row .track {
+      grid-row: 2;
       grid-column: 1;
     }
-    .value {
+    .row.lines .track,
+    .row.axis .track {
       grid-row: 1;
-      grid-column: 2;
-      align-self: start;
     }
-    .track {
+    .row:not(.lines, .axis) .track {
+      margin-block-start: 10px;
+    }
+    .refs {
       grid-row: 2;
-      grid-column: 1 / -1;
-      margin-block-start: 8px;
-    }
-    .axis .track {
-      grid-row: 1;
-      grid-column: 1 / -1;
-      margin-block-start: 0;
+      grid-column: 1;
+      margin-block: 10px -10px;
     }
   }
 
@@ -603,7 +586,7 @@
     .tick,
     .dot,
     .label,
-    .return,
+    .line-label,
     .axis-mark,
     .axis-tick {
       transition: none;

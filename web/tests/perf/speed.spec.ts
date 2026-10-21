@@ -152,7 +152,12 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const monthly = page.locator('#monthly')
   const horizon = page.locator('#horizon')
   const horizonRows = page.locator('section.horizons button.row')
-  const horizonRow = (years: number) => horizonRows.filter({ hasText: t.horizonsIn(years) }).first()
+  const horizonRow = (years: number) =>
+    page
+      .locator('section.horizons tbody tr')
+      .filter({ hasText: t.horizonsIn(years) })
+      .locator('button.row')
+      .first()
   const chartRows = page.locator('section.outcome .row:not(.axis) button.press')
   const options = page.locator('section.answer .decision button.choose')
   const returnField = page.locator('#outcome-return')

@@ -2,7 +2,7 @@ import { flushSync } from 'svelte'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { AppState } from './app.svelte'
 import type { ProviderData } from './core/core'
-import { howFor, placeholderParts, rangeText, tieGroups, versusText } from './how'
+import { howFor, leadOf, placeholderParts, tieGroups, versusText } from './how'
 import { kindKey } from './kinds'
 import { t } from './text'
 
@@ -61,9 +61,12 @@ test('a place is said against the visitor’s bank as a difference, with its sig
   expect(versusText(row('none', 0, 0))).toBe('')
 })
 
-test('the banks’ range reads low to high, and one figure when they agree', () => {
-  expect(rangeText([189_130, 190_551])).toBe('₪189,130–₪190,551')
-  expect(rangeText([5_000.2, 4_999.9])).toBe('₪5,000')
+test('the difference sentence’s opening, where it is about, is cut off to set it in bold', () => {
+  expect(leadOf('באינטראקטיב: בין ₪88,500 ל‑₪105,000 יותר')).toEqual({
+    lead: 'באינטראקטיב:',
+    rest: ' בין ₪88,500 ל‑₪105,000 יותר',
+  })
+  expect(leadOf('בלי פתיחה')).toEqual({ lead: '', rest: 'בלי פתיחה' })
 })
 
 test('a slot the research hasn’t filled is marked, the rest is plain', () => {

@@ -3,15 +3,18 @@
   // core lists, with places that tie in one box and no rank inside it
   // (principle 13); the visitor's bank as the reference row, the others as
   // ₪ differences from it (principle 15). Until a bank is named, the banks'
-  // range is the reference. The bank is asked once, with the visitor's facts
+  // range is the reference: "דרך בנק", one row, from the dearest bank to
+  // the cheapest, and the places' gain over it as one difference sentence
+  // (§4.7). The bank is asked once, with the visitor's facts
   // (`Questions`, §2.1), not again here (principle 7).
   import type { WhereToBuyData } from './core/core'
-  import { rangeText, tieGroups, versusText } from './how'
+  import { leadOf, tieGroups, versusText } from './how'
   import { t } from './text'
 
   let { where }: { where: WhereToBuyData } = $props()
 
   const groups = $derived(tieGroups(where.rows))
+  const difference = $derived(where.difference ? leadOf(where.difference) : undefined)
 </script>
 
 <div class="where">
@@ -35,16 +38,19 @@
           {#if tied && at === 0 && where.note}<p class="note">{where.note}</p>{/if}
         </div>
       {/each}
-      {#if where.bankRange}
-        <div class="row yours">
-          <span class="name">{t.throughABank}</span>
-          <span class="amount"
-            ><bdi dir="ltr">{rangeText([where.bankRange[0].today, where.bankRange[1].today])}</bdi></span
-          >
-          <span class="versus reference">{t.referenceRow}</span>
+      {#if where.reference}
+        <div class="row reference">
+          <span class="name">{where.reference.name} <span class="aside">({where.reference.note})</span></span>
+          <span class="amount"><bdi>{where.reference.amount}</bdi></span>
+          <span class="versus"></span>
         </div>
       {/if}
     </div>
+  {/if}
+  {#if difference}
+    <p class="difference">
+      {#if difference.lead}<strong>{difference.lead}</strong>{/if}{difference.rest}
+    </p>
   {/if}
   {#if where.rows.length === 0 && where.note}<p class="note">{where.note}</p>{/if}
   {#if where.mayCostMore}<p class="note">{where.mayCostMore}</p>{/if}
@@ -105,6 +111,18 @@
   }
   .row.yours .name {
     font-weight: 700;
+  }
+  .row.reference .name {
+    font-weight: 600;
+  }
+  .aside {
+    color: var(--weak);
+    font-size: 0.85rem;
+    font-weight: 400;
+  }
+  .difference {
+    margin: 0;
+    line-height: 1.55;
   }
   .amount {
     font-weight: 700;
