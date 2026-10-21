@@ -9,7 +9,7 @@
   // and gives that answer about the date if the row is for one, so the
   // answer above becomes exactly the row.
   import type { AppState } from './app.svelte'
-  import type { HorizonRowData } from './core/core'
+  import type { HorizonFitData, HorizonRowData } from './core/core'
   import { HeldWhileTyping } from './held.svelte'
   import { glideHeight } from './motion'
   import { showAnswer } from './scroll'
@@ -18,7 +18,20 @@
   let { app }: { app: AppState } = $props()
 
   const held = new HeldWhileTyping(() => app.horizons)
-  const rows = $derived(held.current ?? [])
+  /** One line per fit, as before the core grouped them by date (§4.10's
+   * table is P5's to build). */
+  type Flat = HorizonFitData & Pick<HorizonRowData, 'months' | 'when' | 'current' | 'deposits'>
+  const rows: Flat[] = $derived(
+    (held.current ?? []).flatMap((row) =>
+      row.fits.map((fit) => ({
+        ...fit,
+        months: row.months,
+        when: row.when,
+        current: row.current,
+        deposits: row.deposits,
+      })),
+    ),
+  )
   /** Before the first rows: the five dates' places, empty. */
   const pending = $derived(held.current === undefined)
   /** One sum put in once is the same at every date: said once, above the rows. */
@@ -27,10 +40,10 @@
   )
 
   /** Already the answer above: the visitor's date, with nothing to answer. */
-  const isShown = (row: HorizonRowData) => row.current && row.flexibility === undefined
+  const isShown = (row: Flat) => row.current && row.flexibility === undefined
 
-  function open(row: HorizonRowData) {
-    app.setHorizonMonths(row.years * 12)
+  function open(row: Flat) {
+    app.setHorizonMonths(row.months)
     if (row.flexibility !== undefined) app.choose({ Flexibility: row.flexibility })
     // The answer is above the section: bring it into view. (Not its column:
     // on a phone that has no box of its own, `display: contents`.)
@@ -56,8 +69,8 @@
         </ul>
       {/if}
       <ul class="rows">
-        {#each rows as row, at (`${row.years}-${row.flexibility ?? ''}`)}
-          {@const again = at > 0 && rows[at - 1].years === row.years}
+        {#each rows as row, at (`${row.months}-${row.flexibility ?? ''}`)}
+          {@const again = at > 0 && rows[at - 1].months === row.months}
           <li class:again>
             <button
               type="button"
@@ -66,14 +79,12 @@
               disabled={isShown(row)}
               aria-current={isShown(row) ? 'true' : undefined}
               aria-label={t.horizonsOpen(
-                [t.horizonsIn(row.years), row.condition, row.name, row.range, row.perShekelText]
-                  .filter(Boolean)
-                  .join(', '),
+                [row.when, row.condition, row.name, row.range].filter(Boolean).join(', '),
               )}
               onclick={() => open(row)}
             >
               <span class="when" class:hidden={again}>
-                {t.horizonsIn(row.years)}
+                {row.when}
                 {#if row.current}<span class="yours">{t.horizonsYours}</span>{/if}
               </span>
               <span class="what">
@@ -84,7 +95,6 @@
               <span class="outcome">
                 <span class="range">{row.range}</span>
                 <span class="note">{row.rangeNote}</span>
-                <span class="note">{row.perShekelText}</span>
               </span>
             </button>
           </li>

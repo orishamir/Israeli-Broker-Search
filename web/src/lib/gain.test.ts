@@ -9,6 +9,8 @@ const row = (name: string, kept: number, tax: number, fees: number, product: num
   tax: amount(tax),
   fees: amount(fees),
   product: amount(product),
+  parts: [],
+  note: undefined,
 })
 
 test('every bar is on the scale of the biggest gain, in today’s money', () => {
