@@ -193,6 +193,7 @@ test(
 
 test('nothing moves on the narrowest phone either', async ({ page }) => {
   await page.setViewportSize({ width: 375, height: 667 })
+  await openFacts(page)
   await expectNothingMoves(page)
 })
 

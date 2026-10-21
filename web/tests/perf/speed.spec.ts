@@ -160,6 +160,13 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       .first()
   const chartRows = page.locator('section.outcome .row:not(.axis) button.press')
   const options = page.locator('section.answer .decision button.choose')
+  /** Chooses a decision's option; once the choice made the plan, "שינוי"
+   * opens the decision again on the path first (REDESIGN.md §4.5). */
+  const chooseOption = async (at: number) => {
+    if ((await options.count()) === 0)
+      await page.locator('section.answer .path button.change').first().click()
+    await options.nth(at).click()
+  }
   const returnField = page.locator('#outcome-return')
   const bank = page.locator('#bank')
   const expert = page.locator('label.expert-switch')
@@ -241,7 +248,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
     for (let round = 0; round < rounds; round++) {
       await chip(round % 2 ? 'goal' : 'salary').click()
       await now.fill(String(10_000 + round * 100))
-      await options.first().click()
+      await chooseOption(0)
       await chartRows.last().click()
     }
   }
@@ -319,8 +326,8 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       label: 'guide: choosing an option in a decision (ms)',
       budget: budgets.view,
       measure: thereAndBackWith(
-        () => options.nth(1).click(),
-        () => options.first().click(),
+        () => chooseOption(1),
+        () => chooseOption(0),
       ),
     },
     {
@@ -337,7 +344,7 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
       label: 'guide: choosing the bank (ms)',
       budget: budgets.view,
       measure: async () => {
-        await options.first().click()
+        await chooseOption(0)
         await bank.selectOption(banks()[0].bank)
         await bank.focus()
         return typical(
@@ -615,10 +622,17 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   return [...guide, ...workbench, ...zooming, ...leaks]
 }
 
+/** On a phone the facts are one line until "לשנות" (REDESIGN.md §4.3). */
+async function openFacts(page: Page) {
+  const facts = page.locator('section.questions .facts-toggle')
+  if (await facts.isVisible()) await facts.click()
+}
+
 test('speed and smoothness', async ({ page }, testInfo) => {
   const project = testInfo.project.name as keyof typeof BUDGETS
   await page.goto('/')
   await expect(page.locator('section.answer #answer-title')).toBeVisible()
+  await openFacts(page)
 
   const rows: string[] = []
   for (const { label, budget, measure } of measures(page, project)) {
