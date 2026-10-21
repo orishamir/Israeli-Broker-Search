@@ -3,7 +3,7 @@
 // point: it fills only these fields, and the page calls the numbers an
 // example exactly while the fields still hold its numbers.
 
-import type { AnswersInput, Horizon, SituationData } from './core/core'
+import type { AnswersInput, Bank, Horizon, SituationData } from './core/core'
 import { shekels } from './format'
 import { t } from './text'
 
@@ -93,4 +93,26 @@ export function numbersLine(fields: Fields): string {
           ? t.whenAnyDay
           : t.exampleNoDate
   return `${t.exampleMoney(now, monthly, fields.invested)}, ${when}`
+}
+
+/** The answers an example puts on screen: its fields, and nothing else
+ * (principle 19): no decision answered in advance, no flag the fields
+ * don't show. The visitor's own bank stays. The workbench's situation
+ * isn't an example: it keeps its own. */
+export function exampleAnswers(situation: SituationData, bank: Bank | undefined): AnswersInput {
+  const fields = fieldsOf(situation.answers)
+  return {
+    situation: fields.invested
+      ? { ExistingPortfolio: { bank } }
+      : situation.workbench
+        ? situation.answers.situation
+        : undefined,
+    now: fields.now,
+    monthly: fields.monthly,
+    horizon: horizonOf(fields),
+    flexibility: undefined,
+    cushion: undefined,
+    needsAnyDay: fields.when === 'anyDay',
+    bank,
+  }
 }

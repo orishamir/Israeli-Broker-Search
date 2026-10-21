@@ -11,7 +11,7 @@ import {
 } from './core'
 import {
   aboutPlan,
-  chip,
+  pickExample,
   choice,
   closePlans,
   copyPlan,
@@ -59,7 +59,10 @@ const layoutProblems = (page: Page) =>
       if (!shown(box)) continue
       const { left, right } = box.getBoundingClientRect()
       for (const element of box.querySelectorAll('*')) {
-        // A tip floats over the page; its own rule is below.
+        // A tip floats over the page; its own rule is below. A dialog
+        // inside a card (the examples' sheet) is a box of its own.
+        const inDialog = element.closest('dialog[open]')
+        if (inDialog && inDialog !== box.closest('dialog[open]')) continue
         if (!shown(element) || scrollsSideways(element, box) || element.closest('.popover')) continue
         const bounds = element.getBoundingClientRect()
         if (bounds.left < left - 1 || bounds.right > right + 1) {
@@ -203,22 +206,30 @@ test('at the start: the guide answers the first chip', { tag: '@phone' }, async 
   await checkLayout(page, 'start')
 })
 
-// On a phone the answer is under the inputs: a chip, which changed it, goes
-// to it, so its chip and title are on the screen without hunting (the review
-// of 2026-10-20, X11). And the chip opens no tip over the page.
-test('on a phone, a chip shows the answer it changed', { tag: '@touch' }, async ({ page }) => {
+// The page never scrolls by itself after a change (REDESIGN.md §4.3,
+// principles 21 and 22): picking an example leaves the "דוגמאות" button
+// where it was, and the list opens no tip over the page.
+test('on a phone, an example leaves the page where it was', { tag: '@touch' }, async ({ page }) => {
+  const button = page
+    .locator('section.questions')
+    .getByRole('button', { name: t.examplesButton, exact: true })
   for (const id of ['bonus', 'salary', 'existing', 'goal']) {
-    await chip(page, situationName(id)).click()
-    const card = page.locator('section.answer')
-    await expect(card.locator('.confidence .chip')).toBeInViewport({ ratio: 1 })
-    await expect(card.locator('#answer-title')).toBeInViewport({ ratio: 1 })
+    const before = (await button.boundingBox())!.y
+    await pickExample(page, situationName(id))
+    expect((await button.boundingBox())!.y).toBe(before)
     await expect(page.locator('.popover.open')).toHaveCount(0)
   }
 })
 
+test('the examples list, open', { tag: '@phone' }, async ({ page }) => {
+  await page.locator('section.questions').getByRole('button', { name: t.examplesButton, exact: true }).click()
+  await expect(page.locator('dialog.examples')).toBeVisible()
+  await checkLayout(page, 'the examples list')
+})
+
 test('with every situation chosen', { tag: '@phone' }, async ({ page }) => {
   for (const situation of situations().filter(({ workbench }) => !workbench)) {
-    await chip(page, situation.name).click()
+    await pickExample(page, situation.name)
     await expectAnswerFor(page, situationAnswers(situation.id))
     await checkLayout(page, `situation: ${situation.name}`)
   }
@@ -236,13 +247,13 @@ test(
     await expectAnswerFor(page, goal, { safeWay: 'Bond' })
     await checkLayout(page, 'a decision of two, chosen')
     // The bonus: safe, and then the three safe ways.
-    await chip(page, situationName('bonus')).click()
+    await pickExample(page, situationName('bonus'))
     const bonus = situationAnswers('bonus')
     await decide(page, bonus, {}, 'PlaceType', { Flexibility: 'Fixed' })
     await expectAnswerFor(page, { ...bonus, flexibility: 'Fixed' })
     await checkLayout(page, 'a decision of three, after the one it depends on')
     // The salary: the cushion's "not yet", with the expenses field.
-    await chip(page, situationName('salary')).click()
+    await pickExample(page, situationName('salary'))
     const salary = situationAnswers('salary')
     await decide(page, salary, {}, 'Cushion', { Cushion: 'HasNot' })
     await expect(page.locator('#expenses')).toBeVisible()
@@ -277,14 +288,14 @@ test(
 )
 
 test('the gain bars, and the return set on the chart', { tag: '@phone' }, async ({ page }) => {
-  await chip(page, situationName('salary')).click()
+  await pickExample(page, situationName('salary'))
   await expect(page.locator('section.gain .bars li').first()).toBeVisible()
   await page.locator('#outcome-return').fill('7')
   await checkLayout(page, 'gain and the return field')
 })
 
 test('the horizon rows, waiting and worked out, and one opened', { tag: '@phone' }, async ({ page }) => {
-  await chip(page, situationName('bonus')).click()
+  await pickExample(page, situationName('bonus'))
   const rows = page.locator('section.horizons button.row')
   await expect(rows.first()).toBeVisible()
   await expect(page.locator('section.horizons')).not.toHaveAttribute('aria-busy', 'true')

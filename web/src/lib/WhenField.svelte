@@ -38,7 +38,12 @@
   <!-- The group is named by its radiogroup's label; this is its words on screen. -->
   <p class="question" aria-hidden="true">{t.whenTitle}</p>
   <div class="answers">
-    <Choices label={t.whenTitle} options={whens} bind:value={() => app.when, (when) => app.setWhen(when)} />
+    <Choices
+      label={t.whenTitle}
+      options={whens}
+      wraps
+      bind:value={() => app.when, (when) => app.setWhen(when)}
+    />
   </div>
   <div class="box">
     <div class="alternative row" class:hidden={app.when !== 'date'} inert={app.when !== 'date'}>

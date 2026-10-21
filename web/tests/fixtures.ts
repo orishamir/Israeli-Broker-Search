@@ -54,9 +54,25 @@ export async function fillField(page: Page, id: 'now' | 'monthly' | 'horizon', v
   await page.locator(`#${id}`).fill(value)
 }
 
-/** A situation chip, by the name the core gives it. */
-export const chip = (page: Page, name: string) =>
-  page.getByRole('group', { name: t.whatForTitle }).getByRole('button', { name, exact: true })
+const escaped = (text: string) => text.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')
+
+/** Puts an example on screen from the "דוגמאות" list, by the name the core
+ * gives its situation (REDESIGN.md §4.2). */
+export async function pickExample(page: Page, name: string) {
+  await page.locator('section.questions').getByRole('button', { name: t.examplesButton, exact: true }).click()
+  await page
+    .locator('dialog.examples')
+    .getByRole('button', { name: new RegExp(`^${escaped(name)}`) })
+    .click()
+  await expect(page.locator('dialog.examples')).toBeHidden()
+}
+
+/** The status line's pill, while the fields hold an example's numbers. */
+export const examplePill = (page: Page) => page.locator('section.questions .status .state:not(.unseen) .pill')
+
+/** "מתי תצטרכו את הכסף?": one of its four answers. */
+export const when = (page: Page, name: string) =>
+  page.getByRole('radiogroup', { name: t.whenTitle }).getByText(name, { exact: true })
 
 /** The results table's rows, best first. */
 export const rows = (page: Page) => page.locator('tbody tr')
@@ -244,7 +260,7 @@ const fieldText = (value: number | null) => (value === null ? '' : String(value)
 export async function enter(page: Page, entered: Entered): Promise<AnswersInput> {
   const { horizon } = entered
   const retirement = typeof horizon === 'object'
-  if (retirement) await chip(page, situationName('retirement')).click()
+  if (retirement) await when(page, t.whenRetirement).click()
   await fillField(page, 'now', fieldText(entered.now))
   await fillField(page, 'monthly', fieldText(entered.monthly))
   let answers = answersWith({ now: entered.now, monthly: entered.monthly })
@@ -253,8 +269,9 @@ export async function enter(page: Page, entered: Entered): Promise<AnswersInput>
     await page.locator('#retire-at').fill(String(horizon.retireAt))
     answers = { ...answers, horizon: { Retirement: { age: horizon.age, retire_at: horizon.retireAt } } }
   } else if (horizon === 'unknown') {
-    await page.locator('#horizon').fill('')
+    await when(page, t.whenUnknown).click()
   } else {
+    await when(page, t.whenDate).click()
     await fillField(page, 'horizon', String(horizon))
     answers = { ...answers, horizon: { Months: horizon * 12 } }
   }

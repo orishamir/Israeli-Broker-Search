@@ -3,7 +3,7 @@ import type { AnswerData, AnswersInput, Choices, DecisionId, Holdings, LineKind,
 import {
   answerCard,
   answerLine,
-  chip,
+  pickExample,
   choice,
   decide,
   decisionGroup,
@@ -165,7 +165,7 @@ test(
 test('a portfolio at a bank: nothing opens, the place is said, and what it holds is asked on the way', async ({
   page,
 }) => {
-  await chip(page, situationName('existing')).click()
+  await pickExample(page, situationName('existing'))
   await expect(page.getByRole('dialog')).toHaveCount(0)
   const answers = situationAnswers('existing')
   const first = await expectShapeOnPage(page, answers)
@@ -187,7 +187,7 @@ test('a portfolio at a bank: nothing opens, the place is said, and what it holds
 test('retirement: the answer says the monthly pension the core estimates, where the core puts it', async ({
   page,
 }) => {
-  await chip(page, situationName('retirement')).click()
+  await pickExample(page, situationName('retirement'))
   const answers = situationAnswers('retirement')
   const first = await expectAnswerFor(page, answers)
   // Where the core says it: the growth option's second amount while the
@@ -235,7 +235,7 @@ test('nothing in the guide is a row of assumptions, and every decision is the on
   page,
 }) => {
   for (const id of ['goal', 'bonus', 'salary', 'existing']) {
-    await chip(page, situationName(id)).click()
+    await pickExample(page, situationName(id))
     const expected = await expectAnswerFor(page, answersWith(situationAnswers(id)))
     // Every group on the answer card is a decision the core asks.
     await expect(answerCard(page).locator('[role=group]')).toHaveCount(decisionsOf(expected).length)

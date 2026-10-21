@@ -7,6 +7,7 @@
 import { readFileSync } from 'node:fs'
 import type { Page } from '@playwright/test'
 import { shekels, yearlyCost } from '../src/lib/format'
+import { exampleAnswers, examplesOf } from '../src/lib/examples'
 import { parseNumber } from '../src/lib/numbers'
 import { t } from '../src/lib/text'
 import {
@@ -130,7 +131,8 @@ export const answersWith = (some: Partial<AnswersInput>): AnswersInput => ({
 export function situationAnswers(id: string): AnswersInput {
   const found = situations().find((situation) => situation.id === id)
   if (!found) throw new Error(`no situation "${id}"`)
-  return found.answers
+  // What the page puts on screen for it: its fields alone (principle 19).
+  return exampleAnswers(found, undefined)
 }
 
 /** The answer the page should show for `answers` and the visitor's choices
@@ -178,7 +180,7 @@ export async function inputsOnPage(page: Page): Promise<Inputs> {
   }
   const exchange = ((await chosen(t.exchange)) ?? 'Usa') as Exchange
   const typed = parseNumber(await page.locator('#horizon').inputValue())
-  const unit = await page.getByLabel(t.timeUnit).inputValue()
+  const unit = await chosen(t.timeUnit)
   const months = unit === 'years' ? (typed ?? 0) * 12 : (typed ?? 0)
   const inflation = await number('inflation', usualInflationPercent())
   // How the money is taken out is asked only while a ticked plan pays a pension.
@@ -285,7 +287,5 @@ export function trackOnPage(inputs: Inputs, key: PlanKey): number | undefined {
   }
 }
 
-/** The situations that are chips in the strip: the workbench's and the
- * existing portfolio's open other things, and are tested apart. */
-export const chipSituations = () =>
-  situations().filter(({ workbench, opensDialog }) => !workbench && !opensDialog)
+/** The situations the "דוגמאות" list offers: all but the workbench's. */
+export const exampleSituations = () => examplesOf(situations())

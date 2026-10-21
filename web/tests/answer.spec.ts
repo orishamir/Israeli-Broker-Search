@@ -3,7 +3,7 @@ import type { AnswerData, AnswersInput, Choices, DecisionData, LineData, Pick } 
 import {
   answerCard,
   answerLine,
-  chip,
+  pickExample,
   decide,
   decisionGroup,
   expect,
@@ -117,7 +117,7 @@ test(
   'the monthly expenses are asked only after "not yet", and open without moving the card more than their height',
   { tag: '@phone' },
   async ({ page }) => {
-    await chip(page, situationName('salary')).click()
+    await pickExample(page, situationName('salary'))
     const answers = situationAnswers('salary')
     await expectAnswerFor(page, answers)
     const cushion = decisionsOf(answerFor(answers)).find(({ decision }) => decision.id === 'Cushion')
@@ -187,7 +187,7 @@ test(
     let opened = 0
     for (const id of ['bonus', 'child', 'unknown']) {
       const answers = situationAnswers(id)
-      await chip(page, situationName(id)).click()
+      await pickExample(page, situationName(id))
       const before = await expectAnswerFor(page, answers)
       const first = decisionsOf(before)[0]
       for (const { option, fresh } of opening(answers, before)) {
@@ -200,8 +200,8 @@ test(
         await expect(question).toBeInViewport({ ratio: 1 })
         await expectDecisionShown(page, answerLine(page, fresh[0].line))
         // Back to the first, for the next option.
-        await chip(page, situationName('goal')).click()
-        await chip(page, situationName(id)).click()
+        await pickExample(page, situationName('goal'))
+        await pickExample(page, situationName(id))
         await expectAnswerFor(page, answers)
       }
     }

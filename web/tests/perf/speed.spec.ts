@@ -134,10 +134,20 @@ function measures(page: Page, project: keyof typeof BUDGETS): Measure[] {
   const budgets = BUDGETS[project]
   const choice = (group: string, name: string) =>
     page.getByRole('radiogroup', { name: group }).getByText(name, { exact: true })
-  const chip = (id: string) =>
-    page
-      .getByRole('group', { name: t.whatForTitle })
-      .getByRole('button', { name: situations().find((each) => each.id === id)!.name, exact: true })
+  // An example, from the "דוגמאות" list: opening it, then picking.
+  const chip = (id: string) => ({
+    click: async () => {
+      await page
+        .locator('section.questions')
+        .getByRole('button', { name: t.examplesButton, exact: true })
+        .click()
+      const name = situations().find((each) => each.id === id)!.name
+      await page
+        .locator('dialog.examples')
+        .getByRole('button', { name: new RegExp(`^${name}`) })
+        .click()
+    },
+  })
   const now = page.locator('#now')
   const monthly = page.locator('#monthly')
   const horizon = page.locator('#horizon')

@@ -125,7 +125,15 @@ import type {
   WhyNot,
 } from './core/core'
 import { aroundWords } from './around'
-import { examplesOf, fieldsOf, horizonOf, sameFields, type Fields, type When } from './examples'
+import {
+  exampleAnswers,
+  examplesOf,
+  fieldsOf,
+  horizonOf,
+  sameFields,
+  type Fields,
+  type When,
+} from './examples'
 import { defaultUnit, type Unit } from './horizon'
 import { handOut, UNTICKED_COLOR, withColor } from './colors'
 import { shekels } from './format'
@@ -418,7 +426,10 @@ export class AppState {
   })
   /** The "דוגמאות" list, and the fields each example fills. */
   readonly examples: SituationData[] = examplesOf(this.situations)
-  private readonly exampleFields = this.examples.map((example) => ({ example, fields: fieldsOf(example.answers) }))
+  private readonly exampleFields = this.examples.map((example) => ({
+    example,
+    fields: fieldsOf(example.answers),
+  }))
   /** The example whose numbers the fields hold: marked exactly while they
    * do, whichever way they came to hold them (principle 19). */
   exampleOnScreen: SituationData | undefined = $derived(
@@ -952,24 +963,10 @@ export class AppState {
     const situation = this.situations.find((each) => each.id === id)
     if (!situation) return
     this.situationId = id
-    const bank = this.answers.bank
-    const fields = fieldsOf(situation.answers)
-    this.answers = {
-      // A portfolio at a bank is at the bank the visitor named. The
-      // workbench's situation isn't an example: it keeps its own.
-      situation: fields.invested
-        ? { ExistingPortfolio: { bank } }
-        : situation.workbench
-          ? ($state.snapshot(situation.answers.situation) as AnswersInput['situation'])
-          : undefined,
-      now: fields.now,
-      monthly: fields.monthly,
-      horizon: $state.snapshot(situation.answers.horizon) as Horizon,
-      flexibility: undefined,
-      cushion: undefined,
-      needsAnyDay: fields.when === 'anyDay',
-      bank,
-    }
+    this.answers = exampleAnswers($state.snapshot(situation) as SituationData, this.answers.bank)
+    // The date's field keeps the example's months while it isn't shown.
+    const { horizon } = situation.answers
+    if (typeof horizon === 'object' && 'Months' in horizon) this.datedMonths = horizon.Months
     this.readFields()
     this.choices = {}
     this.tappedRow = undefined
