@@ -41,7 +41,8 @@ function firstDecision(answers: AnswersInput): DecisionData {
 const pillOf = ({ state }: LineData) =>
   state.type === 'stated' ? t.linePill[state.pill] : state.type === 'waiting' ? t.pillWaiting : t.pillYourCall
 
-const options = (page: Page, decision: DecisionData) => decisionGroup(page, decision).getByRole('button')
+/** A decision's choose buttons (on a phone, "עוד על …" is a button there too). */
+const options = (page: Page, decision: DecisionData) => decisionGroup(page, decision).locator('button.choose')
 
 test('the card shows the core’s lines, each with its pill', { tag: '@phone' }, async ({ page }) => {
   const answers = situationAnswers('goal')
@@ -75,7 +76,7 @@ test(
       await expect(buttons.nth(at)).toHaveAttribute('aria-pressed', 'true')
       // The others are still there, and still choices.
       await expect(buttons).toHaveCount(decision.options.length)
-      await expect(decisionGroup(page, decision).getByRole('button', { pressed: false })).toHaveCount(
+      await expect(options(page, decision).and(page.getByRole('button', { pressed: false }))).toHaveCount(
         decision.options.length - 1,
       )
       await expect(answerCard(page).locator('.option.other')).toHaveCount(decision.options.length - 1)
@@ -139,7 +140,7 @@ test(
     await decide(page, answers, {}, 'Cushion', { Cushion: 'HasNot' })
     const field = page.locator('#expenses')
     await expect(field).toBeVisible()
-    const box = page.locator('.option .expenses')
+    const box = decisionGroup(page, cushion!.decision).locator('.expenses')
     expect(await top(why)).toBeCloseTo(whyBefore, 0)
     expect((await height(options)) - before).toBeLessThanOrEqual((await height(box)) + 16)
     await field.fill('9000')
@@ -184,35 +185,33 @@ async function expectDecisionShown(page: Page, group: Locator) {
 
 // A choice can open a decision that depends on it (the review of 2026-10-20,
 // X7, N8): the chosen option stays while the card changes around it, then
-// the new decision comes into view, its options too, on a phone as well.
-test(
-  'a choice that opens a decision shows the new decision with its options',
-  { tag: '@phone' },
-  async ({ page }) => {
-    let opened = 0
-    for (const id of ['bonus', 'child', 'unknown']) {
-      const answers = situationAnswers(id)
+// the new decision comes into view, its options too.
+// On a phone the page doesn't scroll by itself: a pill says so instead
+// (REDESIGN.md §4.3, `phone.spec.ts`).
+test('a choice that opens a decision shows the new decision with its options', async ({ page }) => {
+  let opened = 0
+  for (const id of ['bonus', 'child', 'unknown']) {
+    const answers = situationAnswers(id)
+    await pickExample(page, situationName(id))
+    const before = await expectAnswerFor(page, answers)
+    const first = decisionsOf(before)[0]
+    for (const { option, fresh } of opening(answers, before)) {
+      opened++
+      await decide(page, answers, {}, first.decision.id, option.pick)
+      const pressed = decisionGroup(page, first.decision).getByRole('button', { pressed: true })
+      await expect(pressed).toBeVisible()
+      await expect(decisionGroup(page, fresh[0].decision)).toBeVisible()
+      const question = answerLine(page, fresh[0].line).locator('.question')
+      await expect(question).toBeInViewport({ ratio: 1 })
+      await expectDecisionShown(page, answerLine(page, fresh[0].line))
+      // Back to the first, for the next option.
+      await pickExample(page, situationName('goal'))
       await pickExample(page, situationName(id))
-      const before = await expectAnswerFor(page, answers)
-      const first = decisionsOf(before)[0]
-      for (const { option, fresh } of opening(answers, before)) {
-        opened++
-        await decide(page, answers, {}, first.decision.id, option.pick)
-        const pressed = decisionGroup(page, first.decision).getByRole('button', { pressed: true })
-        await expect(pressed).toBeVisible()
-        await expect(decisionGroup(page, fresh[0].decision)).toBeVisible()
-        const question = answerLine(page, fresh[0].line).locator('.question')
-        await expect(question).toBeInViewport({ ratio: 1 })
-        await expectDecisionShown(page, answerLine(page, fresh[0].line))
-        // Back to the first, for the next option.
-        await pickExample(page, situationName('goal'))
-        await pickExample(page, situationName(id))
-        await expectAnswerFor(page, answers)
-      }
+      await expectAnswerFor(page, answers)
     }
-    expect(opened, 'some choice opens another decision').toBeGreaterThan(0)
-  },
-)
+  }
+  expect(opened, 'some choice opens another decision').toBeGreaterThan(0)
+})
 
 // ── The plan and the path to it (REDESIGN.md §4.5) ──
 // The steps' words are the core's, checked in Rust and in the unit tests;

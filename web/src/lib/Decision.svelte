@@ -57,7 +57,10 @@
     ]),
   )
   const anyRest = $derived(rest.some((facts) => facts.length > 0))
-  let more = $state(false)
+  /** "עוד" is open for this question: another decision in the same place
+   * (another example) starts closed. */
+  let moreFor = $state<string | undefined>()
+  const more = $derived(moreFor === decision.question)
   const moreId = $props.id()
 </script>
 
@@ -183,7 +186,7 @@
       class="more"
       aria-expanded={more}
       aria-controls={moreId}
-      onclick={() => (more = !more)}
+      onclick={() => (moreFor = more ? undefined : decision.question)}
       >{t.moreAboutOptions(decision.options.length)}<svg
         class:turned={more}
         width="16"
@@ -419,6 +422,11 @@
   }
   .row .amount {
     font-size: 1.02rem;
+  }
+  /* No gap above it in a cell, as there is in a card. */
+  .table .also,
+  .row .also {
+    margin-top: 2px;
   }
   .row .extra,
   .row .choose {

@@ -21,6 +21,7 @@ import {
   expect,
   expectAnswerFor,
   fillField,
+  openFacts,
   planInList,
   setExpert,
   situationName,
@@ -110,6 +111,8 @@ const layoutProblems = (page: Page) =>
     for (const [index, a] of texts.entries()) {
       for (const b of texts.slice(index + 1)) {
         if (a.contains(b) || b.contains(a)) continue
+        // The phone's dock floats over the page on purpose (REDESIGN.md §4.3).
+        if (!a.closest('.dock') !== !b.closest('.dock')) continue
         const overlap = [...a.getClientRects()].some((box) =>
           [...b.getClientRects()].some((other) => crosses(box, other)),
         )
@@ -294,6 +297,7 @@ test(
     const where = page.locator('section.how .where')
     await expect(where.locator('.row.yours').first()).toBeVisible()
     await checkLayout(page, 'where to buy, from the banks’ range')
+    await openFacts(page)
     await page.locator('#bank').selectOption(banks()[3].bank)
     await expect(page.locator('#bank')).toHaveValue(banks()[3].bank)
     await expect(where.locator('.row.yours').first()).toBeVisible()

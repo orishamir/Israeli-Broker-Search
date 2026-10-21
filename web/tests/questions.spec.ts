@@ -7,6 +7,7 @@ import {
   expect,
   expectAnswerFor,
   fillField,
+  openFacts,
   pickExample,
   situationName,
   test,
@@ -17,6 +18,12 @@ import { fieldsOf, numbersLine } from '../src/lib/examples'
 import { shown } from '../src/lib/horizon'
 import { kindKey } from '../src/lib/kinds'
 import { t } from '../src/lib/text'
+
+// On a phone the fields are one line until "לשנות" (REDESIGN.md §4.3, tested
+// in `phone.spec.ts`): here they're open.
+test.beforeEach(async ({ page }) => {
+  await openFacts(page)
+})
 
 // The questions card (REDESIGN.md §4.2): the money, "מתי" as four answers
 // over one box of fixed height, the bank, and the examples behind

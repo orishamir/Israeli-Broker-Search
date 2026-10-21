@@ -49,8 +49,17 @@ export async function workbench(page: Page, thing: string = t.thingOther) {
     await expect(page.locator('section.within .dates')).toContainText(dateText(RATES.date))
 }
 
+/** On a phone the facts are one line until "לשנות" (REDESIGN.md §4.3):
+ * opens them, where they're closed. Elsewhere nothing happens. */
+export async function openFacts(page: Page) {
+  const toggle = page.locator('section.questions .facts-toggle')
+  if ((await toggle.isVisible()) && (await toggle.getAttribute('aria-expanded')) === 'false')
+    await toggle.click()
+}
+
 /** Types into one of the money fields (`now`, `monthly`, `horizon`). */
 export async function fillField(page: Page, id: 'now' | 'monthly' | 'horizon', value: string) {
+  await openFacts(page)
   await page.locator(`#${id}`).fill(value)
 }
 
@@ -75,7 +84,7 @@ export const when = (page: Page, name: string) =>
   page.getByRole('radiogroup', { name: t.whenTitle }).getByText(name, { exact: true })
 
 /** The results table's rows, best first. */
-export const rows = (page: Page) => page.locator('tbody tr')
+export const rows = (page: Page) => page.locator('section.within tbody tr')
 
 /** The row of the plan called `name` (its plan name, not its broker's). */
 export const row = (page: Page, name: string) =>
@@ -276,6 +285,7 @@ const fieldText = (value: number | null) => (value === null ? '' : String(value)
 export async function enter(page: Page, entered: Entered): Promise<AnswersInput> {
   const { horizon } = entered
   const retirement = typeof horizon === 'object'
+  await openFacts(page)
   if (retirement) await when(page, t.whenRetirement).click()
   await fillField(page, 'now', fieldText(entered.now))
   await fillField(page, 'monthly', fieldText(entered.monthly))

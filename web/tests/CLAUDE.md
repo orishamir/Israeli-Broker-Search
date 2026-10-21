@@ -31,23 +31,24 @@ catch the bug:
 
 - A spec per part of the app, so a change runs its own spec first:
 
-  | Changed                                                                         | Spec         |
-  | ------------------------------------------------------------------------------- | ------------ |
-  | Questions, NumberField, horizon.ts, the situations                              | `questions`  |
-  | AnswerCard, AnswerLine, Decision, the plan, the cushion's expenses field        | `answer`     |
-  | OutcomeChart, outcome.ts, HowTo, WhereToBuy, how.ts, the return field           | `outcome`    |
-  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign | `workbench`  |
-  | LearnCard, Glossary, Tip's "עוד על זה", the about page                          | `learn`      |
-  | the situations, end to end (`REDESIGN.md` §2.5)                                 | `acceptance` |
-  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                          | `chart`      |
-  | FeeBreakdown                                                                    | `breakdown`  |
-  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                 | `details`    |
-  | Tip, tip.ts, HebrewNames                                                        | `tips`       |
-  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved             | `editor`     |
-  | app.css, anything about size or position (every screen has a `@phone` state)    | `layout`     |
-  | address.svelte.ts (refresh, Back), the example label                            | `address`    |
-  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)    | `app`        |
-  | text.ts, text/\*.ts, index.html's language, anything right-to-left              | `hebrew`     |
+  | Changed                                                                                 | Spec         |
+  | --------------------------------------------------------------------------------------- | ------------ |
+  | Questions, NumberField, horizon.ts, the situations                                      | `questions`  |
+  | AnswerCard, AnswerLine, Decision, the plan, the cushion's expenses field                | `answer`     |
+  | OutcomeChart, outcome.ts, HowTo, WhereToBuy, how.ts, the return field                   | `outcome`    |
+  | Workbench, ExpertSwitch, Within, PlanSheet, BrokerPicker, rates.ts, WarningSign         | `workbench`  |
+  | LearnCard, Glossary, Tip's "עוד על זה", the about page                                  | `learn`      |
+  | the situations, end to end (`REDESIGN.md` §2.5)                                         | `acceptance` |
+  | GrowthChart, CrossoverChart, Charts, echarts.svelte.ts                                  | `chart`      |
+  | FeeBreakdown                                                                            | `breakdown`  |
+  | DetailsDialog, FeesForInputs, Caveat\*, Sources                                         | `details`    |
+  | Tip, tip.ts, HebrewNames                                                                | `tips`       |
+  | PlanEditor, SimpleFees, PriceList, YourPlans, CoveragePicker, saved                     | `editor`     |
+  | app.css, anything about size or position (every screen has a `@phone` state)            | `layout`     |
+  | address.svelte.ts (refresh, Back), the example label                                    | `address`    |
+  | main.ts, index.html, Share, link.ts (opens a `v=2` link and checks the page)            | `app`        |
+  | text.ts, text/\*.ts, index.html's language, anything right-to-left                      | `hebrew`     |
+  | the phone's flow: collapsed facts, AnswerBar, DecisionPill, scroll.ts, Decision's table | `phone`      |
 
   GainSplit and HorizonSection have no spec of their own: their states are
   in `layout`, their numbers unit-tested, a horizon row's click measured in

@@ -24,11 +24,11 @@ const phones = [
   grepInvert: project.name === 'iphone' ? /@chromium/ : undefined,
 }))
 
-/** Only the layout checks run on this: the narrowest phone, where layouts
- * break first. Adding a device here is all it takes to cover it. */
+/** Only the layout checks and the phone's flow run on this: the narrowest
+ * phone, where layouts break first. Adding a device here is all it takes to cover it. */
 const layoutOnly = [{ name: 'iphone-se', use: devices['iPhone SE (3rd gen)'] }].map((project) => ({
   ...project,
-  testMatch: 'layout.spec.ts',
+  testMatch: ['layout.spec.ts', 'phone.spec.ts'],
 }))
 
 /** The dev server's port: another worktree's tests may hold the usual one. */

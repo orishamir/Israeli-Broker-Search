@@ -76,7 +76,7 @@
     <!-- The phone's collapsed facts: the core's one line. -->
     {#if app.factsLine}<p class="facts-line">{app.factsLine}</p>{/if}
 
-    <div class="fields" id="money-fields">
+    <div class="money-fields" id="money-fields">
       <div class="field-row">
         <label for="now" class="label">{t.iHaveNow}</label>
         <div class="control"><NumberField id="now" bind:value={app.answers.now} prefix="₪" /></div>
@@ -169,7 +169,7 @@
     .collapsed .facts-line {
       display: block;
     }
-    .collapsed .fields {
+    .collapsed .money-fields {
       display: none;
     }
   }
