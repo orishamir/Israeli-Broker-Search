@@ -551,7 +551,6 @@ export const en = {
   answerNow: (amount: string) => `The answer now: ${amount}`,
   amountRange: (low: string, high: string) => `${low} to ${high}`,
   newDecision: (question: string) => `A decision opened: ${question}`,
-  tableEnd: 'What it comes to',
   tableAsks: 'What it takes',
   tableFits: 'Fits if',
   moreAboutOptions: (count: number) =>

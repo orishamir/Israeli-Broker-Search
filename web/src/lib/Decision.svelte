@@ -6,12 +6,14 @@
   // which names the group. Once one is chosen, it gets the strong border and
   // the others dim but stay, and can still be chosen. Every word is the core's.
   //
-  // On a phone (§4.3) the same decision is a comparison table: two options
-  // are two columns, with the rows "מה יהיה בסוף", "מה זה דורש" and "מתאים
-  // אם", the difference right under them, and the rest of each option's
-  // facts behind "עוד על שתי האפשרויות"; three or more are a row each, with
-  // the amounts in one column at the end. `.option` is what holds an
-  // option's button, the control kept still when it's pressed.
+  // On a phone (§4.3, amended 2026-10-21) each option is a card, and the
+  // card is the choice: it opens with the visitor's answer and a radio's
+  // mark, then where that leads, what it leaves and what it asks. Two cards
+  // stand side by side with their rows shared ("מה זה דורש", "מתאים אם"),
+  // the difference right under them, and the rest of each option's facts
+  // behind "עוד על שתי האפשרויות"; three or more are a row each, with the
+  // amounts in one column at the end. `.option` is what holds an option's
+  // button, the control kept still when it's pressed.
   import type { Snippet } from 'svelte'
   import { MediaQuery } from 'svelte/reactivity'
   import type { DecisionData, OptData, Pick } from './core/core'
@@ -48,6 +50,13 @@
   const columns = $derived(decision.options.length === 2)
   const anyAsks = $derived(decision.options.some((option) => option.asks.length > 0))
   const anyFits = $derived(decision.options.some((option) => option.fits !== undefined))
+  /** The rows two cards share: the answer, where it leads, what it leaves,
+   * and what it asks and when it fits, where any option says. */
+  /** Where the answer is the option's name ("קרן כספית"), "← קרן כספית"
+   * would only say it again. */
+  const titled = (option: OptData) => option.title !== option.button
+  const anyTitled = $derived(decision.options.some(titled))
+  const rows = $derived(2 + Number(anyTitled) + Number(anyAsks) + Number(anyFits))
   /** What the table leaves out, by option: its other facts, and, in rows,
    * when it fits. */
   const rest = $derived(
@@ -64,98 +73,72 @@
   const moreId = $props.id()
 </script>
 
-{#snippet choose(option: OptData)}
+{#snippet choose(option: OptData, card = false)}
   <button class="choose" aria-pressed={isPressed(option)} onclick={() => press(option)}
-    >{option.button}</button
+    >{#if card}<span class="mark" aria-hidden="true"></span>{/if}{option.button}</button
   >
 {/snippet}
 
 {#snippet amount(option: OptData)}
   {#if option.amount}<p class="amount">{option.amount}</p>{/if}
+  {#if option.basis}<p class="basis">{option.basis}</p>{/if}
   <!-- A second amount in its own unit (a pension a month): one line. -->
   {#if option.also}<p class="also">{option.also}</p>{/if}
 {/snippet}
 
 <div class="decision" role="group" aria-labelledby={labelledby} data-decision={decision.id}>
   <p class="why">{decision.why}</p>
-  {#if phone.current && columns}
-    <!-- The options are the columns: a screen reader names each cell by its
-         option. -->
-    <table class="options table">
-      <thead>
-        <tr>
-          {#each decision.options as option (keyOf(option.pick))}
-            <th scope="col" class="head" class:pressed={isPressed(option)} class:other={isOther(option)}>
-              {option.title}
-            </th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        <tr class="label"><th colspan="2" scope="colgroup">{t.tableEnd}</th></tr>
-        <tr>
-          {#each decision.options as option (keyOf(option.pick))}
-            <td class:other={isOther(option)}>{@render amount(option)}</td>
-          {/each}
-        </tr>
-        {#if anyAsks}
-          <tr class="label"><th colspan="2" scope="colgroup">{t.tableAsks}</th></tr>
-          <tr>
-            {#each decision.options as option (keyOf(option.pick))}
-              <td class:other={isOther(option)}>
-                {#each option.asks as each, index (index)}<p class="asks">{each}</p>{:else}<p class="none">
-                    —
-                  </p>{/each}
-              </td>
-            {/each}
-          </tr>
-        {/if}
-        {#if anyFits}
-          <tr class="label"><th colspan="2" scope="colgroup">{t.tableFits}</th></tr>
-          <tr>
-            {#each decision.options as option (keyOf(option.pick))}
-              <td class:other={isOther(option)}>{option.fits ?? '—'}</td>
-            {/each}
-          </tr>
-        {/if}
-        <tr class="buttons">
-          {#each decision.options as option (keyOf(option.pick))}
-            <td
-              class="option"
-              class:pressed={isPressed(option)}
-              class:other={isOther(option)}
-              data-pick={keyOf(option.pick)}
-            >
-              {@render choose(option)}
-            </td>
-          {/each}
-        </tr>
-      </tbody>
-    </table>
-    <!-- What the chosen option asks for besides (the expenses field): under
-         the table, the width of the card. -->
-    {#if extra}
-      {#each decision.options as option (keyOf(option.pick))}{@render extra(option)}{/each}
-    {/if}
-  {:else if phone.current}
-    <div class="options rows">
+  {#if phone.current}
+    <!-- Each option is one card, and the card is the choice: it opens with
+         the visitor's answer (the button, stretched over the card), then
+         where it leads, what it leaves, and what it asks. Two cards side by
+         side share their rows, so the same facts line up across. -->
+    <div class="options cards" class:columns class:rows={!columns} style:--rows={rows}>
       {#each decision.options as option (keyOf(option.pick))}
         <div
-          class="option row"
+          class="option tile"
           class:pressed={isPressed(option)}
           class:other={isOther(option)}
           data-pick={keyOf(option.pick)}
         >
-          <div class="main">
-            <h4 class="title">{option.title}</h4>
-            {#each option.asks as each, index (index)}<p class="asks">{each}</p>{/each}
-          </div>
-          <div class="end">{@render amount(option)}</div>
-          {#if extra}<div class="extra">{@render extra(option)}</div>{/if}
-          {@render choose(option)}
+          {@render choose(option, true)}
+          {#if columns}
+            {#if titled(option)}
+              <h4 class="to"><span aria-hidden="true">←&nbsp;</span>{option.title}</h4>
+            {:else if anyTitled}
+              <div class="to"></div>
+            {/if}
+            <div class="end">{@render amount(option)}</div>
+            {#if anyAsks}
+              <div class="cell">
+                <p class="label">{t.tableAsks}</p>
+                {#each option.asks as each, index (index)}<p class="asks">{each}</p>{/each}
+              </div>
+            {/if}
+            {#if anyFits}
+              <div class="cell">
+                <p class="label">{t.tableFits}</p>
+                <p class="asks">{option.fits}</p>
+              </div>
+            {/if}
+          {:else}
+            <div class="main">
+              {#if titled(option)}
+                <h4 class="to"><span aria-hidden="true">←&nbsp;</span>{option.title}</h4>
+              {/if}
+              {#each option.asks as each, index (index)}<p class="asks">{each}</p>{/each}
+            </div>
+            <div class="end">{@render amount(option)}</div>
+            {#if extra}<div class="extra">{@render extra(option)}</div>{/if}
+          {/if}
         </div>
       {/each}
     </div>
+    <!-- What the chosen option asks for besides (the expenses field): under
+         the cards, the width of the card. -->
+    {#if extra && columns}
+      {#each decision.options as option (keyOf(option.pick))}{@render extra(option)}{/each}
+    {/if}
   {:else}
     <div class="options" class:three={decision.options.length > 2}>
       {#each decision.options as option (keyOf(option.pick))}
@@ -324,113 +307,185 @@
     line-height: 1.6;
   }
 
-  /* ── On a phone, two options: a table, the options its columns ── */
-  .table {
-    width: calc(100% + 16px);
-    margin-inline: -8px;
-    table-layout: fixed;
-    border-collapse: separate;
-    border-spacing: 8px 0;
-    font-size: 0.92rem;
-    line-height: 1.5;
-  }
-  .table th,
-  .table td {
-    padding: 0 8px 8px;
-    vertical-align: top;
-    text-align: start;
-    font-weight: normal;
-    transition: color var(--quick);
-  }
-  .table .head {
-    padding-top: 10px;
-    border: 2px solid var(--border);
-    border-bottom: none;
-    border-radius: var(--radius) var(--radius) 0 0;
-    background: var(--raised);
-    font-size: 1rem;
-    font-weight: 700;
+  /* Close under the amount, smaller: what it rests on. */
+  .basis {
+    margin: -6px 0 0;
+    color: var(--weak);
+    font-size: 0.85rem;
     line-height: 1.4;
   }
-  .table .head.pressed {
-    border-color: var(--text);
+
+  /* ── On a phone: a card per option, the card the choice ── */
+  .cards {
+    gap: 8px;
+    font-size: 0.85rem;
+    line-height: 1.45;
   }
-  .table .label th {
-    padding: 8px 8px 2px;
+  /* Two side by side, their rows shared, so the facts line up across. */
+  .cards.columns {
+    grid-template-rows: repeat(var(--rows), auto);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  /* Three or more: a row each, the amounts in one column at the end. */
+  .cards.rows {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 8.5rem);
+  }
+  .tile {
+    position: relative;
+    transition:
+      border-color var(--quick),
+      background var(--quick),
+      color var(--quick),
+      scale var(--quick);
+    display: grid;
+    gap: 0;
+    padding: 10px;
+  }
+  .columns .tile {
+    grid-row: 1 / span var(--rows);
+    grid-template-rows: subgrid;
+  }
+  .rows .tile {
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
+    column-gap: 12px;
+  }
+  .tile:not(.pressed):hover {
+    border-color: var(--strong-border);
+  }
+  .tile:has(.choose:focus-visible) {
+    box-shadow: var(--focus-ring);
+  }
+  /* The visitor's answer, a radio's mark before it; the whole card takes
+     the tap. */
+  .tile .choose {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    margin: 0;
+    padding: 0 0 8px;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    border-radius: 0;
+    background: none;
+    color: inherit;
+    text-align: start;
+    font-size: 0.92rem;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+  .rows .tile .choose {
+    grid-column: 1 / -1;
+  }
+  /* Over the card's other parts: as grid items, they paint after it. */
+  .tile .choose::after {
+    content: '';
+    position: absolute;
+    z-index: 1;
+    inset: 0;
+    border-radius: var(--radius);
+  }
+  .tile .choose:hover,
+  .tile .choose[aria-pressed='true'],
+  .tile .choose[aria-pressed='true']:hover {
+    background: none;
+    color: inherit;
+  }
+  .tile .choose:focus-visible {
+    outline: none;
+  }
+  /* The card sinks, not its answer: a scaled button would hold its own
+     tap (a transform is the containing block of its ::after), and the tap
+     would end on the amount under it. */
+  .tile .choose:active {
+    scale: none;
+  }
+  .tile:has(.choose:active) {
+    scale: 0.98;
+    transition-duration: 60ms;
+  }
+  .mark {
+    flex: none;
+    box-sizing: border-box;
+    width: 18px;
+    height: 18px;
+    margin-top: 1px;
+    border: 2px solid var(--strong-border);
+    border-radius: 50%;
+    transition:
+      border-color var(--quick),
+      background var(--quick);
+  }
+  .choose[aria-pressed='true'] .mark {
+    border-color: var(--text);
+    background: var(--text);
+    box-shadow: inset 0 0 0 3px var(--raised);
+  }
+  .to {
+    margin: 0;
+    padding-top: 8px;
     color: var(--weak);
     font-size: 0.8rem;
     font-weight: 700;
+    line-height: 1.35;
   }
-  .table tbody .label:not(:first-child) th {
+  .tile .end {
+    display: grid;
+    align-content: start;
+    gap: 6px;
+    padding: 4px 0 8px;
+  }
+  .tile .amount {
+    font-size: 1rem;
+  }
+  .tile .basis {
+    margin-top: -6px;
+    font-size: 0.78rem;
+  }
+  .tile .also {
+    margin-top: -2px;
+    font-size: 0.82rem;
+  }
+  .cell {
+    padding: 8px 0;
     border-top: 1px solid var(--border);
   }
-  .table .amount {
-    font-size: 1.05rem;
+  .cell:last-child {
+    padding-bottom: 0;
   }
-  /* The button's cell: no box of its own, the button its width. */
-  .table .option {
-    display: table-cell;
-    padding: 4px 0 0;
-    border: none;
-    border-radius: 0;
-    background: none;
-  }
-  .table .choose,
-  .rows .choose {
-    width: 100%;
-  }
-  .table .other,
-  .rest-option.other {
+  .label {
+    margin: 0 0 2px;
     color: var(--weak);
+    font-size: 0.72rem;
+    font-weight: 700;
   }
-  .asks,
-  .none {
+  .asks {
     margin: 0;
   }
   .asks + .asks {
     margin-top: 4px;
   }
-  .none {
-    color: var(--weak);
-  }
-
-  /* ── On a phone, three or more: a row each, the amounts at the end ── */
-  .rows {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 9rem);
-    gap: 0;
-  }
-  .rows .option {
-    display: grid;
-    grid-column: 1 / -1;
-    grid-template-columns: subgrid;
-    gap: 6px 12px;
-    padding: 12px;
-    margin-top: 8px;
-  }
-  .rows .option:first-child {
-    margin-top: 0;
-  }
-  .row .main {
+  .rows .main {
     display: grid;
     align-content: start;
     gap: 4px;
-    font-size: 0.92rem;
-    line-height: 1.5;
+    padding-block: 8px 2px;
   }
-  .row .end {
+  .rows .main .to {
+    padding: 0;
+  }
+  .rows .end {
     text-align: end;
+    padding-top: 8px;
   }
-  .row .amount {
-    font-size: 1.02rem;
-  }
-  /* No gap above it in a cell, as there is in a card. */
-  .table .also,
-  .row .also {
-    margin-top: 2px;
-  }
-  .row .extra,
-  .row .choose {
+  /* Above the card's tap, so its field takes the pointer. */
+  .rows .extra {
+    position: relative;
+    z-index: 2;
     grid-column: 1 / -1;
+  }
+  .rest-option.other {
+    color: var(--weak);
   }
 
   /* "עוד על שתי האפשרויות": the rest of each option's facts. */

@@ -539,7 +539,6 @@ export const he: Text = {
   answerNow: (amount) => `התשובה עכשיו: ${amount}`,
   amountRange: (low, high) => `${low} עד ${high}`,
   newDecision: (question) => `נפתחה החלטה: ${question}`,
-  tableEnd: 'מה יהיה בסוף',
   tableAsks: 'מה זה דורש',
   tableFits: 'מתאים אם',
   moreAboutOptions: (count) =>

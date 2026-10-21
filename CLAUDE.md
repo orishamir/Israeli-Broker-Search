@@ -79,7 +79,7 @@ The guide has no assumptions sheet and no override: inflation and the rate are w
 
 - the questions card's "מתי" and the examples menu (`WhenField`, `Examples`, `examples.ts`);
 - the plan and its path (`Path`, `PathStep`, `WhyClear`; `describe/path.rs`);
-- the phone flow (the collapsed facts line, `AnswerBar`, `DecisionPill`, decisions as tables);
+- the phone flow (the collapsed facts line, `AnswerBar`, `DecisionPill`, decisions as a card per option, the card the choice: amended the same day);
 - the any‑day comparison (`AnyDayDeposit`, `TreasuryBill`);
 - the horizon's dates around the visitor's date.
 

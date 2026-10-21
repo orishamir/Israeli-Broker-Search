@@ -1051,6 +1051,8 @@ pub struct OptData {
     pub pick: guide::Pick,
     pub title: String,
     pub amount: String,
+    /// What the amount rests on, under it: "בריבית של היום".
+    pub basis: Option<String>,
     /// A second amount in its own unit (a pension a month), under the first.
     pub also: Option<String>,
     pub value: Option<AmountData>,
@@ -1373,6 +1375,7 @@ fn decision_data(decision: &guide::Decision) -> DecisionData {
                 pick: option.pick,
                 title: said(&option.title),
                 amount: said(&option.amount),
+                basis: option.basis.as_ref().map(said),
                 also: option.also.as_ref().map(said),
                 value: option.value.map(AmountData::from),
                 facts: said_all(&option.facts),
