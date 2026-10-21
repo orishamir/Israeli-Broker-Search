@@ -1,9 +1,8 @@
 // What the page does with the scroll while the answer changes around what
 // the visitor is using: it keeps the pressed control where it was
-// (principle 21), and where a choice opens another decision (principle 8)
-// it brings it into view beside the answer, on a wide screen. On a phone the
-// page never scrolls by itself (REDESIGN.md §4.3): a decision that opens out
-// of sight is announced by a pill instead (`DecisionPill`), and only what the
+// (principle 21). The page never scrolls by itself (REDESIGN.md §4.3, and
+// principles 21 and 22 at every width): a decision a choice opens out of
+// sight is announced by a pill instead (`DecisionPill`), and only what the
 // visitor asks for ("לתשובה", the pill) scrolls.
 import { SETTLE } from './motion'
 
@@ -20,17 +19,6 @@ const behavior = (): ScrollBehavior =>
 export function showAnswer() {
   document.querySelector('section.answer')?.scrollIntoView({ block: 'start', behavior: behavior() })
 }
-
-/** The decisions in the answer card that wait for the visitor, by line. */
-const openDecisions = (): Set<string> =>
-  new Set(
-    [...document.querySelectorAll<HTMLElement>('section.answer .line.asks')]
-      .filter((line) => !line.querySelector('.choose[aria-pressed="true"]'))
-      .map((line) => line.dataset.line ?? ''),
-  )
-
-/** Room kept above what is scrolled to, under the screen's top edge. */
-const MARGIN = 12
 
 /** The decisions anywhere in the answer card (its lines, or a step of the
  * path) that wait for the visitor, by id (`Decision`'s `data-decision`). */
@@ -89,9 +77,7 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean, ope
   const first = find()
   if (!first) return
   const top = first.getBoundingClientRect().top
-  const before = openDecisions()
   const waitingBefore = waiting()
-  const phone = oneColumn()
   const began = performance.now()
   let changedAt: number | undefined
   let stopped = false
@@ -109,27 +95,6 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean, ope
   // The next thing the visitor presses is theirs to keep still.
   addEventListener('pointerdown', stop)
 
-  const revealNew = () => {
-    const opened = [...openDecisions()].find((line) => !before.has(line))
-    const group = opened && document.querySelector(`section.answer [data-line="${opened}"]`)
-    const question = group && group.querySelector('.question')
-    if (!group || !question) return
-    const asked = question.getBoundingClientRect().top
-    const bottom = group.getBoundingClientRect().bottom
-    if (asked < MARGIN) {
-      // Opened above (it depends on nothing below it): go up to it.
-      scrollBy({ top: asked - MARGIN * 4, behavior: behavior() })
-    } else if (bottom > innerHeight - MARGIN) {
-      // Below the screen's end: the question alone isn't the decision, its
-      // options are (the review's N8). Up until the whole decision is on
-      // the screen, or, where it's taller than the screen (stacked options
-      // on a phone), until its question is near the top. What was chosen is
-      // above it, and may go off the top: the new question wins.
-      const by = Math.min(bottom - (innerHeight - MARGIN), asked - MARGIN * 4)
-      if (by > 0) scrollBy({ top: by, behavior: behavior() })
-    }
-  }
-
   const frame = () => {
     if (stopped) return
     const now = performance.now()
@@ -143,9 +108,8 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean, ope
     // The card glides to its new height for SETTLE: hold until it's there.
     if (changedAt !== undefined && now - changedAt > SETTLE + 50) {
       stop()
-      // A phone never scrolls by itself: a sign in sight instead.
-      if (phone) announceNew(waitingBefore, opened)
-      else revealNew()
+      // The page never scrolls by itself: a sign in sight instead.
+      announceNew(waitingBefore, opened)
       return
     }
     if (now - began > 3000) return stop()
@@ -165,7 +129,6 @@ export function holdStill(find: () => Element | null, fresh: () => boolean, open
   if (!first) return
   const top = first.getBoundingClientRect().top
   const waitingBefore = waiting()
-  const phone = oneColumn()
   const began = performance.now()
   let freshAt: number | undefined
   let stopped = false
@@ -189,7 +152,7 @@ export function holdStill(find: () => Element | null, fresh: () => boolean, open
     if (freshAt === undefined && fresh()) freshAt = now
     if (freshAt !== undefined && now - freshAt > SETTLE + 50) {
       stop()
-      if (phone) announceNew(waitingBefore, opened)
+      announceNew(waitingBefore, opened)
       return
     }
     if (now - began > 3000) return stop()

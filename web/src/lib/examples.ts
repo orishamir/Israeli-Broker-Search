@@ -95,24 +95,12 @@ export function numbersLine(fields: Fields): string {
   return `${t.exampleMoney(now, monthly, fields.invested)}, ${when}`
 }
 
-/** The answers an example puts on screen: its fields, and nothing else
- * (principle 19): no decision answered in advance, no flag the fields
- * don't show. The visitor's own bank stays. The workbench's situation
- * isn't an example: it keeps its own. */
+/** The answers an example puts on screen: the core's, which set only its
+ * fields (principle 19: no decision answered in advance, no flag the
+ * fields don't show; `examples.test.svelte.ts` holds the core to it), with
+ * the visitor's own bank, which an example keeps. */
 export function exampleAnswers(situation: SituationData, bank: Bank | undefined): AnswersInput {
-  const fields = fieldsOf(situation.answers)
-  return {
-    situation: fields.invested
-      ? { ExistingPortfolio: { bank } }
-      : situation.workbench
-        ? situation.answers.situation
-        : undefined,
-    now: fields.now,
-    monthly: fields.monthly,
-    horizon: horizonOf(fields),
-    flexibility: undefined,
-    cushion: undefined,
-    needsAnyDay: fields.when === 'anyDay',
-    bank,
-  }
+  const { answers } = situation
+  const invested = typeof answers.situation === 'object' && 'ExistingPortfolio' in answers.situation
+  return { ...answers, situation: invested ? { ExistingPortfolio: { bank } } : answers.situation, bank }
 }

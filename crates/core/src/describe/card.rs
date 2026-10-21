@@ -690,8 +690,8 @@ pub struct Past {
 /// 500 is what was measured (§2.13 item 1).
 fn on_basis(lang: Lang) -> &'static str {
     lang.pick(
-        "(after fees and tax, in today's money, by the S&P 500 index)",
-        "(אחרי עמלות ומס, בכסף של היום, לפי מדד S&P\u{a0}500)",
+        "(after fees and tax, in today's money, by the S&P 500 index, as an example)",
+        "(אחרי עמלות ומס, בכסף של היום, לפי מדד S&P\u{a0}500 כדוגמה)",
     )
 }
 
@@ -1287,7 +1287,9 @@ pub struct SafeWayFigures<'a> {
     pub dated: bool,
     pub rate: Percent,
     pub switch: Option<Percent>,
-    pub bond_at_bank: Option<AtBank>,
+    /// The bond through a bank, and whether it's makam (a bill), which
+    /// the sentence names as such.
+    pub bond_at_bank: Option<(bool, AtBank)>,
     /// The order changes within the versions tried: then which leaves more
     /// depends on a rate nobody knows, and the why says so.
     pub flips: bool,
@@ -1526,16 +1528,22 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                     (Lang::He, true) => format!("אם הריבית תהיה בממוצע מתחת לכ\u{2011}{switch}, הקרן הכספית משאירה פחות."),
                 });
             }
-            if let (Some(bank), Some(fund)) = (&f.bond_at_bank, fund) {
+            if let (Some((bill, bank)), Some(fund)) = (&f.bond_at_bank, fund) {
+                // Makam is a bill (מלווה, masculine); a bond (אג״ח) is feminine.
+                let (en, he, leaves) = if *bill {
+                    ("makam", "מק״מ", "היה משאיר")
+                } else {
+                    ("a bond", "אג״ח", "הייתה משאירה")
+                };
                 out.push(' ');
                 out.push_str(&match bank {
                     AtBank::Named(name, left) => {
                         let less = *left < fund.left;
                         match (lang, less) {
-                            (Lang::En, true) => format!("Through your bank, {}, a bond would leave {}, less than the money market fund.", name.en, shekels(*left)),
-                            (Lang::He, true) => format!("דרך הבנק שלכם, {}, אג״ח הייתה משאירה {}, פחות מהקרן הכספית.", name.he, shekels(*left)),
-                            (Lang::En, false) => format!("Through your bank, {}, a bond would leave {}.", name.en, shekels(*left)),
-                            (Lang::He, false) => format!("דרך הבנק שלכם, {}, אג״ח הייתה משאירה {}.", name.he, shekels(*left)),
+                            (Lang::En, true) => format!("Through your bank, {}, {en} would leave {}, less than the money market fund.", name.en, shekels(*left)),
+                            (Lang::He, true) => format!("דרך הבנק שלכם, {}, {he} {leaves} {}, פחות מהקרן הכספית.", name.he, shekels(*left)),
+                            (Lang::En, false) => format!("Through your bank, {}, {en} would leave {}.", name.en, shekels(*left)),
+                            (Lang::He, false) => format!("דרך הבנק שלכם, {}, {he} {leaves} {}.", name.he, shekels(*left)),
                         }
                     }
                     AtBank::Range(low, high) => {
@@ -1547,8 +1555,8 @@ pub fn safe_way_decision(f: &SafeWayFigures<'_>) -> DecisionWords {
                             ""
                         };
                         match lang {
-                            Lang::En => format!("Through a bank, a bond would leave {} to {}, by the bank{tail}.", shekels(*low), shekels(*high)),
-                            Lang::He => format!("דרך בנק, אג״ח הייתה משאירה בין {} ל\u{2011}{}, לפי הבנק{tail}.", shekels(*low), shekels(*high)),
+                            Lang::En => format!("Through a bank, {en} would leave {} to {}, by the bank{tail}.", shekels(*low), shekels(*high)),
+                            Lang::He => format!("דרך בנק, {he} {leaves} בין {} ל\u{2011}{}, לפי הבנק{tail}.", shekels(*low), shekels(*high)),
                         }
                     }
                 });

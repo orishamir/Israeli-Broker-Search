@@ -94,11 +94,12 @@
   >
 </footer>
 
-<!-- The phone's (REDESIGN.md §4.3): over the page's bottom edge, the sign of
-     a decision opened out of sight, and the answer while the facts are open. -->
+<!-- REDESIGN.md §4.3: over the page's bottom edge, the sign of
+     a decision opened out of sight (at every width), and on a phone the
+     answer while the facts are open. -->
 <div class="dock" bind:offsetHeight={dockHeight}>
   <DecisionPill {app} />
-  <AnswerBar {app} />
+  <div class="bar-slot"><AnswerBar {app} /></div>
 </div>
 <div class="dock-room" style:height="{dockHeight}px" aria-hidden="true"></div>
 
@@ -215,8 +216,10 @@
     display: grid;
     pointer-events: none;
   }
+  /* On a wide screen only the pill: the facts never fold there, so the
+     answer's bar has nothing to stand for. */
   @media (width >= 800px) {
-    .dock {
+    .dock .bar-slot {
       display: none;
     }
   }

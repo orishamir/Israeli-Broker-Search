@@ -845,6 +845,29 @@ fn ends(row: &Row) -> (Amount, Amount) {
     }
 }
 
+/// A horizon row names each way once: what's in a portfolio keeps the same
+/// fund whatever the answer, and it read "קרן מחקה…, קרן מחקה… או קרן
+/// מחקה…" (the review of 2026-10-21).
+#[test]
+fn a_horizon_fit_names_each_way_once() {
+    for situation in situations() {
+        let full = answer(&situation.answers, &Choices::default(), &settings(), &DATA).unwrap();
+        for row in &full.horizons {
+            for fit in &row.fits {
+                let name = &fit.name.he;
+                let parts: Vec<&str> = name
+                    .split(", ")
+                    .flat_map(|part| part.split(" או "))
+                    .collect();
+                let mut unique = parts.clone();
+                unique.sort_unstable();
+                unique.dedup();
+                assert_eq!(unique.len(), parts.len(), "{}: {name}", situation.id);
+            }
+        }
+    }
+}
+
 /// §2.9's check: a horizon row is exactly what the answer shows once the
 /// date moves there (and, for a fit of one answer about the date, once
 /// that answer is given): the way it settles on, or one it leaves to the
@@ -1083,6 +1106,57 @@ fn only_an_empty_expenses_field_is_a_stand_in() {
     assert!(typed.contains("ההוצאות שלכם"), "{typed}");
     let empty = fact(None);
     assert!(empty.contains("הערכה"), "{empty}");
+}
+
+/// The safe way's difference names what a bank would sell: makam where the
+/// bond's place is makam (money needed any day), never "אג״ח" for it.
+#[test]
+fn the_difference_names_makam_as_makam() {
+    let mut seen = 0;
+    for start in starts().into_iter().filter(|start| start.needs_any_day) {
+        for bank in [None, Some(Bank::Hapoalim)] {
+            let answer = answered(
+                &Answers {
+                    bank,
+                    ..start.clone()
+                },
+                Choices::default(),
+            );
+            let Some(way) =
+                decision(&answer, LineKind::Way).filter(|d| d.id == DecisionId::SafeWay)
+            else {
+                continue;
+            };
+            let said = way.difference.as_ref().map_or("", |text| &text.he);
+            assert!(!said.contains("אג״ח"), "{said}");
+            seen += usize::from(said.contains("מק״מ"));
+        }
+    }
+    assert!(seen > 0, "makam is in a difference");
+}
+
+/// "דרך בנק" is one row, a reference, only beside a place it is a
+/// reference for: where only banks hold it, the banks are listed.
+#[test]
+fn the_bank_reference_stands_beside_another_place() {
+    let mut listed = 0;
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            for how in &answer.how {
+                let Some(places) = &how.where_to_buy else {
+                    continue;
+                };
+                assert!(
+                    places.reference.is_none() || !places.rows.is_empty(),
+                    "{:?}: a reference with nothing beside it",
+                    how.row
+                );
+                listed += usize::from(places.reference.is_none() && !places.rows.is_empty());
+            }
+        }
+    }
+    assert!(listed > 0);
 }
 
 /// Where another safe way's figure lies inside the money market fund's bar

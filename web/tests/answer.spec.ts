@@ -184,11 +184,15 @@ async function expectDecisionShown(page: Page, group: Locator) {
 }
 
 // A choice can open a decision that depends on it (the review of 2026-10-20,
-// X7, N8): the chosen option stays while the card changes around it, then
-// the new decision comes into view, its options too.
-// On a phone the page doesn't scroll by itself: a pill says so instead
-// (REDESIGN.md §4.3, `phone.spec.ts`).
-test('a choice that opens a decision shows the new decision with its options', async ({ page }) => {
+// X7, N8): the chosen option stays exactly where it was while the card
+// changes around it (principle 21), and the page never scrolls by itself:
+// a new decision out of sight is announced by the pill, which takes the
+// visitor there (principle 22; REDESIGN.md §4.3, at every width since the
+// review of 2026-10-21). The phone's own taps are in `phone.spec.ts`.
+test('a choice that opens a decision keeps the button still, and shows or announces the new one', async ({
+  page,
+}) => {
+  const pill = page.locator('.dock .pill')
   let opened = 0
   for (const id of ['bonus', 'child', 'unknown']) {
     const answers = situationAnswers(id)
@@ -197,13 +201,22 @@ test('a choice that opens a decision shows the new decision with its options', a
     const first = decisionsOf(before)[0]
     for (const { option, fresh } of opening(answers, before)) {
       opened++
+      const button = decisionGroup(page, first.decision).getByRole('button', { name: option.button, exact: true })
+      const at = (await button.boundingBox())!.y
       await decide(page, answers, {}, first.decision.id, option.pick)
       const pressed = decisionGroup(page, first.decision).getByRole('button', { pressed: true })
       await expect(pressed).toBeVisible()
-      await expect(decisionGroup(page, fresh[0].decision)).toBeVisible()
-      const question = answerLine(page, fresh[0].line).locator('.question')
-      await expect(question).toBeInViewport({ ratio: 1 })
-      await expectDecisionShown(page, answerLine(page, fresh[0].line))
+      await expect(decisionGroup(page, fresh[0].decision)).toBeAttached()
+      // Settled: the pressed button is where it was.
+      await page.waitForTimeout(700)
+      expect(Math.abs((await pressed.boundingBox())!.y - at)).toBeLessThan(1)
+      const group = answerLine(page, fresh[0].line)
+      if (!(await group.locator('.question').isVisible()) || !(await isInSight(group))) {
+        await expect(pill).toHaveText(t.newDecision(fresh[0].decision.question))
+        await pill.click()
+        await expectDecisionShown(page, group)
+        await expect(pill).toHaveCount(0)
+      }
       // Back to the first, for the next option.
       await pickExample(page, situationName('goal'))
       await pickExample(page, situationName(id))
@@ -212,6 +225,13 @@ test('a choice that opens a decision shows the new decision with its options', a
   }
   expect(opened, 'some choice opens another decision').toBeGreaterThan(0)
 })
+
+/** Some of it is on the screen, above the dock's room (scroll.ts `inSight`). */
+const isInSight = (group: Locator) =>
+  group.evaluate((element) => {
+    const box = element.getBoundingClientRect()
+    return box.top < innerHeight - 96 && box.bottom > 0
+  })
 
 // ── The plan and the path to it (REDESIGN.md §4.5) ──
 // The steps' words are the core's, checked in Rust and in the unit tests;

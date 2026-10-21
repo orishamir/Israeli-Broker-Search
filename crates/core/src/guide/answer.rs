@@ -2192,12 +2192,16 @@ fn safe_way_line(f: &Facts<'_>, safe_standing: Standing) -> (Line, Option<Chosen
             super::outcome::safe_places(&bond.lead, f.data, f.bank),
             f.provider_margin,
         );
+        let bill = bond.lead.kind == Kind::TreasuryBill;
         match (places.yours, places.range) {
-            (Some(at), _) => Some(card::AtBank::Named(
-                places.places[at].provider.clone(),
-                places.places[at].left.today,
+            (Some(at), _) => Some((
+                bill,
+                card::AtBank::Named(
+                    places.places[at].provider.clone(),
+                    places.places[at].left.today,
+                ),
             )),
-            (None, Some((low, high))) => Some(card::AtBank::Range(low.today, high.today)),
+            (None, Some((low, high))) => Some((bill, card::AtBank::Range(low.today, high.today))),
             (None, None) => None,
         }
     });
@@ -3045,10 +3049,13 @@ fn where_to_buy(f: &Facts<'_>, row: &Row, info: Option<&WhereInfo>) -> WhereToBu
     let also_name = also.map(|also| super::safe::joined(&also.choice.provider, &also.choice.plan));
     // Until the visitor names a bank, the banks are one row, the reference
     // point (§4.7): from the dearest to the cheapest.
-    // (A deposit is at a bank whichever it is: its places stay the banks.)
+    // (A deposit is at a bank whichever it is: its places stay the banks.
+    // So do they where no house takes the money, as a bond with no first
+    // deposit: a reference needs something to be a reference for.)
     let banks_as_one = yours.is_none()
         && places.range.is_some()
         && !f.existing
+        && places.places.iter().any(|place| place.bank.is_none())
         && !matches!(
             row.kind,
             Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit
@@ -3957,7 +3964,14 @@ fn horizon_fit(f: &Facts<'_>, flexibility: Option<Flexibility>) -> Option<Horizo
             Mark::Expected => gain_words::RangeOf::Expected(f.settings.index_return),
         }
     };
-    let titles: Vec<Text> = named.iter().map(|row| row.name.clone()).collect();
+    // Options can stand on the same row's kind (what's in a portfolio: every
+    // answer keeps the same fund), so each name is said once.
+    let mut titles: Vec<Text> = Vec::new();
+    for row in &named {
+        if !titles.contains(&row.name) {
+            titles.push(row.name.clone());
+        }
+    }
     Some(HorizonFit {
         flexibility,
         condition: flexibility.map(gain_words::condition),

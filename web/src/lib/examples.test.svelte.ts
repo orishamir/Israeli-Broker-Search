@@ -2,7 +2,7 @@ import { flushSync } from 'svelte'
 import { beforeEach, expect, test, vi } from 'vitest'
 import { AppState } from './app.svelte'
 import { decode } from './link'
-import { fieldsOf, numbersLine } from './examples'
+import { exampleAnswers, fieldsOf, horizonOf, numbersLine } from './examples'
 
 // The questions card's examples (REDESIGN.md §4.2, principles 19 and 22):
 // an example fills only the fields on screen, is marked exactly while they
@@ -138,6 +138,21 @@ test('each example sets only fields on screen, and answers no decision', () => {
     // Any day has no date: the field that would say one isn't on screen.
     if (app.when === 'anyDay' || app.when === 'unknown') expect(answers.horizon, example.id).toBe('Unknown')
     expect(app.exampleOnScreen?.id, example.id).toBe(example.id)
+  }
+})
+
+test('the core’s examples set only what their fields show', () => {
+  const app = start()
+  for (const example of app.examples) {
+    const answers = exampleAnswers(example, 'Leumi')
+    const fields = fieldsOf(answers)
+    // What the fields say, read back, is all the example said.
+    expect(answers.flexibility ?? undefined, example.id).toBeUndefined()
+    expect(answers.cushion ?? undefined, example.id).toBeUndefined()
+    expect(answers.needsAnyDay, example.id).toBe(fields.when === 'anyDay')
+    expect(answers.horizon, example.id).toEqual(horizonOf(fields))
+    expect(answers.bank, example.id).toBe('Leumi')
+    expect(typeof answers.situation === 'object', example.id).toBe(fields.invested)
   }
 })
 

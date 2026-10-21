@@ -48,7 +48,7 @@
         // The last choice made the plan: its step stands where the option was.
         document.querySelector(`section.answer [data-step="${decisionId}"]`),
       () => app.answerFresh,
-      // On a phone, a decision this opens out of sight gets the pill.
+      // A decision this opens out of sight gets the pill.
       (opened) => app.announceDecision(opened),
     )
     app.choose(pick)

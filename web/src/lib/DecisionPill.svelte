@@ -1,5 +1,5 @@
 <script lang="ts">
-  // The phone's sign of a decision that opened out of sight (REDESIGN.md
+  // The sign of a decision that opened out of sight (REDESIGN.md
   // §4.3, principle 22): a choice opened it below the screen, and the page
   // doesn't scroll by itself, so a pill at the bottom says so,
   // "נפתחה החלטה: <its question>", and takes the visitor there when tapped.
