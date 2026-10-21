@@ -3256,3 +3256,54 @@ fn the_facts_fold_into_one_line() {
     };
     assert_eq!(line(&retire), "₪500 בחודש, עד גיל 67");
 }
+
+// ─────────────────────────── The phone's table (§4.3) ───────────────────────────
+
+/// What an option asks is some of its own facts, each once; its "מתאים אם"
+/// for the table's row of that name is the same sentence without those
+/// words; and the decisions about effort each say what they ask.
+#[test]
+fn an_options_asks_are_its_facts_and_its_fits_is_its_fits_if() {
+    let mut asked: Vec<DecisionId> = Vec::new();
+    for start in starts() {
+        for choices in every_choice() {
+            let answer = answered(&start, choices);
+            for line in &answer.lines {
+                let LineState::Decision(decision) = &line.state else {
+                    continue;
+                };
+                for option in &decision.options {
+                    for asks in &option.asks {
+                        assert!(
+                            option.facts.contains(asks),
+                            "{:?}: {asks:?} isn't one of its facts",
+                            decision.id
+                        );
+                    }
+                    let unique: HashSet<&str> = option.asks.iter().map(|asks| &*asks.he).collect();
+                    assert_eq!(unique.len(), option.asks.len(), "{:?}", decision.id);
+                    match (&option.fits_if, &option.fits) {
+                        (Some(fits_if), Some(fits)) => {
+                            assert_eq!(fits_if.he, format!("מתאים אם: {}", fits.he));
+                            assert_eq!(fits_if.en, format!("Fits if: {}", fits.en));
+                        }
+                        (None, None) => {}
+                        other => panic!("{:?}: {other:?}", decision.id),
+                    }
+                    if !option.asks.is_empty() && !asked.contains(&decision.id) {
+                        asked.push(decision.id);
+                    }
+                }
+            }
+        }
+    }
+    for id in [
+        DecisionId::Cushion,
+        DecisionId::PlaceType,
+        DecisionId::SafeWay,
+        DecisionId::Wrapper,
+        DecisionId::Account,
+    ] {
+        assert!(asked.contains(&id), "{id:?} never says what it asks");
+    }
+}

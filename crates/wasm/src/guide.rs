@@ -1055,7 +1055,11 @@ pub struct OptData {
     pub also: Option<String>,
     pub value: Option<AmountData>,
     pub facts: Vec<String>,
+    /// Those of `facts` that say what it asks: the phone's row "מה זה דורש".
+    pub asks: Vec<String>,
     pub fits_if: Option<String>,
+    /// `fits_if` without its "מתאים אם:", for the phone's row of that name.
+    pub fits: Option<String>,
     pub button: String,
     pub rows: Vec<Kind>,
 }
@@ -1369,7 +1373,9 @@ fn decision_data(decision: &guide::Decision) -> DecisionData {
                 also: option.also.as_ref().map(said),
                 value: option.value.map(AmountData::from),
                 facts: said_all(&option.facts),
+                asks: said_all(&option.asks),
                 fits_if: option.fits_if.as_ref().map(said),
+                fits: option.fits.as_ref().map(said),
                 button: said(&option.button),
                 rows: option.rows.clone(),
             })

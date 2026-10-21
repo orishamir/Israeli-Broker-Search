@@ -24,13 +24,29 @@
   const bankValue = $derived(app.answers.bank ?? (otherBank ? OTHER : ''))
 
   const example = $derived(app.exampleOnScreen)
+  /** On a phone, the facts are one line until "לשנות" (REDESIGN.md §4.3). */
+  const collapsed = $derived(!app.factsOpen)
 </script>
 
 <div class="stack">
-  <section class="card questions" class:example aria-labelledby="money-title">
+  <section class="card questions" class:example class:collapsed aria-labelledby="money-title">
     <div class="title">
       <h2 id="money-title">{t.moneyTitle}</h2>
-      <Examples {app} />
+      <div class="title-actions">
+        <Examples {app} />
+        <!-- The phone's: opens the fields in place, and closes them. Both
+             words take turns in one cell, so the button keeps its width. -->
+        <button
+          type="button"
+          class="facts-toggle"
+          aria-expanded={app.factsOpen}
+          aria-controls="money-fields"
+          onclick={() => (app.factsOpen ? app.closeFacts() : app.openFacts())}
+        >
+          <span class:unseen={app.factsOpen}>{t.factsChange}</span>
+          <span class:unseen={!app.factsOpen}>{t.factsDone}</span>
+        </button>
+      </div>
     </div>
     <!-- Every state the line can show takes turns in one cell, the unseen
          ones hidden, so the line is as tall as the tallest of them. -->
@@ -57,52 +73,54 @@
         <span class="state"><span class="hint">{t.yourNumbers}</span></span>
       {/if}
     </div>
+    <!-- The phone's collapsed facts: the core's one line. -->
+    {#if app.factsLine}<p class="facts-line">{app.factsLine}</p>{/if}
 
-    <div class="field-row">
-      <label for="now" class="label">{t.iHaveNow}</label>
-      <div class="control"><NumberField id="now" bind:value={app.answers.now} prefix="₪" /></div>
-    </div>
-    <label class="invested">
-      <input
-        type="checkbox"
-        checked={app.invested}
-        onchange={(event) => app.setInvested(event.currentTarget.checked)}
-      />
-      <span>{t.alreadyInvested}</span>
-    </label>
-    <div class="field-row">
-      <label for="monthly" class="label">{t.iAddMonthly}</label>
-      <div class="control"><NumberField id="monthly" bind:value={app.answers.monthly} prefix="₪" /></div>
-    </div>
-
-    <WhenField {app} />
-
-    <div class="field-row bank">
-      <label for="bank" class="label titled">
-        <span>{t.myBank}</span><span class="optional">{t.optional}</span>
-      </label>
-      <div class="control">
-        <select
-          id="bank"
-          value={bankValue}
-          onchange={(event) => {
-            const value = event.currentTarget.value
-            otherBank = value === OTHER
-            app.setBank(value === '' || value === OTHER ? undefined : (value as Bank))
-          }}
-        >
-          <option value="">{t.noBankChosen}</option>
-          {#each app.banks as choice (choice.bank)}
-            <option value={choice.bank}>{choice.name}</option>
-          {/each}
-          <option value={OTHER}>{t.otherBank}</option>
-        </select>
+    <div class="fields" id="money-fields">
+      <div class="field-row">
+        <label for="now" class="label">{t.iHaveNow}</label>
+        <div class="control"><NumberField id="now" bind:value={app.answers.now} prefix="₪" /></div>
       </div>
-    </div>
-    <button class="link workbench" onclick={() => app.knowsWhatToBuy()}>{t.iKnowWhatToBuy}</button>
-  </section>
+      <label class="invested">
+        <input
+          type="checkbox"
+          checked={app.invested}
+          onchange={(event) => app.setInvested(event.currentTarget.checked)}
+        />
+        <span>{t.alreadyInvested}</span>
+      </label>
+      <div class="field-row">
+        <label for="monthly" class="label">{t.iAddMonthly}</label>
+        <div class="control"><NumberField id="monthly" bind:value={app.answers.monthly} prefix="₪" /></div>
+      </div>
 
-  <p class="updates">{t.answerUpdatesBelow}</p>
+      <WhenField {app} />
+
+      <div class="field-row bank">
+        <label for="bank" class="label titled">
+          <span>{t.myBank}</span><span class="optional">{t.optional}</span>
+        </label>
+        <div class="control">
+          <select
+            id="bank"
+            value={bankValue}
+            onchange={(event) => {
+              const value = event.currentTarget.value
+              otherBank = value === OTHER
+              app.setBank(value === '' || value === OTHER ? undefined : (value as Bank))
+            }}
+          >
+            <option value="">{t.noBankChosen}</option>
+            {#each app.banks as choice (choice.bank)}
+              <option value={choice.bank}>{choice.name}</option>
+            {/each}
+            <option value={OTHER}>{t.otherBank}</option>
+          </select>
+        </div>
+      </div>
+      <button class="link workbench" onclick={() => app.knowsWhatToBuy()}>{t.iKnowWhatToBuy}</button>
+    </div>
+  </section>
 </div>
 
 <style>
@@ -119,6 +137,41 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
+  }
+  .title-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* The phone's alone. */
+  .facts-toggle,
+  .facts-line {
+    display: none;
+  }
+  .facts-toggle {
+    place-items: center;
+    min-height: 44px;
+    padding: 0 14px;
+    font-weight: 600;
+  }
+  .facts-toggle span {
+    grid-area: 1 / 1;
+  }
+  .facts-line {
+    margin: 6px 0 0;
+    font-size: 1rem;
+    line-height: 1.45;
+  }
+  @media (width < 800px) {
+    .facts-toggle {
+      display: inline-grid;
+    }
+    .collapsed .facts-line {
+      display: block;
+    }
+    .collapsed .fields {
+      display: none;
+    }
   }
   h2 {
     margin: 0;
@@ -220,17 +273,5 @@
   }
   .workbench {
     margin-top: 14px;
-  }
-  .updates {
-    margin: 0;
-    color: var(--weak);
-    font-size: 0.9rem;
-    text-align: center;
-  }
-  /* Beside the answer, there is nothing below to point to. */
-  @media (min-width: 800px) {
-    .updates {
-      display: none;
-    }
   }
 </style>

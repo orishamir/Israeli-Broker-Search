@@ -51,6 +51,13 @@
 //        last results stay under it, faded (`stale` true)
 //   app.stale: boolean
 //
+// THE PHONE (REDESIGN.md §4.3; under 800px)
+//   app.factsOpen; app.openFacts(); app.closeFacts()   "לשנות" / "סיום": the facts as
+//        one line (`app.factsLine`, the core's), or the fields, in place
+//   app.answerAmount: string | undefined   the answer in one amount (the plan's, or the
+//        span of the rows the choices allow), for the bar; app.amountBeforeEdit "לפני השינוי"
+//   app.openedOutOfSight; app.announceDecision(id)   the pill "נפתחה החלטה: …"
+//
 // THE SWITCH AND THE WORKBENCH (`expert`; turning it on changes only what is shown)
 //   app.expert: boolean              persisted ('expert-v2'), in links (x=1)
 //   app.thing: Thing                 'sp500' | 'other' | 'bonds' | 'short'; the
@@ -97,6 +104,7 @@ import type {
   Choice,
   Choices,
   ComparisonData,
+  DecisionId,
   Exchange,
   FeesFor,
   GuideSettings,
@@ -885,6 +893,69 @@ export class AppState {
   chooseOnPath(pick: Pick) {
     this.pathHeld = true
     this.choose(pick)
+  }
+
+  // ── The phone (REDESIGN.md §4.3) ──
+  /** On a phone, the facts are one line (`factsLine`) until "לשנות" opens
+   * the fields in place, and "סיום" or "לתשובה" closes them. Beside the
+   * answer, on a wide screen, the fields are always open and this isn't read. */
+  factsOpen = $state(false)
+  /** "לפני השינוי": the answer's amount when "לשנות" was tapped, until the
+   * fields close. */
+  amountBeforeEdit = $state<string | undefined>()
+
+  openFacts() {
+    this.amountBeforeEdit = this.answerAmount
+    this.factsOpen = true
+  }
+
+  closeFacts() {
+    this.factsOpen = false
+    this.amountBeforeEdit = undefined
+  }
+
+  /** The facts in one line, the core's: "₪100,000 עכשיו, ₪2,000 בחודש,
+   * בעוד 3 שנים". Missing while the fields can't be read (an age typed half). */
+  factsLine: string | undefined = $derived.by(() => {
+    try {
+      return core.factsLine($state.snapshot(this.answers) as AnswersInput)
+    } catch {
+      return undefined
+    }
+  })
+
+  /** The answer in one amount, for the phone's bar: the plan's, or, while
+   * decisions are open, from the least to the most that the chart's rows
+   * the choices still allow would leave (their words, the core's). */
+  answerAmount: string | undefined = $derived.by(() => {
+    const answer = this.answer
+    if (!answer) return undefined
+    if (answer.plan !== undefined && answer.planAmount) return answer.planAmount.amount
+    const rows = answer.outcome.rows
+      .filter((row) => row.active && row.excluded === undefined)
+      .toSorted((a, b) => a.value.today - b.value.today)
+    if (rows.length === 0) return undefined
+    const [low, high] = [rows[0], rows[rows.length - 1]]
+    return low.amount === high.amount ? low.amount : t.amountRange(low.amount, high.amount)
+  })
+
+  /** A decision a choice opened out of sight (the phone's pill, "נפתחה
+   * החלטה"), with the request it was opened by: it goes once the decision
+   * is on screen, or at the visitor's next change (`DecisionPill`). */
+  openedOutOfSight = $state.raw<{ id: DecisionId; question: string; request: AnswerRequest } | undefined>()
+
+  /** Says that the decision `id` opened out of sight, if the answer asks it. */
+  announceDecision(id: string) {
+    for (const line of this.answer?.lines ?? []) {
+      if (line.state.type === 'decision' && line.state.decision.id === id) {
+        this.openedOutOfSight = {
+          id: line.state.decision.id,
+          question: line.state.decision.question,
+          request: this.answerRequest,
+        }
+        return
+      }
+    }
   }
 
   // ── The workbench's guide ──

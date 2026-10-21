@@ -229,8 +229,15 @@ pub struct Opt {
     pub value: Option<Amount>,
     /// At most 3.
     pub facts: Vec<Text>,
+    /// Those of `facts` that say what it asks of the visitor: the phone's
+    /// table gives them the row "מה זה דורש", the rest go behind "עוד"
+    /// (REDESIGN.md §4.3).
+    pub asks: Vec<Text>,
     /// "מתאים אם…".
     pub fits_if: Option<Text>,
+    /// The same without its "מתאים אם:", for the phone's table, whose row
+    /// is called that.
+    pub fits: Option<Text>,
     pub button: Text,
     /// The chart's rows it stands for.
     pub rows: Vec<RowId>,
@@ -1972,16 +1979,27 @@ fn decision(
         .options
         .into_iter()
         .zip(picks)
-        .map(|(words, (pick, rows, value))| Opt {
-            pick: *pick,
-            title: words.title,
-            amount: words.amount,
-            also: words.also,
-            value: *value,
-            facts: words.facts.into_iter().take(3).collect(),
-            fits_if: words.fits_if,
-            button: words.button,
-            rows: rows.clone(),
+        .map(|(words, (pick, rows, value))| {
+            let facts: Vec<Text> = words.facts.into_iter().take(3).collect();
+            let asks = words
+                .asks
+                .into_iter()
+                .filter(|asks| facts.contains(asks))
+                .collect();
+            let fits = words.fits_if.as_ref().map(card::without_fits_if);
+            Opt {
+                pick: *pick,
+                title: words.title,
+                amount: words.amount,
+                also: words.also,
+                value: *value,
+                facts,
+                asks,
+                fits_if: words.fits_if,
+                fits,
+                button: words.button,
+                rows: rows.clone(),
+            }
         })
         .collect();
     Decision {

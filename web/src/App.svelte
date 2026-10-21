@@ -9,7 +9,9 @@
   import { keepAddress } from './lib/address.svelte'
   import { AppState } from './lib/app.svelte'
   import { OPEN_CARD } from './lib/cards'
+  import AnswerBar from './lib/AnswerBar.svelte'
   import AnswerCard from './lib/AnswerCard.svelte'
+  import DecisionPill from './lib/DecisionPill.svelte'
   import GainSplit from './lib/GainSplit.svelte'
   import HorizonSection from './lib/HorizonSection.svelte'
   import HowTo from './lib/HowTo.svelte'
@@ -37,6 +39,9 @@
   const issues = $derived(app.about.accessibility.items.at(-1)?.url)
   /** The answer shown is the last one: the worker is at the next. */
   const awaiting = $derived(!app.answerFresh && !app.stale)
+  /** The phone's dock: room kept at the page's end, so its last lines can
+   * be scrolled above it. */
+  let dockHeight = $state(0)
 </script>
 
 <!-- index.html's skeleton repeats the title. -->
@@ -88,6 +93,14 @@
     >{t.accessibilityStatement}</button
   >
 </footer>
+
+<!-- The phone's (REDESIGN.md §4.3): over the page's bottom edge, the sign of
+     a decision opened out of sight, and the answer while the facts are open. -->
+<div class="dock" bind:offsetHeight={dockHeight}>
+  <DecisionPill {app} />
+  <AnswerBar {app} />
+</div>
+<div class="dock-room" style:height="{dockHeight}px" aria-hidden="true"></div>
 
 <DetailsDialog {app} />
 <LearnCard {app} />
@@ -192,6 +205,19 @@
     }
     .answer-column .wide {
       grid-column: 1 / -1;
+    }
+  }
+  .dock {
+    position: fixed;
+    inset-inline: 0;
+    bottom: 0;
+    z-index: 5;
+    display: grid;
+    pointer-events: none;
+  }
+  @media (width >= 800px) {
+    .dock {
+      display: none;
     }
   }
   /* Quiet: read once, by whoever looks for it. */

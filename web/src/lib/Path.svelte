@@ -29,6 +29,7 @@
     holdStill(
       () => document.querySelector(`section.answer [data-step="${id}"] .step-head`),
       () => app.answerFresh,
+      (opened) => app.announceDecision(opened),
     )
   }
 

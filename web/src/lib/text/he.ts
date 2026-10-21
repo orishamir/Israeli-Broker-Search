@@ -378,7 +378,6 @@ export const he: Text = {
   yearsUnit: 'שנים',
   iAmAge: 'אני בן / בת',
   retireAtAge: 'ואפרוש בגיל',
-  answerUpdatesBelow: '↓ התשובה מתעדכנת למטה',
   otherBank: 'בנק אחר',
   myBank: 'הבנק שלי',
   noBankChosen: '—',
@@ -532,4 +531,22 @@ export const he: Text = {
   exampleIn: (months) => (months % 12 === 0 ? yearsText(months / 12) : monthsText(months)),
   exampleRetirement: (age, retireAt) => `מגיל ${age} עד ${retireAt}`,
   exampleNoDate: 'בלי תאריך',
+  // P4: the phone (REDESIGN.md §4.3): the collapsed facts, the answer's bar,
+  //     the new decision's pill, a decision as a table.
+  factsChange: 'לשנות',
+  factsDone: 'סיום',
+  toAnswer: 'לתשובה',
+  answerAfterChange: 'התשובה אחרי השינוי',
+  answerNow: (amount) => `התשובה עכשיו: ${amount}`,
+  amountRange: (low, high) => `${low} עד ${high}`,
+  newDecision: (question) => `נפתחה החלטה: ${question}`,
+  tableEnd: 'מה יהיה בסוף',
+  tableAsks: 'מה זה דורש',
+  tableFits: 'מתאים אם',
+  moreAboutOptions: (count) =>
+    count === 2
+      ? 'עוד על שתי האפשרויות'
+      : count === 3
+        ? 'עוד על שלוש האפשרויות'
+        : `עוד על ${count} האפשרויות`,
 }

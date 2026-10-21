@@ -380,7 +380,6 @@ export const en = {
   yearsUnit: 'years',
   iAmAge: 'I am',
   retireAtAge: "and I'll retire at",
-  answerUpdatesBelow: '↓ The answer updates below',
   otherBank: 'Another bank',
   myBank: 'My bank',
   noBankChosen: '—',
@@ -544,6 +543,20 @@ export const en = {
     months % 12 === 0 ? `${months / 12} year${months === 12 ? '' : 's'}` : `${months} months`,
   exampleRetirement: (age: number, retireAt: number) => `from age ${age} to ${retireAt}`,
   exampleNoDate: 'no date',
+  // P4: the phone (REDESIGN.md §4.3): the collapsed facts, the answer's bar,
+  //     the new decision's pill, a decision as a table.
+  factsChange: 'Change',
+  factsDone: 'Done',
+  toAnswer: 'To the answer',
+  answerAfterChange: 'The answer, after the change',
+  answerNow: (amount: string) => `The answer now: ${amount}`,
+  amountRange: (low: string, high: string) => `${low} to ${high}`,
+  newDecision: (question: string) => `A decision opened: ${question}`,
+  tableEnd: 'What it comes to',
+  tableAsks: 'What it takes',
+  tableFits: 'Fits if',
+  moreAboutOptions: (count: number) =>
+    count === 2 ? 'More on the two options' : `More on the ${count} options`,
 }
 
 export type Text = typeof en
