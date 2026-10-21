@@ -75,7 +75,15 @@ One page, Hebrew, right to left, dark, with two routes onto the same engine.
 
 The guide has no assumptions sheet and no override: inflation and the rate are workbench levers. The old answer, the alternatives chart, the donut, the ladder and the follow‑up cards are gone. `docs/redesign/review-2026-10-20.md` is the review against Part 1.
 
-**Next (2026-10-21):** `REDESIGN.md` Part 4, the owner's review of what was built, is designed and not built. Its mockups are in `docs/redesign/review-2026-10-21/`.
+**Part 4 (2026-10-21)**, the owner's review of what was built, is built too. Its mockups are in `docs/redesign/review-2026-10-21/`. What was built and where is in `docs/redesign/implementation-report-2026-10-21.md`, the judgement calls awaiting the owner are in `implementation-log-2026-10-21.md`, and the review against Part 1 is in `review-2026-10-21-built.md`. Part 4 added:
+
+- the questions card's "מתי" and the examples menu (`WhenField`, `Examples`, `examples.ts`);
+- the plan and its path (`Path`, `PathStep`, `WhyClear`; `describe/path.rs`);
+- the phone flow (the collapsed facts line, `AnswerBar`, `DecisionPill`, decisions as tables);
+- the any‑day comparison (`AnyDayDeposit`, `TreasuryBill`);
+- the horizon's dates around the visitor's date.
+
+The tests for the mutants missed on 2026‑10‑21 (`docs/redesign/mutants-missed-2026-10-21.txt`) are still to write.
 
 **The engine.** The fee model is Rust compiled to WebAssembly; the UI is Svelte 5 + ECharts.
 
@@ -250,10 +258,19 @@ Keep as much logic as possible in Rust; the web side displays what it returns.
 tests, then the browser tests) and `npm run lint` (prettier, eslint,
 stylelint, svelte-check). After a change to how the page behaves when used
 (charts, animations, inputs, loading, the worker's jobs), also
-`npm run test:perf`. After a change to the guide's rules, run
+`npm run test:perf`.
+
+**What blocks a deploy, and what runs after it** (the owner, 2026-10-21: in a
+redesign the design matters most, and the owner wants to see the new site).
+The checks above block a push, and so does the deploy's own gate. Two
+things don't: cargo mutants, and the slow follow-ups to it. After a change
+to the guide's rules, push once the checks above pass. Then, in the
+background and as long as it takes, run
 `cargo mutants -p broker-fees -j 8 --timeout 180 --profile mutants --file 'crates/core/src/guide.rs' --file 'crates/core/src/guide/*.rs' --file crates/core/src/ways.rs --file crates/core/src/history.rs`
-(`--file` takes globs and repeats; `--profile mutants`, in `Cargo.toml`, optimises the tests, which take minutes in a debug build and made every mutant time out) and turn the surviving
-mutants that matter into tests. It copies the tree for each job, so run it
+(`--file` takes globs and repeats; `--profile mutants`, in `Cargo.toml`, optimises the tests, which take minutes in a debug build and made every mutant time out; the whole guide is about 1,200 mutants, over an hour) and turn the surviving
+mutants that matter into tests: a ₪ amount, a condition that picks a line
+or option, a robustness version's field. Skip equality moves and texts.
+It copies the tree for each job, so run it
 with no agents' worktrees under `.claude/worktrees` (they once made the
 tree 19 GB), and put `TMPDIR` on the big disk if `/tmp` fills up.
 

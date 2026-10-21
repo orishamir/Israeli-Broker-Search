@@ -11,7 +11,7 @@ The previous plan of record (the guide and the workbench) was carried out on 202
 - the visitor's bank an optional fact among the questions ("הבנק שלי · לא חובה"), since asking it in where to buy failed the review;
 - above the horizon lines, the data decides between states A and C.
 
-Part 4, the owner's review of what was built (2026-10-21), is designed and not built.
+Part 4, the owner’s review of what was built (2026-10-21), is built (see `docs/redesign/implementation-report-2026-10-21.md`).
 
 The review against Part 1's checklist is `docs/redesign/review-2026-10-20.md`. The worked examples' structure holds, except for the deviations the review and the final report list.
 
@@ -613,7 +613,7 @@ Adjust them to the code's real structure.
 
 ## Part 4: The owner's review of the built redesign (2026‑10‑21)
 
-**Status:** designed with the owner on 2026‑10‑20 and 21, after reviewing the built Part 2 on desktop and phone. Not built. Where Part 4 and Part 2 disagree, Part 4 wins. Principles 19–22 and the narrowed S&P 500 rule (principle 17, §2.13 item 1) came from the same review and are already in Part 1 and Part 2.
+**Status:** designed with the owner on 2026‑10‑20 and 21, after reviewing the built Part 2 on desktop and phone. Built on 2026‑10‑21 (`docs/redesign/implementation-report-2026-10-21.md`). Where Part 4 and Part 2 disagree, Part 4 wins. Principles 19–22 and the narrowed S&P 500 rule (principle 17, §2.13 item 1) came from the same review and are already in Part 1 and Part 2.
 
 **References:** `docs/redesign/review-2026-10-21/` holds the accepted mockups, one `.dc.html` file per frame, in the same design‑canvas format as `docs/redesign/mockup.dc.html`. Read them for structure, behaviour and copy; they aren't runnable here. Several were drawn before later wording decisions (for example §4.4), so **where a frame's copy and this text differ, this text wins.** The canvas itself is the owner's (https://claude.ai/artifact/7xeysuBmA57wUhy7y744yC), with each settled page in its version history.
 

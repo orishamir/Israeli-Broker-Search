@@ -1,0 +1,43 @@
+crates/core/src/history.rs:180:62: replace < with <= in deposits_band_from
+crates/core/src/history.rs:212:50: replace < with <= in stretches_below
+crates/core/src/guide/answer.rs:1053:41: replace == with != in index_side
+crates/core/src/history.rs:234:54: replace < with <= in flat_rate
+crates/core/src/guide/answer.rs:1063:17: replace && with || in index_side
+crates/core/src/guide/answer.rs:800:46: replace > with >= in groups_of
+crates/core/src/ways.rs:112:9: replace Way::kind_name -> &'static str with "xyzzy"
+crates/core/src/guide/answer.rs:892:36: replace < with <= in cushion_part
+crates/core/src/guide/answer.rs:1062:17: replace && with || in index_side
+crates/core/src/guide/answer.rs:1061:29: replace == with != in index_side
+crates/core/src/guide/answer.rs:1101:34: replace && with || in index_side
+crates/core/src/guide/answer.rs:1079:66: replace > with >= in index_side
+crates/core/src/guide/answer.rs:1202:15: replace > with >= in stretches_below
+crates/core/src/guide/answer.rs:1133:25: delete field varies from struct Version expression in index_side
+crates/core/src/guide/answer.rs:1210:13: delete field varies from struct Version expression in stretches_below
+crates/core/src/guide/answer.rs:1214:56: replace < with <= in stretches_below
+crates/core/src/guide/answer.rs:1327:9: delete field parts from struct IndexAsk expression in other_path
+crates/core/src/guide/answer.rs:1391:78: replace > with >= in facts
+crates/core/src/guide/answer.rs:1431:13: delete field varies from struct Version expression in facts
+crates/core/src/guide/answer.rs:1432:13: delete field rate from struct Version expression in facts
+crates/core/src/guide/answer.rs:1446:33: replace == with != in facts
+crates/core/src/guide/answer.rs:1584:64: delete ! in facts
+crates/core/src/guide/answer.rs:1470:69: replace || with && in facts
+crates/core/src/guide/answer.rs:1470:35: replace || with && in facts
+crates/core/src/guide/answer.rs:1878:65: replace > with < in build
+crates/core/src/guide/answer.rs:1878:69: replace || with && in build
+crates/core/src/guide/answer.rs:1878:65: replace > with == in build
+crates/core/src/guide/answer.rs:1878:65: replace > with >= in build
+crates/core/src/guide/answer.rs:1886:70: replace || with && in build
+crates/core/src/guide/answer.rs:1886:66: replace > with == in build
+crates/core/src/guide/answer.rs:1886:66: replace > with < in build
+crates/core/src/guide/answer.rs:1886:66: replace > with >= in build
+crates/core/src/guide/answer.rs:1921:34: replace > with >= in existing_state
+crates/core/src/guide/answer.rs:2107:66: replace < with == in place_line
+crates/core/src/guide/answer.rs:2107:66: replace < with <= in place_line
+crates/core/src/guide/answer.rs:2163:25: replace || with && in safe_way_line
+crates/core/src/guide/answer.rs:2166:14: delete ! in safe_way_line
+crates/core/src/guide/answer.rs:2167:26: replace < with == in safe_way_line
+crates/core/src/guide/answer.rs:2167:26: replace < with > in safe_way_line
+crates/core/src/guide/answer.rs:2167:26: replace < with <= in safe_way_line
+crates/core/src/guide/answer.rs:2187:33: replace != with == in safe_way_line
+crates/core/src/guide/answer.rs:2229:38: replace == with != in safe_way_line
+crates/core/src/guide/answer.rs:2249:43: replace != with == in safe_way_line
