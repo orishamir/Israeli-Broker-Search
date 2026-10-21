@@ -4,11 +4,13 @@
 //! and when the money can come out. The long term, where money rides a
 //! market, is [`crate::simulation`].
 //!
-//! Three kinds of place are compared: a bank's fixed-rate deposit
-//! ([`deposits`]), at the rates the Bank of Israel publishes for each bank,
-//! a money market fund ([`money_market`]), at the fees the funds report, and
-//! a government bond held to maturity ([`government_bonds`]), at the Bank of
-//! Israel's yield curve, in the cheapest broker's account.
+//! The kinds of place compared: a bank's fixed-rate deposit ([`deposits`]),
+//! at the rates the Bank of Israel publishes for each bank, and its deposit
+//! that can be taken out any day, at the variable rates it publishes; a
+//! money market fund ([`money_market`]), at the fees the funds report; and a
+//! government bond held to maturity ([`government_bonds`]), at the Bank of
+//! Israel's yield curve, in the cheapest broker's account, with makam (its
+//! one-year end, a Bank of Israel bill) for money that may be needed any day.
 //! `policies/sources.md` says where each number comes from, and
 //! `policies/not-modeled.md` what's left out.
 
@@ -78,7 +80,9 @@ pub fn kinds() -> Vec<Kind> {
     vec![
         money_market::kind(),
         deposits::kind(),
+        deposits::any_day_kind(),
         government_bonds::kind(),
+        government_bonds::makam_kind(),
     ]
 }
 
@@ -303,6 +307,15 @@ pub enum Pays {
     /// A government bond held to maturity: the Bank of Israel's yield for the
     /// wait, in the cheapest broker's account.
     GovernmentBond(Linkage),
+    /// A bank's deposit that can be taken out any day (פיקדון יומי): a
+    /// variable rate the bank sets, here the average it paid while the Bank
+    /// of Israel's rate was [`TODAYS_RATE`], moving with that rate point for
+    /// point. It takes more money any month, like a fund.
+    AnyDay(Percent),
+    /// Makam (מק״מ), the Bank of Israel's short-term bill: the yield curve's
+    /// one-year end, for up to a year, in the cheapest broker's account. Sold
+    /// any trading day at that day's price.
+    TreasuryBill,
 }
 
 impl Pays {
@@ -310,7 +323,10 @@ impl Pays {
     #[must_use]
     pub fn tax(self) -> Tax {
         match self {
-            Pays::Fixed(_) | Pays::GovernmentBond(Linkage::Unlinked) => Tax::OfInterest,
+            Pays::Fixed(_)
+            | Pays::AnyDay(_)
+            | Pays::GovernmentBond(Linkage::Unlinked)
+            | Pays::TreasuryBill => Tax::OfInterest,
             Pays::TheRateLess(_) | Pays::GovernmentBond(Linkage::CpiLinked) => Tax::OfRealGain,
         }
     }
@@ -320,7 +336,10 @@ impl Pays {
     pub fn liquidity(self) -> Liquidity {
         match self {
             Pays::Fixed(_) => Liquidity::AtTheEnd,
-            Pays::TheRateLess(_) | Pays::GovernmentBond(_) => Liquidity::AnyDay,
+            Pays::TheRateLess(_)
+            | Pays::GovernmentBond(_)
+            | Pays::AnyDay(_)
+            | Pays::TreasuryBill => Liquidity::AnyDay,
         }
     }
 }
@@ -514,6 +533,10 @@ pub enum NotOffered {
     /// ... and ends at fifteen.
     #[error("the yield curve ends at fifteen years")]
     BondTooLong,
+    /// Makam is repaid within a year: a longer wait would roll it over at
+    /// yields nobody knows.
+    #[error("makam is repaid within a year")]
+    BillTooLong,
     /// No plan of any broker can buy bonds with this first deposit.
     #[error("no broker's plan opens with this first deposit")]
     NoBrokerPlan,
@@ -544,8 +567,17 @@ pub fn simulate(place: &Place, scenario: &Scenario) -> Result<Outcome, NotOffere
                 .collect()
         }
         Pays::TheRateLess(fee) => scenario.grown(monthly(scenario.rate, fee)),
+        Pays::AnyDay(rate) => scenario.grown(monthly(
+            moved_with_the_rate(rate, scenario.rate),
+            Percent(Decimal::ZERO),
+        )),
         Pays::GovernmentBond(linkage) => {
             let run = government_bonds::run(linkage, scenario)?;
+            via = Some(run.via);
+            run.value_by_month
+        }
+        Pays::TreasuryBill => {
+            let run = government_bonds::run_bill(scenario)?;
             via = Some(run.via);
             run.value_by_month
         }
@@ -613,6 +645,13 @@ pub fn compare(places: &[&Place], scenario: &Scenario) -> Comparison {
 }
 
 // ─────────────────────────── The arithmetic ───────────────────────────
+
+/// A variable rate published while the Bank of Israel's was [`TODAYS_RATE`],
+/// moved by as much as the saver expects that rate to move: banks set
+/// their variable rates against it. Never below nothing.
+pub(crate) fn moved_with_the_rate(published: Percent, rate: Percent) -> Percent {
+    Percent((published.0 + rate.0 - TODAYS_RATE.0).max(Decimal::ZERO))
+}
 
 /// 1 + `rate`: what a year multiplies money by.
 fn yearly(rate: Percent) -> Decimal {
@@ -909,14 +948,20 @@ mod tests {
     }
 
     /// The funds first, the shorter list, then the banks' deposits, then the
-    /// state's bonds.
+    /// state's bonds and bills.
     #[test]
     fn the_kinds_are_the_funds_the_deposits_then_the_bonds() {
         let kinds = kinds();
         let names: Vec<&str> = kinds.iter().map(|kind| kind.name.en.as_ref()).collect();
         assert_eq!(
             names,
-            ["Money market fund", "Fixed-rate deposit", "Government bond"]
+            [
+                "Money market fund",
+                "Fixed-rate deposit",
+                "Deposit you can take out any day",
+                "Government bond",
+                "Makam"
+            ]
         );
     }
 }

@@ -97,17 +97,23 @@ What `short_term.rs` leaves out (October 2026). The sources are in
   but a fixed-rate deposit takes one sum, so with one no bank is compared. A
   bank's savings plan (תוכנית חיסכון), its way to deposit monthly, isn't
   compared: the Bank of Israel doesn't publish its rates.
-- **Variable-rate and daily deposits:** only fixed-rate ones. Variable
-  deposits, tied to the prime rate, and the daily deposit (פיקדון יומי,
-  0.99% on average in August) aren't compared.
+- **Variable-rate deposits for a term:** only fixed-rate ones. The daily
+  deposit (פיקדון יומי, a deposit that can be taken out any day) is
+  compared, for money that may be needed any day only (REDESIGN.md §4.9),
+  at each bank's average variable rate for September; its rate is taken
+  to move with the Bank of Israel's point for point, which the banks don't
+  promise. Variable deposits for a term (a week, a month, more) aren't.
 - **Taking a deposit out early:** the money is taken to stay to the end of
   the term. Sooner, where the bank allows it, a deposit earns less or
   nothing, by its terms.
 - **Renewing shorter deposits:** one deposit for the whole period. Rolling a
   month's deposit over, at rates to come, isn't compared.
 - **Linked and foreign-currency deposits and funds:** shekel ones only.
-- **Makam, a fund's cash track (מסלול כספי) and fixed-term money market
-  funds (קרן כספית מתחדשת):** not yet listed.
+- **Makam** is compared only for money that may be needed any day, for a
+  wait of up to a year; for a date within a year it isn't (the guide's
+  short route still compares the fund and a deposit). **A fund's cash track
+  (מסלול כספי) and fixed-term money market funds (קרן כספית מתחדשת):** not
+  yet listed.
 - **What a fund really earns:** taken as the Bank of Israel's rate less its
   fees. Funds hold bills, short bonds, deposits and, most of them, some
   corporate bonds, and can earn a little more or less.
@@ -370,8 +376,14 @@ sources are in `sources.md`, "Government bonds and the yield curve".
   with interest rates. The model holds to the end, so the sum is known.
 - **The curve changing:** each monthly deposit is taken to buy at today's
   curve. Later deposits will meet other yields.
-- **Makam and bonds under a year or over 15 years:** not compared; the
-  Bank of Israel's curve starts at one year and ends at fifteen here.
+- **Bonds under a year or over 15 years:** not compared; the Bank of
+  Israel's curve starts at one year and ends at fifteen here.
+- **Makam's own yield:** taken as the curve's one-year yield, whatever the
+  wait (up to a year); a bill repaid sooner earns its own, which the curve
+  doesn't give. Its custody is counted as the broker's plan charges for
+  bonds, although banks may not charge custody on makam: the figure is on
+  the dear side. Sold before it's repaid, its price moves a little; the
+  model holds it to the end of the wait.
 - **The exact bond:** a bond repaid on the day the saver's wait ends is
   taken to exist; the series' dates are on the stock exchange's list.
 - **The price of a redemption:** counted as free; see `sources.md`.

@@ -1958,7 +1958,12 @@ mod short_term_cases {
         );
         let rate = |name: &str, term| match bank(name).pays {
             Pays::Fixed(rates) => rates.of(term),
-            Pays::TheRateLess(_) | Pays::GovernmentBond(_) => unreachable!("a bank"),
+            Pays::TheRateLess(_)
+            | Pays::GovernmentBond(_)
+            | Pays::AnyDay(_)
+            | Pays::TreasuryBill => {
+                unreachable!("a bank's fixed deposit")
+            }
         };
         assert_eq!(
             rate("Banks' average", Term::UpToAYear),
@@ -2022,8 +2027,108 @@ mod short_term_cases {
                 "Israel Discount Bank",
                 "Mizrahi-Tefahot Bank",
                 "First International Bank",
+                // The deposits that can be taken out any day: Discount
+                // published no such rate.
+                "Banks' average",
+                "Bank Hapoalim",
+                "Bank Leumi",
+                "Mizrahi-Tefahot Bank",
+                "First International Bank",
             ]
         );
+    }
+
+    fn any_day_place(name: &str) -> short_term::Place {
+        short_term::deposits::any_day_kind()
+            .places
+            .into_iter()
+            .find(|place| place.name.en == name)
+            .unwrap()
+    }
+
+    /// A deposit that can be taken out any day (REDESIGN.md §4.9), Leumi's
+    /// 0.95% a year (September 2026, while the Bank of Israel's rate was
+    /// 3.25%), ₪10,000 for a year:
+    /// - at today's rate: 10,000 × 1.0095 = 10,095.00; the interest, 95.00,
+    ///   pays 15%, 14.25: 10,080.75 is left;
+    /// - with the rate a point higher, 4.25%, the variable rate moves with
+    ///   it to 1.95%: 10,195.00, the interest's tax 29.25: 10,165.75;
+    /// - with money every month it is offered, as a fund is.
+    #[test]
+    fn an_any_day_deposit_pays_its_variable_rate() {
+        let leumi = any_day_place("Bank Leumi");
+        assert_eq!(leumi.pays, Pays::AnyDay(Percent(dec!(0.95))));
+        let year = |rate: Decimal| short_term::Scenario {
+            first_deposit: dec!(10_000),
+            monthly_deposit: dec!(0),
+            months: 12,
+            rate: Percent(rate),
+            inflation: Percent(dec!(2)),
+        };
+        let today = short_term::simulate(&leumi, &year(dec!(3.25))).unwrap();
+        assert!(
+            (today.after_tax - dec!(10_080.75)).abs() < dec!(0.01),
+            "{}",
+            today.after_tax
+        );
+        assert!(
+            (today.tax - dec!(14.25)).abs() < dec!(0.01),
+            "{}",
+            today.tax
+        );
+        let higher = short_term::simulate(&leumi, &year(dec!(4.25))).unwrap();
+        assert!(
+            (higher.after_tax - dec!(10_165.75)).abs() < dec!(0.01),
+            "{}",
+            higher.after_tax
+        );
+        // Never below nothing: at a rate of 0%, 0.95 − 3.25 is 0%.
+        let none = short_term::simulate(&leumi, &year(dec!(0))).unwrap();
+        assert_eq!(none.after_tax.round_dp(6), dec!(10_000));
+        let monthly = short_term::Scenario {
+            monthly_deposit: dec!(500),
+            ..year(dec!(3.25))
+        };
+        assert!(short_term::simulate(&leumi, &monthly).is_ok());
+        assert_eq!(
+            short_term::deposits::any_day_kind().data_of,
+            short_term::deposits::kind().data_of,
+            "one month's figures, one staleness test"
+        );
+    }
+
+    /// Makam (§4.9), ₪100,000 for a year at the curve's one-year yield,
+    /// 3.19% (September 2026): before any fee, 103,190; the discount, 3,190,
+    /// pays 15%, 478.50, so 102,711.50 at most is left. The cheapest
+    /// account's fees take a little of it, far less than 0.3%; for a longer
+    /// wait it isn't offered.
+    #[test]
+    fn makam_earns_the_one_year_yield() {
+        let makam = short_term::government_bonds::makam_kind().places.remove(0);
+        assert_eq!(makam.pays, Pays::TreasuryBill);
+        let wait = |months| short_term::Scenario {
+            first_deposit: dec!(100_000),
+            monthly_deposit: dec!(0),
+            months,
+            rate: Percent(dec!(3.25)),
+            inflation: Percent(dec!(2)),
+        };
+        let year = short_term::simulate(&makam, &wait(12)).unwrap();
+        assert!(year.after_tax <= dec!(102_711.50), "{}", year.after_tax);
+        assert!(
+            year.after_tax > dec!(102_711.50) - dec!(300),
+            "{}",
+            year.after_tax
+        );
+        assert!(year.via.is_some(), "bought in an account");
+        assert_eq!(
+            short_term::simulate(&makam, &wait(13)),
+            Err(NotOffered::BillTooLong)
+        );
+        // Half a year: at most half a year of the yield.
+        let half = short_term::simulate(&makam, &wait(6)).unwrap();
+        assert!(half.after_tax < year.after_tax);
+        assert!(half.after_tax > dec!(100_000));
     }
 
     /// ₪100,000 for a year at the Bank of Jerusalem's 3.71% for "6 months to

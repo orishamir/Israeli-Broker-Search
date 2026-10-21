@@ -7,7 +7,7 @@ use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
 use crate::Text;
-use crate::guide::{Answers, Cushion, Horizon, Situation};
+use crate::guide::{Answers, Horizon, Situation};
 
 /// One chip.
 #[derive(Debug, Clone)]
@@ -111,7 +111,7 @@ pub fn situations() -> Vec<Preset> {
             ),
             Answers {
                 needs_any_day: true,
-                ..answers(dec!(30_000), dec!(0), Horizon::Months(6))
+                ..answers(dec!(30_000), dec!(0), Horizon::Unknown)
             },
         ),
         preset(
@@ -171,12 +171,9 @@ pub fn situations() -> Vec<Preset> {
                 "A cushion comes before investing.",
                 "כרית ביטחון באה לפני ההשקעה.",
             ),
-            Answers {
-                cushion: Some(Cushion::HasNot {
-                    monthly_expenses: Some(dec!(17_000)),
-                }),
-                ..answers(dec!(0), dec!(3000), Horizon::Unknown)
-            },
+            // Only fields on screen (principle 19): whether there's a
+            // cushion is the answer's decision, not the example's.
+            answers(dec!(0), dec!(3000), Horizon::Unknown),
         ),
         Preset {
             opens_dialog: true,

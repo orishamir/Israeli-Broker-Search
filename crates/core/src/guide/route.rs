@@ -222,8 +222,13 @@ pub(super) fn safe_pool(route: Route, answers: &Answers) -> Vec<Kind> {
         Kind::GovernmentBond { linked: true },
     ];
     match route {
-        // The money may be needed any day: only what pays out the next day.
-        Route::Short if answers.needs_any_day => vec![Kind::MoneyMarketFund],
+        // The money may be needed any day: only what pays out the next day
+        // (REDESIGN.md §4.9), ranked like any other safe answer.
+        Route::Short if answers.needs_any_day => vec![
+            Kind::MoneyMarketFund,
+            Kind::AnyDayDeposit,
+            Kind::TreasuryBill,
+        ],
         Route::Short => vec![Kind::MoneyMarketFund, Kind::FixedDeposit],
         Route::KnownDate => {
             let mut pool = vec![Kind::FixedDeposit, Kind::MoneyMarketFund];

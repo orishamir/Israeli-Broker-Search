@@ -220,12 +220,17 @@ fn bare_index_in_unit(parts: &[&str]) -> Option<String> {
         "כשהמדד",
         "שבמדד",
     ];
+    // A stock index named as a kind ("מדד מניות רחב", "מדד המניות הרחב",
+    // "מדד רחב"): the S&P 500 is its example (principle 17), so either
+    // names the stock index a bare מדד may refer back to.
+    const STOCKS: [&str; 4] = ["מניות", "המניות", "רחב", "S&P"];
     // Named, but not an index the words can refer back to.
-    const OTHER: [&str; 3] = ["מניות", "המניות", "אחר"];
+    const OTHER: [&str; 1] = ["אחר"];
     let text = parts.join(" ");
     let hebrew_letter = |c: char| ('\u{5d0}'..='\u{5ea}').contains(&c);
     let (mut sp500, mut prices) = (false, false);
     let mut quoted = false;
+    let mut asked_which = false;
     let mut word = String::new();
     let mut chars = text.char_indices().peekable();
     let mut previous = ' ';
@@ -245,8 +250,12 @@ fn bare_index_in_unit(parts: &[&str]) -> Option<String> {
             continue;
         }
         let after = text[at + c.len_utf8()..].trim_start_matches([' ', '\u{a0}']);
-        if !quoted && WORDS.contains(&word.as_str()) {
-            if after.starts_with("S&P") || after.starts_with("ה\u{2011}S&P") {
+        // "איזה מדד": the question which index, about indexes as such.
+        let which = std::mem::replace(&mut asked_which, word == "איזה");
+        if !quoted && !which && WORDS.contains(&word.as_str()) {
+            if STOCKS.iter().any(|name| after.starts_with(name))
+                || after.starts_with("ה\u{2011}S&P")
+            {
                 sp500 = true;
             } else if after.starts_with("המחירים") {
                 prices = true;
@@ -266,6 +275,27 @@ fn bare_index_in_unit(parts: &[&str]) -> Option<String> {
 fn units(answer: &Answer) -> Vec<Vec<String>> {
     let he = |text: &broker_fees::Text| text.he.to_string();
     let mut units: Vec<Vec<String>> = Vec::new();
+    // The plan and its amount are one unit (§4.5): the sentence names the
+    // index the amount's "המדד" refers back to.
+    let mut plan: Vec<String> = answer.plan.iter().map(he).collect();
+    if let Some(amount) = &answer.plan_amount {
+        plan.extend([he(&amount.amount), he(&amount.when), he(&amount.basis)]);
+        plan.extend(amount.example.iter().map(he));
+    }
+    units.push(plan);
+    for step in &answer.path {
+        units.push(vec![he(&step.label), he(&step.choice), he(&step.hinge)]);
+        if let Some(why) = &step.why_clear {
+            let mut unit = vec![he(&why.lead), he(&why.count), he(&why.crises)];
+            unit.extend(
+                why.amounts
+                    .iter()
+                    .flat_map(|figure| [he(&figure.label), he(&figure.amount)]),
+            );
+            unit.push(he(&why.past));
+            units.push(unit);
+        }
+    }
     for line in &answer.lines {
         match &line.state {
             LineState::Stated { text, .. } => units.push(vec![he(text)]),
@@ -297,17 +327,34 @@ fn units(answer: &Answer) -> Vec<Vec<String>> {
     let mut rest = Vec::new();
     for how in &answer.how {
         units.push(how.identity.iter().map(he).collect());
+        units.push(facts_unit(how));
         let mut how = how.clone();
         how.identity.clear();
+        how.facts.clear();
         hebrew_strings(&serde_json::to_value(&how).unwrap(), &mut rest);
     }
     let mut others = answer.clone();
     others.lines.clear();
     others.outcome.rows.clear();
     others.how.clear();
+    others.plan = None;
+    others.plan_amount = None;
+    others.path.clear();
     hebrew_strings(&serde_json::to_value(&others).unwrap(), &mut rest);
     units.extend(rest.into_iter().map(|text| vec![text]));
     units
+}
+
+/// A product's facts (§4.8) are one unit, under its name: "כמו המדד" in
+/// "כמה מרוויחה" refers back to the index "מה זה" names.
+fn facts_unit(how: &broker_fees::guide::How) -> Vec<String> {
+    std::iter::once(how.name.he.to_string())
+        .chain(
+            how.facts
+                .iter()
+                .flat_map(|fact| [fact.question.he.to_string(), fact.answer.he.to_string()]),
+        )
+        .collect()
 }
 
 /// Every Hebrew string inside a serialized value: a `Text`'s `he`, or a
@@ -462,7 +509,14 @@ fn the_guide_names_the_index_it_means() {
         }
     }
     for answer in many_redesigned_answers() {
-        no_bare_index(&serde_json::to_value(&answer.how).unwrap(), "how to do it");
+        for how in &answer.how {
+            let unit = facts_unit(how);
+            let parts: Vec<&str> = unit.iter().map(String::as_str).collect();
+            assert!(bare_index_in_unit(&parts).is_none(), "the facts: {unit:?}");
+            let mut rest = how.clone();
+            rest.facts.clear();
+            no_bare_index(&serde_json::to_value(&rest).unwrap(), "how to do it");
+        }
     }
     for kind in Way::for_index().into_iter().map(Kind::Way) {
         assert!(bare_index(&kind.text().he).is_none(), "{}", kind.text().he);
@@ -486,13 +540,27 @@ fn the_answer_card_names_the_index_it_means() {
                 "the answer says a bare מדד: {unit:?}"
             );
         }
-        let value = serde_json::to_value(answer).unwrap();
-        // Nor "a stock index", which doesn't say which: the answer is about
-        // the S&P 500 (principle 14).
+        // What to buy is a broad stock index; the S&P 500 is named only
+        // where it is what was measured, as an example (principle 17, §2.13
+        // item 1): never as a product's index or track. "How to do it"
+        // keeps its search box (§4.11), which names examples on it.
+        let mut card = answer.clone();
+        card.how.clear();
+        let value = serde_json::to_value(&card).unwrap();
         let mut texts = Vec::new();
         hebrew_strings(&value, &mut texts);
         for text in texts {
-            assert!(!text.contains("מדד מניות"), "the answer: {text}");
+            for bought in [
+                "על מדד S&P",
+                "מסלול מדד S&P",
+                "S&P\u{a0}500, לטווח",
+                "S&P\u{a0}500 ל\u{2011}",
+            ] {
+                assert!(
+                    !text.contains(bought),
+                    "the answer names the S&P 500 as bought: {text}"
+                );
+            }
         }
     }
     for preset in broker_fees::situations::situations() {

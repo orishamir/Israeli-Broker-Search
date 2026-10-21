@@ -1018,6 +1018,45 @@ fn a_deposit_is_ranked_only_when_the_money_is_not_needed_any_day() {
     assert!(!has_deposit(&recommended(&any_day)));
 }
 
+/// Money that may be needed any day (REDESIGN.md §4.9) is compared across
+/// every place it can be taken from the next day: the money market fund, a
+/// deposit that can be taken out any day, and makam, ranked by what each
+/// leaves; nothing locked to a term.
+#[test]
+fn money_needed_any_day_ranks_what_pays_out_the_next_day() {
+    let mut any_day = answers(dec!(30_000), dec!(0), Horizon::Months(12));
+    any_day.needs_any_day = true;
+    let rec = recommended(&any_day);
+    let kinds: Vec<Kind> = rec.ranked.iter().map(|line| line.kind).collect();
+    for kind in [
+        Kind::MoneyMarketFund,
+        Kind::AnyDayDeposit,
+        Kind::TreasuryBill,
+    ] {
+        assert!(kinds.contains(&kind), "{kind:?} in {kinds:?}");
+    }
+    for kind in &kinds {
+        assert!(
+            matches!(
+                kind,
+                Kind::MoneyMarketFund | Kind::AnyDayDeposit | Kind::TreasuryBill
+            ),
+            "{kind:?}"
+        );
+    }
+    let left: Vec<Decimal> = rec.ranked.iter().map(|line| line.left.nominal).collect();
+    assert!(left.windows(2).all(|pair| pair[0] >= pair[1]), "{left:?}");
+    // Makam is repaid within a year: past one, it isn't offered.
+    let mut longer = any_day.clone();
+    longer.horizon = Horizon::Months(18);
+    let kinds: Vec<Kind> = recommended(&longer)
+        .ranked
+        .iter()
+        .map(|line| line.kind)
+        .collect();
+    assert!(!kinds.contains(&Kind::TreasuryBill), "{kinds:?}");
+}
+
 /// Choosing the arena the rules already chose changes nothing but the
 /// reason; choosing the other one is worked for the same years.
 #[test]

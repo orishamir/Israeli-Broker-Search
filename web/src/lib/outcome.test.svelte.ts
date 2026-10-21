@@ -171,9 +171,11 @@ test('a row is read out with its name, figure and, for the index, the return and
     }
 })
 
+// The core draws no row for an option the rules leave out (REDESIGN.md §4.6);
+// should one come, it is read out with its reason, and no figure.
 test('an excluded row is read out with its reason, and no figure', () => {
   const excluded = [...charts()].flatMap(([, outcome]) => outcome.rows.filter(({ excluded }) => excluded))
-  expect(excluded.length).toBeGreaterThan(0)
+  expect(excluded).toEqual([])
   for (const row of excluded) {
     const label = rowLabel(row, words, 10)
     expect(label).toContain(row.excluded)

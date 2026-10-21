@@ -352,8 +352,10 @@ fn card_of(kind: Kind) -> Option<Term> {
         Kind::FixedDeposit => Some(Term::FixedDeposit),
         Kind::LinkedDeposit => Some(Term::CpiLinkedDeposit),
         Kind::GovernmentBond { .. } => Some(Term::GovernmentBond),
+        Kind::TreasuryBill => Some(Term::Makam),
+
         Kind::Way(way) => way.product.card(),
-        Kind::CurrentAccount => None,
+        Kind::AnyDayDeposit | Kind::CurrentAccount => None,
     }
 }
 
@@ -928,6 +930,15 @@ pub struct SituationData {
     pub workbench: bool,
 }
 
+/// The visitor's facts in one line, for the phone's collapsed questions
+/// (REDESIGN.md §4.3): "₪100,000 עכשיו, ₪2,000 בחודש, בעוד 3 שנים".
+#[wasm_bindgen(js_name = factsLine)]
+pub fn facts_line(answers: Ts<AnswersInput>) -> Result<String, JsError> {
+    Ok(said(&describe::card::facts_line(
+        &answers.to_rust()?.to_core(),
+    )))
+}
+
 /// The chips, in order.
 #[wasm_bindgen]
 pub fn situations() -> Result<Vec<Ts<SituationData>>, JsError> {
@@ -1100,13 +1111,37 @@ pub enum MarkData {
     Expected,
 }
 
+/// A labelled amount: a mark on a stock row's band, a reference line, a
+/// part of a gain, one of "למה זה ברור?"'s amounts.
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct LabelledData<W> {
+    pub which: W,
+    pub label: String,
+    pub value: AmountData,
+    pub amount: String,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct FigureData {
+    pub label: String,
+    pub value: AmountData,
+    pub amount: String,
+}
+
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct RowData {
     pub id: Kind,
     pub name: String,
     pub tags: Vec<String>,
+    /// The facts under the name, plain text (§4.6).
+    pub facts: String,
     pub mark: MarkData,
+    /// A stock row's band's marks, lowest first, each with its label and
+    /// short amount (§4.6).
+    pub marks: Vec<LabelledData<guide::BandMarkKind>>,
     pub value: AmountData,
     /// `value` in words, rounded to how sure it is: what the row shows.
     pub amount: String,
@@ -1122,8 +1157,11 @@ pub struct RowData {
 pub struct AnswerOutcomeData {
     pub date: String,
     pub title: String,
+    pub caption: String,
     pub deposited: AmountData,
     pub current_account: AmountData,
+    /// "הפקדתם" and "בעו״ש", drawn as labelled lines (§4.6).
+    pub lines: Vec<LabelledData<guide::RefLineKind>>,
     pub axis: (f64, f64),
     pub rows: Vec<RowData>,
 }
@@ -1154,10 +1192,24 @@ pub struct ProviderData {
 
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
+pub struct BankReferenceData {
+    pub name: String,
+    pub note: String,
+    pub low: AmountData,
+    pub high: AmountData,
+    pub amount: String,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
 pub struct WhereToBuyData {
     pub title: String,
     pub rows: Vec<ProviderData>,
     pub bank_range: Option<(AmountData, AmountData)>,
+    /// "דרך בנק", one row, until the visitor names a bank (§4.7).
+    pub reference: Option<BankReferenceData>,
+    /// "באינטראקטיב: בין ₪88,500 ל‑₪105,000 יותר מאשר דרך בנק, …" (§4.7).
+    pub difference: Option<String>,
     pub note: Option<String>,
     pub asks_bank: bool,
     pub unlock: Option<String>,
@@ -1166,10 +1218,19 @@ pub struct WhereToBuyData {
 
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
+pub struct FactData {
+    pub question: String,
+    pub answer: String,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
 pub struct HowData {
     pub row: Kind,
     pub name: String,
     pub identity: Vec<String>,
+    /// The facts as labelled rows (§4.8).
+    pub facts: Vec<FactData>,
     pub search: Option<SearchData>,
     pub steps: Vec<String>,
     pub not_offered: Option<String>,
@@ -1184,6 +1245,9 @@ pub struct GainRowData {
     pub tax: AmountData,
     pub fees: AmountData,
     pub product: AmountData,
+    /// Each part with its name and amount, "הקרן עצמה" its own (§4.7).
+    pub parts: Vec<LabelledData<guide::GainPartKind>>,
+    pub note: Option<String>,
 }
 
 #[derive(Debug, Serialize, Tsify)]
@@ -1197,20 +1261,67 @@ pub struct GainData {
 #[derive(Debug, Serialize, Tsify)]
 #[serde(rename_all = "camelCase")]
 pub struct HorizonRowData {
-    pub years: u32,
-    pub flexibility: Option<guide::Flexibility>,
-    pub condition: Option<String>,
+    pub months: u32,
+    /// "בעוד 5 שנים".
+    pub when: String,
     pub current: bool,
+    /// "התאריך שלכם", on the visitor's own row.
+    pub label: Option<String>,
     pub deposited: AmountData,
+    /// "₪28,600", under "הפקדתם".
     pub deposits: String,
+    /// "מה מתאים אז", one or one per answer about the date (§4.10).
+    pub fits: Vec<HorizonFitData>,
+}
+
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct HorizonFitData {
+    pub flexibility: Option<guide::Flexibility>,
+    /// "אם תצטרכו בדיוק אז:", "אם תוכלו לחכות:".
+    pub condition: Option<String>,
     pub kind: Kind,
     pub name: String,
     pub low: AmountData,
     pub high: AmountData,
     pub range: String,
     pub range_note: String,
-    pub per_shekel: (f64, f64),
-    pub per_shekel_text: String,
+}
+
+/// The plan's amount (§4.5).
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct PlanAmountData {
+    pub value: AmountData,
+    pub amount: String,
+    pub when: String,
+    pub basis: String,
+    pub example: Option<String>,
+}
+
+/// "למה זה ברור?" (§4.5).
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct WhyClearData {
+    pub lead: String,
+    pub count: String,
+    pub crises: String,
+    pub amounts: Vec<FigureData>,
+    pub past: String,
+}
+
+/// One step of "איך הגעתם לזה" (§4.5).
+#[derive(Debug, Serialize, Tsify)]
+#[serde(rename_all = "camelCase")]
+pub struct PathStepData {
+    pub line: Option<guide::LineKind>,
+    pub label: String,
+    pub kind: guide::StepKind,
+    pub pill: Option<guide::Pill>,
+    pub choice: String,
+    pub hinge: String,
+    pub reopens: Option<guide::DecisionId>,
+    pub why_clear: Option<WhyClearData>,
 }
 
 /// The answer, in the page's language.
@@ -1222,6 +1333,8 @@ pub struct AnswerData {
     pub body: String,
     pub lines: Vec<LineData>,
     pub plan: Option<String>,
+    pub plan_amount: Option<PlanAmountData>,
+    pub path: Vec<PathStepData>,
     pub open_decisions: u32,
     pub outcome: AnswerOutcomeData,
     pub focus: Option<Kind>,
@@ -1309,6 +1422,17 @@ fn where_data(where_to_buy: &guide::WhereToBuy) -> WhereToBuyData {
         bank_range: where_to_buy
             .bank_range
             .map(|(low, high)| (low.into(), high.into())),
+        reference: where_to_buy
+            .reference
+            .as_ref()
+            .map(|reference| BankReferenceData {
+                name: said(&reference.name),
+                note: said(&reference.note),
+                low: reference.low.into(),
+                high: reference.high.into(),
+                amount: said(&reference.amount),
+            }),
+        difference: where_to_buy.difference.as_ref().map(said),
         note: where_to_buy.note.as_ref().map(said),
         asks_bank: where_to_buy.asks_bank,
         unlock: where_to_buy.unlock.as_ref().map(said),
@@ -1316,6 +1440,10 @@ fn where_data(where_to_buy: &guide::WhereToBuy) -> WhereToBuyData {
     }
 }
 
+#[allow(
+    clippy::too_many_lines,
+    reason = "one field of the answer after another"
+)]
 fn answer_data(answer: &guide::Answer) -> AnswerData {
     AnswerData {
         confidence: ConfidenceData {
@@ -1343,12 +1471,32 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
             })
             .collect(),
         plan: answer.plan.as_ref().map(said),
+        plan_amount: answer.plan_amount.as_ref().map(|plan| PlanAmountData {
+            value: plan.value.into(),
+            amount: said(&plan.amount),
+            when: said(&plan.when),
+            basis: said(&plan.basis),
+            example: plan.example.as_ref().map(said),
+        }),
+        path: answer.path.iter().map(path_step_data).collect(),
         open_decisions: answer.open_decisions,
         outcome: AnswerOutcomeData {
             date: said(&answer.outcome.date),
             title: said(&answer.outcome.title),
+            caption: said(&answer.outcome.caption),
             deposited: answer.outcome.deposited.into(),
             current_account: answer.outcome.current_account.into(),
+            lines: answer
+                .outcome
+                .lines
+                .iter()
+                .map(|line| LabelledData {
+                    which: line.which,
+                    label: said(&line.label),
+                    value: line.value.into(),
+                    amount: said(&line.amount),
+                })
+                .collect(),
             axis: (number(answer.outcome.axis.0), number(answer.outcome.axis.1)),
             rows: answer
                 .outcome
@@ -1358,7 +1506,18 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                     id: row.id,
                     name: said(&row.name),
                     tags: said_all(&row.tags),
+                    facts: said(&row.facts),
                     mark: mark_data(&row.mark),
+                    marks: row
+                        .marks
+                        .iter()
+                        .map(|mark| LabelledData {
+                            which: mark.which,
+                            label: said(&mark.label),
+                            value: mark.value.into(),
+                            amount: said(&mark.amount),
+                        })
+                        .collect(),
                     value: row.value.into(),
                     amount: said(&row.amount),
                     tail: row.tail,
@@ -1376,6 +1535,14 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                 row: how.row,
                 name: said(&how.name),
                 identity: said_all(&how.identity),
+                facts: how
+                    .facts
+                    .iter()
+                    .map(|fact| FactData {
+                        question: said(&fact.question),
+                        answer: said(&fact.answer),
+                    })
+                    .collect(),
                 search: how.search.as_ref().map(|search| SearchData {
                     text: said(&search.text),
                     placeholder: search.placeholder,
@@ -1401,6 +1568,17 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
                     tax: row.tax.into(),
                     fees: row.fees.into(),
                     product: row.product.into(),
+                    parts: row
+                        .parts
+                        .iter()
+                        .map(|part| LabelledData {
+                            which: part.which,
+                            label: said(&part.label),
+                            value: part.value.into(),
+                            amount: said(&part.amount),
+                        })
+                        .collect(),
+                    note: row.note.as_ref().map(said),
                 })
                 .collect(),
             takeaway: said(&gain.takeaway),
@@ -1413,20 +1591,53 @@ fn answer_data(answer: &guide::Answer) -> AnswerData {
 
 fn horizon_data(row: &guide::HorizonRow) -> HorizonRowData {
     HorizonRowData {
-        years: row.years,
-        flexibility: row.flexibility,
-        condition: row.condition.as_ref().map(said),
+        months: row.months,
+        when: said(&row.when),
         current: row.current,
+        label: row.label.as_ref().map(said),
         deposited: row.deposited.into(),
         deposits: said(&row.deposits),
-        kind: row.kind,
-        name: said(&row.name),
-        low: row.low.into(),
-        high: row.high.into(),
-        range: said(&row.range),
-        range_note: said(&row.range_note),
-        per_shekel: (number(row.per_shekel.0), number(row.per_shekel.1)),
-        per_shekel_text: said(&row.per_shekel_text),
+        fits: row
+            .fits
+            .iter()
+            .map(|fit| HorizonFitData {
+                flexibility: fit.flexibility,
+                condition: fit.condition.as_ref().map(said),
+                kind: fit.kind,
+                name: said(&fit.name),
+                low: fit.low.into(),
+                high: fit.high.into(),
+                range: said(&fit.range),
+                range_note: said(&fit.range_note),
+            })
+            .collect(),
+    }
+}
+
+fn path_step_data(step: &guide::PathStep) -> PathStepData {
+    PathStepData {
+        line: step.line,
+        label: said(&step.label),
+        kind: step.kind,
+        pill: step.pill,
+        choice: said(&step.choice),
+        hinge: said(&step.hinge),
+        reopens: step.reopens,
+        why_clear: step.why_clear.as_ref().map(|why| WhyClearData {
+            lead: said(&why.lead),
+            count: said(&why.count),
+            crises: said(&why.crises),
+            amounts: why
+                .amounts
+                .iter()
+                .map(|figure| FigureData {
+                    label: said(&figure.label),
+                    value: figure.value.into(),
+                    amount: said(&figure.amount),
+                })
+                .collect(),
+            past: said(&why.past),
+        }),
     }
 }
 

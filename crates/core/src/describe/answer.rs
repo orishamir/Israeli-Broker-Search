@@ -48,7 +48,9 @@ fn place(kind: Kind, choice: &Choice, lang: Lang) -> String {
     // A fund's or a bank's name says which it is already ("הקרן הזולה: ..."),
     // a broker's account is the cheapest of several.
     match kind {
-        Kind::GovernmentBond { .. } => lang.pick("the cheapest: ", "הזול: ").to_owned() + &named,
+        Kind::GovernmentBond { .. } | Kind::TreasuryBill => {
+            lang.pick("the cheapest: ", "הזול: ").to_owned() + &named
+        }
         Kind::Way(way) if way.vehicle == Vehicle::Brokerage => {
             lang.pick("the cheapest: ", "הזול: ").to_owned() + &named
         }
@@ -102,6 +104,22 @@ pub fn what(kind: Kind, choice: &Choice, months: u32, horizon: &Horizon, lang: L
             .to_owned()
                 + &span(months, lang)
                 + lang.pick(", through a brokerage account", ", דרך חשבון מסחר"),
+        ),
+        Kind::AnyDayDeposit => (
+            kind.name(lang).to_owned(),
+            lang.pick(
+                ", at a variable rate the bank sets, which you can take out any day",
+                ", בריבית משתנה שהבנק קובע, שאפשר למשוך ממנו בכל יום",
+            )
+            .to_owned(),
+        ),
+        Kind::TreasuryBill => (
+            kind.name(lang).to_owned(),
+            lang.pick(
+                ", held for up to a year, through a brokerage account",
+                ", שמחזיקים עד שנה, דרך חשבון מסחר",
+            )
+            .to_owned(),
         ),
         Kind::Way(way) => way_sentence(way, horizon, lang),
         Kind::CurrentAccount => (

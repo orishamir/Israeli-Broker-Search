@@ -34,9 +34,11 @@ mod route;
 mod safe;
 
 pub use answer::{
-    Account, Answer, Choices, Confidence, ConfidenceState, CushionPick, Decision, DecisionId, Gain,
-    GainRow, Holdings, HorizonRow, How, Line, LineKind, LineState, Mark, Opt, Outcome, Pick, Pill,
-    Provider, Row, RowId, SafeBecause, SafeWay, Search, WhereToBuy, Wrapper, answer, answer_with,
+    Account, Answer, BandMark, BandMarkKind, BankReference, Choices, Confidence, ConfidenceState,
+    CushionPick, Decision, DecisionId, Figure, Gain, GainPart, GainPartKind, GainRow, Holdings,
+    HorizonFit, HorizonRow, How, Line, LineKind, LineState, Mark, Opt, Outcome, PathStep, Pick,
+    Pill, PlanAmount, Provider, RefLine, RefLineKind, Row, RowId, SafeBecause, SafeWay, Search,
+    StepKind, WhereToBuy, WhyClear, Wrapper, answer, answer_with,
 };
 pub use columns::{Column, ColumnId, columns_for};
 pub use robust::{RATE_STEP, kind_margin, provider_margin};
@@ -365,6 +367,12 @@ pub enum Kind {
     LinkedDeposit,
     /// אג״ח ממשלתי שקלי, or צמוד מדד, held to maturity.
     GovernmentBond { linked: bool },
+    /// פיקדון שאפשר למשוך בכל יום: a bank's daily deposit at a variable rate,
+    /// for money that may be needed any day (REDESIGN.md §4.9).
+    AnyDayDeposit,
+    /// מק״מ: the Bank of Israel's bill, up to a year, for money that may be
+    /// needed any day (REDESIGN.md §4.9).
+    TreasuryBill,
     /// An index kind: the product, the account it sits in, where it's bought.
     Way(Way),
     /// The money left in a current account, earning nothing: the yardstick.
@@ -379,6 +387,8 @@ impl Kind {
             Kind::MoneyMarketFund
             | Kind::FixedDeposit
             | Kind::LinkedDeposit
+            | Kind::AnyDayDeposit
+            | Kind::TreasuryBill
             | Kind::GovernmentBond { .. } => Some(Arena::Safe),
             Kind::Way(_) => Some(Arena::Index),
             Kind::CurrentAccount => None,
@@ -391,10 +401,11 @@ impl Kind {
     #[must_use]
     pub fn safety(self) -> Safety {
         match self {
-            Kind::MoneyMarketFund => Safety::RateChanges,
-            Kind::FixedDeposit | Kind::GovernmentBond { linked: false } | Kind::CurrentAccount => {
-                Safety::SumKnown
-            }
+            Kind::MoneyMarketFund | Kind::AnyDayDeposit => Safety::RateChanges,
+            Kind::FixedDeposit
+            | Kind::GovernmentBond { linked: false }
+            | Kind::TreasuryBill
+            | Kind::CurrentAccount => Safety::SumKnown,
             Kind::LinkedDeposit | Kind::GovernmentBond { linked: true } => Safety::RealValueKnown,
             Kind::Way(_) => Safety::CanFall,
         }
@@ -431,6 +442,14 @@ impl Named for Kind {
             Kind::GovernmentBond { linked: true } => lang.pick(
                 "Israeli government bond linked to the CPI (אג״ח צמודה של מדינת ישראל)",
                 "אג״ח צמודה של מדינת ישראל",
+            ),
+            Kind::AnyDayDeposit => lang.pick(
+                "Deposit you can take out any day (פיקדון יומי)",
+                "פיקדון שאפשר למשוך בכל יום",
+            ),
+            Kind::TreasuryBill => lang.pick(
+                "Makam, a Bank of Israel bill (מק״מ)",
+                "מק״מ, מלווה קצר מועד של בנק ישראל",
             ),
             Kind::Way(way) => way.kind_name(lang),
             Kind::CurrentAccount => lang.pick("Current account (עו״ש)", "עו״ש, בלי להשקיע"),
