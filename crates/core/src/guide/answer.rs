@@ -549,6 +549,10 @@ pub enum StepKind {
     Site,
     /// Still the visitor's, outside the site: which index ("בחירה שלכם").
     Outside,
+    /// A decision still open: the page answers it in place. Only while a
+    /// choice made on the path opened another decision (principle 8), so
+    /// the path stays where the visitor is using it (principles 21, 22).
+    Open,
 }
 
 /// One step of "איך הגעתם לזה" (§4.5): a line or decision of the answer, in
@@ -610,8 +614,10 @@ pub struct Answer {
     pub plan: Option<Text>,
     /// The plan's amount, under it (§4.5).
     pub plan_amount: Option<PlanAmount>,
-    /// "איך הגעתם לזה", once the plan is there (§4.5): a step for each line
-    /// and decision, in the answer's order, and "איזה מדד" for stocks.
+    /// "איך הגעתם לזה" (§4.5): a step for each line and decision, in the
+    /// answer's order, and "איזה מדד" for stocks. The page shows it with
+    /// the plan; while a decision is open it holds that decision as an
+    /// open step, for a visitor who changed a step and so opened another.
     pub path: Vec<PathStep>,
     pub open_decisions: u32,
     pub outcome: Outcome,
@@ -1846,7 +1852,7 @@ fn build(f: &Facts<'_>, parts: Parts) -> Answer {
     let plan_amount = plan
         .as_ref()
         .and_then(|_| plan_amount(f, chosen, where_info.as_ref()));
-    let path = if plan.is_some() && details {
+    let path = if details {
         path(f, &lines, chosen, where_info.as_ref())
     } else {
         Vec::new()
@@ -3447,13 +3453,30 @@ fn path(
     chosen: Option<Chosen>,
     info: Option<&WhereInfo>,
 ) -> Vec<PathStep> {
-    let product = plan_kind(f, chosen).map_or_else(|| Text::new("", ""), row_words::name);
+    // Before the product is chosen (a decision still open), the index the
+    // money goes to, as the place type says.
+    let product = plan_kind(f, chosen)
+        .or_else(|| {
+            let index = f.index.as_ref().filter(|_| f.arena == Some(Arena::Index))?;
+            Some(Kind::Way(index.way(index.lead).way))
+        })
+        .map_or_else(|| Text::new("", ""), row_words::name);
     let mut steps = Vec::new();
     for line in lines {
         let step = match &line.state {
             LineState::Waiting => continue,
             LineState::Decision(decision) => {
                 let Some(pick) = decision.chosen else {
+                    steps.push(PathStep {
+                        line: Some(line.kind),
+                        label: line.label.clone(),
+                        kind: StepKind::Open,
+                        pill: None,
+                        choice: decision.question.clone(),
+                        hinge: decision.why.clone(),
+                        reopens: Some(decision.id),
+                        why_clear: None,
+                    });
                     continue;
                 };
                 let words = decision_step(f, decision, pick, &product, info);

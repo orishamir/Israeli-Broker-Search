@@ -82,7 +82,10 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean) {
     const now = performance.now()
     const shift = (find()?.getBoundingClientRect().top ?? top) - top
     if (Math.abs(shift) >= 1) scrollBy({ top: shift, behavior: 'instant' })
-    const pressed = find()?.querySelector('.choose[aria-pressed="true"]')
+    // In: the option drawn pressed, or, where the choice made the plan, the
+    // path's step that stands for it now (`find` falls back to it).
+    const found = find()
+    const pressed = found?.matches('[data-step]') || found?.querySelector('.choose[aria-pressed="true"]')
     if (changedAt === undefined && pressed && fresh()) changedAt = now
     // The card glides to its new height for SETTLE: hold until it's there.
     if (changedAt !== undefined && now - changedAt > SETTLE + 50) {
@@ -91,6 +94,40 @@ export function holdChosen(find: () => Element | null, fresh: () => boolean) {
       return
     }
     if (now - began > 3000) return stop()
+    requestAnimationFrame(frame)
+  }
+  requestAnimationFrame(frame)
+}
+
+/**
+ * Keeps what the visitor is using (a step of the path) where it is on the
+ * screen while what's above it changes (the plan's sentence and amount),
+ * until the answer is in and the card has glided to its height (principle
+ * 21). Nothing is brought into view. Stops as soon as the visitor scrolls.
+ */
+export function holdStill(find: () => Element | null, fresh: () => boolean) {
+  const first = find()
+  if (!first) return
+  const top = first.getBoundingClientRect().top
+  const began = performance.now()
+  let freshAt: number | undefined
+  let stopped = false
+  const stop = () => {
+    stopped = true
+    removeEventListener('wheel', stop)
+    removeEventListener('touchstart', stop)
+    removeEventListener('keydown', stop)
+  }
+  addEventListener('wheel', stop, { passive: true })
+  addEventListener('touchstart', stop, { passive: true })
+  addEventListener('keydown', stop)
+  const frame = () => {
+    if (stopped) return
+    const now = performance.now()
+    const shift = (find()?.getBoundingClientRect().top ?? top) - top
+    if (Math.abs(shift) >= 1) scrollBy({ top: shift, behavior: 'instant' })
+    if (freshAt === undefined && fresh()) freshAt = now
+    if ((freshAt !== undefined && now - freshAt > SETTLE + 50) || now - began > 3000) return stop()
     requestAnimationFrame(frame)
   }
   requestAnimationFrame(frame)

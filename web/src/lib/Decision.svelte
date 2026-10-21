@@ -12,12 +12,16 @@
     decision,
     labelledby,
     onchoose,
+    onkeep,
     extra,
   }: {
     decision: DecisionData
     /** The id of the question's heading. */
     labelledby: string
     onchoose: (pick: Pick) => void
+    /** The option already chosen, chosen again: keeps it (the path closes
+     * the decision it opened again). Without it, nothing happens. */
+    onkeep?: () => void
     /** What an option holds besides its words (the cushion's expenses field). */
     extra?: Snippet<[OptData]>
   } = $props()
@@ -48,8 +52,10 @@
         {/if}
         {#if option.fitsIf}<p class="fits">{option.fitsIf}</p>{/if}
         {@render extra?.(option)}
-        <button class="choose" aria-pressed={pressed} onclick={() => pressed || onchoose(option.pick)}
-          >{option.button}</button
+        <button
+          class="choose"
+          aria-pressed={pressed}
+          onclick={() => (pressed ? onkeep?.() : onchoose(option.pick))}>{option.button}</button
         >
       </div>
     {/each}

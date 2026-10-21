@@ -8,9 +8,8 @@
   import type { AppState } from './app.svelte'
   import type { LineData, OptData, Pick } from './core/core'
   import Decision from './Decision.svelte'
-  import { reveal } from './motion'
+  import ExpensesField from './ExpensesField.svelte'
   import { holdChosen } from './scroll'
-  import NumberField from './NumberField.svelte'
   import { t } from './text'
 
   let { app, line }: { app: AppState; line: LineData } = $props()
@@ -40,37 +39,26 @@
   function choose(pick: Pick) {
     const key = JSON.stringify(pick)
     const kind = line.kind
+    const decisionId = state.type === 'decision' ? state.decision.id : undefined
     holdChosen(
       () =>
         [...document.querySelectorAll<HTMLElement>(`section.answer [data-line="${kind}"] .option`)].find(
           (option) => option.dataset.pick === key,
-        ) ?? null,
+        ) ??
+        // The last choice made the plan: its step stands where the option was.
+        document.querySelector(`section.answer [data-step="${decisionId}"]`),
       () => app.answerFresh,
     )
     app.choose(pick)
   }
 
-  /** The monthly expenses, read and typed; an empty field is not typed yet. */
-  const expenses = {
-    get: () => (app.answers.cushion?.kind === 'hasNot' ? app.answers.cushion.monthlyExpenses : null),
-    set: (value: number | null) => {
-      app.answers.cushion = { kind: 'hasNot', monthlyExpenses: value }
-    },
-  }
   /** "Not yet", chosen: the option that holds the field. */
   const notYetChosen = (option: OptData): boolean =>
     'Cushion' in option.pick && option.pick.Cushion === 'HasNot' && app.answers.cushion?.kind === 'hasNot'
 </script>
 
 {#snippet expensesField(option: OptData)}
-  {#if notYetChosen(option)}
-    <div class="expenses" transition:reveal>
-      <label for="expenses">{t.yourMonthlyExpenses}</label>
-      <div class="control">
-        <NumberField id="expenses" bind:value={expenses.get, expenses.set} prefix="₪" />
-      </div>
-    </div>
-  {/if}
+  {#if notYetChosen(option)}<ExpensesField {app} />{/if}
 {/snippet}
 
 <div class="line" data-line={line.kind} class:asks={state.type === 'decision'}>
@@ -161,21 +149,5 @@
   .pill.chosen {
     background: var(--text);
     color: var(--background);
-  }
-  .expenses {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px 12px;
-  }
-  .expenses label {
-    flex: 1;
-    min-width: 8rem;
-    font-size: 0.95rem;
-  }
-  .expenses .control {
-    flex: none;
-    width: var(--input-field);
   }
 </style>

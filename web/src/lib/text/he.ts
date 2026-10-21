@@ -462,6 +462,16 @@ export const he: Text = {
       ? 'נשארה החלטה אחת. כשתבחרו, התוכנית שלכם תופיע כאן.'
       : `נשארו ${count} החלטות. כשתבחרו, התוכנית שלכם תופיע כאן.`,
   yourMonthlyExpenses: 'ההוצאות שלכם בחודש',
+  // P3: the plan and the path to it (§4.5). The steps' words are the core's.
+  pathHeading: 'איך הגעתם לזה',
+  stepYours: 'בחירה שלכם',
+  stepChange: 'שינוי',
+  stepClose: 'סגירה',
+  whyClear: 'למה זה ברור?',
+  whyClearHide: 'להסתיר את ההסבר',
+  toHow: 'איך עושים את זה, צעד אחר צעד',
+  beforeChange: (amount: string) => `לפני השינוי: ${amount}`,
+  planUpdated: (amount: string) => `התוכנית עודכנה: ${amount}`,
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
   // (The chart's words about money are the core's: `outcomeWords`.)
   outcomeReturnLabel: 'התשואה השנתית שהחישוב מניח למדד S&P 500',

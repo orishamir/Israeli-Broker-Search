@@ -473,6 +473,16 @@ export const en = {
       ? 'One decision left. Once you choose, your plan appears here.'
       : `${count} decisions left. Once you choose, your plan appears here.`,
   yourMonthlyExpenses: 'Your expenses a month',
+  // P3: the plan and the path to it (§4.5). The steps' words are the core's.
+  pathHeading: 'How you got here',
+  stepYours: 'Your call',
+  stepChange: 'Change',
+  stepClose: 'Close',
+  whyClear: 'Why is this clear?',
+  whyClearHide: 'Hide the explanation',
+  toHow: 'How to do it, step by step',
+  beforeChange: (amount: string) => `Before the change: ${amount}`,
+  planUpdated: (amount: string) => `The plan changed: ${amount}`,
   // W3: the outcome chart (§2.6): the reference lines' legend, the axis.
   // (The chart's words about money are the core's: `outcomeWords`.)
   outcomeReturnLabel: 'The yearly return the figures assume for the S&P 500 index',

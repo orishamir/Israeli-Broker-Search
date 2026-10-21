@@ -3025,8 +3025,20 @@ fn the_path_is_the_lines_in_order() {
     let mut why = 0;
     for (start, choices, answer) in every_answer() {
         let label = format!("{start:?} {choices:?}");
+        let open = answer
+            .path
+            .iter()
+            .filter(|step| step.kind == StepKind::Open)
+            .count();
+        assert_eq!(open, answer.open_decisions as usize, "{label}");
+        // Every step has its words, an open one too (its question and why).
+        for step in &answer.path {
+            assert!(
+                !step.choice.he.trim().is_empty() && !step.hinge.he.trim().is_empty(),
+                "{label}: {step:?}"
+            );
+        }
         if answer.plan.is_none() {
-            assert!(answer.path.is_empty(), "{label}");
             continue;
         }
         let lines: Vec<LineKind> = answer.lines.iter().map(|line| line.kind).collect();

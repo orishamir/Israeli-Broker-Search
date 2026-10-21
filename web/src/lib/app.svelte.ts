@@ -42,6 +42,8 @@
 //        "ואם התאריך יזוז?": the worker's second job, after the answer's
 //   app.choose(pick)                 picks an option: a fact goes into the answers
 //                                    (cushion, flexibility), the rest into `choices`
+//   app.chooseOnPath(pick); app.pathHeld   the same from "שינוי" on the path (§4.5):
+//        the card keeps the path while that leaves a decision open, until a field changes
 //   app.focusedRow: Kind | undefined the row "איך עושים את זה" shows: the one tapped
 //                                    in the chart, else the answer's focus
 //   app.focusRow(kind | undefined)   tap a row (undefined: back to the answer's)
@@ -871,6 +873,18 @@ export class AppState {
     else if ('Wrapper' in pick) this.choices.wrapper = pick.Wrapper
     else if ('Account' in pick) this.choices.account = pick.Account
     else if ('Holdings' in pick) this.choices.holdings = pick.Holdings
+  }
+
+  /** The card keeps "איך הגעתם לזה" while a step changed on it leaves a
+   * decision open (REDESIGN.md §4.5; principles 21 and 22): the visitor is
+   * using the path, so it doesn't turn back into the lines under them.
+   * Until a field changes (`AnswerCard` lets go). */
+  pathHeld = $state(false)
+
+  /** Picks an option of a decision opened again on the path ("שינוי"). */
+  chooseOnPath(pick: Pick) {
+    this.pathHeld = true
+    this.choose(pick)
   }
 
   // ── The workbench's guide ──
