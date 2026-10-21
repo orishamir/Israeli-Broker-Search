@@ -930,6 +930,15 @@ pub struct SituationData {
     pub workbench: bool,
 }
 
+/// The visitor's facts in one line, for the phone's collapsed questions
+/// (REDESIGN.md §4.3): "₪100,000 עכשיו, ₪2,000 בחודש, בעוד 3 שנים".
+#[wasm_bindgen(js_name = factsLine)]
+pub fn facts_line(answers: Ts<AnswersInput>) -> Result<String, JsError> {
+    Ok(said(&describe::card::facts_line(
+        &answers.to_rust()?.to_core(),
+    )))
+}
+
 /// The chips, in order.
 #[wasm_bindgen]
 pub fn situations() -> Result<Vec<Ts<SituationData>>, JsError> {

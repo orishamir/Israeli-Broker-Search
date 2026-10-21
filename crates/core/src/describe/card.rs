@@ -1625,7 +1625,7 @@ pub fn wrapper_decision(f: &WrapperFigures) -> DecisionWords {
 
 #[must_use]
 pub fn index_way_stated(lead: Way, tied_with: Option<Way>) -> Text {
-    let name = super::outcome::name(Kind::Way(lead));
+    let name = super::outcome::full_name(Kind::Way(lead));
     both(|lang| {
         let how = if lead.vehicle == Vehicle::Brokerage {
             lang.pick(", in a securities account", ", בחשבון ניירות ערך")
@@ -1636,12 +1636,12 @@ pub fn index_way_stated(lead: Way, tied_with: Option<Way>) -> Text {
             (Some(other), Lang::En) => format!(
                 "{}{how}. About the same is left by: {}.",
                 name.en,
-                super::outcome::name(Kind::Way(other)).en
+                super::outcome::full_name(Kind::Way(other)).en
             ),
             (Some(other), Lang::He) => format!(
                 "{}{how}. בערך אותו סכום משאירה גם: {}.",
                 name.he,
-                super::outcome::name(Kind::Way(other)).he
+                super::outcome::full_name(Kind::Way(other)).he
             ),
             (None, Lang::En) => format!("{}{how}.", name.en),
             (None, Lang::He) => format!("{}{how}.", name.he),
@@ -2528,5 +2528,44 @@ pub fn plan(f: &PlanFigures<'_>) -> Text {
             }
             _ => pre + &main,
         }
+    })
+}
+
+// ─────────────────────────── The facts in one line ───────────────────────────
+
+/// The visitor's facts in one line, for the phone's collapsed questions
+/// (§4.3): "₪100,000 עכשיו, ₪2,000 בחודש, בעוד 3 שנים"; for retirement "עד
+/// גיל 67", for money that may be needed any day "לשעת חירום", with no
+/// date "בלי תאריך".
+#[must_use]
+pub fn facts_line(answers: &crate::guide::Answers) -> Text {
+    use crate::guide::Horizon;
+    both(|lang| {
+        let mut parts = Vec::new();
+        if !answers.now.is_zero() {
+            parts.push(match lang {
+                Lang::En => format!("{} now", shekels(answers.now)),
+                Lang::He => format!("{} עכשיו", shekels(answers.now)),
+            });
+        }
+        if !answers.monthly.is_zero() {
+            parts.push(match lang {
+                Lang::En => format!("{} a month", shekels(answers.monthly)),
+                Lang::He => format!("{} בחודש", shekels(answers.monthly)),
+            });
+        }
+        parts.push(match (answers.needs_any_day, answers.horizon, lang) {
+            (true, _, _) => lang.pick("for an emergency", "לשעת חירום").to_owned(),
+            (false, Horizon::Months(months), Lang::En) => format!("in {}", span(months, lang)),
+            (false, Horizon::Months(months), Lang::He) => format!("בעוד {}", span(months, lang)),
+            (false, Horizon::Retirement { retire_at, .. }, Lang::En) => {
+                format!("until age {retire_at}")
+            }
+            (false, Horizon::Retirement { retire_at, .. }, Lang::He) => {
+                format!("עד גיל {retire_at}")
+            }
+            (false, Horizon::Unknown, _) => lang.pick("no date", "בלי תאריך").to_owned(),
+        });
+        parts.join(", ")
     })
 }

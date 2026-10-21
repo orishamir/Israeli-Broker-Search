@@ -714,12 +714,35 @@ and the tax.
     since.
   - A rate is a year's: part of a year earns that part of the year's
     interest, and a whole year's interest joins the deposit.
+  - **Deposits that can be taken out any day** (`deposits::any_day_kind`,
+    REDESIGN.md §4.9): the same Excel, sheet L7.6.2a (variable-rate,
+    unlinked shekel deposits households opened), its daily term ("יומי"),
+    which `deposit-rates.py` prints as its second table. For September
+    2026: Hapoalim 0.76%, Leumi 0.95%, Mizrahi 0.86%, First International
+    0.66%, Yahav 0.02%, Mercantile 0.12%, Massad 0.76%, One Zero 0.92%,
+    the system 0.72%; Discount and the Bank of Jerusalem published none,
+    and aren't compared, as a fixed deposit's missing term isn't. The
+    sheet's own numbers carry floating noise (0.7600000000000007); they
+    are rounded to two places. The sheet was preferred to L7.6.1a's daily
+    term because most daily deposits are at a variable rate (L7.6.1a's
+    daily term has three banks). It is the same month as the fixed rates,
+    so the same staleness test covers it. The rate is read as published
+    while the Bank of Israel's was 3.25% and moved with it point for point
+    in the rate versions (a reading, `Caveat::reading`). Press reports put
+    the system's average daily rate at 1.3%–1.5% earlier in 2026; the
+    sheet gives 0.99% for August and 0.72% for September.
   - [Calcalist](https://www.calcalist.co.il/market/article/bytylkzgbl)
     (13 November 2025): the Bank of Jerusalem and Mizrahi-Tefahot are the
     only banks that open a deposit for someone without a current account
     with them; One Zero offered 5.5% a year to those joining its premium
     tracks. Its 6.00% for "6 months to a year" in August and September, with no rate for
     any other term, is read as such an offer.
+- **Makam** (`government_bonds::makam_kind`, §4.9): the Bank of Israel's
+  bill, compared for money that may be needed any day, for up to a year,
+  at the zero-coupon curve's one-year yield (3.19% for September 2026,
+  "Government bonds and the yield curve"), taxed at 15% of the discount
+  (section 125ג(א) counts a discount as interest), through the cheapest
+  new customer's plan for bonds, as a shekel bond is.
 - **Money market funds:** Maya, the Tel Aviv Stock Exchange's list of
   mutual funds ([maya.tase.co.il](https://maya.tase.co.il/he/funds/mutual-funds)),
   with each fund's fees as its manager reports them. `money-market-funds.py`

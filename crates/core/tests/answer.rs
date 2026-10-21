@@ -3215,3 +3215,32 @@ fn the_gain_parts_are_named_and_add_up() {
     }
     assert!(seen > 0);
 }
+
+/// The facts in one line (§4.3), from the answers alone.
+#[test]
+fn the_facts_fold_into_one_line() {
+    let line = |answers: &Answers| {
+        broker_fees::describe::card::facts_line(answers)
+            .he
+            .replace('\u{a0}', " ")
+    };
+    assert_eq!(
+        line(&apartment()),
+        "₪100,000 עכשיו, ₪2,000 בחודש, בעוד 3 שנים"
+    );
+    assert_eq!(line(&salary()), "₪500 בחודש, בעוד 30 שנים");
+    let any_day = Answers {
+        horizon: Horizon::Unknown,
+        needs_any_day: true,
+        ..answers(dec!(30_000), dec!(0), 0)
+    };
+    assert_eq!(line(&any_day), "₪30,000 עכשיו, לשעת חירום");
+    let retire = Answers {
+        horizon: Horizon::Retirement {
+            age: 30,
+            retire_at: 67,
+        },
+        ..salary()
+    };
+    assert_eq!(line(&retire), "₪500 בחודש, עד גיל 67");
+}
