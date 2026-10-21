@@ -1,34 +1,20 @@
 <script lang="ts">
-  // The visitor's facts (REDESIGN.md §2.1): the situations strip (chips,
-  // each with a "?" that explains it), the money fields, the horizon (a
-  // number and a unit menu; "don't know yet"; for retirement, the two ages),
-  // the bank (optional), and the way out to the workbench. Nothing else is asked here: what only the visitor
-  // can decide is asked in the answer, where it decides (§2.2). Everything
-  // it changes goes through `app`.
+  // The visitor's facts (REDESIGN.md §4.2): "הכסף שלכם", with the examples
+  // behind "דוגמאות" and a status line that says whose numbers the fields
+  // hold; the money; "מתי תצטרכו את הכסף?"; the bank (optional); and the
+  // way out to the workbench. Nothing else is asked here: what only the
+  // visitor can decide is asked in the answer, where it decides (§2.2).
+  // Nothing above or beside a field appears, goes or resizes while it's
+  // used (principle 21): the status line keeps one height for every state
+  // it can show, and the box under "מתי" one for every answer.
   import type { AppState } from './app.svelte'
   import type { Bank } from './core/core'
-  import { defaultUnit, monthsOfTyped, shown, type Unit } from './horizon'
-  import { reveal } from './motion'
-  import { oneColumn, showAnswer } from './scroll'
+  import Examples from './Examples.svelte'
   import NumberField from './NumberField.svelte'
   import { t } from './text'
-  import Tip from './Tip.svelte'
+  import WhenField from './WhenField.svelte'
 
   let { app }: { app: AppState } = $props()
-
-  /** The strip: the workbench situation is the link under it, not a chip. */
-  const chips = $derived(app.situations.filter((each) => !each.workbench))
-  const months = $derived(app.horizonMonths)
-
-  // The unit the user picked; until then, what reads best. A chip starts over.
-  let pickedUnit = $state<Unit>()
-  let pickedFor = $state<string>()
-  const unit = $derived<Unit>(pickedFor === app.situationId && pickedUnit ? pickedUnit : defaultUnit(months))
-
-  const horizon = $derived(app.answers.horizon)
-  const retirement = $derived(
-    typeof horizon === 'object' && 'Retirement' in horizon ? horizon.Retirement : undefined,
-  )
 
   // The bank: optional, a fact like the others (§2.1). "Another bank" names
   // none to the core, as no answer does: the reference is then the banks'
@@ -37,113 +23,61 @@
   let otherBank = $state(false)
   const bankValue = $derived(app.answers.bank ?? (otherBank ? OTHER : ''))
 
-  /** A tip stands above or below the whole strip, over none of the chips. */
-  let chipsBox = $state<HTMLElement>()
-
-  /** A chip fills the facts; where the answer is under them (a phone), the
-   * page goes to it, since that is what the chip changed. */
-  function choose(id: string) {
-    app.setSituation(id)
-    if (oneColumn()) requestAnimationFrame(() => showAnswer())
-  }
+  const example = $derived(app.exampleOnScreen)
 </script>
 
 <div class="stack">
-  <section class="card questions">
-    <div class="titled heading">
-      <h2>{t.whatForTitle}</h2>
-      <Tip about={t.whatForTitle}>{t.whatForTip}</Tip>
-      {#if app.exampleShown}<span class="example" transition:reveal>{t.exampleTag}</span>{/if}
+  <section class="card questions" class:example aria-labelledby="money-title">
+    <div class="title">
+      <h2 id="money-title">{t.moneyTitle}</h2>
+      <Examples {app} />
     </div>
-    <p class="hint">{t.whatForHint}</p>
-    <div class="chips" role="group" aria-label={t.whatForTitle} bind:this={chipsBox}>
-      {#each chips as situation (situation.id)}
-        <!-- The chip only chooses; its "?" alone explains it, so a tap never
-             leaves a tip open over the page (the review's X11). -->
-        <span class="titled pair">
-          <button
-            class="chip"
-            class:chosen={app.situationId === situation.id}
-            aria-pressed={app.situationId === situation.id}
-            onclick={() => choose(situation.id)}
-          >
-            {situation.name}
-          </button>
-          <Tip about={situation.name} keepClear={chipsBox}>
-            <p><strong>{situation.name}</strong></p>
-            <p>{situation.explanation}</p>
-            <p>{situation.lesson}</p>
-          </Tip>
+    <!-- Every state the line can show takes turns in one cell, the unseen
+         ones hidden, so the line is as tall as the tallest of them. -->
+    <div class="status" aria-live="polite">
+      {#each app.examples as each (each.id)}
+        <span class="state unseen" aria-hidden="true">
+          <span class="pill">{t.exampleOf(each.name)}</span>
+          <span class="back"><span aria-hidden="true">↺</span> {t.backToYours}</span>
         </span>
       {/each}
+      {#if example}
+        <span class="state">
+          <span class="pill">{t.exampleOf(example.name)}</span>
+          {#if app.canGoBack}
+            <button type="button" class="back link" onclick={() => app.backToYours()}>
+              <span aria-hidden="true">↺</span>
+              {t.backToYours}
+            </button>
+          {:else}
+            <span class="hint">{t.makeThemYours}</span>
+          {/if}
+        </span>
+      {:else}
+        <span class="state"><span class="hint">{t.yourNumbers}</span></span>
+      {/if}
     </div>
-    <button class="link" onclick={() => app.knowsWhatToBuy()}>{t.iKnowWhatToBuy}</button>
-  </section>
 
-  <section class="card money">
     <div class="field-row">
       <label for="now" class="label">{t.iHaveNow}</label>
       <div class="control"><NumberField id="now" bind:value={app.answers.now} prefix="₪" /></div>
     </div>
+    <label class="invested">
+      <input
+        type="checkbox"
+        checked={app.invested}
+        onchange={(event) => app.setInvested(event.currentTarget.checked)}
+      />
+      <span>{t.alreadyInvested}</span>
+    </label>
     <div class="field-row">
       <label for="monthly" class="label">{t.iAddMonthly}</label>
       <div class="control"><NumberField id="monthly" bind:value={app.answers.monthly} prefix="₪" /></div>
     </div>
-    <div class="field-row">
-      <label for="horizon" class="label">{t.neededIn}</label>
-      <div class="control horizon">
-        <NumberField
-          id="horizon"
-          bind:value={
-            () => shown(months, unit),
-            (value) => {
-              if (value === null && horizon === 'Unknown') return
-              app.setHorizonMonths(monthsOfTyped(value, unit))
-            }
-          }
-          placeholder={t.horizonUnknownPlaceholder}
-          label={t.neededIn}
-        />
-        <select
-          aria-label={t.timeUnit}
-          value={unit}
-          onchange={(event) => {
-            pickedUnit = event.currentTarget.value as Unit
-            pickedFor = app.situationId
-          }}
-        >
-          <option value="years">{t.yearsUnit}</option>
-          <option value="months">{t.monthsUnit}</option>
-        </select>
-      </div>
-    </div>
-    {#if retirement}
-      <div class="field-row" transition:reveal>
-        <label for="age" class="label">{t.iAmAge}</label>
-        <div class="control">
-          <NumberField
-            id="age"
-            bind:value={
-              () => retirement?.age ?? null,
-              (value) => app.setHorizonRetirement(value ?? 0, retirement?.retire_at ?? 60)
-            }
-          />
-        </div>
-      </div>
-      <div class="field-row" transition:reveal>
-        <label for="retire-at" class="label">{t.retireAtAge}</label>
-        <div class="control">
-          <NumberField
-            id="retire-at"
-            bind:value={
-              () => retirement?.retire_at ?? null,
-              (value) => app.setHorizonRetirement(retirement?.age ?? 0, value ?? 0)
-            }
-          />
-        </div>
-      </div>
-    {/if}
-    <div class="field-row">
+
+    <WhenField {app} />
+
+    <div class="field-row bank">
       <label for="bank" class="label titled">
         <span>{t.myBank}</span><span class="optional">{t.optional}</span>
       </label>
@@ -165,6 +99,7 @@
         </select>
       </div>
     </div>
+    <button class="link workbench" onclick={() => app.knowsWhatToBuy()}>{t.iKnowWhatToBuy}</button>
   </section>
 
   <p class="updates">{t.answerUpdatesBelow}</p>
@@ -175,42 +110,47 @@
     display: grid;
     gap: 16px;
   }
-  .heading {
-    justify-content: flex-start;
+  /* The examples' list floats over the fields, placed from the card. */
+  .questions {
+    position: relative;
   }
-  .example {
-    padding: 1px 10px;
-    border: 1px solid var(--accent);
-    border-radius: 999px;
-    background: var(--accent-tint);
-    font-size: 0.8rem;
+  .title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
   h2 {
     margin: 0;
     font-size: 1.05rem;
   }
-  .hint {
-    margin: 6px 0 12px;
-    color: var(--weak);
-    font-size: 0.9rem;
+  .status {
+    display: grid;
+    margin-top: 4px;
+    font-size: 0.85rem;
   }
-  .chips {
+  .state {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-bottom: 12px;
-  }
-  .pair {
+    grid-area: 1 / 1;
     align-items: center;
+    gap: 4px 10px;
+    min-height: 30px;
   }
-  .chip {
-    min-height: 33px;
-    padding: 4px 14px;
+  .unseen {
+    visibility: hidden;
+  }
+  .pill {
+    padding: 1px 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 60%, transparent);
     border-radius: 999px;
-  }
-  .chip.chosen {
-    border-color: var(--accent);
     background: var(--accent-tint);
+  }
+  .hint {
+    color: var(--weak);
+  }
+  .back {
+    font-weight: 600;
   }
   .link {
     padding: 0;
@@ -219,9 +159,33 @@
     color: var(--accent);
     font-size: 0.9rem;
   }
+  .back.link {
+    font-size: inherit;
+  }
   .link:hover {
     background: none;
     text-decoration: underline;
+  }
+  /* While an example is on screen, its fields are tinted. */
+  .example :global(.field) {
+    border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+    background: color-mix(in srgb, var(--accent) 12%, var(--raised));
+  }
+  .invested {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 32px;
+    margin-top: 4px;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  .invested input {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    accent-color: var(--accent);
   }
   /* Each label beside its field, every field one width, so they line up from
      card to card; the label takes the rest and wraps. */
@@ -230,7 +194,10 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    margin-top: 10px;
+    margin-top: 6px;
+  }
+  .field-row.bank {
+    margin-top: 16px;
   }
   .label {
     flex: 1;
@@ -251,10 +218,8 @@
     gap: 8px;
     width: var(--input-field);
   }
-  /* The number and its unit share the width every field has, so the label
-     keeps the room to read on a phone. */
-  .control.horizon {
-    width: var(--input-field);
+  .workbench {
+    margin-top: 14px;
   }
   .updates {
     margin: 0;
@@ -267,12 +232,5 @@
     .updates {
       display: none;
     }
-  }
-  .horizon :global(.field) {
-    flex: 1;
-    min-width: 0;
-  }
-  .horizon select {
-    flex: none;
   }
 </style>
