@@ -659,6 +659,28 @@ fn the_breakdown_names_where_the_money_went() {
 fn the_products_cost_is_apart() {
     let rec = recommended(&answers(dec!(10_000), dec!(2000), years(20)));
     assert!(rec.breakdown.product > Decimal::ZERO, "an index fund costs");
+    // The plan's fees and the product's together are every fee its line in
+    // the table states, counted once: each in the money of the year it was
+    // paid, so between the sum at the end's prices and the sum as paid.
+    // Small deposits too, where the plan's fees outweigh the product's.
+    for answers in [
+        answers(dec!(10_000), dec!(2000), years(20)),
+        answers(dec!(5000), dec!(200), years(10)),
+    ] {
+        let rec = recommended(&answers);
+        let chosen = rec
+            .plans
+            .iter()
+            .find(|line| line.left == rec.left)
+            .expect("the chosen plan's line");
+        let fees = chosen.fees.expect("an index line states its fees");
+        let every_fee = rec.breakdown.fees + rec.breakdown.product;
+        assert!(
+            fees.today < every_fee && every_fee < fees.nominal,
+            "{every_fee} {fees:?}"
+        );
+        assert!(rec.breakdown.fees > Decimal::ZERO);
+    }
 }
 
 // ─────────────────────────── §8: the user's questions ───────────────────────────
@@ -1343,6 +1365,26 @@ fn a_linked_bond_is_not_a_sum_known_in_advance() {
             .iter()
             .any(|l| l.kind == Kind::GovernmentBond { linked: true })
     );
+    // Its reasons say so: its real value is known, not its sum.
+    for linked in [true, false] {
+        let mut chosen = settings();
+        chosen.overrides.kind = Some(Kind::GovernmentBond { linked });
+        let rec = recommend(
+            &answers(dec!(50_000), dec!(0), Horizon::Months(24)),
+            &chosen,
+            &DATA,
+        )
+        .unwrap();
+        assert_eq!(rec.kind, Kind::GovernmentBond { linked });
+        assert_eq!(
+            names(&rec, |c| matches!(c, Circumstance::RealValueKnownInAdvance)),
+            linked
+        );
+        assert_eq!(
+            names(&rec, |c| matches!(c, Circumstance::SumKnownInAdvance)),
+            !linked
+        );
+    }
 }
 
 /// The columns of the list within an arena: both rank by what is left and
@@ -1672,6 +1714,7 @@ fn moving_a_portfolio_saves_what_the_bank_plan_leaves_less() {
         .expect("a bank's plan costs more");
     let yours = rec.plans.iter().find(|line| line.yours).unwrap();
     assert_eq!(moved.saves.today, rec.left.today - yours.left.today);
+    assert_eq!(moved.saves.nominal, rec.left.nominal - yours.left.nominal);
     assert!(moved.saves.today > Decimal::ZERO);
     assert_eq!(moved.from.provider.en, "Leumi");
     assert_eq!(moved.to, rec.choice);
