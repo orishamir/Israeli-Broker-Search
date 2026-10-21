@@ -6,10 +6,12 @@
 use std::collections::HashSet;
 use std::sync::LazyLock;
 
+use broker_fees::describe::gain::{RangeOf, range_note};
+use broker_fees::describe::{outcome as row_words, path as path_words};
 use broker_fees::guide::*;
 use broker_fees::history;
 use broker_fees::situations::situations;
-use broker_fees::{ExchangeRates, Lang};
+use broker_fees::{ExchangeRates, IntoEnumIterator, Lang, Vehicle};
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
 
@@ -855,6 +857,7 @@ fn a_horizon_fit_names_each_way_once() {
         for row in &full.horizons {
             for fit in &row.fits {
                 let name = &fit.name.he;
+                assert!(!name.is_empty(), "{}: a fit names its way", situation.id);
                 let parts: Vec<&str> = name
                     .split(", ")
                     .flat_map(|part| part.split(" או "))
@@ -941,6 +944,33 @@ fn a_horizon_row_opens_exactly_what_it_showed() {
                         .filter(|shown| shown.kind.arena() == fit.kind.arena())
                         .collect(),
                 };
+                // What the range is made of: several safe ways, or the
+                // first named row's own kind of figure.
+                let first = match (opened.focus, open_way) {
+                    (None, Some(way)) => way
+                        .options
+                        .iter()
+                        .find(|option| option.pick != Pick::Wrapper(Wrapper::StudyFund))
+                        .and_then(|option| option.rows.first())
+                        .and_then(|id| rows.iter().find(|shown| shown.id == *id)),
+                    _ => spanned.first().copied(),
+                }
+                .expect("a fit names a row");
+                let of = if spanned.len() > 1 && fit.kind.arena() == Some(Arena::Safe) {
+                    RangeOf::Ways {
+                        rate: spanned
+                            .iter()
+                            .any(|shown| matches!(shown.mark, Mark::RateRange { .. })),
+                    }
+                } else {
+                    match first.mark {
+                        Mark::Known => RangeOf::Known,
+                        Mark::RateRange { .. } => RangeOf::Rate,
+                        Mark::Market { .. } => RangeOf::Past,
+                        Mark::Expected => RangeOf::Expected(settings().index_return),
+                    }
+                };
+                assert_eq!(fit.range_note, range_note(of), "{label}");
                 let low = spanned.iter().map(|shown| ends(shown).0.today).min();
                 let high = spanned.iter().map(|shown| ends(shown).1.today).max();
                 assert_eq!(low, Some(fit.low.today), "{label}: the lowest it spans");
@@ -3432,4 +3462,409 @@ fn an_options_asks_are_its_facts_and_its_fits_is_its_fits_if() {
     ] {
         assert!(asked.contains(&id), "{id:?} never says what it asks");
     }
+}
+
+// ─────────── The plan's amount, the path's words, the horizons ───────────
+
+/// The safe way a row stands for: the decision's option it comes from.
+fn safe_way_of(kind: Kind) -> Option<SafeWay> {
+    match kind {
+        Kind::MoneyMarketFund => Some(SafeWay::MoneyMarketFund),
+        Kind::GovernmentBond { .. } | Kind::TreasuryBill => Some(SafeWay::Bond),
+        Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit => Some(SafeWay::Deposit),
+        _ => None,
+    }
+}
+
+/// A place that is a bank, by the bank's name in the tariffs.
+fn is_bank(provider: &Provider) -> bool {
+    Bank::iter().any(|bank| provider.name.en.starts_with(bank.short_name()))
+}
+
+/// Money needed any day, and a monthly sum with nothing to start with,
+/// which no house takes for a bond: its places are all banks.
+fn more_starts() -> Vec<Answers> {
+    let any_day = Answers {
+        horizon: Horizon::Unknown,
+        needs_any_day: true,
+        ..answers(dec!(30_000), dec!(0), 0)
+    };
+    let no_first = Answers {
+        flexibility: Some(Flexibility::Fixed),
+        ..answers(dec!(0), dec!(2000), 36)
+    };
+    [Some(Bank::Hapoalim), Some(Bank::Leumi), None]
+        .into_iter()
+        .flat_map(|bank| {
+            [
+                Answers {
+                    bank,
+                    ..any_day.clone()
+                },
+                Answers {
+                    bank,
+                    ..no_first.clone()
+                },
+            ]
+        })
+        .collect()
+}
+
+/// The plan's amount is what the place chosen leaves (§4.5): through the
+/// visitor's bank, theirs, or the banks' low end while it isn't named; in a
+/// new account, the best place; otherwise the row's own figure. Its date
+/// says how sure it is by the kind: known today, at today's rate, or if the
+/// index rises, the index named only where the plan named it.
+#[test]
+fn the_plan_amount_is_the_place_chosen() {
+    // The account asked of every bank, each answer given.
+    let mut every_bank = Vec::new();
+    for start in situations().into_iter().map(|situation| situation.answers) {
+        for bank in Bank::iter() {
+            for flexibility in [Flexibility::Fixed, Flexibility::CanWait] {
+                for account in [Account::YourBank, Account::NewAccount] {
+                    let start = Answers {
+                        bank: Some(bank),
+                        flexibility: Some(flexibility),
+                        ..start.clone()
+                    };
+                    let choices = Choices {
+                        account: Some(account),
+                        ..Choices::default()
+                    };
+                    let answer = answered(&start, choices);
+                    every_bank.push((start, choices, answer));
+                }
+            }
+        }
+    }
+    let mut seen = HashSet::new();
+    for (start, choices, answer) in every_answer().into_iter().chain(every_bank) {
+        let label = format!("{start:?} {choices:?}");
+        let (Some(amount), Some(focus)) = (&answer.plan_amount, answer.focus) else {
+            continue;
+        };
+        let row = answer
+            .outcome
+            .rows
+            .iter()
+            .find(|row| row.id == focus)
+            .expect("the focus is drawn");
+        let account = decision(&answer, LineKind::Where).and_then(|d| match d.chosen {
+            Some(Pick::Account(account)) => Some(account),
+            _ => None,
+        });
+        let places = answer
+            .how
+            .iter()
+            .find(|how| how.row == focus)
+            .and_then(|how| how.where_to_buy.as_ref());
+        match (account, places) {
+            (Some(Account::YourBank), Some(places)) if start.bank.is_none() => {
+                if let Some((low, _)) = places.bank_range {
+                    seen.insert("the banks' low end");
+                    assert_eq!(amount.value, low, "{label}");
+                } else {
+                    assert_eq!(amount.value, row.value, "{label}");
+                }
+            }
+            (Some(Account::YourBank), Some(places)) => {
+                seen.insert("your bank");
+                let yours = places.rows.iter().find(|place| place.yours).unwrap();
+                assert_eq!(amount.value, yours.left, "{label}");
+                assert_eq!(amounts_in(&amount.amount.he).len(), 1, "{label}");
+            }
+            (Some(Account::NewAccount), Some(places)) => {
+                seen.insert("a new account");
+                let best = places.rows.iter().map(|place| place.left.today).max();
+                assert_eq!(Some(amount.value.today), best, "{label}");
+            }
+            _ => {
+                seen.insert("the row");
+                assert_eq!(amount.value, row.value, "{label}");
+            }
+        }
+        match focus {
+            Kind::Way(way) => assert_eq!(
+                amount.when.he.contains("מדד המניות הרחב"),
+                way.vehicle != Vehicle::Brokerage,
+                "{label}: {}",
+                amount.when.he
+            ),
+            kind => {
+                let known = row_words::known(kind);
+                assert_eq!(amount.when.he.contains("ידוע כבר היום"), known, "{label}");
+                assert_eq!(amount.when.he.contains("בריבית של היום"), !known, "{label}");
+            }
+        }
+    }
+    assert_eq!(seen.len(), 4, "{seen:?}");
+}
+
+/// A safe way chosen is said as what it is (§4.5): of a fund against one
+/// sum known in advance, as that pair's question ("the simplest, or knowing
+/// today"); otherwise by the kind chosen.
+#[test]
+fn a_chosen_safe_way_is_said_as_its_kind() {
+    let mut seen = HashSet::new();
+    for start in starts().into_iter().chain(more_starts()) {
+        let open = answered(&start, Choices::default());
+        let Some(way) = decision(&open, LineKind::Way) else {
+            continue;
+        };
+        let picks: Vec<Pick> = way
+            .options
+            .iter()
+            .map(|option| option.pick)
+            .filter(|pick| matches!(pick, Pick::SafeWay(_)))
+            .collect();
+        let chosen: Vec<Answer> = picks
+            .iter()
+            .map(|&option| {
+                let (answers, choices) = pick(&start, Choices::default(), option);
+                answered(&answers, choices)
+            })
+            .collect();
+        let kinds: Vec<Kind> = chosen
+            .iter()
+            .map(|answer| answer.focus.expect("a safe way chosen is the focus"))
+            .collect();
+        let pair = picks.len() == 2;
+        for (at, answer) in chosen.iter().enumerate() {
+            let label = format!("{start:?} {:?}", picks[at]);
+            let kind = kinds[at];
+            let other = if pair { Some(kinds[1 - at]) } else { None };
+            let expected = match (kind, other) {
+                (Kind::MoneyMarketFund, Some(other)) if row_words::known(other) => {
+                    seen.insert("the simplest");
+                    path_words::simplest_fund(other, &row_words::name(other))
+                }
+                (kind, Some(Kind::MoneyMarketFund)) if row_words::known(kind) => {
+                    seen.insert("known in advance");
+                    path_words::known_in_advance(&row_words::name(kind))
+                }
+                (Kind::MoneyMarketFund, _) => {
+                    seen.insert("a fund");
+                    path_words::safe_fund()
+                }
+                (Kind::AnyDayDeposit, _) => {
+                    seen.insert("a deposit any day");
+                    path_words::safe_any_day_deposit()
+                }
+                (Kind::TreasuryBill, _) => {
+                    seen.insert("makam");
+                    path_words::safe_bill()
+                }
+                (Kind::GovernmentBond { .. }, _) => {
+                    seen.insert("a bond");
+                    path_words::safe_bond()
+                }
+                _ => {
+                    seen.insert("a deposit");
+                    path_words::safe_deposit(None, 12, false)
+                }
+            };
+            let step = answer
+                .path
+                .iter()
+                .find(|step| step.line == Some(LineKind::Way))
+                .expect("the way has its step");
+            assert_eq!(step.kind, StepKind::Visitor, "{label}");
+            assert_eq!(step.choice, expected.choice, "{label}");
+        }
+    }
+    assert_eq!(seen.len(), 7, "{seen:?}");
+}
+
+/// A stated step says why by what was stated: what's in the portfolio as
+/// such; a safe way as the only one or the one that leaves more; the
+/// index's way with the way it ties with only where its line is a tie.
+#[test]
+fn a_stated_step_says_why_by_what_was_stated() {
+    let mut seen = HashSet::new();
+    for (start, choices, answer) in every_answer() {
+        let label = format!("{start:?} {choices:?}");
+        for step in answer
+            .path
+            .iter()
+            .filter(|step| step.kind == StepKind::Site)
+        {
+            let Some(stated) = step.line.and_then(|kind| line(&answer, kind)) else {
+                continue;
+            };
+            let LineState::Stated { text, pill } = &stated.state else {
+                panic!("{label}: a site's step for {:?}", stated.kind);
+            };
+            match (stated.kind, answer.focus) {
+                (LineKind::PlaceType, _) if is_existing(&start) => {
+                    seen.insert("the portfolio");
+                    let words = path_words::existing_stated(text);
+                    assert_eq!(step.choice, words.choice, "{label}");
+                    assert_eq!(step.hinge, words.hinge, "{label}");
+                }
+                (LineKind::Way, Some(Kind::Way(_))) => {
+                    seen.insert(if *pill == Pill::Tie { "a tie" } else { "a way" });
+                    assert_eq!(
+                        step.hinge != path_words::index_way_why(None),
+                        *pill == Pill::Tie,
+                        "{label}"
+                    );
+                }
+                (LineKind::Way, Some(_)) => {
+                    let mut ways: Vec<SafeWay> = answer
+                        .outcome
+                        .rows
+                        .iter()
+                        .filter_map(|row| safe_way_of(row.kind))
+                        .collect();
+                    ways.dedup();
+                    let only = ways.iter().all(|way| *way == ways[0]);
+                    seen.insert(if only {
+                        "the only safe way"
+                    } else {
+                        "a safe way"
+                    });
+                    assert_eq!(step.hinge, path_words::safe_way_why(only), "{label}");
+                }
+                _ => {}
+            }
+        }
+    }
+    for case in ["the portfolio", "a tie", "a way", "the only safe way"] {
+        assert!(seen.contains(case), "{case}: {seen:?}");
+    }
+}
+
+/// Where to buy's difference is the best place's lead over the visitor's
+/// bank, or over the banks' range while it isn't named (§4.7); none where
+/// the best is a bank, for a deposit (all its places are banks) or for
+/// what's already in a portfolio.
+#[test]
+fn where_to_buy_measures_its_difference_from_the_banks() {
+    let close = |said: Decimal, worked: Decimal| {
+        (said - worked).abs() <= worked.abs() * dec!(0.02) + dec!(10)
+    };
+    let mut seen = HashSet::new();
+    let more = more_starts().into_iter().map(|start| {
+        let answer = answered(&start, Choices::default());
+        (start, Choices::default(), answer)
+    });
+    for (start, choices, answer) in every_answer().into_iter().chain(more) {
+        for how in &answer.how {
+            let label = format!("{start:?} {choices:?} {:?}", how.row);
+            let Some(places) = &how.where_to_buy else {
+                continue;
+            };
+            let deposit = matches!(
+                how.row,
+                Kind::FixedDeposit | Kind::LinkedDeposit | Kind::AnyDayDeposit
+            );
+            if is_existing(&start) || deposit {
+                seen.insert("none for a deposit or a portfolio");
+                assert!(places.difference.is_none(), "{label}");
+                continue;
+            }
+            let Some(best) = places.rows.first() else {
+                continue;
+            };
+            if is_bank(best) {
+                if !best.yours {
+                    seen.insert("none where another bank is best");
+                }
+                assert!(places.difference.is_none(), "{label}");
+                continue;
+            }
+            let Some(difference) = &places.difference else {
+                continue;
+            };
+            let said = amounts_in(&difference.he);
+            let most = *said.iter().max().expect("the difference has its figure");
+            match (
+                places.rows.iter().find(|place| place.yours),
+                places.bank_range,
+            ) {
+                (Some(yours), _) => {
+                    seen.insert("from your bank");
+                    let gap = best.left.today - yours.left.today;
+                    assert!(close(most, gap), "{label}: {said:?} for {gap}");
+                }
+                (None, Some((low, high))) => {
+                    seen.insert("from the banks");
+                    let gap = best.left.today - low.today;
+                    assert!(close(most, gap), "{label}: {said:?} for {gap}");
+                    if said.len() == 2 {
+                        let least = said.iter().min().copied().unwrap();
+                        let gap = (best.left.today - high.today).max(Decimal::ZERO);
+                        assert!(close(least, gap), "{label}: {said:?} from {gap}");
+                    }
+                }
+                (None, None) => panic!("{label}: a difference from nothing"),
+            }
+        }
+    }
+    assert_eq!(seen.len(), 4, "{seen:?}");
+}
+
+/// Before the way is chosen, the cushion's step names where the rest goes:
+/// the index's way the place type leads to, one of the rows drawn.
+#[test]
+fn the_cushions_step_names_the_way_before_it_is_chosen() {
+    let has = Answers {
+        cushion: Some(Cushion::Has),
+        ..salary()
+    };
+    let answer = answered(&has, Choices::default());
+    assert!(
+        decision(&answer, LineKind::Way).is_some_and(|way| way.chosen.is_none()),
+        "the way is still open"
+    );
+    let step = answer
+        .path
+        .iter()
+        .find(|step| step.line == Some(LineKind::Before))
+        .expect("the cushion has its step");
+    let named = answer
+        .outcome
+        .rows
+        .iter()
+        .filter(|row| matches!(row.kind, Kind::Way(_)))
+        .any(|row| {
+            step.hinge == path_words::cushion_has(has.monthly, &row_words::name(row.kind)).hinge
+        });
+    assert!(named, "{}", step.hinge.he);
+}
+
+/// With no date the horizon section is the list itself; a retirement's
+/// dates move the age of retiring by whole years, the age kept.
+#[test]
+fn the_horizon_dates_with_no_date_or_a_retirement() {
+    let months_of = |answers: &Answers| -> Vec<(u32, bool)> {
+        answer(answers, &Choices::default(), &settings(), &DATA)
+            .unwrap()
+            .horizons
+            .iter()
+            .map(|row| (row.months, row.current))
+            .collect()
+    };
+    let no_date = Answers {
+        horizon: Horizon::Unknown,
+        cushion: Some(Cushion::Has),
+        ..answers(dec!(10_000), dec!(500), 0)
+    };
+    let list: Vec<(u32, bool)> = HORIZON_YEARS
+        .iter()
+        .map(|years| (years * 12, false))
+        .collect();
+    assert_eq!(months_of(&no_date), list);
+    let retirement = Answers {
+        horizon: Horizon::Retirement {
+            age: 45,
+            retire_at: 65,
+        },
+        ..answers(dec!(0), dec!(3000), 0)
+    };
+    assert_eq!(
+        months_of(&retirement),
+        [(60, false), (120, false), (240, true), (300, false)]
+    );
 }
